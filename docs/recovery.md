@@ -23,6 +23,10 @@ must apply private ACLs to the destination and its parent. Do not place it in a
 shared or synchronized directory. Checksums detect corruption; they do not prove
 the origin of an untrusted backup. Restore only a trusted backup you created.
 
+The restored `Caddyfile` contains public routing configuration and is readable by
+the restricted proxy container. Keep credentials in `.env` or private state,
+never in that routing file. The restore directory itself remains private.
+
 ## Restore drill before an upgrade
 
 Use a new directory and separate project name; existing directories or Docker

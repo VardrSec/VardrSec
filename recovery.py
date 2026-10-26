@@ -390,6 +390,9 @@ def restore(root, backup_path, destination, project):
     destination.mkdir(parents=True, mode=0o700)
     for name in FILES:
         private_write(destination / name, (backup_path / name).read_bytes())
+    # This public routing file is bind-mounted into a capability-restricted
+    # container with a different UID. Secrets stay in .env and state volumes.
+    (destination / "Caddyfile").chmod(0o644)
     json_write(
         destination / ".active-images.json",
         {
