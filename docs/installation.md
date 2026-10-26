@@ -66,6 +66,10 @@ using Schannel may additionally reject a local CA without revocation metadata;
 use the CA-validating Runner check after enrollment rather than disabling checks.
 The installer does not execute trust enrollment automatically.
 
+The [native trust workflow](native-trust-acceptance.md) exercises enrollment and
+removal on disposable hosted Windows/macOS machines. Full Docker Desktop/fresh-host
+application acceptance remains separate from those certificate-store checks.
+
 Remove trust when retiring the installation: Windows `Remove-Item` on the exact
 recorded `Cert:\CurrentUser\Root\THUMBPRINT`; macOS `security delete-certificate -Z`
 with the exact certificate fingerprint and original keychain; Linux remove only

@@ -59,8 +59,18 @@ def tool(root):
 
 
 def store(action, certificate, fingerprint, *, check=True):
+    require_hosted()
+
+    def native(args):
+        result = subprocess.run(args, check=False, capture_output=True, text=True)
+        if check and result.returncode:
+            raise ValueError(
+                "Native public-certificate command failed: " + result.stderr[-4000:]
+            )
+        return result
+
     if os.name == "nt":
-        return subprocess.run(
+        return native(
             [
                 "pwsh",
                 "-NoProfile",
@@ -74,12 +84,9 @@ def store(action, certificate, fingerprint, *, check=True):
                 "-Thumbprint",
                 fingerprint,
             ],
-            check=check,
-            capture_output=True,
-            text=True,
         )
     if action == "enroll":
-        return subprocess.run(
+        return native(
             [
                 "sudo",
                 "-n",
@@ -92,17 +99,11 @@ def store(action, certificate, fingerprint, *, check=True):
                 "/Library/Keychains/System.keychain",
                 str(certificate),
             ],
-            check=check,
-            capture_output=True,
-            text=True,
         )
-    subprocess.run(
+    native(
         ["sudo", "-n", "security", "remove-trusted-cert", "-d", str(certificate)],
-        check=check,
-        capture_output=True,
-        text=True,
     )
-    return subprocess.run(
+    return native(
         [
             "sudo",
             "-n",
@@ -112,9 +113,6 @@ def store(action, certificate, fingerprint, *, check=True):
             fingerprint,
             "/Library/Keychains/System.keychain",
         ],
-        check=check,
-        capture_output=True,
-        text=True,
     )
 
 
@@ -122,7 +120,7 @@ def probe(expected):
     run("node", str(HERE / "probe.cjs"), expected)
 
 
-def main():
+def require_hosted():
     if (
         os.environ.get("GITHUB_ACTIONS") != "true"
         or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"
@@ -130,6 +128,10 @@ def main():
         raise ValueError(
             "Native trust acceptance runs only on disposable GitHub-hosted machines"
         )
+
+
+def main():
+    require_hosted()
     if platform.system() not in ("Windows", "Darwin"):
         raise ValueError(
             "This native-store test targets Windows/macOS; Linux trust is covered by Compose acceptance"
@@ -151,6 +153,8 @@ def main():
             if line.startswith("caddy.AppDataDir=")
         )
         authority = Path(data) / "pki/authorities/local/root.crt"
+        if not authority.resolve().is_relative_to(root.resolve()):
+            raise ValueError("Caddy state must stay inside the disposable fixture")
         config = root / "Caddyfile"
         config.write_text(
             '{\n admin off\n auto_https disable_redirects\n skip_install_trust\n}\nhttps://localhost:8445 {\n tls internal\n respond "VardrSec native trust acceptance"\n}\n',
