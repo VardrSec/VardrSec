@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import plistlib
 import shutil
 import socket
 import ssl
@@ -129,6 +130,45 @@ def probe(expected):
     run("node", str(HERE / "probe.cjs"), expected)
 
 
+def macos_removal_state(certificate, fingerprint):
+    """Report only the fixture's public identifiers after a failed removal."""
+    if platform.system() != "Darwin":
+        return
+    certificates = subprocess.run(
+        [
+            "security",
+            "find-certificate",
+            "-a",
+            "-Z",
+            "/Library/Keychains/System.keychain",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    export = certificate.parent / "admin-trust.plist"
+    result = subprocess.run(
+        ["security", "trust-settings-export", "-d", str(export)],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    settings = None
+    if result.returncode == 0:
+        records = plistlib.loads(export.read_bytes())["trustList"]
+        settings = fingerprint in {key.upper() for key in records}
+    print(
+        {
+            "fixture_certificate_present": fingerprint in certificates.stdout,
+            "certificate_query_status": certificates.returncode,
+            "fixture_admin_trust_present": settings,
+            "trust_export_status": result.returncode,
+            "trust_export_error": result.stderr[-1000:],
+        },
+        flush=True,
+    )
+
+
 def require_hosted():
     if (
         os.environ.get("GITHUB_ACTIONS") != "true"
@@ -219,7 +259,11 @@ def main():
                 print("Checking native browser trust", flush=True)
                 probe("trusted")
                 print("Removing the exact disposable CA", flush=True)
-                store("remove", authority, fingerprint)
+                try:
+                    store("remove", authority, fingerprint)
+                except ValueError:
+                    macos_removal_state(authority, fingerprint)
+                    raise
                 attempted = False
                 print("Checking rejection after removal", flush=True)
                 probe("untrusted")
