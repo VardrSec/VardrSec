@@ -77,8 +77,10 @@ removal on disposable hosted Windows/macOS machines. Full Docker Desktop/fresh-h
 application acceptance remains separate from those certificate-store checks.
 
 Remove trust when retiring the installation: Windows `Remove-Item` on the exact
-recorded `Cert:\CurrentUser\Root\THUMBPRINT`; macOS `security delete-certificate -Z`
-with the exact certificate fingerprint and original keychain; Linux remove only
+recorded `Cert:\CurrentUser\Root\THUMBPRINT` (or `LocalMachine` when enrolled there);
+macOS `sudo security delete-certificate -t -Z THUMBPRINT /Library/Keychains/System.keychain`
+with the exact recorded fingerprint. The `-t` option removes the certificate's
+trust settings as well as the certificate. Linux: remove only
 `/usr/local/share/ca-certificates/vardrsec-local.crt` then run
 `sudo update-ca-certificates --fresh`. Remove browser-specific imports separately.
 Do not delete a CA still used by another retained installation.

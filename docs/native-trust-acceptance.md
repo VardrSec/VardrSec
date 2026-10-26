@@ -30,3 +30,9 @@ separate end-to-end release acceptance checks. The manual procedures are in the
 Windows CurrentUser enrollment requests a consent UI and cannot complete in the
 non-interactive hosted session. CI therefore exercises the explicit administrative
 LocalMachine alternative. It does not certify the interactive CurrentUser prompt.
+
+macOS removes the exact certificate with privileged `security delete-certificate
+-t -Z`, which also removes its trust settings. Apple's
+[implementation](https://github.com/apple-oss-distributions/Security/blob/main/SecurityTool/macOS/keychain_delete.c)
+removes both user and admin trust settings when invoked as root. The browser must
+then reject the installation again; a successful import alone does not pass.

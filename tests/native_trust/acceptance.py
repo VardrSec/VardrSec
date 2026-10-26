@@ -111,15 +111,13 @@ def store(action, certificate, fingerprint, *, check=True):
                 str(certificate),
             ],
         )
-    native(
-        ["sudo", "-n", "security", "remove-trusted-cert", "-d", str(certificate)],
-    )
     return native(
         [
             "sudo",
             "-n",
             "security",
             "delete-certificate",
+            "-t",
             "-Z",
             fingerprint,
             "/Library/Keychains/System.keychain",
