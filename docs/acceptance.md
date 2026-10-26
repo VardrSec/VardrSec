@@ -22,6 +22,16 @@ Before a runnable alpha, require:
   checkouts and starts the local UI/API/database with explicit secret setup.
 - Local login works without required VardrSec hosting or an external provider;
   existing hosted login and tenant/authorization controls remain supported.
+- Trusted HTTPS works on a fresh supported machine and clean browser profile,
+  with an explicit documented trust-enrollment step if a local CA is used. The
+  normal installation URL must show no certificate warning; browser/API/Runner
+  certificate checks remain enabled. Never advertise Compose startup alone as
+  completing trust enrollment or use insecure flags to pass this acceptance.
+- Verify certificate persistence/renewal, restart and upgrade, CA-key protection,
+  recovery and trust removal. A reverse proxy must accept forwarded scheme/IP
+  metadata only from its configured trusted peers; backend/database ports remain
+  private or loopback-bound. Missing trust and incomplete backend upgrades must
+  produce actionable Runner/login diagnostics.
 - Runner diagnoses actual required components and tools; Map shows status with
   observation times and handles stale/unreachable/unknown state honestly.
 - Startup and diagnostics execute no scans. The operator reviews a case and
@@ -33,3 +43,9 @@ Before a runnable alpha, require:
 - Test supported Linux/macOS/Windows environments, resource use, host-local/VPN
   target reachability and declared outbound traffic. Measure time to the first
   correct reviewed authorization test and assistance required.
+
+Map's self-signed HTTPS browser fixture tests authentication and session behavior;
+it does not establish trusted first-install acceptance. The distribution remains
+unreleased until the above trust checks pass without certificate-error overrides.
+Local authentication is defined in Map [#111](https://github.com/VardrSec/VardrMap/pull/111)
+and its browser integration in [#112](https://github.com/VardrSec/VardrMap/pull/112).

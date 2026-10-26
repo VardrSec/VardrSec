@@ -35,7 +35,10 @@ platform check; ordinary doctor calls remain supported.
 
 ## Next implementation slices
 
-1. Decide local authentication, Runner packaging and the local network/trust model.
+1. Integrate the explicitly configured local/GitHub authentication from Map
+   [#111](https://github.com/VardrSec/VardrMap/pull/111) and
+   [#112](https://github.com/VardrSec/VardrMap/pull/112). Decide Runner packaging
+   and implement the trusted local HTTPS acceptance in the plan below.
 2. Add component image builds and a minimal Compose installation with health,
    migration, secret and persistent-volume handling.
 3. Implement VardrSec install/start/stop/update through Compose and display fresh
