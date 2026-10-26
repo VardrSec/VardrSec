@@ -233,7 +233,9 @@ def main():
         "vardrsec-restore-update-recovered",
     )
     updater.verify_private(restored, "vardrsec-restore-update-recovered")
-    assert json.loads((restored / ".last-update.json").read_text())["status"] == "success"
+    assert (
+        json.loads((restored / ".last-update.json").read_text())["status"] == "success"
+    )
     assert (
         recovery.sql(
             restored,
