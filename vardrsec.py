@@ -124,6 +124,9 @@ def main():
         compose(
             "cp", "proxy:/data/caddy/pki/authorities/local/root.crt", "trust/root.crt"
         )
+        # Caddy's public certificate is root-only inside its storage. Runner's
+        # different UID must be able to read this public Linux bind-mount export.
+        (ROOT / "trust" / "root.crt").chmod(0o644)
         print(
             "Exported only the public root certificate. Follow docs/installation.md to enroll trust explicitly."
         )

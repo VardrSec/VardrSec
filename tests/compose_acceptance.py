@@ -17,7 +17,10 @@ URL = "https://localhost:8443"
 
 def compose(*args, **kwargs):
     return subprocess.run(
-        ["docker", "compose", "-p", PROJECT, *args], cwd=ROOT, check=True, **kwargs
+        ["docker", "compose", "-p", PROJECT, *args],
+        cwd=ROOT,
+        check=kwargs.pop("check", True),
+        **kwargs,
     )
 
 
@@ -83,10 +86,13 @@ def main():
         env=env,
         capture_output=True,
         text=True,
+        check=False,
     )
     doctor = json.loads(result.stdout)
-    assert doctor["healthy"] is True, doctor["summary"]
     assert key not in result.stdout + result.stderr
+    assert result.returncode == 0 and doctor["healthy"] is True, [
+        c for c in doctor["checks"] if c["status"] == "fail"
+    ]
     for name in ("platform database", "platform migrations", "api auth"):
         assert (
             next(c for c in doctor["checks"] if c["name"] == name)["status"] == "ok"
@@ -130,6 +136,7 @@ def main():
         "trust/root.crt",
         capture_output=True,
     )
+    trust.chmod(0o644)
     assert hashlib.sha256(trust.read_bytes()).digest() == original_ca
     assert request("/ready")["status"] == "ready"
     assert any(
