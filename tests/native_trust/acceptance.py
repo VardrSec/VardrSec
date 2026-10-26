@@ -62,7 +62,16 @@ def store(action, certificate, fingerprint, *, check=True):
     require_hosted()
 
     def native(args):
-        result = subprocess.run(args, check=False, capture_output=True, text=True)
+        try:
+            result = subprocess.run(
+                args, check=False, capture_output=True, text=True, timeout=45
+            )
+        except subprocess.TimeoutExpired:
+            if check:
+                raise ValueError(
+                    "Native public-certificate command timed out: " + " ".join(args[:5])
+                ) from None
+            return subprocess.CompletedProcess(args, 124)
         if check and result.returncode:
             raise ValueError(
                 "Native public-certificate command failed: " + result.stderr[-4000:]
@@ -204,12 +213,17 @@ def main():
                     .hexdigest()
                     .upper()
                 )
+                print("Checking untrusted native HTTPS", flush=True)
                 probe("untrusted")
                 attempted = True
+                print("Enrolling the disposable public CA", flush=True)
                 store("enroll", authority, fingerprint)
+                print("Checking native browser trust", flush=True)
                 probe("trusted")
+                print("Removing the exact disposable CA", flush=True)
                 store("remove", authority, fingerprint)
                 attempted = False
+                print("Checking rejection after removal", flush=True)
                 probe("untrusted")
                 print(
                     f"PASS: {platform.system()} native CA rejection, explicit enrollment, verified browser HTTPS and trust removal"
