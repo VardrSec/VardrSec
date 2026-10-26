@@ -1,0 +1,17 @@
+{
+  "version": "2.11.7",
+  "platforms": {
+    "Windows-amd64": {
+      "name": "caddy_2.11.7_windows_amd64.zip",
+      "sha256": "0a1edc0b799512051c57071ce0e798d3f2cf67dc98171366f1d2b326072e3b06"
+    },
+    "Darwin-amd64": {
+      "name": "caddy_2.11.7_mac_amd64.tar.gz",
+      "sha256": "110c53e5c093e4cfce6eda787f94f23bef913c309f620fab26b4f678031841ad"
+    },
+    "Darwin-arm64": {
+      "name": "caddy_2.11.7_mac_arm64.tar.gz",
+      "sha256": "cda3030e5d5b13eb9f0b6fb541037f633bddd958c070c5f561d7a5cccb581665"
+    }
+  }
+}
