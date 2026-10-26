@@ -56,3 +56,24 @@ it does not establish trusted first-install acceptance. The distribution remains
 unreleased until the above trust checks pass without certificate-error overrides.
 Local authentication is defined in Map [#111](https://github.com/VardrSec/VardrMap/pull/111)
 and its browser integration in [#112](https://github.com/VardrSec/VardrMap/pull/112).
+
+
+## Compose development acceptance (2026-10-26)
+
+The source-built stack passed local validation on Docker Desktop with Linux
+containers. All four services started; PostgreSQL applied real migrations. The
+browser rejected the installation CA before enrollment, then accepted it after an
+explicit import into a disposable container's NSS database. Default certificate
+verification remained enabled. Real UI login, secure HTTP-only cookies, CSRF
+rejection, engagement creation, reload and logout passed. Runner authenticated
+through the proxy with only the public CA and reported current database/migrations.
+Stop/start retained the engagement, an existing session and the installation CA;
+only db/api/web/proxy were running after startup. No target scans were executed.
+
+The Map image build passed 201 frontend tests, lint/typecheck and production build.
+Runner passed 1,571 tests, ten opt-in skips, 96.48% coverage, lint/format and types.
+The tool image verified all nine managed binaries and contained Gate and nmap.
+These checks prove this development fixture; fresh-host OS/browser enrollment,
+certificate renewal over time, upgrade/restore, raw-packet/headless/template modes
+and host/VPN routing remain unverified release gates. See the reproducible
+`tests/compose_acceptance.py` fixture and Compose CI. Publication remains separate.

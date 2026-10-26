@@ -1,0 +1,21 @@
+{
+    admin off
+    auto_https disable_redirects
+    skip_install_trust
+}
+
+https://localhost:{$HTTPS_PORT}, https://vardrsec.localhost:{$HTTPS_PORT} {
+    tls internal
+    handle_path /backend/* {
+        reverse_proxy api:8000 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto https
+        }
+    }
+    handle {
+        reverse_proxy web:3000 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto https
+        }
+    }
+}

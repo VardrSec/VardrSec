@@ -3,9 +3,10 @@
 The local-first distribution for the VardrSec security-testing platform.
 
 **Status: implementation started; a runnable Compose distribution is not released.**
-This repository currently records the agreed responsibilities, development component
-revisions and the implementation sequence. It does not yet provide Compose files,
-container images, installation scripts or automatic updates.
+This repository provides a source-built Compose development installation with
+Map UI/API, migrated PostgreSQL, an HTTPS proxy and explicitly invoked Runner.
+Application images are built locally from exact source pins; release images and
+automatic updates are not published. See [installation and explicit CA trust](docs/installation.md).
 
 | Component | Responsibility |
 |---|---|
@@ -24,7 +25,7 @@ not start scans or a detached queue worker. Stop operations must preserve data.
   migration-marker readiness through `GET /ready`, preserving `/health` liveness.
 - [Runner #82](https://github.com/VardrSec/VardrRunner/pull/82): opt-in
   `doctor --platform` and `doctor --offline`, preserving ordinary diagnostics.
-- [versions.json](versions.json): merged source revisions for readiness and the Gate revision used in integration CI,
+- [versions.json](versions.json): exact development source revisions for the image PRs and Gate,
   with publication/runnable status kept separate from source compatibility.
 
 These readiness features are merged; a published installation is a separate step.
@@ -35,18 +36,25 @@ platform check; ordinary doctor calls remain supported.
 
 ## Next implementation slices
 
-1. Local/GitHub authentication is merged in Map #111 and #112. Use a container
-   Runner for the initial Compose distribution, retaining native support; see
-   [ADR 0002](docs/adr/0002-runner-container.md). Its [CLI-only development image](https://github.com/VardrSec/VardrRunner/pull/83)
-   is in review and precedes tool packaging and trusted local HTTPS acceptance.
-2. Add component image builds and a minimal Compose installation with health,
-   migration, secret and persistent-volume handling.
-3. Implement VardrSec install/start/stop/update through Compose and display fresh
-   component/runner status in Map.
-4. Verify clean installation, upgrades, backup/restore and explicitly approved
-   testing before a tagged Community alpha.
+1. Review [Map images #113](https://github.com/VardrSec/VardrMap/pull/113) and
+   [Runner packaging #83](https://github.com/VardrSec/VardrRunner/pull/83). The
+   tool-enabled Runner includes Gate, nmap/libpcap and verified managed binaries.
+2. Validate the [Compose installation](docs/installation.md), explicit public-CA
+   enrollment, one-time administrator bootstrap and Runner diagnostics. Start/stop
+   preserve volumes; platform startup executes no scans.
+3. Add fresh component/runner status presentation in Map and complete tooling,
+   host/VPN networking and supported-OS acceptance.
+4. Prove upgrade, backup/restore, certificate renewal and recovery before adding
+   an update command or tagging a Community alpha.
 
 See the [architecture decision](docs/adr/0001-component-responsibilities.md) and
 [acceptance plan](docs/acceptance.md). Component source access depends on each
 repository's permissions. Image publication, licensing decisions and releases
 remain separate reviewed steps; this foundation publishes none of those artifacts.
+
+## Development entry point
+
+`python vardrsec.py configure`, `sources`, `build`, `start`, `export-ca`,
+`bootstrap`, `doctor` and `stop` delegate lifecycle to Compose and diagnostics to
+Runner. Follow the [installation guide](docs/installation.md) for prerequisites,
+explicit trust enrollment and credentials. `start` alone does not establish browser trust.
