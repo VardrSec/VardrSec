@@ -32,6 +32,14 @@ jobs:
           python vardrsec.py start
           python vardrsec.py export-ca
           python tests/compose_acceptance.py
+      - name: Verify portable recovery and migration failure
+        run: python tests/recovery_acceptance.py
+      - name: Stop restored disposable fixture
+        if: always()
+        run: |
+          if test -f artifacts/recovery-drill/restored/.active-images.json; then
+            docker compose -f artifacts/recovery-drill/restored/compose.yaml -f artifacts/recovery-drill/restored/.active-images.json -p vardrsec-restore-acceptance down --volumes --remove-orphans
+          fi
       - name: Stop disposable fixture and remove its data
         if: always()
         run: docker compose -p vardrsec-compose-review down --volumes --remove-orphans

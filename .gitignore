@@ -8,3 +8,5 @@ __pycache__/
 *.pyc
 /.sources/
 /trust/
+/.active-images.json
+/restore-receipt.json
