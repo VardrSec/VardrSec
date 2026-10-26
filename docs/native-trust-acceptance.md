@@ -9,7 +9,7 @@ normal certificate validation.
 The required sequence is:
 
 1. Reject HTTPS before the fresh root CA is trusted.
-2. Explicitly enroll only that public root through CurrentUser Root on Windows or
+2. Explicitly enroll only that public root through elevated LocalMachine Root on Windows or
    the system keychain/admin trust domain on macOS.
 3. Accept the expected HTTPS response with default browser certificate validation.
 4. Remove the exact fixture certificate/trust entry and reject HTTPS again.
@@ -26,3 +26,7 @@ not certify Docker Desktop installation, VPN/network reachability or the full
 Compose application on a newly installed Windows/macOS computer. Those remain
 separate end-to-end release acceptance checks. The manual procedures are in the
 [installation guide](installation.md#explicit-certificate-trust).
+
+Windows CurrentUser enrollment requests a consent UI and cannot complete in the
+non-interactive hosted session. CI therefore exercises the explicit administrative
+LocalMachine alternative. It does not certify the interactive CurrentUser prompt.

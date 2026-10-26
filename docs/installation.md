@@ -45,6 +45,12 @@ $cert = Import-Certificate -FilePath .\trust\root.crt -CertStoreLocation Cert:\C
 $cert.Thumbprint  # record this for removal
 ```
 
+Complete the Windows consent prompt. For unattended administrative provisioning,
+an explicitly elevated PowerShell can use `Cert:\LocalMachine\Root` instead;
+that trusts the CA machine-wide and requires removal from the same store. The
+native CI test exercises this administrative alternative, not the interactive
+CurrentUser consent UI.
+
 macOS (explicit privileged trust enrollment):
 
 ```sh

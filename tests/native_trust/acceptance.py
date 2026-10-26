@@ -83,6 +83,8 @@ def store(action, certificate, fingerprint, *, check=True):
                 str(certificate),
                 "-Thumbprint",
                 fingerprint,
+                "-StoreLocation",
+                "LocalMachine",
             ],
         )
     if action == "enroll":
