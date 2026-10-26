@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import backup_crypto
@@ -17,6 +18,21 @@ import test_recovery as fixtures
     shutil.which("age") and shutil.which("age-keygen"), "official age tools required"
 )
 class EncryptionTests(unittest.TestCase):
+    def test_direct_encrypted_backup_removes_plaintext_staging(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            identity, recipient = self.keys(root, "identity.txt")
+
+            def snapshot(_root, destination):
+                destination.mkdir()
+                fixtures.RecoveryTests().snapshot(destination)
+
+            with patch.object(recovery, "backup", side_effect=snapshot):
+                backup_crypto.encrypted_backup(root, root / "backup.age", recipient)
+            self.assertEqual(list(root.glob(".vardrsec-backup-*")), [])
+            backup_crypto.unseal(root / "backup.age", root / "recovered", identity)
+            recovery.validate(root / "recovered")
+
     def keys(self, root, name):
         key = root / name
         subprocess.run(
