@@ -4,4 +4,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends libnss3-tools \
 WORKDIR /acceptance
 RUN npm install --no-audit --no-fund playwright@1.64.1
 COPY acceptance.cjs .
+COPY renewal.cjs .
 CMD ["node", "acceptance.cjs"]

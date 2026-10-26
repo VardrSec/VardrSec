@@ -34,6 +34,8 @@ rebuild the frontend. Bindings remain loopback-only.
 
 Caddy generates an installation-specific CA in its persistent proxy-data volume
 and renews leaf certificates. Compose cannot enroll the host browser's trust store.
+See [accelerated leaf-renewal acceptance](certificate-renewal-acceptance.md) for the
+renewal/restart fixture and the remaining certificate lifecycle release gates.
 Only `trust/root.crt`, the public root, is exported; its private key stays in the
 proxy volume, which must never be mounted in Runner. Verify the certificate and its
 fingerprint against the local proxy before trusting it. Enroll only your own CA.

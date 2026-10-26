@@ -95,3 +95,12 @@ removal commands stalled with both entries still present. The documented
 [native trust scope](native-trust-acceptance.md) requires certificate-store absence
 and browser rejection after exact-certificate deletion; residual macOS trust
 metadata cleanup and fresh-host Docker Desktop acceptance remain release gates.
+
+The [accelerated leaf-renewal fixture](certificate-renewal-acceptance.md) adds
+real-time renewal observation, fresh verified TLS handshakes through original leaf
+expiry, a fresh browser after expiry, and root/intermediate CA persistence across
+proxy restart. The local Docker Desktop/Linux-container run passed 119 fresh
+verified handshakes, three leaf serials, post-expiry browser access and CA/key-mode
+persistence after restart. Its CI job reports results separately from full Compose
+acceptance. Intermediate renewal, root rollover and sustained operation at normal
+lifetimes remain release gates.
