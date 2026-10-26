@@ -79,7 +79,9 @@ Application startup runs Alembic. If migration/startup fails, keep application
 traffic stopped and restore the proven bundle into a new project. An image
 rollback cannot undo an applied schema change. Never stamp over a failed schema
 or downgrade credential tables to make readiness green. There is no automatic
-update, in-place restore or automatic data-deleting rollback command in this slice.
+unattended update, in-place restore or automatic data-deleting rollback command.
+The [controlled updater](updates.md) automates the explicit backup/rehearsal/apply
+sequence for a reviewed local image set and preserves a durable failure record.
 
 `tests/recovery_acceptance.py` builds two disposable fixture images: a successful
 additive migration and an intentionally failing migration. It tests migration

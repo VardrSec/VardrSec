@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 from datetime import datetime, timezone
 
-FILES = (
+LEGACY_FILES = (
     ".env",
     "compose.yaml",
     "Caddyfile",
@@ -19,6 +19,7 @@ FILES = (
     "vardrsec.py",
     "recovery.py",
 )
+FILES = LEGACY_FILES + ("updater.py",)
 VOLUMES = {
     "runner-state": ("runner", "/home/runner/.vardrmap"),
     "proxy-data": ("proxy", "/data"),
@@ -35,7 +36,7 @@ PERSISTED_ENV = {
 
 
 def command(*args, **kwargs):
-    return subprocess.run(args, check=True, **kwargs)
+    return subprocess.run(args, check=kwargs.pop("check", True), **kwargs)
 
 
 def compose(root, *args, project=None, **kwargs):
@@ -327,12 +328,17 @@ def backup(root, destination):
     for file in destination.iterdir():
         file.chmod(0o600)
     metadata = {
-        "schema_version": 1,
+        "schema_version": 2,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "project": project,
         "images": images,
         "database": fingerprint,
         "volumes": fingerprints,
+        "last_update": json.loads(
+            (root / ".last-update.json").read_text(encoding="utf-8")
+        )
+        if (root / ".last-update.json").exists()
+        else None,
         "files": {p.name: digest(p) for p in destination.iterdir()},
     }
     json_write(destination / "snapshot.json", metadata)
@@ -343,15 +349,15 @@ def backup(root, destination):
 
 def validate(backup_path):
     metadata = json.loads((backup_path / "snapshot.json").read_text(encoding="utf-8"))
+    scripts = {1: LEGACY_FILES, 2: FILES}.get(metadata.get("schema_version"))
+    if scripts is None:
+        raise ValueError("Unsupported snapshot version")
     required = (
-        set(FILES)
+        set(scripts)
         | {"database.dump", "images.tar.gz"}
         | {f"{name}.tar.gz" for name in VOLUMES}
     )
-    if (
-        metadata.get("schema_version") != 1
-        or set(metadata.get("files", {})) != required
-    ):
+    if set(metadata.get("files", {})) != required:
         raise ValueError("Unsupported or incomplete snapshot")
     if set(metadata.get("images", {})) != SERVICES or not all(
         IMAGE_ID.fullmatch(i) for i in metadata["images"].values()
@@ -391,11 +397,13 @@ def restore(root, backup_path, destination, project):
                 "Restore project already has resources; refusing to overwrite"
             )
     destination.mkdir(parents=True, mode=0o700)
-    for name in FILES:
+    for name in (n for n in FILES if n in metadata["files"]):
         private_write(destination / name, (backup_path / name).read_bytes())
     # This public routing file is bind-mounted into a capability-restricted
     # container with a different UID. Secrets stay in .env and state volumes.
     (destination / "Caddyfile").chmod(0o644)
+    if metadata.get("last_update") is not None:
+        json_write(destination / ".last-update.json", metadata["last_update"])
     json_write(
         destination / ".active-images.json",
         {
