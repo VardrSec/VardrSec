@@ -64,3 +64,7 @@ and state verification into a fresh installation. See [recovery](docs/recovery.m
 before changing images. [Controlled updates](docs/updates.md) rehearse an explicit
 local image set privately, verify the original before mutation and retain a
 recovery record on failure. There is no unattended updater or in-place restore.
+
+Add `--recipient age1...` to `backup` for encrypted packaging, or seal an existing
+working bundle. [Encrypted recovery](docs/encrypted-backups.md) explains separate
+key custody, authenticated unsealing and the plaintext working-data boundary.

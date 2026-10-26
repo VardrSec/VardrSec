@@ -12,6 +12,7 @@ import urllib.request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import recovery
+import backup_crypto
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "vardrsec-compose-review"
@@ -214,6 +215,21 @@ def main():
         else:
             os.environ["COMPOSE_PROJECT_NAME"] = previous
     snapshot = recovery.validate(ARTIFACTS / "backup")
+    identity = ARTIFACTS / "private-age-identity.txt"
+    subprocess.run(
+        ["age-keygen", "--output", str(identity)], check=True, capture_output=True
+    )
+    recipient = subprocess.check_output(
+        ["age-keygen", "-y", str(identity)], text=True
+    ).strip()
+    backup_crypto.seal(ARTIFACTS / "backup", ARTIFACTS / "snapshot.age", recipient)
+    backup_crypto.unseal(ARTIFACTS / "snapshot.age", ARTIFACTS / "unsealed", identity)
+    assert recovery.digest(ARTIFACTS / "unsealed/snapshot.json") == recovery.digest(
+        ARTIFACTS / "backup/snapshot.json"
+    )
+    print(
+        "PASS: full image/data/CA backup sealed and authenticated with age before recovery"
+    )
     current_base = recovery.command(
         "docker",
         "image",
@@ -289,7 +305,7 @@ def main():
         "PASS: failing migration aborts application startup and rolls back its partial DDL"
     )
     recovery.restore(
-        ROOT, ARTIFACTS / "backup", ARTIFACTS / "restored", RESTORE_PROJECT
+        ROOT, ARTIFACTS / "unsealed", ARTIFACTS / "restored", RESTORE_PROJECT
     )
     verify_application(ARTIFACTS / "restored", original_ca, snapshot["images"])
     print(
