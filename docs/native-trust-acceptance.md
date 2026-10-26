@@ -12,7 +12,7 @@ The required sequence is:
 2. Explicitly enroll only that public root through elevated LocalMachine Root on Windows or
    the system keychain/admin trust domain on macOS.
 3. Accept the expected HTTPS response with default browser certificate validation.
-4. Remove the exact fixture certificate/trust entry and reject HTTPS again.
+4. Remove the exact fixture certificate from the native store and reject HTTPS again.
 
 The harness refuses ordinary workstations and self-hosted runners before any trust
 store change. Windows' store script has the same guard independently. Cleanup
@@ -31,8 +31,15 @@ Windows CurrentUser enrollment requests a consent UI and cannot complete in the
 non-interactive hosted session. CI therefore exercises the explicit administrative
 LocalMachine alternative. It does not certify the interactive CurrentUser prompt.
 
-macOS removes the exact certificate with privileged `security delete-certificate
--t -Z`, which also removes its trust settings. Apple's
-[implementation](https://github.com/apple-oss-distributions/Security/blob/main/SecurityTool/macOS/keychain_delete.c)
-removes both user and admin trust settings when invoked as root. The browser must
-then reject the installation again; a successful import alone does not pass.
+macOS uses privileged `security delete-certificate -Z` on the exact fingerprint,
+then independently checks the system keychain and requires a fresh browser to
+reject HTTPS. GitHub's [runner issue](https://github.com/actions/runner-images/issues/12116)
+documents hangs in `remove-trusted-cert` and recommends exact-certificate deletion.
+Our hosted macOS 26 runs also timed out in `remove-trusted-cert -d` and
+`delete-certificate -t`, leaving both the certificate and admin trust record present.
+
+The test reports whether admin trust metadata remains after certificate deletion.
+It does not claim that metadata was removed. Complete trust-settings cleanup in an
+interactive macOS session remains a release acceptance item; it must not be inferred
+from a green certificate-removal/browser check. No authorization policy or browser
+certificate validation is weakened to run these checks.

@@ -74,6 +74,24 @@ The Map image build passed 201 frontend tests, lint/typecheck and production bui
 Runner passed 1,571 tests, ten opt-in skips, 96.48% coverage, lint/format and types.
 The tool image verified all nine managed binaries and contained Gate and nmap.
 These checks prove this development fixture; fresh-host OS/browser enrollment,
-certificate renewal over time, upgrade/restore, raw-packet/headless/template modes
-and host/VPN routing remain unverified release gates. See the reproducible
+certificate renewal over time, raw-packet/headless/template modes and host/VPN
+routing remain release gates. See the reproducible
 `tests/compose_acceptance.py` fixture and Compose CI. Publication remains separate.
+
+## Recovery and native trust development acceptance (2026-10-26)
+
+[Encrypted backup #5](https://github.com/VardrSec/VardrSec/pull/5) passed real age
+round trips on Windows/Linux, wrong-identity/corruption/truncation rejection and a
+full Compose restore from an encrypted/unsealed bundle. The installation and
+controlled-update workflows also passed successful and failing migration/recovery
+drills. These are development fixtures using pinned local images, not released
+upgrade compatibility guarantees.
+
+[Native trust #6](https://github.com/VardrSec/VardrSec/pull/6) checks disposable
+hosted Windows/macOS certificate stores and fresh Chromium processes. Windows'
+administrative LocalMachine lifecycle passed; interactive CurrentUser consent is
+separate. macOS enrollment and verified browser HTTPS passed, but its trust-settings
+removal commands stalled with both entries still present. The documented
+[native trust scope](native-trust-acceptance.md) requires certificate-store absence
+and browser rejection after exact-certificate deletion; residual macOS trust
+metadata cleanup and fresh-host Docker Desktop acceptance remain release gates.

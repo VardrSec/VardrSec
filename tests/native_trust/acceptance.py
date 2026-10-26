@@ -118,7 +118,6 @@ def store(action, certificate, fingerprint, *, check=True):
             "-n",
             "security",
             "delete-certificate",
-            "-t",
             "-Z",
             fingerprint,
             "/Library/Keychains/System.keychain",
@@ -131,7 +130,7 @@ def probe(expected):
 
 
 def macos_removal_state(certificate, fingerprint):
-    """Report only the fixture's public identifiers after a failed removal."""
+    """Verify anchor absence; report residual admin metadata separately."""
     if platform.system() != "Darwin":
         return
     certificates = subprocess.run(
@@ -146,6 +145,9 @@ def macos_removal_state(certificate, fingerprint):
         text=True,
         timeout=15,
     )
+    # errSecItemNotFound (-25300) becomes exit 44 when the keychain is empty.
+    if certificates.returncode not in (0, 44):
+        raise ValueError("Cannot verify macOS certificate-store removal")
     export = certificate.parent / "admin-trust.plist"
     result = subprocess.run(
         ["security", "trust-settings-export", "-d", str(export)],
@@ -167,6 +169,8 @@ def macos_removal_state(certificate, fingerprint):
         },
         flush=True,
     )
+    if fingerprint in certificates.stdout:
+        raise ValueError("Fixture certificate remains in the macOS system keychain")
 
 
 def require_hosted():
@@ -261,14 +265,13 @@ def main():
                 print("Removing the exact disposable CA", flush=True)
                 try:
                     store("remove", authority, fingerprint)
-                except ValueError:
+                finally:
                     macos_removal_state(authority, fingerprint)
-                    raise
                 attempted = False
                 print("Checking rejection after removal", flush=True)
                 probe("untrusted")
                 print(
-                    f"PASS: {platform.system()} native CA rejection, explicit enrollment, verified browser HTTPS and trust removal"
+                    f"PASS: {platform.system()} native CA rejection, explicit enrollment, verified browser HTTPS and certificate removal"
                 )
             finally:
                 if attempted and fingerprint:
