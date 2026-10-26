@@ -32,6 +32,7 @@ It pins candidate sources and explicitly says the distribution is not runnable;
 there are no published image references or release claims. Future release tooling
 must validate artifact provenance and enforce complete, compatible image pins.
 
-Local authentication, native/container Runner packaging, network/certificate
-configuration, image publication and licensing remain separate decisions. Existing
+Local authentication is merged in Map #111/#112. Container Runner packaging is
+accepted in [ADR 0002](0002-runner-container.md), with native support retained.
+Network/certificate configuration, image publication and licensing remain separate decisions. Existing
 hosted behavior and component authorization controls must be preserved.

@@ -1,6 +1,13 @@
 # Distribution acceptance plan
 
-The first source-level slice is reviewed in Map #110 and Runner #82. Local
+The first source-level slice is merged in Map #110 and Runner #82. The refreshed
+Map integration includes local authentication; 1,136 backend tests passed locally
+and all PR checks passed, including PostgreSQL and the real three-component loop.
+Runner #83 adds a CLI-only development container; local and CI smoke checks prove
+non-root startup, no-network help/diagnostics and state retention across container
+replacement. This is not full tool, HTTPS or distribution installation acceptance.
+
+Earlier source-snapshot verification: Local
 verification passed 1,103 Map backend tests (one skip), six PostgreSQL migration
 checks, and 1,570 Runner tests (ten opt-in skips) at 96.48% Runner coverage.
 

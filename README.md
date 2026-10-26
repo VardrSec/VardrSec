@@ -3,7 +3,7 @@
 The local-first distribution for the VardrSec security-testing platform.
 
 **Status: implementation started; a runnable Compose distribution is not released.**
-This repository currently records the agreed responsibilities, candidate component
+This repository currently records the agreed responsibilities, development component
 revisions and the implementation sequence. It does not yet provide Compose files,
 container images, installation scripts or automatic updates.
 
@@ -24,21 +24,21 @@ not start scans or a detached queue worker. Stop operations must preserve data.
   migration-marker readiness through `GET /ready`, preserving `/health` liveness.
 - [Runner #82](https://github.com/VardrSec/VardrRunner/pull/82): opt-in
   `doctor --platform` and `doctor --offline`, preserving ordinary diagnostics.
-- [versions.json](versions.json): candidate source revisions for those reviews,
+- [versions.json](versions.json): merged source revisions for readiness and the Gate revision used in integration CI,
   with publication/runnable status kept separate from source compatibility.
 
-These features are in review, not promised in a published Runner installation.
-When using the candidate sources, `vardrrunner doctor --platform --offline --json`
+These readiness features are merged; a published installation is a separate step.
+When using the pinned sources, `vardrrunner doctor --platform --offline --json`
 checks the configured backend and skips release discovery. It does not install,
 repair, migrate or execute jobs. An older Map without `/ready` fails the requested
 platform check; ordinary doctor calls remain supported.
 
 ## Next implementation slices
 
-1. Integrate the explicitly configured local/GitHub authentication from Map
-   [#111](https://github.com/VardrSec/VardrMap/pull/111) and
-   [#112](https://github.com/VardrSec/VardrMap/pull/112). Decide Runner packaging
-   and implement the trusted local HTTPS acceptance in the plan below.
+1. Local/GitHub authentication is merged in Map #111 and #112. Use a container
+   Runner for the initial Compose distribution, retaining native support; see
+   [ADR 0002](docs/adr/0002-runner-container.md). Its [CLI-only development image](https://github.com/VardrSec/VardrRunner/pull/83)
+   is in review and precedes tool packaging and trusted local HTTPS acceptance.
 2. Add component image builds and a minimal Compose installation with health,
    migration, secret and persistent-volume handling.
 3. Implement VardrSec install/start/stop/update through Compose and display fresh
