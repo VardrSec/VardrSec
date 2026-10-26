@@ -41,8 +41,8 @@ jobs:
             if test "${{ job.status }}" != success; then
               docker compose -f artifacts/recovery-drill/restored/compose.yaml -f artifacts/recovery-drill/restored/.active-images.json -p vardrsec-restore-acceptance logs --tail 30 proxy
             fi
-            docker compose -f artifacts/recovery-drill/restored/compose.yaml -f artifacts/recovery-drill/restored/.active-images.json -p vardrsec-restore-acceptance down --volumes --remove-orphans
+            docker compose --profile tools -f artifacts/recovery-drill/restored/compose.yaml -f artifacts/recovery-drill/restored/.active-images.json -p vardrsec-restore-acceptance down --volumes --remove-orphans
           fi
       - name: Stop disposable fixture and remove its data
         if: always()
-        run: docker compose -p vardrsec-compose-review down --volumes --remove-orphans
+        run: docker compose --profile tools -p vardrsec-compose-review down --volumes --remove-orphans
