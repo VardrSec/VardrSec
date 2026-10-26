@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "status": "development",
+  "distribution_release": null,
+  "runnable": false,
+  "images": {},
+  "components": {
+    "map": {
+      "repository": "VardrSec/VardrMap",
+      "commit": "6720828f9c1937c69500f3754951c299f26dc97e",
+      "review": "https://github.com/VardrSec/VardrMap/pull/110",
+      "readiness_contract": 1
+    },
+    "runner": {
+      "repository": "VardrSec/VardrRunner",
+      "commit": "e8bc3064ac39cac32b0736980a1f34f2c8d6df3f",
+      "review": "https://github.com/VardrSec/VardrRunner/pull/82",
+      "readiness_contract": 1
+    },
+    "gate": {
+      "repository": "VardrSec/VardrGate",
+      "commit": "685565560617af7c2d9b85aaa693f97c7f4502a9"
+    }
+  }
+}
