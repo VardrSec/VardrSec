@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Pin merged Runner #88: build existing Naabu 2.6.1 with patched Go dependencies,
+  recorded source provenance and unchanged runtime libpcap/privileges. Record
+  audited DNSx integration evidence and the separately confirmed Gau provider TLS
+  verification blocker; no dependency-only Gau rebuild is promoted.
+
 - Pin merged Runner #87: extend recorded container source builds to existing
   DNSx 1.3.1, verify a real isolated DNS lookup and preserve native archives.
   Record independently audited Katana integration evidence; residual image

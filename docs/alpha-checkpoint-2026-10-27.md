@@ -6,29 +6,24 @@ records tasks 1–3 without claiming an unfamiliar-user exercise has occurred.
 
 ## Security review
 
-Latest completed combined review: distribution #21 merged Runner #86 after all
-acceptance checks passed. Independently audited source/report hashes give
-**5 critical / 427 high** across five images, with every strict gate blocked.
-The next pinned [Runner #87](https://github.com/VardrSec/VardrRunner/pull/87)
-patches existing DNSx and passes its full suite, CI matrix and real isolated DNS
-regression. Its local review image has 2 critical/223 high; matching distribution
-CI must establish the next combined baseline. No release scope or gate is waived.
+Latest completed combined review: distribution #22 merged Runner #87 after all
+acceptance checks passed. Its [source-pinned collection](https://github.com/VardrSec/VardrSec/actions/runs/40546749565)
+has independently audited input/report hashes and **4 critical / 396 high**
+occurrences across five images, down from the original 13/518. Every strict
+image gate remains blocked. Earlier #14/#21 checkpoints were 7/455 and 5/427.
 
-Follow-up: merged [Runner #86](https://github.com/VardrSec/VardrRunner/pull/86)
-patches the existing container Katana without removing tools or changing native
-archive pins. Its separately reviewed local image has 3 critical/254 high
-occurrences, compared with 5/282 below; Katana has only one unknown-severity
-finding. The tested Runner commit is now pinned here. Matching distribution CI
-must rebuild and revalidate the complete image/workflow set; this local result
-does not replace combined receipts or clear the remaining release gates.
+The next pinned [Runner #88](https://github.com/VardrSec/VardrRunner/pull/88)
+extends the Katana/DNSx source-build contract to existing Naabu with unchanged
+runtime libpcap and privileges. It passes 1,598 tests at 96.48% coverage, its CI
+matrix and the real bounded tool/network fixture. Its local review image has
+1 critical/178 high; matching distribution CI must establish the next combined
+baseline. All nine tools and native archive pins remain.
 
-Map #117, Runner #85 and distribution #14/#15 are merged. The source-pinned
-[five-image collection](https://github.com/VardrSec/VardrSec/actions/runs/40488109681)
-passed with independently verified input/report hashes. Critical/high package
-occurrences fell from 13/518 to 7/455. The [security assessment](alpha-security-assessment.md)
-records remaining findings, vendor status, binary-symbol review and exposure
-limits. Every strict image gate remains blocked. No suppression or release
-exception was introduced. Task 1 remains open for residual review/remediation.
+The [security assessment](alpha-security-assessment.md) records residual findings,
+vendor status and exposure limits. Behavioral tests also confirm [Gau's provider
+TLS verification defect](gau-tls-review.md); a dependency-only rebuild retains it
+despite a clear standalone scanner result and remains unpromoted. No release scope,
+suppression or exception is approved. Task 1 remains open for remediation/review.
 
 ## Clean Ubuntu setup
 
