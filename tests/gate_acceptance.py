@@ -8,7 +8,6 @@ import secrets
 import subprocess
 import threading
 import time
-from datetime import datetime, timedelta, timezone
 
 from write_lifecycle import (
     delivery_snapshot,
@@ -201,31 +200,11 @@ def run_gate_workflow(compose, request, key, password):
     # The engagement was created by the prior real browser journey.
     assert not request(base + "/jobs")["jobs"]
     assert request(base + "/evidence")["total"] == 0
-    csrf = request("/auth/local/session")["csrfToken"]
-    client = request("/clients", {"name": "Disposable fixture client"}, csrf)
-    now = datetime.now(timezone.utc)
-    request(
-        base,
-        {
-            "client_id": client["id"],
-            "starts_at": (now - timedelta(hours=1)).isoformat(),
-            "ends_at": (now + timedelta(hours=1)).isoformat(),
-        },
-        csrf,
-        method="PATCH",
-    )
-    request(base + "/scope/in", {"kind": "url", "value": ORIGIN}, csrf)
-    request(
-        base + "/authorizations",
-        {
-            "authorized_by": "Disposable target owner",
-            "reference": "Installed lifecycle fixture only",
-            "permits": "Synthetic isolated target testing",
-            "window_start": (now - timedelta(hours=1)).isoformat(),
-            "window_end": (now + timedelta(hours=1)).isoformat(),
-        },
-        csrf,
-    )
+    # Client, testing window, scope and written authorization are recorded by the
+    # browser journey through the interface; nothing is seeded through the API.
+    assert not request(base)["client_id"]
+    assert not request(base + "/authorizations")
+    assert not request(base)["scope"]["in"]
     tokens = {
         f"FIXTURE_{who.upper()}_TOKEN": secrets.token_urlsafe(32)
         for who in ("owner", "peer", "reader")
@@ -237,6 +216,7 @@ def run_gate_workflow(compose, request, key, password):
         "VARDRMAP_API_KEY": key,
         "FIXTURE_PASSWORD": password,
         "FIXTURE_ENGAGEMENT": engagement["id"],
+        "FIXTURE_ORIGIN": ORIGIN,
         "FIXTURE_CASES": json.dumps(reviewed_cases()),
     }
 
@@ -340,6 +320,8 @@ def run_gate_workflow(compose, request, key, password):
                 "-e",
                 "FIXTURE_ENGAGEMENT",
                 "-e",
+                "FIXTURE_ORIGIN",
+                "-e",
                 "FIXTURE_CASES",
                 "vardrsec-browser:acceptance",
                 "node",
@@ -362,6 +344,14 @@ def run_gate_workflow(compose, request, key, password):
                 continue
             event = json.loads(line.removeprefix("GATE_EVENT "))
             if event["type"] == "reviewed":
+                # The UI-recorded setup must be what the backend now holds.
+                recorded = request(base)
+                assert recorded["client_id"] and recorded["starts_at"] and recorded["ends_at"]
+                assert [i["value"] for i in recorded["scope"]["in"]] == [ORIGIN]
+                records = request(base + "/authorizations")
+                assert len(records) == 1
+                assert records[0]["authorized_by"] == "Disposable target owner"
+                assert records[0]["status"] == "active"
                 assert len(event["cases"]) == 4
                 receipt["cases"] = event["cases"]
                 assert observations() == []

@@ -38,6 +38,37 @@ async function composer(page) {
     await page.getByLabel('Local password').fill(process.env.FIXTURE_PASSWORD);
     await page.getByRole('button', {name:'Sign in locally',exact:true}).click();
     await page.getByLabel('Active Engagement').selectOption(engagement);
+    // Researcher setup through the interface only: scope, client, window, authorization.
+    const local = ms => {
+      const d = new Date(Date.now() + ms), pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    const waitSaved = (suffix, method) => page.waitForResponse(r => r.url().endsWith(suffix) && r.request().method() === method && r.ok());
+    await page.locator('nav').getByRole('button', {name:/Scope$/}).click();
+    await page.getByText('Value', {exact:true}).first().locator('xpath=following-sibling::input').fill(process.env.FIXTURE_ORIGIN);
+    await page.getByText('Kind', {exact:true}).first().locator('xpath=following-sibling::input').fill('url');
+    const scoped = waitSaved(`/engagements/${engagement}/scope/in`, 'POST');
+    await page.getByRole('button', {name:'Add In-Scope Asset',exact:true}).click();
+    await scoped;
+    await page.locator('nav').getByRole('button', {name:/Overview$/}).click();
+    await page.getByLabel('New client name').fill('Disposable fixture client');
+    let step = waitSaved('/clients', 'POST');
+    const linked = waitSaved(`/engagements/${engagement}`, 'PATCH');
+    await page.getByRole('button', {name:'Save client',exact:true}).click();
+    await step; await linked;
+    await page.getByLabel('Testing window starts').fill(local(-3_600_000));
+    await page.getByLabel('Testing window ends').fill(local(3_600_000));
+    step = waitSaved(`/engagements/${engagement}`, 'PATCH');
+    await page.getByRole('button', {name:'Save testing window',exact:true}).click();
+    await step;
+    await page.getByLabel('Authorized by').fill('Disposable target owner');
+    await page.getByLabel('Reference').fill('Installed lifecycle fixture only');
+    await page.getByLabel('Permits').fill('Synthetic isolated target testing');
+    await page.getByLabel('Authorization window starts').fill(local(-3_600_000));
+    await page.getByLabel('Authorization window ends').fill(local(3_600_000));
+    step = waitSaved(`/engagements/${engagement}/authorizations`, 'POST');
+    await page.getByRole('button', {name:'Record authorization',exact:true}).click();
+    await step;
     await page.locator('nav').getByRole('button', {name:/Review$/}).click();
     await page.getByRole('button', {name:'API Surface',exact:true}).click();
     await page.getByRole('heading', {name:'Draft authorization tests',exact:true}).waitFor();

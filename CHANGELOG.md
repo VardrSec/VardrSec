@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Installed workflow acceptance no longer seeds client, testing window, scope or
+  written authorization through the API: the real browser journey records them
+  through the Map interface (Map #119, pinned at its reviewed head) and the test
+  then verifies what the backend holds. Re-pin to the merged Map commit before
+  merging this change.
+
 - Pin merged Runner #89 (`4fae92f`, squash of reviewed head `0fdb1c2`): container Gau is rebuilt from
   checksum-verified upstream source with four hash-pinned substitutions that enable
   provider TLS verification and make provider failures fatal. Runner CI exercised
