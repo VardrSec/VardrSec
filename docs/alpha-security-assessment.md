@@ -12,6 +12,12 @@ additional release blocker, independent of the raw image severity counts.
 
 ## Implemented remediation
 
+- The PostgreSQL image's bundled gosu 1.19.0 was built with Go 1.24.6 and accounted for
+  26 high and 1 critical standard-library occurrences, all with published fixed Go
+  versions. `db/Dockerfile` rebuilds that same gosu release with Go 1.27.3 over the
+  unchanged reviewed PostgreSQL digest. The remaining PostgreSQL findings are Debian
+  packages without fixed versions in the base suite and stay open; see the
+  [exposure review](alpha-os-exposure.md).
 - [Map #117](https://github.com/VardrSec/VardrMap/pull/117) pins Python/Node Debian
   Trixie bases and removes the unused global npm/npx dependency tree from the web
   runtime. npm remains in the build stage; native development is unchanged.

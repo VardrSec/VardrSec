@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Rebuild the gosu helper in the pinned PostgreSQL image from its v1.19.0 module with the
+  distribution's patched Go 1.27.3 toolchain (`db/Dockerfile`). The reviewed PostgreSQL
+  base digest and gosu release are unchanged; only the Go standard library bundled in
+  that helper is replaced. Image evidence now builds the database image instead of
+  pulling it. Remaining Debian-package findings in the base image are unchanged and
+  unresolved.
+
 - Pin merged Runner #89 (`4fae92f`, squash of reviewed head `0fdb1c2`): container Gau is rebuilt from
   checksum-verified upstream source with four hash-pinned substitutions that enable
   provider TLS verification and make provider failures fatal. Runner CI exercised

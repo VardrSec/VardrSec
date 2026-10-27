@@ -8,7 +8,6 @@ tooling; Runner retains installation diagnostics and execution responsibilities.
 python vardrsec.py configure
 python vardrsec.py sources
 python vardrsec.py build
-docker compose pull db
 python image_evidence.py collect
 python image_evidence.py check artifacts/image-evidence/run-EXAMPLE/reports
 ```
