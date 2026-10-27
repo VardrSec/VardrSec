@@ -47,6 +47,7 @@ class ImageEvidenceTests(unittest.TestCase):
         config = {
             "os": "linux",
             "architecture": "amd64",
+            "config": {"Env": ["PATH=/usr/bin"], "Cmd": ["python"]},
             "rootfs": {"diff_ids": [IMAGE]},
         }
         details = {

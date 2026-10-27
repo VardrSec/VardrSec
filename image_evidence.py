@@ -67,7 +67,7 @@ def archive_config_id(path, details):
             ]
             require(len(candidates) == 1, "Ambiguous archive platform")
             root = blob(candidates[0]["digest"])
-        if "config" in root:
+        if "rootfs" not in root and "config" in root:
             digest = root["config"]["digest"]
             root = blob(digest)
         require(
