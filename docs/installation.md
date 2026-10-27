@@ -112,6 +112,8 @@ operation remains available. Raw-packet scans, headless-browser tooling, operato
 wordlists and nuclei template provisioning are not certified by this baseline.
 No capability or privileged mode is enabled automatically. Diagnose the intended
 tools and host/VPN target reachability before explicitly invoking `jobs run`.
+The [tool/network fixture](tool-network-acceptance.md) documents selected modes,
+synthetic private-namespace/host checks and the remaining real-VPN/Desktop gates.
 
 `python vardrsec.py stop` stops services and retains all volumes. `start` reuses
 them. Never use `down --volumes` on a retained installation. No command starts scans.

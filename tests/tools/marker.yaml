@@ -1,0 +1,14 @@
+id: vardrsec-local-marker
+info:
+  name: VardrSec synthetic local marker
+  author: vardrsec
+  severity: info
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/probe"
+    matchers:
+      - type: word
+        words:
+          - vardrsec-tool-fixture
+        part: body
