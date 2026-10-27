@@ -47,7 +47,10 @@ platform check; ordinary doctor calls remain supported.
    displays readiness and timestamped Runner reports, including stale/unknown/
    unreachable states. Its matching source pin and trusted Compose status check
    are included here; full doctor reports and release compatibility remain separate.
-4. Complete tooling, host/VPN networking, fresh-host and remaining certificate
+4. Verify the [installed authorization workflow](docs/installed-gate-acceptance.md):
+   UI case review/queue, explicit toolkit Runner execution, Gate assessment and
+   redacted evidence returned to Map, including negative/inconclusive outcomes.
+5. Complete tooling, host/VPN networking, fresh-host and remaining certificate
    lifecycle acceptance. Recovery, controlled updates, encrypted packaging and
    [accelerated leaf renewal](docs/certificate-renewal-acceptance.md) are merged;
    image publication and a tagged Community alpha remain separate steps.

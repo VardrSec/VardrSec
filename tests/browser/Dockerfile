@@ -5,4 +5,5 @@ WORKDIR /acceptance
 RUN npm install --no-audit --no-fund playwright@1.64.1
 COPY acceptance.cjs .
 COPY renewal.cjs .
+COPY gate.cjs .
 CMD ["node", "acceptance.cjs"]
