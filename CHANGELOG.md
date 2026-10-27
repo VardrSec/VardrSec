@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Pin merged Runner #89 (`4fae92f`, squash of reviewed head `0fdb1c2`): container Gau is rebuilt from
+  checksum-verified upstream source with four hash-pinned substitutions that enable
+  provider TLS verification and make provider failures fatal. Runner CI exercised
+  untrusted, wrong-host, trusted, valid-empty, malformed and initialization cases
+  through the producing handler. Native Gau archives do not gain the fix, no alpha
+  tool-scope decision is made, and image security gates remain blocked pending the
+  rescan of this pin.
+
 - Pin merged Runner #88: build existing Naabu 2.6.1 with patched Go dependencies,
   recorded source provenance and unchanged runtime libpcap/privileges. Record
   audited DNSx integration evidence and the separately confirmed Gau provider TLS
