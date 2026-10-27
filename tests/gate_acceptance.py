@@ -8,6 +8,15 @@ import secrets
 import subprocess
 import threading
 import time
+from datetime import datetime, timedelta, timezone
+
+from write_lifecycle import (
+    delivery_snapshot,
+    verify_delivery,
+    verify_write,
+    verify_write_traffic,
+    write_case,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "vardrsec-compose-review"
@@ -77,7 +86,7 @@ def reviewed_cases():
             },
         }
         for mode in ("vulnerable", "fixed", "unavailable")
-    ]
+    ] + [write_case(ORIGIN, identities)]
 
 
 def observations():
@@ -93,7 +102,7 @@ def observations():
     return json.loads(result.stdout)["requests"]
 
 
-def verify_records(request, base, job_id, case_id, scenario):
+def verify_records(request, base, job_id, case_id, scenario, delivery=None):
     job = next(j for j in request(base + "/jobs")["jobs"] if j["id"] == job_id)
     assessment = job["assessment"]
     assert assessment and assessment["case_id"] == case_id
@@ -105,17 +114,21 @@ def verify_records(request, base, job_id, case_id, scenario):
     else:
         assert job["status"] == "done", job.get("error_message")
         assert assessment["case_snapshot_verified"] is True
-        spec = next(c["spec"] for c in reviewed_cases() if c["name"] == scenario)
+        name = "write" if scenario.startswith("write-") else scenario
+        spec = next(c["spec"] for c in reviewed_cases() if c["name"] == name)
         expected_hash = hashlib.sha256(
             json.dumps(spec, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
         assert assessment["case_hash"] == expected_hash
         assert assessment["preflight"]["status"] == "passed"
         assert assessment["candidate_findings"] == len(scans)
-        assert len(evidence) == 5  # Two preflight diagnostics plus three executions.
+        assert len(evidence) == 5  # Session diagnostics plus resource executions.
         resource = [e for e in evidence if e["expected_decision"] in ("allow", "deny")]
-        assert {e["identity_id"] for e in resource} == {"owner", "peer", "anonymous"}
-        if scenario == "unavailable":
+        if scenario.startswith("write-"):
+            verify_write(assessment, evidence, scenario)
+            assert bool(scans) == (scenario == "write-vulnerable")
+            assert all(s["status"] == "new" for s in scans)
+        elif scenario == "unavailable":
             assert (
                 assessment["status"] == "inconclusive"
                 and assessment["inconclusive"] == 3
@@ -133,13 +146,19 @@ def verify_records(request, base, job_id, case_id, scenario):
                 assert all(s["status"] == "new" for s in scans)
             else:
                 assert not scans
+        assert {e["identity_id"] for e in resource} == {
+            i["id"] for i in spec["identities"]
+        }
     for row in evidence:
         assert (
             row["job_id"] == job_id and row["case_id"] == case_id and row["identity_id"]
         )
         assert hashlib.sha256(row["body"].encode()).hexdigest() == row["content_hash"]
-        assert not row["finding_id"]
-    assert request(base + "/findings")["total"] == 0
+        assert (row["finding_id"] or "") == (delivery or {}).get("links", {}).get(
+            row["id"], ""
+        )
+    expected = {delivery["finding"]["id"]} if delivery else set()
+    assert {f["id"] for f in request(base + "/findings")["findings"]} == expected
     events = request(f"/jobs/{job_id}/events")["events"]
     assert "policy_warning" in {e["kind"] for e in events}
     if scenario != "blocked":
@@ -182,9 +201,34 @@ def run_gate_workflow(compose, request, key, password):
     # The engagement was created by the prior real browser journey.
     assert not request(base + "/jobs")["jobs"]
     assert request(base + "/evidence")["total"] == 0
+    csrf = request("/auth/local/session")["csrfToken"]
+    client = request("/clients", {"name": "Disposable fixture client"}, csrf)
+    now = datetime.now(timezone.utc)
+    request(
+        base,
+        {
+            "client_id": client["id"],
+            "starts_at": (now - timedelta(hours=1)).isoformat(),
+            "ends_at": (now + timedelta(hours=1)).isoformat(),
+        },
+        csrf,
+        method="PATCH",
+    )
+    request(base + "/scope/in", {"kind": "url", "value": ORIGIN}, csrf)
+    request(
+        base + "/authorizations",
+        {
+            "authorized_by": "Disposable target owner",
+            "reference": "Installed lifecycle fixture only",
+            "permits": "Synthetic isolated target testing",
+            "window_start": (now - timedelta(hours=1)).isoformat(),
+            "window_end": (now + timedelta(hours=1)).isoformat(),
+        },
+        csrf,
+    )
     tokens = {
         f"FIXTURE_{who.upper()}_TOKEN": secrets.token_urlsafe(32)
-        for who in ("owner", "peer")
+        for who in ("owner", "peer", "reader")
     }
     secret_values = [key, password, *tokens.values(), *CANARIES]
     env = {
@@ -213,6 +257,8 @@ def run_gate_workflow(compose, request, key, password):
             "FIXTURE_OWNER_TOKEN",
             "-e",
             "FIXTURE_PEER_TOKEN",
+            "-e",
+            "FIXTURE_READER_TOKEN",
             "runner",
             *command,
             env=env,
@@ -256,6 +302,8 @@ def run_gate_workflow(compose, request, key, password):
             "FIXTURE_OWNER_TOKEN",
             "-e",
             "FIXTURE_PEER_TOKEN",
+            "-e",
+            "FIXTURE_READER_TOKEN",
             "--entrypoint",
             "python",
             "vardrmap-api:development",
@@ -305,7 +353,7 @@ def run_gate_workflow(compose, request, key, password):
             encoding="utf-8",
             bufsize=1,
         )
-        deadline = threading.Timer(300, browser.kill)
+        deadline = threading.Timer(600, browser.kill)
         deadline.start()
         for line in browser.stdout:
             no_secrets(line)
@@ -314,12 +362,45 @@ def run_gate_workflow(compose, request, key, password):
                 continue
             event = json.loads(line.removeprefix("GATE_EVENT "))
             if event["type"] == "reviewed":
-                assert len(event["cases"]) == 3
+                assert len(event["cases"]) == 4
                 receipt["cases"] = event["cases"]
                 assert observations() == []
                 continue
             if event["type"] == "rendered":
                 receipt["rendered"].append(event["scenario"])
+                continue
+            if event["type"] == "repair":
+                result = docker(
+                    "exec",
+                    TARGET,
+                    "python",
+                    "-c",
+                    "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://localhost:8080/control/fix', data=b''), timeout=5).read()",
+                    capture_output=True,
+                    text=True,
+                )
+                no_secrets(result.stdout + result.stderr)
+                browser.stdin.write('{"continue":true}\n')
+                browser.stdin.flush()
+                continue
+            if event["type"] in {"confirmed", "delivered"}:
+                snapshot = delivery_snapshot(
+                    request, base, event["finding"], event["report"]
+                )
+                no_secrets(snapshot)
+                if event["type"] == "delivered":
+                    assert (
+                        snapshot["revisions"]["1"]
+                        == receipt["delivery"]["revisions"]["1"]
+                    )
+                    verify_delivery(snapshot)
+                else:
+                    assert snapshot["finding"]["status"] == "triaged" and set(
+                        snapshot["revisions"]
+                    ) == {"1"}
+                receipt["delivery"] = snapshot
+                browser.stdin.write('{"continue":true}\n')
+                browser.stdin.flush()
                 continue
             assert event["type"] == "queued"
             scenario, jid = event["scenario"], event["job"]
@@ -330,12 +411,19 @@ def run_gate_workflow(compose, request, key, password):
             assert request(base + f"/evidence?job_id={jid}")["total"] == 0
             assert observations() == mark
             runner("jobs", "run", "--yes", allow=scenario != "blocked")
-            records, raw = verify_records(request, base, jid, event["case"], scenario)
+            records, raw = verify_records(
+                request, base, jid, event["case"], scenario, receipt.get("delivery")
+            )
             no_secrets(raw)
             receipt["jobs"].append(records)
             contacted = observations()[len(mark) :]
+            (artifacts / f"{scenario}-traffic.json").write_text(
+                json.dumps(contacted, indent=2) + "\n", encoding="utf-8"
+            )
             if scenario == "blocked":
                 assert not contacted
+            elif scenario.startswith("write-"):
+                verify_write_traffic(contacted, scenario)
             else:
                 assert len(contacted) == 5
                 assert [r["path"] for r in contacted[:2]] == ["/session", "/session"]
@@ -352,18 +440,48 @@ def run_gate_workflow(compose, request, key, password):
                 f"PASS: installed {scenario} job; explicit execution, reviewed provenance, hashed redacted evidence and candidate-only results",
                 flush=True,
             )
-            browser.stdin.write('{"continue":true}\n')
+            peer = next(
+                (
+                    e
+                    for e in raw[1]
+                    if e["identity_id"] == "peer" and e["expected_decision"] == "deny"
+                ),
+                None,
+            )
+            browser.stdin.write(
+                json.dumps({"continue": True, "evidence": peer["id"] if peer else None})
+                + "\n"
+            )
             browser.stdin.flush()
         assert browser.wait(timeout=20) == 0, "Installed browser workflow failed"
-        assert receipt["rendered"] == ["blocked", "vulnerable", "fixed", "unavailable"]
-        assert len(receipt["jobs"]) == 4
+        assert receipt["rendered"] == [
+            "blocked",
+            "vulnerable",
+            "fixed",
+            "unavailable",
+            "write-vulnerable",
+            "write-fixed",
+        ]
+        assert len(receipt["jobs"]) == 6
+        verify_delivery(receipt["delivery"])
+        writes = [j for j in receipt["jobs"] if j["scenario"].startswith("write-")]
+        assert (
+            writes[0]["case"] == writes[1]["case"]
+            and writes[0]["assessment"]["case_hash"]
+            == writes[1]["assessment"]["case_hash"]
+        )
         mark = observations()
         scenario = "empty-queue"
         runner("jobs", "run", "--yes", allow=True)
         assert observations() == mark
         for record in receipt["jobs"]:
             retained, _ = verify_records(
-                request, base, record["job"], record["case"], record["scenario"]
+                request,
+                base,
+                record["job"],
+                record["case"],
+                record["scenario"],
+                receipt.get("delivery"),
             )
             assert retained == record
         print(
@@ -390,9 +508,20 @@ def verify_retained(request, receipt):
     base = "/engagements/" + receipt["engagement"]
     for record in receipt["jobs"]:
         retained, _ = verify_records(
-            request, base, record["job"], record["case"], record["scenario"]
+            request,
+            base,
+            record["job"],
+            record["case"],
+            record["scenario"],
+            receipt.get("delivery"),
         )
         assert retained == record
+    delivery = receipt["delivery"]
+    current = delivery_snapshot(
+        request, base, delivery["finding"]["id"], delivery["report"]
+    )
+    verify_delivery(current)
+    assert current == delivery
     print(
-        "PASS: all installed Gate assessments and evidence hashes survive platform stop/start"
+        "PASS: installed assessments, evidence links, finding history and delivered report revisions retain their hashes"
     )

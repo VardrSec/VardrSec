@@ -6,4 +6,5 @@ RUN npm install --no-audit --no-fund playwright@1.64.1
 COPY acceptance.cjs .
 COPY renewal.cjs .
 COPY gate.cjs .
+COPY delivery.cjs .
 CMD ["node", "acceptance.cjs"]
