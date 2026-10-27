@@ -7,6 +7,10 @@
   through the Map interface (merged Map #119, `6ea3792`) and the test then
   verifies what the backend holds.
 
+- Record the exposure review of the remaining libxml2 and ncurses findings: no
+  reachable path demonstrated in the packaged configuration, none accepted as risk,
+  gates unchanged. Documentation only.
+
 - Add networking and VPN guidance: when to use the native Runner, what is verified,
   and what remains unverified (genuine VPN routing, split tunnelling, kill switch).
   Documentation only; no host network, firewall or VPN behavior changes.
