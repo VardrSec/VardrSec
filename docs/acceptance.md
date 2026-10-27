@@ -146,3 +146,14 @@ history, linked evidence and delivered report versions. This covers synchronous
 isolated write readback and local report export/status; it does not establish
 arbitrary write strategies or external client receipt. See the
 [installed workflow checks](installed-gate-acceptance.md).
+
+## Tool and network matrix
+
+The separate [tool/network fixture](tool-network-acceptance.md) checks nine managed
+binary receipts, selected real unprivileged modes against a synthetic target,
+raw-SYN rejection, host reachability, default private isolation, explicit network
+namespace sharing and configuration persistence across replacement. Its CI matrix
+uses fresh Ubuntu 22.04/24.04 runners; local Windows Docker Desktop evidence is
+recorded separately. Genuine VPN routing, fresh Desktop hosts, headless browsers
+and provider/DNS-dependent modes remain unverified by this fixture. Binary presence
+alone is not mode acceptance.

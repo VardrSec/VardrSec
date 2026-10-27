@@ -52,7 +52,11 @@ platform check; ordinary doctor calls remain supported.
    redacted evidence returned to Map, including negative/inconclusive outcomes,
    independent write readback, explicit retest/finding actions and immutable report
    exports. Restart and encrypted restore verify the retained workflow records.
-5. Complete tooling, host/VPN networking, fresh-host and remaining certificate
+5. Run the [bounded tool/network matrix](docs/tool-network-acceptance.md): selected
+   unprivileged tool modes, host access, private isolation, explicit namespace
+   sharing and state replacement on fresh Linux CI hosts. Genuine VPN and fresh
+   Windows/macOS Desktop acceptance remain separate gates.
+6. Complete remaining tool modes and certificate
    lifecycle acceptance. Recovery, controlled updates, encrypted packaging and
    [accelerated leaf renewal](docs/certificate-renewal-acceptance.md) are merged;
    image publication and a tagged Community alpha remain separate steps.
