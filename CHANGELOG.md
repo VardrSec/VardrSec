@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Record the recounted image baseline after the Runner #91/#92 pin: 1 critical / 194 high,
+  none with a published fixed version; all strict gates remain blocked and nothing is
+  accepted as risk.
+
 - Add a first-assessment walkthrough to the installation guide (engagement, client and
   authorization in the UI, review-only drafts, explicit Runner execution, evidence
   review) and record the UI-only researcher workflow verification in the plan.

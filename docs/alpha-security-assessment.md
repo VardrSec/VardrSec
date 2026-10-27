@@ -5,8 +5,8 @@ vulnerability gate remains blocked, raw reports are retained, and no exception o
 blanket suppression is introduced. Task 1 of the [alpha plan](community-alpha.md)
 remains in progress pending residual affected-status/exposure review and fixes.
 
-> **Update (post-#24):** the latest recounted combined baseline is **2 critical / 313 high**
-> (Runner 0/140); see the status table in [community-alpha.md](community-alpha.md). The
+> **Update (post-#30):** the latest recounted combined baseline is **1 critical / 194 high**
+> (Runner 0/46; no occurrence with a fixed version); see the status table in [community-alpha.md](community-alpha.md). The
 > figures below are retained as the dated record and are superseded. Gate status is unchanged:
 > all strict image gates remain blocked.
 
