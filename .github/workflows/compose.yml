@@ -6,6 +6,14 @@ on:
 permissions:
   contents: read
 jobs:
+  python-compatibility:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.10'
+      - run: python -m unittest discover -s tests -p 'test_*.py'
   installation:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -32,6 +40,17 @@ jobs:
           python vardrsec.py start
           python vardrsec.py export-ca
           python tests/compose_acceptance.py
+      - name: Verify portable recovery and migration failure
+        run: python tests/recovery_acceptance.py
+      - name: Stop restored disposable fixture
+        if: always()
+        run: |
+          if test -f artifacts/recovery-drill/restored/.active-images.json; then
+            if test "${{ job.status }}" != success; then
+              docker compose -f artifacts/recovery-drill/restored/compose.yaml -f artifacts/recovery-drill/restored/.active-images.json -p vardrsec-restore-acceptance logs --tail 30 proxy
+            fi
+            docker compose --profile tools -f artifacts/recovery-drill/restored/compose.yaml -f artifacts/recovery-drill/restored/.active-images.json -p vardrsec-restore-acceptance down --volumes --remove-orphans
+          fi
       - name: Stop disposable fixture and remove its data
         if: always()
-        run: docker compose -p vardrsec-compose-review down --volumes --remove-orphans
+        run: docker compose --profile tools -p vardrsec-compose-review down --volumes --remove-orphans

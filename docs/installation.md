@@ -103,6 +103,10 @@ a separate installation. Protect CA private keys and credential hashes in backup
 Keep old image IDs/source pins and matching backups together. A failed migration
 requires a compatible restore; image rollback alone is not a database rollback.
 
+Use the [backup and restore commands](recovery.md) to create a portable snapshot
+and verify it in a separate installation before any controlled upgrade. Restored
+applications remain stopped until credential review and explicit startup.
+
 Fresh-host Windows/macOS/Linux browser trust, certificate renewal over time,
 tool/network capability coverage and upgrade/restore acceptance remain release
 gates. See [acceptance](acceptance.md). No image or release is published here.

@@ -58,3 +58,7 @@ remain separate reviewed steps; this foundation publishes none of those artifact
 `bootstrap`, `doctor` and `stop` delegate lifecycle to Compose and diagnostics to
 Runner. Follow the [installation guide](docs/installation.md) for prerequisites,
 explicit trust enrollment and credentials. `start` alone does not establish browser trust.
+
+`backup` and `restore` provide quiesced portable snapshots, saved service images
+and state verification into a fresh installation. See [recovery](docs/recovery.md)
+before changing images; there is no automatic update or in-place data overwrite.

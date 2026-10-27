@@ -16,7 +16,10 @@ def run(*args, **kwargs):
 
 
 def compose(*args, **kwargs):
-    return run("docker", "compose", *args, **kwargs)
+    flags = ["-f", str(ROOT / "compose.yaml")]
+    if (ROOT / ".active-images.json").exists():
+        flags += ["-f", str(ROOT / ".active-images.json")]
+    return run("docker", "compose", *flags, *args, **kwargs)
 
 
 def configure():
@@ -99,9 +102,14 @@ def main():
             "export-ca",
             "bootstrap",
             "doctor",
+            "backup",
+            "restore",
         ),
     )
     parser.add_argument("--username", default="operator")
+    parser.add_argument("--destination", type=Path)
+    parser.add_argument("--backup", type=Path)
+    parser.add_argument("--project")
     args = parser.parse_args()
     if args.action == "configure":
         configure()
@@ -152,6 +160,19 @@ def main():
             "--offline",
             "--json",
         )
+    elif args.action in ("backup", "restore"):
+        import recovery
+
+        if args.destination is None:
+            parser.error("--destination is required")
+        if args.action == "backup":
+            recovery.backup(ROOT, args.destination)
+        else:
+            if args.backup is None or not args.project:
+                parser.error(
+                    "restore requires --backup and a new --project vardrsec-restore-NAME"
+                )
+            recovery.restore(ROOT, args.backup, args.destination, args.project)
 
 
 if __name__ == "__main__":
