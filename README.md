@@ -61,4 +61,6 @@ explicit trust enrollment and credentials. `start` alone does not establish brow
 
 `backup` and `restore` provide quiesced portable snapshots, saved service images
 and state verification into a fresh installation. See [recovery](docs/recovery.md)
-before changing images; there is no automatic update or in-place data overwrite.
+before changing images. [Controlled updates](docs/updates.md) rehearse an explicit
+local image set privately, verify the original before mutation and retain a
+recovery record on failure. There is no unattended updater or in-place restore.

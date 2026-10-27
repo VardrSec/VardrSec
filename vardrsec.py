@@ -104,13 +104,25 @@ def main():
             "doctor",
             "backup",
             "restore",
+            "update",
+            "cancel-update",
         ),
     )
     parser.add_argument("--username", default="operator")
     parser.add_argument("--destination", type=Path)
     parser.add_argument("--backup", type=Path)
     parser.add_argument("--project")
+    parser.add_argument("--candidate", type=Path)
     args = parser.parse_args()
+    if args.action in ("update", "cancel-update"):
+        return dispatch(args, parser)
+    import updater
+
+    with updater.operation_guard(ROOT, args.action):
+        return dispatch(args, parser)
+
+
+def dispatch(args, parser):
     if args.action == "configure":
         configure()
     elif args.action == "sources":
@@ -173,6 +185,19 @@ def main():
                     "restore requires --backup and a new --project vardrsec-restore-NAME"
                 )
             recovery.restore(ROOT, args.backup, args.destination, args.project)
+    elif args.action in ("update", "cancel-update"):
+        import updater
+
+        if args.action == "cancel-update":
+            updater.cancel(ROOT)
+        else:
+            if not all((args.candidate, args.backup, args.destination, args.project)):
+                parser.error(
+                    "update requires --candidate, --backup, --destination and --project"
+                )
+            updater.update(
+                ROOT, args.candidate, args.backup, args.destination, args.project
+            )
 
 
 if __name__ == "__main__":

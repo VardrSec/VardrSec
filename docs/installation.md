@@ -95,8 +95,9 @@ them. Never use `down --volumes` on a retained installation. No command starts s
 
 ## Updates and recovery boundary
 
-There is deliberately no automatic update command yet. Application startup applies
-migrations, so replacing an image is an upgrade operation. Before any upgrade,
+Use the [controlled updater](updates.md) for an explicitly reviewed local image
+set. Application startup applies migrations, so replacing an image is an upgrade
+operation. Before any upgrade,
 stop API/web/Runner activity, make a PostgreSQL logical backup plus a protected
 backup of `.env`, Runner state and proxy-data/config, and prove restoration into
 a separate installation. Protect CA private keys and credential hashes in backups.

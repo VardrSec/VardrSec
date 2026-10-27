@@ -56,7 +56,7 @@ class RecoveryTests(unittest.TestCase):
                 info.size = 4
                 archive.addfile(info, io.BytesIO(b"test"))
         metadata = {
-            "schema_version": 1,
+            "schema_version": 2,
             "images": {s: "sha256:" + "a" * 64 for s in recovery.SERVICES},
             "volumes": {v: "fixture" for v in recovery.VOLUMES},
             "files": {p.name: recovery.digest(p) for p in root.iterdir()},
@@ -101,6 +101,16 @@ class RecoveryTests(unittest.TestCase):
                 )
             self.assertFalse((root / "restored").exists())
             self.assertEqual(command.call_count, 1)
+
+    def test_version_one_snapshot_remains_supported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.snapshot(root)
+            metadata = json.loads((root / "snapshot.json").read_text())
+            metadata["schema_version"] = 1
+            metadata["files"].pop("updater.py")
+            (root / "snapshot.json").write_text(json.dumps(metadata))
+            self.assertEqual(recovery.validate(root)["schema_version"], 1)
 
     def test_state_archives_reject_traversal_and_links(self):
         with tempfile.TemporaryDirectory() as directory:

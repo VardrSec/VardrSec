@@ -7,7 +7,10 @@ permissions:
   contents: read
 jobs:
   python-compatibility:
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -54,3 +57,35 @@ jobs:
       - name: Stop disposable fixture and remove its data
         if: always()
         run: docker compose --profile tools -p vardrsec-compose-review down --volumes --remove-orphans
+  controlled-updates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Prepare pinned image set
+        run: |
+          python vardrsec.py configure
+          python vardrsec.py sources
+          python vardrsec.py build
+      - name: Exercise explicit controlled updates
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
+        run: |
+          python vardrsec.py start
+          python vardrsec.py export-ca
+          python tests/update_acceptance.py
+      - name: Remove disposable update projects
+        if: always()
+        run: |
+          for name in rejected successful apply-failed recovered; do
+            folder="artifacts/update-drill/$name"
+            if test -f "$folder/.active-images.json"; then
+              docker compose --profile tools -f "$folder/compose.yaml" -f "$folder/.active-images.json" -p "vardrsec-restore-update-$name" down --volumes --remove-orphans
+            fi
+          done
+          docker compose --profile tools -p vardrsec-compose-review down --volumes --remove-orphans

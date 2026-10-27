@@ -10,3 +10,8 @@ __pycache__/
 /trust/
 /.active-images.json
 /restore-receipt.json
+/.update-lock
+/.update-state.json
+/.last-update.json
+/.update-private.yaml
+/.update-*.tmp
