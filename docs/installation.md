@@ -143,7 +143,9 @@ Do not delete a CA still used by another retained installation.
 
 After trust enrollment, run `python3 vardrsec.py bootstrap --username operator`.
 Enter a passphrase in the terminal; bootstrap is one-time. Log in through the UI,
-then create a dedicated Runner API key in Settings. Supply VARDRMAP_API_KEY through
+then open Settings → Connect Runner → Generate Runner Key. This creates a dedicated
+Runner-only key and displays it once; copy it into your private terminal when
+prompted below. Supply VARDRMAP_API_KEY through
 your shell environment when invoking `python3 vardrsec.py doctor`; do not put the key
 in shell command arguments or an image. Runner mounts only the public CA read-only.
 The initial local user retains the normal organization/ownership permission rules.

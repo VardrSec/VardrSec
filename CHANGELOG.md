@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Exercise first-run Runner key creation through the real Settings UI before
+  authenticated CLI diagnostics and status reporting. Keep its one-time secret
+  out of shared logs/screenshots and clarify the installation guide's key step.
+
 - Rebuild the existing proxy with chi 5.4.0 to remove CVE-2026-114437 from
   the dependency inventory. Caddy version, standard modules and TLS configuration
   remain unchanged; other image-security findings remain under review.

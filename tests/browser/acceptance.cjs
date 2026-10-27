@@ -30,6 +30,23 @@ const assert = require('node:assert/strict');
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Must reject without CSRF'})
   })).status);
   assert.equal(denied, 403);
+  if (process.env.FIXTURE_CREATE_RUNNER_KEY === '1') {
+    await page.locator('nav').getByRole('button', {name:/Settings$/}).click();
+    const generated = page.waitForResponse(r => r.url().endsWith('/auth/apikeys') && r.request().method() === 'POST');
+    await page.getByRole('button', {name:'Generate Runner Key',exact:true}).click();
+    const response = await generated;
+    assert(response.ok(), 'Runner key creation through the UI failed');
+    const key = await response.json();
+    assert(key.scope === 'runner', 'UI must create a runner-scoped key');
+    const displayed = await page.locator('code').filter({hasText:/^vmap_[A-Za-z0-9_-]+$/}).innerText();
+    assert(displayed === key.token, 'The one-time key must be visible to the operator');
+    assert(/^vmap_[A-Za-z0-9_-]{40,}$/.test(displayed), 'Invalid generated key format');
+    await browser.close();
+    // Private IPC only: the parent captures this stdout and never logs it or
+    // writes it to artifacts. Do not add screenshots while the key is visible.
+    console.log(JSON.stringify({token: displayed, id: key.id, scope: key.scope}));
+    return;
+  }
   await page.getByLabel('Engagement name').fill('Compose trusted HTTPS acceptance');
   await page.getByLabel('Engagement type').selectOption('internal');
   await page.getByRole('button', {name:'Create Engagement',exact:true}).click();
