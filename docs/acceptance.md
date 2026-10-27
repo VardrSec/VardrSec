@@ -157,3 +157,13 @@ uses fresh Ubuntu 22.04/24.04 runners; local Windows Docker Desktop evidence is
 recorded separately. Genuine VPN routing, fresh Desktop hosts, headless browsers
 and provider/DNS-dependent modes remain unverified by this fixture. Binary presence
 alone is not mode acceptance.
+
+## Image evidence and release review
+
+The [image evidence collector](image-evidence.md) generates SBOMs and unfiltered
+vulnerability reports for all five development images, with scanner/database,
+image/configuration and report identities recorded. CI validates collection;
+`image_evidence.py check` independently rejects blocking findings or invalid/stale
+evidence. The initial local scan keeps all five image vulnerability gates blocked.
+Unsigned evidence does not establish authenticated provenance, reproducible builds
+or release readiness. Publication remains a separate authorized step.
