@@ -97,6 +97,61 @@ Trixie refresh removes that old package baseline; no global ignore rule was adde
 Binary analysis can narrow symbol presence but cannot prove all runtime paths or
 eliminate reflection/unsafe-analysis limitations. Preserve that uncertainty.
 
+## Proxy dependency follow-up and inventory coverage
+
+The proxy build now selects chi 5.4.0 for
+[CVE-2026-114437](https://github.com/go-chi/chi/security/advisories/GHSA-j6qf-3m9c-vwj3).
+The advisory concerns `ClientIPFromXFF` peer validation; package presence does not
+establish that Caddy invokes that middleware. Retain Caddy 2.11.7, its standard
+module set and the existing proxy/forwarded-header configuration. Local build
+metadata verifies Caddy 2.11.7, Go 1.27.3, x/net 0.60.0 and chi 5.4.0. The standard
+module catalog matches the pinned official Caddy image. The five-image rescan
+reports zero critical/high/medium proxy findings and one unknown, so its strict
+gate remains blocked. Accelerated renewal passed 119 fresh verified handshakes,
+three leaf serials, post-expiry browser trust and CA/key permissions after restart.
+Installed workflow/recovery/update CI must also pass before merge.
+The dated five-image table above remains the earlier checkpoint.
+
+The proxy's remaining unknown `GO-2026-5932` report concerns unmaintained
+[`x/crypto/openpgp`](https://pkg.go.dev/vuln/GO-2026-5932), not every x/crypto API.
+The local binary review finds the module-level advisory with no affected-symbol
+matches. This supports a narrow non-exposure review, not a waiver for every
+x/crypto consumer. There is no fixed x/crypto version listed for it; a broad
+version upgrade is not clearance. The raw report and blocked gate are retained.
+
+Dalfox 3.2.4 is a [Rust rewrite](https://github.com/hahwul/dalfox/blob/v3.2.4/Cargo.toml).
+Its prebuilt binary passes the existing archive/binary integrity checks, but the
+current image report has no Rust dependency inventory for it. The eight Go tool
+reports do not cover Dalfox. Record its exact source/lockfile and assess Rust
+dependencies separately, with an explicit source-to-release-binary provenance
+limit. This coverage gap remains open; absence from a scanner report is not a
+clean result. No managed integrity check is bypassed and no new tool is bundled.
+
+Supplemental review of source tag `v3.2.4`, commit
+`da19527f9c82d8525e911ca3669fc456daeb50f2`, records Cargo.lock SHA256
+`72a57d982859e11ba8a2264cc79f132a507f94d5dd84717c6b41d86db6cd902c`.
+An offline Trivy source scan inventories 335 packages and reports zero findings.
+An independent `cargo-audit` 0.22.2 check against RustSec commit
+`99670cfc0bc574433034b75876a4b791ccaa2efb` exits 1 with **seven advisories and one
+unsoundness warning**, without exclusions. The tool's official release archive
+SHA256 was verified before it ran in a separate capability-free, network-disabled
+container; it is not added to Runner or the platform.
+
+| Lockfile package | Advisory / available patch | Required disposition |
+| --- | --- | --- |
+| rsa 0.9.10 | [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html); no patched version | Source invokes RSA-OAEP private-key decryption in the interactsh poll path. Upstream ignores the advisory based on local short-lived use; that is not automatically our disposition. Review timing exposure and allowed OAST modes. |
+| rustls 0.23.45 | [0346](https://rustsec.org/advisories/RUSTSEC-2026-0346.html), [0347](https://rustsec.org/advisories/RUSTSEC-2026-0347.html), [0348](https://rustsec.org/advisories/RUSTSEC-2026-0348.html), [0349](https://rustsec.org/advisories/RUSTSEC-2026-0349.html); 0.23.46 | Review enabled TLS/debug/ECH/certificate-decompression paths; obtain a verified patched artifact rather than assume unused features. |
+| rustls-webpki 0.103.15 | [RUSTSEC-2026-0382](https://rustsec.org/advisories/RUSTSEC-2026-0382.html); 0.103.16 in this stable line | Review certificate trust exposure and a verified patched artifact. |
+| webpki-root-certs 1.0.9 | [RUSTSEC-2026-0383](https://rustsec.org/advisories/RUSTSEC-2026-0383.html); 1.0.10 | Review bundled-root usage and a verified patched artifact. |
+| tokio 1.53.1 | Unsoundness warning [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386.html); 1.53.3 in this stable line | Review `AsyncFd` I/O-safety exposure and a verified patched artifact; keep distinct from the seven vulnerability advisories. |
+
+The source release workflow does not build with `--locked`; this lockfile review
+cannot establish which dependency versions are embedded in the downloaded
+binary. Preserve the source reports, the separate binary integrity receipt and
+this provenance gap. Do not add source-only Rust counts to the five-image binary
+checkpoint or reinterpret the zero-result Trivy source scan as clearance. The
+RustSec warning also requires disposition before certifying this tool.
+
 ## Failures and complexity observed
 
 A retained Windows development checkout had an unreadable `.pytest_cache`, which

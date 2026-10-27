@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rebuild the existing proxy with chi 5.4.0 to remove CVE-2026-114437 from
+  the dependency inventory. Caddy version, standard modules and TLS configuration
+  remain unchanged; other image-security findings remain under review.
+
 - Record the verified clean Ubuntu first-run and residual security checkpoint;
   align current acceptance with the Linux-first alpha scope. Keep security,
   unfamiliar-user and experimental-platform limits explicit.
