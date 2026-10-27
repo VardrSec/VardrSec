@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Record the exposure review of the remaining libxml2 and ncurses findings: no
+  reachable path demonstrated in the packaged configuration, none accepted as risk,
+  gates unchanged. Documentation only.
+
 - Pin merged Runner #89 (`4fae92f`, squash of reviewed head `0fdb1c2`): container Gau is rebuilt from
   checksum-verified upstream source with four hash-pinned substitutions that enable
   provider TLS verification and make provider failures fatal. Runner CI exercised

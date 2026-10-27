@@ -25,10 +25,21 @@ variants merely to reduce a count.
 | [CVE-2026-9538](https://security-tracker.debian.org/tracker/CVE-2026-9538), Perl Archive::Tar | Attacker-controlled tar entry sizes can exhaust memory; stable updates are postponed pending upstream regressions. | Distribution backup/restore/archive inspection uses Python tarfile, not Perl Archive::Tar. No direct Perl archive caller was identified there. That narrows the reviewed recovery path only; retain the source-package report and assess other callers before a broader disposition. |
 | [CVE-2026-0799](https://security-tracker.debian.org/tracker/CVE-2026-0799), [6554](https://security-tracker.debian.org/tracker/CVE-2026-6554), libpcap | Malicious BPF programs; the latter also describes protochain handling of crafted packets. Debian Trixie remains affected with minor/no-DSA notes. | Runner contains libpcap for existing tools. The bounded fixture tests TCP-connect/CONNECT modes and rejects raw SYN at the ordinary capability-free boundary. It does not certify every tool/job default, capture/filter or raw-packet mode. Keep unresolved pending actual input/caller review or compatible fixed artifacts. |
 
-The ncurses finding and the remaining libxml2 findings still need their specific
-parser/caller analysis; the XML-critical assessment already records PostgreSQL's
-compiled XML support and absence of a dedicated Map XML-query path. Neither a
-vendor's minor priority nor missing public exposure alone establishes safety.
+## libxml2 and ncurses (recounted 2026-10-27, image-evidence run 40571078894)
+
+These are the last Debian advisories without a reviewed condition. They affect only
+the PostgreSQL image (libxml2) or every Debian-based image (ncurses). All are listed
+by the scanner as `affected` with no fixed version in the pinned Trixie suite.
+
+| Finding | What it needs | Packaged-configuration evidence | Disposition |
+| --- | --- | --- | --- |
+| CVE-2026-6653 (critical), 2026-86138/86139/86140/86142/86143/86144 (high): parser, URI, XPointer, XInclude and I/O defects in libxml2 | Attacker-controlled XML parsed by PostgreSQL's compiled-in libxml2, i.e. SQL/XML functions such as `xmlparse`, `xpath`, `xmltable` or `xml` casts applied to untrusted text | The database sits on the `database` Compose network, which is `internal: true`; only the API service joins it, and no port is published. A search of Map's backend source and migrations at the pinned commit finds no use of those SQL/XML functions or XML column types. Reaching the parser would require an attacker who can already run arbitrary SQL, which is a larger compromise than the parser defect | **Open, reachable path not demonstrated.** Not an accepted risk. Re-evaluate whenever Map adds XML handling; a fixed Debian build or a libxml2 rebuild would close it |
+| CVE-2026-74860 (high): libxml2 Python bindings | The Python bindings, which the PostgreSQL image does not load | The finding is reported against the `libxml2` package; PostgreSQL does not use Python bindings for libxml2 | **Open, likely not applicable.** Confirm against a fixed advisory or a package-level check before dismissal |
+| CVE-2025-69720 (high): `infocmp` stack overflow in ncurses | A person or process invoking `infocmp` on a crafted terminfo argument | None of the five images' entry points or services runs `infocmp`; invocation needs an interactive shell or container exec by an operator who already controls the container | **Open, low exposure.** Not an accepted risk |
+
+None of this changes severity counts or opens an exception mechanism. A
+reachable-path claim above rests on configuration and source search, not a runtime
+call graph; the owner must accept or reject any residual item explicitly.
 
 ## Evidence limits
 
