@@ -4,7 +4,6 @@ No Docker, network access, image execution or platform startup is required.
 Run: python -m unittest discover -s tests -p 'test_image_evidence_unit.py'
 """
 
-import copy
 from datetime import datetime, timedelta, timezone
 import unittest
 
