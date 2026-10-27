@@ -1,0 +1,8 @@
+/.env
+/.env.*
+!/.env.example
+/secrets/
+/backups/
+/artifacts/
+__pycache__/
+*.pyc
