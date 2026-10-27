@@ -207,7 +207,10 @@ class ImageEvidenceTests(unittest.TestCase):
                     "reference": evidence.SCANNER,
                     "version": evidence.SCANNER_VERSION,
                 },
-                "database": {"metadata": {"Version": 2, "UpdatedAt": now.isoformat()}},
+                "database": {
+                    "metadata": {"Version": 2, "UpdatedAt": now.isoformat()},
+                    "sha256": "c" * 64,
+                },
                 "images": {},
             }
             for service in evidence.SERVICES:
@@ -216,6 +219,7 @@ class ImageEvidenceTests(unittest.TestCase):
                 receipt["images"][service] = {
                     "id": IMAGE,
                     "config_id": IMAGE,
+                    "archive_sha256": "d" * 64,
                     "summary": {"vulnerability_gate": "clear_at_scan_time"},
                     "sha256": {
                         f"{service}.{suffix}": evidence.sha256(
@@ -231,6 +235,17 @@ class ImageEvidenceTests(unittest.TestCase):
                     for r in evidence.review(folder, now).values()
                 )
             )
+            receipt["database"]["sha256"] = ""
+            evidence.write(folder / "receipt.json", receipt)
+            with self.assertRaisesRegex(ValueError, "database identity"):
+                evidence.review(folder, now)
+            receipt["database"]["sha256"] = "c" * 64
+            receipt["images"]["api"]["archive_sha256"] = ""
+            evidence.write(folder / "receipt.json", receipt)
+            with self.assertRaisesRegex(ValueError, "archive identity"):
+                evidence.review(folder, now)
+            receipt["images"]["api"]["archive_sha256"] = "d" * 64
+            evidence.write(folder / "receipt.json", receipt)
             (folder / "api.vuln.json").write_text("{}", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "hash mismatch"):
                 evidence.review(folder, now)

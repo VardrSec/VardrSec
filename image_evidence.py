@@ -183,10 +183,22 @@ def review(folder, now=None):
         receipt["scanner"].get("version") == SCANNER_VERSION, "Scanner version mismatch"
     )
     check_database(receipt["database"]["metadata"], now)
+    require(
+        re.fullmatch(r"[0-9a-f]{64}", receipt["database"]["sha256"]),
+        "Missing database identity",
+    )
     require(set(receipt["images"]) == SERVICES, "All five service images are required")
     verdicts = {}
     for service in sorted(SERVICES):
         image = receipt["images"][service]
+        require(
+            re.fullmatch(r"sha256:[0-9a-f]{64}", image["id"]),
+            "Missing Docker image identity",
+        )
+        require(
+            re.fullmatch(r"[0-9a-f]{64}", image["archive_sha256"]),
+            "Missing archive identity",
+        )
         for suffix in ("vuln.json", "cdx.json"):
             name = f"{service}.{suffix}"
             require(
@@ -462,6 +474,7 @@ def main():
         ValueError,
         KeyError,
         TypeError,
+        AttributeError,
         OSError,
         subprocess.SubprocessError,
         tarfile.TarError,
