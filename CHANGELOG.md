@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a first-assessment walkthrough to the installation guide (engagement, client and
+  authorization in the UI, review-only drafts, explicit Runner execution, evidence
+  review) and record the UI-only researcher workflow verification in the plan.
+  Documentation only.
+
 - Installed workflow acceptance no longer seeds client, testing window, scope or
   written authorization through the API: the real browser journey records them
   through the Map interface (merged Map #119, `6ea3792`) and the test then
