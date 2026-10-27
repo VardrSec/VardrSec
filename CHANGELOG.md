@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Improve first-run prerequisite errors and safe retry of an interrupted initial
+  source fetch; preserve existing configuration and changed checkouts. Expose the
+  existing generated-password bootstrap mode and display the public CA fingerprint.
+  Verify genuinely clean Ubuntu setup, explicit native CA enrollment/removal and
+  CLI bootstrap in the installed acceptance job. No automatic trust or routing changes.
+
 - Adopt the owner's Linux-first Community Alpha stabilization priorities and
   refresh proxy OS packages during the development image build. Remaining image
   vulnerability findings still require review; no release is published.

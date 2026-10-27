@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import ssl
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 
@@ -28,17 +29,18 @@ def compose(*args, **kwargs):
 
 def main():
     # Explicitly scoped disposable data; never run bootstrap against the default project.
-    bootstrap = compose(
-        "exec",
-        "-T",
-        "api",
-        "python",
-        "-m",
-        "local_accounts",
-        "init",
-        "--username",
-        "operator",
-        "--generate-password",
+    bootstrap = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "vardrsec.py"),
+            "bootstrap",
+            "--username",
+            "operator",
+            "--generate-password",
+        ],
+        cwd=ROOT,
+        env={**os.environ, "COMPOSE_PROJECT_NAME": PROJECT},
+        check=True,
         capture_output=True,
         text=True,
     )
@@ -77,16 +79,10 @@ def main():
         csrf,
     )["token"]
     env = {**os.environ, "VARDRMAP_API_KEY": key}
-    result = compose(
-        "run",
-        "--rm",
-        "--no-deps",
-        "runner",
-        "doctor",
-        "--platform",
-        "--offline",
-        "--json",
-        env=env,
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "vardrsec.py"), "doctor"],
+        cwd=ROOT,
+        env={**env, "COMPOSE_PROJECT_NAME": PROJECT},
         capture_output=True,
         text=True,
         check=False,
