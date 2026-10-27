@@ -4,9 +4,12 @@
 
 - Installed workflow acceptance no longer seeds client, testing window, scope or
   written authorization through the API: the real browser journey records them
-  through the Map interface (Map #119, pinned at its reviewed head) and the test
-  then verifies what the backend holds. Re-pin to the merged Map commit before
-  merging this change.
+  through the Map interface (merged Map #119, `6ea3792`) and the test then
+  verifies what the backend holds.
+
+- Add networking and VPN guidance: when to use the native Runner, what is verified,
+  and what remains unverified (genuine VPN routing, split tunnelling, kill switch).
+  Documentation only; no host network, firewall or VPN behavior changes.
 
 - Pin merged Runner #89 (`4fae92f`, squash of reviewed head `0fdb1c2`): container Gau is rebuilt from
   checksum-verified upstream source with four hash-pinned substitutions that enable
