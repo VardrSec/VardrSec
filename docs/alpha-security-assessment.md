@@ -19,34 +19,73 @@ remains in progress pending residual affected-status/exposure review and fixes.
   the existing file-capability boundary are preserved. This follows Caddy's
   [documented source-build approach](https://caddyserver.com/docs/build).
 
-Local checkpoints reduced critical scanner occurrences from 13 to 7, and high
-occurrences from 518 to 460 after the Map/Runner/OS refresh. The subsequent proxy
-rebuild review scan reports zero critical/high occurrences, removing five more
-high occurrences. These are package/path occurrences, not unique advisories or
-confirmed exploit paths. Source-pinned CI receipts are the candidate evidence;
-the local checkpoints do not establish release readiness.
+The [post-merge collection run](https://github.com/VardrSec/VardrSec/actions/runs/40488109681)
+at distribution commit `695ab39d97b3eea35fa9739311ef43d65b1ad700` records a clean
+source tree, all five images and the declared Map/Runner/Gate pins. Independent
+review verified every input against its Git blob, every report hash and the
+recomputed severity counts. The strict check exits 1, as expected:
+
+| Image | Critical | High | Unknown | Critical/high with a published fixed version |
+| --- | ---: | ---: | ---: | ---: |
+| API | 0 | 44 | 1 | 0 |
+| PostgreSQL | 2 | 86 | 5 | 26 |
+| Proxy | 0 | 0 | 1 | 0 |
+| Runner | 5 | 282 | 9 | 241 |
+| Web | 0 | 43 | 1 | 0 |
+
+Critical/high package/path occurrences fell from 13/518 to **7/455**, covering 81
+distinct critical/high advisories. These are scanner occurrences, not confirmed
+exploit paths. All image gates remain blocked, including the proxy because of its
+unknown finding. CI artifacts expire after seven days; retain reviewed receipts
+privately or recollect, and never use this dated table as current clearance.
 
 Runtime probes verified API SQLite 3.46.1, non-root Map users and absence of runtime
 npm. Frontend lint/typecheck, 212 tests and production build passed; Runner's full
 suite/static checks and the real bounded tool/network fixture passed. Proxy leaf
-renewal/restart retained CA hashes and key permissions. Installed/recovery/update
-CI must verify the combined image set before this distribution change merges.
+renewal/restart retained CA hashes and key permissions. Combined installation,
+recovery/update, tool/network and certificate checks passed before and after
+distribution #14 merged. [Setup #15](https://github.com/VardrSec/VardrSec/pull/15)
+also passed the clean Ubuntu/native-trust and installed workflow before merging.
 
 ## Residual critical findings
 
 | Finding / location | Current assessment and required action |
 | --- | --- |
-| CVE-2025-68121 in dnsx, gau and Naabu Go runtimes | The released binaries remain old; these tools are already on their latest upstream releases. The [Go advisory](https://pkg.go.dev/vuln/GO-2026-4337) concerns TLS session resumption after CA configuration mutation. Review binary symbols and actual client configuration, then use verified patched artifacts/rebuilds where exposed. Version presence alone does not establish exploitability or clearance. |
-| CVE-2025-68121 in PostgreSQL's gosu helper | A privilege-switch helper is not a TLS service. Binary-symbol evidence is needed before a scoped affected-status disposition; do not change PostgreSQL base variant, data ownership or collation merely to change a scanner count. Raw reporting remains intact. |
-| CVE-2026-33815 / CVE-2026-33816 in Katana's pgx dependency | The [Go report](https://pkg.go.dev/vuln/GO-2026-4772) identifies server-protocol decoding symbols and a fixed dependency version. Determine whether those symbols occur in the actual crawler binary and review [upstream context](https://github.com/jackc/pgx/issues/2530). No finding is accepted or hidden by this checkpoint. |
-| CVE-2026-6653 in PostgreSQL libxml2 | [Debian](https://security-tracker.debian.org/tracker/CVE-2026-6653) retains affected stable packages with vendor priority notes. Review PostgreSQL XML-feature/input exposure and available vendor updates; do not mix packages from another Debian release. This remains unresolved. |
+| CVE-2025-68121 in dnsx, gau and Naabu Go runtimes | The released binaries remain old; these tools were already on their latest upstream releases at review time. Binary review found affected `crypto/tls` handshake/read/write symbols. The [Go advisory](https://pkg.go.dev/vuln/GO-2026-4337) additionally requires session resumption and CA-configuration mutation; symbol presence alone does not prove that runtime condition. Keep these unresolved pending verified patches/rebuilds or a supported source/exposure disposition. |
+| CVE-2025-68121 in PostgreSQL's gosu helper | Binary review found the advisory but no affected TLS symbols in the actual helper. Its embedded metadata identifies gosu 1.19 / Go 1.24.6. The small [1.19 source](https://github.com/tianon/gosu/tree/6456aaa0f3c854d199d0f037f068eb97515b7513) switches user and executes a command; it imports no TLS client/server. This supports a scoped non-exposure assessment for this helper, consistent with [upstream's policy](https://github.com/tianon/gosu/blob/1.20/SECURITY.md). It is not a global Go waiver or database clearance; retain the raw finding and review the disposition before release. |
+| CVE-2026-33815 / CVE-2026-33816 in Katana's pgx dependency | Binary review found `pgproto3.Backend.Receive`, `Bind.Decode` and `FunctionCall.Decode` symbols. The [Go reports](https://pkg.go.dev/vuln/GO-2026-4771) [identify](https://pkg.go.dev/vuln/GO-2026-4772) fixed pgx 5.9.0. Katana 1.8.0's own Go source has no direct pgx import, but that does not prove transitive paths unreachable. Keep both unresolved; review [upstream context](https://github.com/jackc/pgx/issues/2530), transitive callers and verified patched artifacts. |
+| CVE-2026-6653 in PostgreSQL libxml2 | [Debian](https://security-tracker.debian.org/tracker/CVE-2026-6653) retains affected stable packages with vendor priority notes. The pinned PostgreSQL binary is built `--with-libxml`; [SQL XML input](https://www.postgresql.org/docs/18/datatype-xml.html) can invoke that parser. Reviewed Map models/routes contain no XML columns or XML parsing query, and the database has no published port. These narrow ordinary web exposure, but SQL access, injection or future XML features remain relevant. Keep unresolved; no cross-release package mixing or accepted-risk waiver. |
+
+The separate local review used `govulncheck@v1.9.0` in binary/symbol mode, recorded
+image identities and binary SHA256 values, and did not execute the analyzed
+binaries. JSON mode exits zero even with findings; findings were parsed explicitly.
+All eight bundled Go tools and gosu were reviewed. Comparison with this Trivy
+checkpoint found no affected-symbol matches for its 26 gosu critical/high
+occurrences. Many tool findings did match symbols, while some Trivy advisories
+could not be mapped to the separate Go dataset; those cannot be cleared by it.
+Symbol presence is not proof of a reachable call path; absent matches also need
+source and advisory coverage review. See the tool's [documented limitations](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck).
+
+It also identified `github.com/moby/sys/user` 0.1.0 parsing symbols in gosu for
+[CVE-2026-61801](https://github.com/moby/sys/security/advisories/GHSA-mjcv-p78q-w5fw).
+This needs attacker-controlled passwd/group input. The distribution does not
+mount those files or accept user-provided images into that helper. Upstream
+[gosu 1.20](https://github.com/tianon/gosu/releases/tag/1.20) fixes the dependency,
+while deliberately retaining Go 1.24.6; upgrading it alone would not remove the
+version-based TLS report. Track a verified vendor image update rather than
+changing PostgreSQL variant, ownership or collation just to change a count.
 
 ## Remaining high findings and review boundaries
 
-The refreshed API/web high findings have no fixed-version entries in the current
-scanner database. Preserve vendor package status and investigate plausible input
-paths; lack of a packaged fix is not a disposition. Runner retains numerous
-findings in bundled Go runtimes/dependencies, many with published fixed versions.
+All remaining API/web high occurrences are Debian packages with no fixed-version
+entry in this database. The same is true for 62 critical/high PostgreSQL OS
+occurrences and 46 Runner OS occurrences. Preserve vendor package status and
+investigate plausible input paths; lack of a packaged fix is not a disposition.
+The other 26 PostgreSQL critical/high occurrences belong to gosu's embedded Go
+runtime. Runner's other 241 belong to the eight bundled Go tools; each has a
+fixed-version entry, which does not imply an upstream tool release already
+contains it. The tools process target-controlled responses, so default isolation
+and explicit invocation do not by themselves clear parser/client findings.
 Prioritize verified upstream patches and symbol/exposure assessment. Full SBOMs,
 package paths, installed/fixed versions, source URLs and counts remain available
 in the unfiltered [image evidence](image-evidence.md) artifacts.

@@ -60,7 +60,7 @@ VPN settings; this fixture changes neither host routes nor Docker settings.
 | --- | --- |
 | Fresh Ubuntu 22.04/24.04 Linux Engine | Automated synthetic tool/network checks in CI; full installed workflow remains a separate job. |
 | Existing Windows Docker Desktop, Linux containers | Local synthetic tool/network check; no fresh-host claim. |
-| Fresh Windows/macOS Docker Desktop | Not established; retain as a release gate. |
+| Fresh Windows/macOS Docker Desktop | Not established; experimental until verified. Does not block a Linux-only alpha. |
 | Genuine host or container VPN | Not tested. |
 | Headless browser tools | Browser not provisioned by this toolkit; never inferred healthy from binary presence. |
 | subfinder, gau, dnsx, dalfox and provider/DNS-dependent modes | Inventory only; no execution or provider credential claim. |

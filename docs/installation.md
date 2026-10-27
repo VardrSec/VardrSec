@@ -10,12 +10,17 @@ contexts, Python 3.10+, Git and access to the pinned component sources. Start
 from a private local directory, outside shared/synchronized folders. Docker
 administrators can read container environment variables and persistent volumes.
 
-Check `python --version`, `git --version`, `docker info` and
+Check `python3 --version`, `git --version`, `docker info` and
 `docker compose version`. Docker must be running and accessible to your account.
 `build` checks Compose's feature floor and Linux container mode before starting.
 Use Docker's [Ubuntu installation instructions](https://docs.docker.com/engine/install/ubuntu/)
 if prerequisites are missing. No command changes Docker access, host routes or
 firewall/VPN settings automatically.
+
+Commands below use Ubuntu's `python3`; no optional `python` alias is required.
+On Windows, use the installed Python 3 launcher (`py -3` or `python`) instead.
+Install missing Python/Git prerequisites before cloning; the distribution does
+not provision operating-system packages.
 
 Get only the distribution checkout; source acquisition below prepares its pinned
 components for you:
@@ -28,11 +33,11 @@ cd vardrsec
 For a new installation:
 
 ```sh
-python vardrsec.py configure
-python vardrsec.py sources
-python vardrsec.py build
-python vardrsec.py start
-python vardrsec.py export-ca
+python3 vardrsec.py configure
+python3 vardrsec.py sources
+python3 vardrsec.py build
+python3 vardrsec.py start
+python3 vardrsec.py export-ca
 ```
 
 Configuration creates fresh random database and signing secrets without displaying
@@ -136,15 +141,15 @@ Do not delete a CA still used by another retained installation.
 
 ## Bootstrap and diagnostics
 
-After trust enrollment, run `python vardrsec.py bootstrap --username operator`.
+After trust enrollment, run `python3 vardrsec.py bootstrap --username operator`.
 Enter a passphrase in the terminal; bootstrap is one-time. Log in through the UI,
 then create a dedicated Runner API key in Settings. Supply VARDRMAP_API_KEY through
-your shell environment when invoking `python vardrsec.py doctor`; do not put the key
+your shell environment when invoking `python3 vardrsec.py doctor`; do not put the key
 in shell command arguments or an image. Runner mounts only the public CA read-only.
 The initial local user retains the normal organization/ownership permission rules.
 
 Alternatively, in a private terminal, generate a secure password instead of typing
-one: `python vardrsec.py bootstrap --username operator --generate-password`.
+one: `python3 vardrsec.py bootstrap --username operator --generate-password`.
 Store the displayed password securely; it is shown once. Do not record terminal
 output containing it in shared logs. The default bootstrap remains interactive.
 
@@ -155,7 +160,7 @@ command arguments, then invoke the existing diagnostics and one-shot report:
 read -rsp 'Runner API key: ' VARDRMAP_API_KEY
 export VARDRMAP_API_KEY
 echo
-python vardrsec.py doctor
+python3 vardrsec.py doctor
 docker compose run --rm --no-deps runner heartbeat
 ```
 
@@ -182,7 +187,7 @@ tools and host/VPN target reachability before explicitly invoking `jobs run`.
 The [tool/network fixture](tool-network-acceptance.md) documents selected modes,
 synthetic private-namespace/host checks and the remaining real-VPN/Desktop gates.
 
-`python vardrsec.py stop` stops services and retains all volumes. `start` reuses
+`python3 vardrsec.py stop` stops services and retains all volumes. `start` reuses
 them. Never use `down --volumes` on a retained installation. No command starts scans.
 
 ## Updates and recovery boundary
@@ -200,6 +205,9 @@ Use the [backup and restore commands](recovery.md) to create a portable snapshot
 and verify it in a separate installation before any controlled upgrade. Restored
 applications remain stopped until credential review and explicit startup.
 
-Fresh-host Windows/macOS/Linux browser trust, certificate renewal over time,
-tool/network capability coverage and upgrade/restore acceptance remain release
-gates. See [acceptance](acceptance.md). No image or release is published here.
+The [current checkpoint](alpha-checkpoint-2026-10-27.md) separates passed clean
+Ubuntu installation/recovery checks from security and unfamiliar-user work still
+open. Windows/macOS remain experimental; their fresh Desktop acceptance does not
+block a Linux-only alpha. Certificate lifetime coverage, broader tool/network
+modes and real VPN remain explicit limitations in [acceptance](acceptance.md).
+No image or release is published here.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Record the verified clean Ubuntu first-run and residual security checkpoint;
+  align current acceptance with the Linux-first alpha scope. Keep security,
+  unfamiliar-user and experimental-platform limits explicit.
+
 - Improve first-run prerequisite errors and safe retry of an interrupted initial
   source fetch; preserve existing configuration and changed checkouts. Expose the
   existing generated-password bootstrap mode and display the public CA fingerprint.
