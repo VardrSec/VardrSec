@@ -42,7 +42,7 @@ jobs:
           echo "$GOBIN" >> "$GITHUB_PATH"
       - run: python -m unittest discover -s tests -p 'test_*.py'
   installation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -65,6 +65,8 @@ jobs:
           mkdir -p "$GOBIN"
           go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
           echo "$GOBIN" >> "$GITHUB_PATH"
+      - name: Verify genuinely clean Ubuntu installation host
+        run: python tests/ubuntu_installation.py preflight
       - name: Prepare pinned source build
         run: |
           python vardrsec.py configure
@@ -78,7 +80,11 @@ jobs:
         run: |
           python vardrsec.py start
           python vardrsec.py export-ca
+          python tests/ubuntu_installation.py enroll
           python tests/compose_acceptance.py
+      - name: Remove only the disposable Ubuntu installation CA
+        if: always()
+        run: python tests/ubuntu_installation.py cleanup
       - name: Preserve installed workflow receipts and browser evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
