@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Raise the proxy's x/net to 0.62.0 (GO-2026-6860 and GO-2026-6866, both reported reachable
+  in the built Caddy by `govulncheck`) and the PostgreSQL image's gosu `moby/sys/user` to
+  0.4.1 (GO-2026-6686, reachable). `govulncheck` reports nothing for either rebuilt binary.
+  These advisories postdate the frozen image-scan database.
+
 - Record the recounted image baseline after the Runner #91/#92 pin: 1 critical / 194 high,
   none with a published fixed version; all strict gates remain blocked and nothing is
   accepted as risk.

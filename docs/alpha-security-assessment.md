@@ -211,3 +211,44 @@ the implementation path. Further installer layers, general exception frameworks
 or broad application refactors are unnecessary for this checkpoint. The next
 work is residual security review followed by the phase-1 clean Ubuntu/setup
 tasks; release publication remains a separate reviewed action.
+
+## Reachability coverage (`govulncheck`), 2026-10-27
+
+The image scanner uses a database frozen at collection time, so newer advisories are
+invisible to it. Go's `govulncheck -mode=binary` (live database, symbol-level
+reachability) was run against locally built binaries using the exact recipes and the
+Go 1.27.3 toolchain:
+
+| Binary | Result before | Action | Result after |
+| --- | --- | --- | --- |
+| Gate (pinned `af29a93`) | none | none | none; two clean builds are byte-identical |
+| Caddy proxy | GO-2026-6860, GO-2026-6866 (x/net 0.60.0) | x/net 0.62.0 | none |
+| gosu (PostgreSQL image) | GO-2026-6686 (moby/sys/user 0.1.0) | moby/sys/user 0.4.1 | none |
+| FFUF, Gau | GO-2026-6860 (FFUF) | x/net 0.62.0 | none |
+| httpx, Subfinder, Katana, DNSx | GO-2026-5320 goldmark (and x/net) | goldmark 1.7.17, x/net 0.62.0 | none |
+| Nuclei | GO-2026-6860, GO-2026-5932 | x/net 0.62.0 etc. | GO-2026-5932 only (x/crypto/openpgp unmaintained, no fixed version) |
+| Naabu | not scanned (needs CGO/libpcap) | same dependency set patched | unverified |
+
+## Coverage gap: Dalfox
+
+Dalfox 3.2.4 (the latest release) is a Rust program. The image scanner reports no
+target for it because the release binary carries no `cargo-auditable` data, so the
+zero Dalfox findings in the image reports mean **not scanned**, not clean. A manual
+assessment used the upstream `Cargo.lock` at the v3.2.4 tag (337 packages) against the
+OSV database:
+
+- No critical or high advisory. Six packages have advisories: `rustls` 0.23.45 (four,
+  moderate/low, fixed in 0.23.46), `rustls-webpki` 0.103.15 (distrusted intermediates,
+  fixed in 0.103.16), `tokio` 1.53.1 (I/O safety, fixed in 1.53.3), `rsa` 0.9.10
+  (Marvin timing side channel, no fix; Dalfox links it directly), and `block-buffer` and
+  `webpki-root-certs`, which are in the lock file but not embedded in the shipped binary.
+- Rebuilding Dalfox from source with updated crates would need a Rust build stage, which
+  is outside the stabilization scope. The `rustls` advisories matter when Dalfox connects
+  to a hostile HTTPS target; the others have little exposure.
+- Disposition: **open, moderate/low, not blocking**; record in the release notes and
+  re-check on the next Dalfox release.
+
+Other scanner coverage: Debian/Alpine packages, Python and Node packages (176 npm
+packages, no advisories) and nine Go binaries are covered. Three UNKNOWN-severity Debian
+or Go entries remain unclassified by their vendors (perl `Pod::Text`, x/sys Windows-only
+code in gosu, and the unmaintained openpgp package).
