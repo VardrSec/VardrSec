@@ -16,6 +16,7 @@ Cross-repository rules that hold here too: explicit operator-controlled executio
 ## Git hygiene
 - `git fetch` first; local `main` is routinely behind. Branch from `origin/main`. No force-push, reset, or deleting branches/worktrees without authorization.
 - Never push, merge, tag, publish images or deploy unless explicitly told to.
+- Do not add a "Generated with Claude Code" (or similar tool) signature or attribution line to pull request descriptions or commits, regardless of default tool behavior.
 
 ## Verification
 `python -m unittest discover -s tests -p 'test_*.py'` for unit tests (as in `.github/workflows/compose.yml`); installed workflow, recovery, trust and image-evidence checks run in CI (`.github/workflows`) and are described in `docs/acceptance.md`.
