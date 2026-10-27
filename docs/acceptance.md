@@ -1,5 +1,11 @@
 # Distribution acceptance plan
 
+Current direction: the [Community Alpha plan](community-alpha.md) targets Ubuntu
+24.04 Linux/amd64 first. The [2026-10-27 checkpoint](alpha-checkpoint-2026-10-27.md)
+records the clean installation and remaining gates. Windows/macOS stay experimental
+until their own full acceptance passes; incomplete Desktop support alone does not
+block a Linux-only alpha. Older dated observations below remain historical evidence.
+
 The first source-level slice is merged in Map #110 and Runner #82. The refreshed
 Map integration includes local authentication; 1,136 backend tests passed locally
 and all PR checks passed, including PostgreSQL and the real three-component loop.
@@ -25,8 +31,8 @@ not a distribution installation or hosted deployment verification.
 
 Before a runnable alpha, require:
 
-- One distribution download installs the pinned components without three source
-  checkouts and starts the local UI/API/database with explicit secret setup.
+- One distribution checkout prepares the pinned components without manual
+  component checkouts and starts the local UI/API/database with explicit secret setup.
 - Local login works without required VardrSec hosting or an external provider;
   existing hosted login and tenant/authorization controls remain supported.
 - Trusted HTTPS works on a fresh supported machine and clean browser profile,
@@ -47,8 +53,9 @@ Before a runnable alpha, require:
 - Stop/start preserves engagement data, Runner state and evidence. Backup restores
   into a fresh installation with evidence hashes and access intact.
 - An upgrade and a failed upgrade have tested migration/recovery behavior.
-- Test supported Linux/macOS/Windows environments, resource use, host-local/VPN
-  target reachability and declared outbound traffic. Measure time to the first
+- Test the declared supported Ubuntu environment, resource use, host-local/private
+  target reachability and declared outbound traffic. Record genuine VPN and
+  Windows/macOS limitations explicitly. Measure time to the first
   correct reviewed authorization test and assistance required.
 
 Map's self-signed HTTPS browser fixture tests authentication and session behavior;
