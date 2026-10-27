@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Align the existing age acceptance-tool builds with reviewed Go 1.27.3 and
+  disable implicit compiler downloads. Keep age v1.3.2, backup format and
+  application images unchanged; verify the existing encryption/recovery cases.
+
 - Record partial Debian vulnerability exposure review with vendor conditions,
   split-package context and bounded local file probes. Retain all blocked image
   findings and the need for reviewed per-finding dispositions.
