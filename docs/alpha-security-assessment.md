@@ -13,13 +13,30 @@ remains in progress pending residual affected-status/exposure review and fixes.
 - [Runner #85](https://github.com/VardrSec/VardrRunner/pull/85) pins its Python/Trixie
   base and patched Go 1.27.3 Gate builder, and verifies the five official Subfinder
   2.17.0 archives before updating that existing tool pin.
+- [Runner #86](https://github.com/VardrSec/VardrRunner/pull/86) builds the existing
+  Katana 1.8.0 command with Go 1.27.3, pgx 5.9.2, x/net 0.60.0 and compress
+  1.18.7. Its image receipt records source/module checksums, compiler, binary hash
+  and retained build records without claiming an upstream archive checksum.
+  Runtime hash verification remains mandatory. All nine tools and native archive
+  pins remain; this development remediation does not decide alpha shipping scope.
 - The proxy retains Caddy 2.11.7, rebuilt with pinned Go 1.27.3 and x/net 0.60.0;
   its Alpine packages are refreshed. The small standard-module entry point keeps
   Caddy version metadata available. TLS configuration, installed CA storage and
   the existing file-capability boundary are preserved. This follows Caddy's
   [documented source-build approach](https://caddyserver.com/docs/build).
 
-The [post-merge collection run](https://github.com/VardrSec/VardrSec/actions/runs/40488109681)
+The baseline below predates Runner #86. Its separate local toolkit review used
+the same frozen 2026-10-27 database and recomputed **3 critical / 254 high**
+occurrences, down from 5/282. Katana's actual Go-binary record has zero critical,
+high, medium or low findings and one unknown OpenPGP finding. The 208 high
+occurrences with a published fixed version are a subset of 254, not the total.
+These local results cover that review image only; use the matching source-pinned
+distribution CI receipts for combined evidence. The complete Runner suite passed
+1,580 tests with 96.48% coverage, and its seven-host/runtime CI matrix, real image
+integrity/state checks and bounded synthetic tool/network checks passed. Existing
+vulnerability gates remain blocked and broader mode/VPN acceptance remains open.
+
+The earlier [post-merge collection run](https://github.com/VardrSec/VardrSec/actions/runs/40488109681)
 at distribution commit `695ab39d97b3eea35fa9739311ef43d65b1ad700` records a clean
 source tree, all five images and the declared Map/Runner/Gate pins. Independent
 review verified every input against its Git blob, every report hash and the
@@ -53,7 +70,7 @@ also passed the clean Ubuntu/native-trust and installed workflow before merging.
 | --- | --- |
 | CVE-2025-68121 in dnsx, gau and Naabu Go runtimes | The released binaries remain old; these tools were already on their latest upstream releases at review time. Binary review found affected `crypto/tls` handshake/read/write symbols. The [Go advisory](https://pkg.go.dev/vuln/GO-2026-4337) additionally requires session resumption and CA-configuration mutation; symbol presence alone does not prove that runtime condition. Keep these unresolved pending verified patches/rebuilds or a supported source/exposure disposition. |
 | CVE-2025-68121 in PostgreSQL's gosu helper | Binary review found the advisory but no affected TLS symbols in the actual helper. Its embedded metadata identifies gosu 1.19 / Go 1.24.6. The small [1.19 source](https://github.com/tianon/gosu/tree/6456aaa0f3c854d199d0f037f068eb97515b7513) switches user and executes a command; it imports no TLS client/server. This supports a scoped non-exposure assessment for this helper, consistent with [upstream's policy](https://github.com/tianon/gosu/blob/1.20/SECURITY.md). It is not a global Go waiver or database clearance; retain the raw finding and review the disposition before release. |
-| CVE-2026-33815 / CVE-2026-33816 in Katana's pgx dependency | Binary review found `pgproto3.Backend.Receive`, `Bind.Decode` and `FunctionCall.Decode` symbols. The [Go reports](https://pkg.go.dev/vuln/GO-2026-4771) [identify](https://pkg.go.dev/vuln/GO-2026-4772) fixed pgx 5.9.0. Katana 1.8.0's own Go source has no direct pgx import, but that does not prove transitive paths unreachable. Keep both unresolved; review [upstream context](https://github.com/jackc/pgx/issues/2530), transitive callers and verified patched artifacts. |
+| CVE-2026-33815 / CVE-2026-33816 in the former Katana archive's pgx dependency | The original binary contained affected protocol decoder symbols; no non-exposure waiver was used. The [Go reports](https://pkg.go.dev/vuln/GO-2026-4771) [identify](https://pkg.go.dev/vuln/GO-2026-4772) fixed pgx 5.9.0. Runner #86 selects 5.9.2 in its recorded source build; both findings are absent from that review binary's raw scan. Retain the old evidence and revalidate the pinned combined image; native upstream archive installation remains unchanged. |
 | CVE-2026-6653 in PostgreSQL libxml2 | [Debian](https://security-tracker.debian.org/tracker/CVE-2026-6653) retains affected stable packages with vendor priority notes. The pinned PostgreSQL binary is built `--with-libxml`; [SQL XML input](https://www.postgresql.org/docs/18/datatype-xml.html) can invoke that parser. Reviewed Map models/routes contain no XML columns or XML parsing query, and the database has no published port. These narrow ordinary web exposure, but SQL access, injection or future XML features remain relevant. Keep unresolved; no cross-release package mixing or accepted-risk waiver. |
 
 The separate local review used `govulncheck@v1.9.0` in binary/symbol mode, recorded
