@@ -119,3 +119,8 @@ requires the trusted browser to show migrated-database readiness and recent Runn
 contact in Settings. Its CI result establishes that integrated snapshot separately
 from Map's disposable self-signed authentication/browser fixture. No scan or
 background Runner worker is started.
+
+The pin also includes [bounded refresh #115](https://github.com/VardrSec/VardrMap/pull/115),
+which enforces the deadline across authentication and body reads, enables retry
+after timeout and refuses late success. The existing role/authentication and
+heartbeat write contracts are unchanged.

@@ -43,6 +43,7 @@ platform check; ordinary doctor calls remain supported.
    enrollment, one-time administrator bootstrap and Runner diagnostics. Start/stop
    preserve volumes; platform startup executes no scans.
 3. Map [status presentation #114](https://github.com/VardrSec/VardrMap/pull/114)
+   and [bounded refresh #115](https://github.com/VardrSec/VardrMap/pull/115)
    displays readiness and timestamped Runner reports, including stale/unknown/
    unreachable states. Its matching source pin and trusted Compose status check
    are included here; full doctor reports and release compatibility remain separate.
