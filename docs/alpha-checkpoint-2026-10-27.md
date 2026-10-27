@@ -4,6 +4,11 @@ Development evidence only. No alpha, images or deployment is published. The
 [stabilization plan](community-alpha.md) controls work order; this checkpoint
 records tasks 1–3 without claiming an unfamiliar-user exercise has occurred.
 
+> **Update (post-#24):** the latest recounted combined baseline is **2 critical / 313 high**
+> (Runner 0/140); see the status table in [community-alpha.md](community-alpha.md). The
+> security figures below are retained as the dated record and are superseded. Gate status is unchanged:
+> all strict image gates remain blocked.
+
 ## Security review
 
 Latest completed combined review: distribution #22 merged Runner #87 after all
