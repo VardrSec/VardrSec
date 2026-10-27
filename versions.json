@@ -7,8 +7,8 @@
   "components": {
     "map": {
       "repository": "VardrSec/VardrMap",
-      "commit": "c1527719126bd867518f19c3dfeda99c76977e04",
-      "review": "https://github.com/VardrSec/VardrMap/pull/117",
+      "commit": "6ea3792614d471058818ab1f59fb3ebd1466274d",
+      "review": "https://github.com/VardrSec/VardrMap/pull/119",
       "readiness_contract": 1
     },
     "runner": {
