@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Record the recounted image baseline after the Runner #91/#92 pin: 1 critical / 194 high,
+  none with a published fixed version; all strict gates remain blocked and nothing is
+  accepted as risk.
+
+- Add a first-assessment walkthrough to the installation guide (engagement, client and
+  authorization in the UI, review-only drafts, explicit Runner execution, evidence
+  review) and record the UI-only researcher workflow verification in the plan.
+  Documentation only.
+
 - Pin merged Runner #91 and #92 (`bbe2850`): container httpx 1.12.0, Subfinder 2.17.0, FFUF 2.3.0
   and Nuclei 3.11.1 are rebuilt from recorded source with Go 1.27.3 and patched dependencies, extending the
   Katana/DNSx/Naabu/Gau contract. Native archives and runtime hash checks are unchanged.

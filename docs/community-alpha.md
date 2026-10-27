@@ -32,18 +32,22 @@ Priorities map onto the table above; they do not add tasks. Operational state
 | Priority | Table task | Status |
 | --- | --- | --- |
 | P0 release-blocking security | 1 | Open. Container Gau provider TLS verification is fixed in Runner #89 and pinned by distribution #24, with Runner CI fixtures and the installed workflow passing; the native archive keeps the defect and Gau's alpha scope is undecided ([review](gau-tls-review.md)). Image gates all blocked. |
-| P0 complete researcher workflow | 4 | Open. The installed fixture still seeds client, scope and authorization through the authenticated API; the UI-only journey is not yet validated. |
+| P0 complete researcher workflow | 4 | UI path verified in CI: the installed workflow now creates the client, testing window, scope and authorization through the Map interface (Map #119, VardrSec #26), then runs the reviewed Gate cases, confirms a finding and exports reports. Target/identity fixtures and Runner key issuance remain scripted by design; the unfamiliar-user exercise is still open. |
 | P1 first-user experience | 2, 3, 9 | Automated clean-Ubuntu install passes; no unfamiliar-user exercise has occurred. |
 | P1 networking | 5, 6, 7 | Synthetic host/private tests pass; genuine VPN unverified. Reliability drills pass and are reused for the candidate. |
 | P2 release preparation | 8 | Not started; follows security and acceptance review. |
 
-Image scan figures at the `versions.json` pins after distribution #24 (collection
-run 40571078894 on the tested merge, raw Trivy reports recounted 2026-10-27):
-**2 critical / 313 high** occurrences across five images (API 0/44, PostgreSQL 2/86,
-Proxy 0/0, Runner 0/140, Web 0/43), plus 15 unknown (previously 3/351 at `19b001c`). These are scanner occurrences, not confirmed exploit
-paths, and all strict gates remain blocked. The totals in
-[alpha-security-assessment.md](alpha-security-assessment.md) and the
-[checkpoint](alpha-checkpoint-2026-10-27.md) are earlier dated snapshots.
+Image scan figures at the `versions.json` pins after distribution #30 (collection
+run 40595602465 on the tested head `666bfd0`, raw Trivy reports recounted 2026-10-27):
+**1 critical / 194 high** occurrences across five images (API 0/44, PostgreSQL 1/61,
+Proxy 0/0, Runner 0/46, Web 0/43), plus 15 unknown. This is down from 3/351 at
+`19b001c`. **No critical or high occurrence has a published fixed version any more**;
+what remains is Debian packages without fixes in the pinned suite (util-linux, libxml2,
+GnuPG, perl, libacl, systemd, ncurses, libpcap), reviewed in the
+[exposure review](alpha-os-exposure.md) with no reachable path demonstrated. These are
+scanner occurrences, not confirmed exploit paths, and all strict gates remain blocked.
+Earlier totals in [alpha-security-assessment.md](alpha-security-assessment.md) and the
+[checkpoint](alpha-checkpoint-2026-10-27.md) are dated snapshots.
 Nothing is an accepted risk; no exception has been authorized.
 
 Group tasks only when sharing an acceptance environment helps; keep changes

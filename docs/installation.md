@@ -193,6 +193,43 @@ See [networking and VPN guidance](networking.md) for choosing native or containe
 `python3 vardrsec.py stop` stops services and retains all volumes. `start` reuses
 them. Never use `down --volumes` on a retained installation. No command starts scans.
 
+## First assessment walkthrough
+
+Use only a target you own or are explicitly authorized to test. Everything below
+except the last step happens in the browser at `https://localhost:8443`.
+
+1. **Engagement.** Create an engagement. For a pentest or internal assessment,
+   choose a client when creating it, or add one later in step 2.
+2. **Client, window and authorization.** On the engagement's Overview, use
+   *Client & testing window* to create or link the client and set the window, and
+   *Written authorization* to record who authorized the work and what it permits.
+   Scope and authorization are advisory records, not enforcement.
+3. **Scope.** Open Scope and add the target as an in-scope asset.
+4. **Identities and cases.** Open Review → API Surface and generate draft cases from
+   your OpenAPI document. Drafts are review-only: edit each access decision for
+   every identity yourself and tick the review confirmation before saving. Identities
+   reference credentials by environment variable name (for example `${OWNER_TOKEN}`);
+   never paste a token into a case.
+5. **Queue.** On the Dashboard choose the `vardrgate` tool, select your saved case and
+   queue the job. Queuing runs nothing.
+6. **Run it explicitly.** In a private terminal, supply the Runner key and the
+   identity tokens, then claim and execute the queued job once:
+
+```bash
+export VARDRMAP_API_KEY OWNER_TOKEN PEER_TOKEN   # set beforehand without echoing them
+docker compose run --rm --no-deps -e OWNER_TOKEN -e PEER_TOKEN runner jobs run
+```
+
+   A target on a private or loopback address also needs
+   `-e VARDRRUNNER_ALLOW_PRIVATE_TARGETS=1`, which is a deliberate opt-in. The
+   container cannot reach a host-only or VPN target; see [networking](networking.md).
+7. **Review.** Back in the browser, the job shows its assessment status and evidence.
+   Results are candidates: confirm or reject each finding yourself, link the
+   supporting evidence, then draft and export a report.
+
+`inconclusive` is not a pass. It means an expectation could not be judged, for
+example a rejected credential or an unavailable resource.
+
 ## Updates and recovery boundary
 
 Use the [controlled updater](updates.md) for an explicitly reviewed local image
