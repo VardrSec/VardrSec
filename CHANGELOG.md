@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Pin merged Runner #87: extend recorded container source builds to existing
+  DNSx 1.3.1, verify a real isolated DNS lookup and preserve native archives.
+  Record independently audited Katana integration evidence; residual image
+  findings and release gates remain blocked.
+
 - Pin merged Runner #86: build existing Katana 1.8.0 with patched dependencies
   and explicit source provenance while retaining all nine tools, native archive
   installation and runtime integrity checks. Revalidate the combined development

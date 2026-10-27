@@ -6,6 +6,14 @@ records tasks 1–3 without claiming an unfamiliar-user exercise has occurred.
 
 ## Security review
 
+Latest completed combined review: distribution #21 merged Runner #86 after all
+acceptance checks passed. Independently audited source/report hashes give
+**5 critical / 427 high** across five images, with every strict gate blocked.
+The next pinned [Runner #87](https://github.com/VardrSec/VardrRunner/pull/87)
+patches existing DNSx and passes its full suite, CI matrix and real isolated DNS
+regression. Its local review image has 2 critical/223 high; matching distribution
+CI must establish the next combined baseline. No release scope or gate is waived.
+
 Follow-up: merged [Runner #86](https://github.com/VardrSec/VardrRunner/pull/86)
 patches the existing container Katana without removing tools or changing native
 archive pins. Its separately reviewed local image has 3 critical/254 high

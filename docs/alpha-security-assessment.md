@@ -19,42 +19,46 @@ remains in progress pending residual affected-status/exposure review and fixes.
   and retained build records without claiming an upstream archive checksum.
   Runtime hash verification remains mandatory. All nine tools and native archive
   pins remain; this development remediation does not decide alpha shipping scope.
+- [Runner #87](https://github.com/VardrSec/VardrRunner/pull/87) extends that fixed
+  source-build contract to DNSx 1.3.1 with Go 1.27.3, x/net 0.60.0 and compress
+  1.18.7. A real in-container regression resolves one synthetic .test A name via
+  loopback without external DNS or added capabilities. Native archives remain.
 - The proxy retains Caddy 2.11.7, rebuilt with pinned Go 1.27.3 and x/net 0.60.0;
   its Alpine packages are refreshed. The small standard-module entry point keeps
   Caddy version metadata available. TLS configuration, installed CA storage and
   the existing file-capability boundary are preserved. This follows Caddy's
   [documented source-build approach](https://caddyserver.com/docs/build).
 
-The baseline below predates Runner #86. Its separate local toolkit review used
-the same frozen 2026-10-27 database and recomputed **3 critical / 254 high**
-occurrences, down from 5/282. Katana's actual Go-binary record has zero critical,
-high, medium or low findings and one unknown OpenPGP finding. The 208 high
-occurrences with a published fixed version are a subset of 254, not the total.
-These local results cover that review image only; use the matching source-pinned
-distribution CI receipts for combined evidence. The complete Runner suite passed
-1,580 tests with 96.48% coverage, and its seven-host/runtime CI matrix, real image
-integrity/state checks and bounded synthetic tool/network checks passed. Existing
-vulnerability gates remain blocked and broader mode/VPN acceptance remains open.
-
-The earlier [post-merge collection run](https://github.com/VardrSec/VardrSec/actions/runs/40488109681)
-at distribution commit `695ab39d97b3eea35fa9739311ef43d65b1ad700` records a clean
-source tree, all five images and the declared Map/Runner/Gate pins. Independent
-review verified every input against its Git blob, every report hash and the
-recomputed severity counts. The strict check exits 1, as expected:
+The latest completed combined review below includes Runner #86, before #87's
+integration. Its [five-image run](https://github.com/VardrSec/VardrSec/actions/runs/40544428682)
+records clean tested merge `0f7d433fce431013b53e8c05d1e065ca9cbab23b`, whose tree
+matches reviewed head `8480ff45d8043b64b9d96ff2b66faee3617ef992`. Distribution #21
+merged after all installed Ubuntu, recovery/update, trust/certificate, native unit
+and bounded tool/network checks passed. Independent review verified each input
+against its Git blob, every report hash and recomputed severity count. The strict
+check exits 1, as expected:
 
 | Image | Critical | High | Unknown | Critical/high with a published fixed version |
 | --- | ---: | ---: | ---: | ---: |
 | API | 0 | 44 | 1 | 0 |
 | PostgreSQL | 2 | 86 | 5 | 26 |
 | Proxy | 0 | 0 | 1 | 0 |
-| Runner | 5 | 282 | 9 | 241 |
+| Runner | 3 | 254 | 9 | 211 |
 | Web | 0 | 43 | 1 | 0 |
 
-Critical/high package/path occurrences fell from 13/518 to **7/455**, covering 81
-distinct critical/high advisories. These are scanner occurrences, not confirmed
+Critical/high package/path occurrences fell from 13/518 to **5/427**. These are
+scanner occurrences, not confirmed
 exploit paths. All image gates remain blocked, including the proxy because of its
 unknown finding. CI artifacts expire after seven days; retain reviewed receipts
 privately or recollect, and never use this dated table as current clearance.
+
+Runner #87's separately reviewed local image reports **2 critical / 223 high**
+using the same frozen database. Katana and DNSx each have one unknown OpenPGP
+finding and zero critical/high/medium/low. Its full suite passes 1,589 tests with
+96.48% coverage; all seven host/runtime CI jobs and the real container DNS/state
+checks pass. These local counts cover that review image only; the updated pin
+requires fresh combined distribution receipts. Native upstream archives, other
+tools, broader modes and genuine VPN acceptance remain separate unresolved work.
 
 Runtime probes verified API SQLite 3.46.1, non-root Map users and absence of runtime
 npm. Frontend lint/typecheck, 212 tests and production build passed; Runner's full
@@ -68,7 +72,7 @@ also passed the clean Ubuntu/native-trust and installed workflow before merging.
 
 | Finding / location | Current assessment and required action |
 | --- | --- |
-| CVE-2025-68121 in dnsx, gau and Naabu Go runtimes | The released binaries remain old; these tools were already on their latest upstream releases at review time. Binary review found affected `crypto/tls` handshake/read/write symbols. The [Go advisory](https://pkg.go.dev/vuln/GO-2026-4337) additionally requires session resumption and CA-configuration mutation; symbol presence alone does not prove that runtime condition. Keep these unresolved pending verified patches/rebuilds or a supported source/exposure disposition. |
+| CVE-2025-68121 in Gau and Naabu Go runtimes; former DNSx archive | Gau and Naabu's container binaries remain old, as do native archives. Binary review found affected `crypto/tls` handshake/read/write symbols. The [Go advisory](https://pkg.go.dev/vuln/GO-2026-4337) also requires session resumption and CA-configuration mutation; symbols alone do not prove that condition. Keep these unresolved pending verified fixes or scoped exposure review. Runner #87's recorded DNSx source build removes this finding in the local raw scan; its distribution integration requires fresh combined evidence. |
 | CVE-2025-68121 in PostgreSQL's gosu helper | Binary review found the advisory but no affected TLS symbols in the actual helper. Its embedded metadata identifies gosu 1.19 / Go 1.24.6. The small [1.19 source](https://github.com/tianon/gosu/tree/6456aaa0f3c854d199d0f037f068eb97515b7513) switches user and executes a command; it imports no TLS client/server. This supports a scoped non-exposure assessment for this helper, consistent with [upstream's policy](https://github.com/tianon/gosu/blob/1.20/SECURITY.md). It is not a global Go waiver or database clearance; retain the raw finding and review the disposition before release. |
 | CVE-2026-33815 / CVE-2026-33816 in the former Katana archive's pgx dependency | The original binary contained affected protocol decoder symbols; no non-exposure waiver was used. The [Go reports](https://pkg.go.dev/vuln/GO-2026-4771) [identify](https://pkg.go.dev/vuln/GO-2026-4772) fixed pgx 5.9.0. Runner #86 selects 5.9.2 in its recorded source build; both findings are absent from that review binary's raw scan. Retain the old evidence and revalidate the pinned combined image; native upstream archive installation remains unchanged. |
 | CVE-2026-6653 in PostgreSQL libxml2 | [Debian](https://security-tracker.debian.org/tracker/CVE-2026-6653) retains affected stable packages with vendor priority notes. The pinned PostgreSQL binary is built `--with-libxml`; [SQL XML input](https://www.postgresql.org/docs/18/datatype-xml.html) can invoke that parser. Reviewed Map models/routes contain no XML columns or XML parsing query, and the database has no published port. These narrow ordinary web exposure, but SQL access, injection or future XML features remain relevant. Keep unresolved; no cross-release package mixing or accepted-risk waiver. |
