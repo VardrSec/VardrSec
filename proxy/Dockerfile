@@ -1,0 +1,2 @@
+FROM caddy@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489
+RUN apk add --no-cache curl

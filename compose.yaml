@@ -1,0 +1,129 @@
+name: vardrsec
+services:
+  db:
+    image: postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
+    environment:
+      POSTGRES_USER: vardrmap
+      POSTGRES_DB: vardrmap
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run configuration setup first}
+    volumes:
+      - database:/var/lib/postgresql
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U vardrmap -d vardrmap"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+  api:
+    image: vardrmap-api:development
+    build:
+      context: ${MAP_SOURCE:-./.sources/map}/backend
+    environment:
+      DATABASE_URL: postgresql://vardrmap:${POSTGRES_PASSWORD:?Run configuration setup first}@db/vardrmap?sslmode=disable
+      BACKEND_JWT_SECRET: ${BACKEND_JWT_SECRET:?Run configuration setup first}
+      ENV: production
+      VARDRMAP_AUTH_METHODS: local
+      ALLOWED_ORIGINS: https://localhost:${HTTPS_PORT:-8443}
+      FORWARDED_ALLOW_IPS: ${PROXY_IP:-172.30.248.2}
+    networks: [database, application]
+    depends_on:
+      db:
+        condition: service_healthy
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+  web:
+    image: vardrmap-web:development
+    build:
+      context: ${MAP_SOURCE:-./.sources/map}/frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://localhost:${HTTPS_PORT:-8443}/backend
+    environment:
+      VARDRMAP_AUTH_METHODS: local
+      AUTH_SECRET: ${AUTH_SECRET:?Run configuration setup first}
+      BACKEND_JWT_SECRET: ${BACKEND_JWT_SECRET:?Run configuration setup first}
+      AUTH_URL: https://localhost:${HTTPS_PORT:-8443}
+      AUTH_TRUST_HOST: "true"
+    networks: [application]
+    depends_on:
+      api:
+        condition: service_healthy
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+  proxy:
+    image: vardrsec-proxy:development
+    build: ./proxy
+    environment:
+      HTTPS_PORT: ${HTTPS_PORT:-8443}
+    ports:
+      - "127.0.0.1:${HTTPS_PORT:-8443}:${HTTPS_PORT:-8443}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - proxy-data:/data
+      - proxy-config:/config
+    networks:
+      application:
+        ipv4_address: ${PROXY_IP:-172.30.248.2}
+      runner:
+        aliases: [vardrsec.localhost]
+    depends_on:
+      web:
+        condition: service_healthy
+    cap_drop: [ALL]
+    # Official Caddy binary carries this file capability and needs it in the
+    # bounding set even when the configured listener uses an unprivileged port.
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD-SHELL, "curl --fail --silent --show-error --cacert /data/caddy/pki/authorities/local/root.crt https://localhost:$${HTTPS_PORT}/backend/ready >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+  runner:
+    profiles: [tools]
+    image: vardrrunner:development
+    build:
+      context: ${RUNNER_SOURCE:-./.sources/runner}
+      target: toolkit
+      additional_contexts:
+        gate: ${GATE_SOURCE:-./.sources/gate}
+    environment:
+      VARDRMAP_URL: https://vardrsec.localhost:${HTTPS_PORT:-8443}/backend
+      VARDRMAP_API_KEY: ${VARDRMAP_API_KEY:-}
+      REQUESTS_CA_BUNDLE: /trust/root.crt
+    volumes:
+      - runner-state:/home/runner/.vardrmap
+      - ./trust:/trust:ro
+    networks: [runner]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    # No restart policy or dependency that starts job execution.
+    command: ["--help"]
+networks:
+  database:
+    internal: true
+  application:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${APPLICATION_SUBNET:-172.30.248.0/24}
+          ip_range: ${APPLICATION_IP_RANGE:-172.30.248.128/25}
+  runner: {}
+volumes:
+  database: {}
+  proxy-data: {}
+  proxy-config: {}
+  runner-state: {}
