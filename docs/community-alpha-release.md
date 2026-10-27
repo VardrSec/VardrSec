@@ -25,11 +25,30 @@ Each item needs evidence recorded in the repository, not only a green CI run.
 | 3 | Full researcher workflow through the interface with no API seeding | In review (see the installed-acceptance change) |
 | 4 | Unfamiliar-user installation and first assessment, timed, with friction recorded | **Not done** (needs a real person) |
 | 5 | Exact component commits frozen in `versions.json`, each reachable on its repository's `main` | Re-check at freeze |
-| 6 | Independent rebuild reproduces the install artifacts from the frozen pins | Not started |
+| 6 | Independent rebuild reproduces the install artifacts from the frozen pins | **Partially reproducible**, see below |
 | 7 | Backup, encrypted restore, successful update and failed-update recovery rerun against the frozen pins | Passing on development pins; rerun at freeze |
 | 8 | Redistribution and licensing review of every bundled tool and base image | **Open**, see below |
 | 9 | Release notes, limitations, troubleshooting and recovery instructions reviewed | This draft |
 | 10 | Owner approval for any image publication, tag or announcement | Not requested |
+
+## Reproducibility evidence (2026-10-27)
+
+What was verified, and its limits. This is **partial** reproducibility with pinned
+inputs, not a hermetic or byte-identical image build.
+
+| Check | Result | Limit |
+| --- | --- | --- |
+| Component pins are ancestors of each repository's `main` | Verified through the GitHub compare API; Runner identical to `main`, Map and Gate behind by instruction-document commits only (diffed) | Re-run at freeze |
+| Base images pinned by digest | Verified in every Dockerfile at the pinned commits | Digest availability is outside our control |
+| Gate binary from the pinned commit, two clean builds (separate caches), Go 1.27.3 | Byte-identical SHA-256 | Local linux/amd64 build, not compared to the CI image |
+| FFUF source build, two clean builds | Byte-identical SHA-256 | As above |
+| Package inventories of all five images from two independent CI builds of identical sources | Identical component sets and versions | About twenty minutes apart; apt and pip resolve at build time, so drift over longer periods is expected |
+| Container images | **Not** byte-identical; not tested | Layer timestamps and build metadata differ |
+
+Not hermetic: apt packages and Python dependency ranges resolve when images are built,
+and Go modules are downloaded (checksum-verified against `go.sum` and the checksum
+database) at build time. Describe the alpha as source-built from pinned sources and
+base images, reproducible in its inputs but not offline or bit-for-bit.
 
 ## Redistribution review items
 

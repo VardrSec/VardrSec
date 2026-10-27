@@ -227,7 +227,7 @@ Go 1.27.3 toolchain:
 | FFUF, Gau | GO-2026-6860 (FFUF) | x/net 0.62.0 | none |
 | httpx, Subfinder, Katana, DNSx | GO-2026-5320 goldmark (and x/net) | goldmark 1.7.17, x/net 0.62.0 | none |
 | Nuclei | GO-2026-6860, GO-2026-5932 | x/net 0.62.0 etc. | GO-2026-5932 only (x/crypto/openpgp unmaintained, no fixed version) |
-| Naabu | not scanned (needs CGO/libpcap) | same dependency set patched | unverified |
+| Naabu | not scanned (needs CGO/libpcap) | same dependency set patched | module-level OSV check of its 107 resolved Go modules finds only GO-2026-5932 (openpgp, no fix); symbol reachability **not** verified |
 
 ## Coverage gap: Dalfox
 
