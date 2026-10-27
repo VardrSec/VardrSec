@@ -12,7 +12,11 @@ the small event-contract correction exposed by this installed workflow.
 
 1. Log in through the installed UI with its ordinary local session and CSRF
    handling, using normal certificate verification and a CA enrolled only in the
-   disposable browser container.
+   disposable browser container. Generate a Runner-only key through Settings's
+   existing Connect Runner flow and verify the one-time key is displayed. The
+   fixture captures it only in memory, never in screenshots or public logs, then
+   uses that key for real CLI Doctor/heartbeat and Gate execution. A later key
+   listing must retain metadata without returning the plaintext key.
 2. Generate an OpenAPI draft in Review → API Surface. Confirm its decisions start
    as `skip`, edit the four fixture cases to explicit allow/deny decisions and
    local credential references, acknowledge review and save through the UI.

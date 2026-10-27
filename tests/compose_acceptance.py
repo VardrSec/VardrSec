@@ -71,13 +71,41 @@ def main():
         with client.open(req, timeout=20) as response:
             return json.load(response)
 
+    # Exercise the documented first-run UI path instead of creating its key via
+    # a fixture API call. Capture the one-time token privately, never in logs.
+    browser_command = [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        f"container:{PROJECT}-proxy-1",
+        "--mount",
+        f"type=bind,source={trust.parent},target=/trust,readonly",
+        "-e",
+        "FIXTURE_PASSWORD",
+        "-e",
+        "FIXTURE_CREATE_RUNNER_KEY",
+        "vardrsec-browser:acceptance",
+    ]
+    browser_env = {**os.environ, "FIXTURE_PASSWORD": password}
+    generated = subprocess.run(
+        browser_command,
+        env={**browser_env, "FIXTURE_CREATE_RUNNER_KEY": "1"},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=120,
+        check=True,
+    )
+    key_info = json.loads(generated.stdout)
+    key = key_info["token"]
+    assert key_info["scope"] == "runner" and key.startswith("vmap_")
+    assert key not in generated.stderr and password not in generated.stderr
+    print("PASS: real Settings UI creates and displays a one-time Runner-only key")
     request("/auth/local/login", {"username": "operator", "password": password})
-    csrf = request("/auth/local/session")["csrfToken"]
-    key = request(
-        "/auth/apikeys",
-        {"label": "Disposable Compose acceptance", "scope": "runner"},
-        csrf,
-    )["token"]
+    stored = request("/auth/apikeys")["keys"]
+    assert len(stored) == 1 and stored[0]["id"] == key_info["id"]
+    assert stored[0]["scope"] == "runner" and "token" not in stored[0]
     env = {**os.environ, "VARDRMAP_API_KEY": key}
     result = subprocess.run(
         [sys.executable, str(ROOT / "vardrsec.py"), "doctor"],
@@ -118,19 +146,8 @@ def main():
     print("PASS: explicit one-shot Runner heartbeat reaches Map through verified HTTPS")
     # The browser shares only the proxy's network namespace and receives the public CA.
     subprocess.run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            "--network",
-            f"container:{PROJECT}-proxy-1",
-            "--mount",
-            f"type=bind,source={trust.parent},target=/trust,readonly",
-            "-e",
-            "FIXTURE_PASSWORD",
-            "vardrsec-browser:acceptance",
-        ],
-        env={**os.environ, "FIXTURE_PASSWORD": password},
+        browser_command,
+        env={**browser_env, "FIXTURE_CREATE_RUNNER_KEY": "0"},
         check=True,
     )
     gate_receipt = run_gate_workflow(compose, request, key, password)
