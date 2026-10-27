@@ -6,6 +6,14 @@ records tasks 1–3 without claiming an unfamiliar-user exercise has occurred.
 
 ## Security review
 
+Follow-up: merged [Runner #86](https://github.com/VardrSec/VardrRunner/pull/86)
+patches the existing container Katana without removing tools or changing native
+archive pins. Its separately reviewed local image has 3 critical/254 high
+occurrences, compared with 5/282 below; Katana has only one unknown-severity
+finding. The tested Runner commit is now pinned here. Matching distribution CI
+must rebuild and revalidate the complete image/workflow set; this local result
+does not replace combined receipts or clear the remaining release gates.
+
 Map #117, Runner #85 and distribution #14/#15 are merged. The source-pinned
 [five-image collection](https://github.com/VardrSec/VardrSec/actions/runs/40488109681)
 passed with independently verified input/report hashes. Critical/high package

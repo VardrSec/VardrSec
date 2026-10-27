@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Pin merged Runner #86: build existing Katana 1.8.0 with patched dependencies
+  and explicit source provenance while retaining all nine tools, native archive
+  installation and runtime integrity checks. Revalidate the combined development
+  images; remaining security findings still block release.
+
 - Align the existing age acceptance-tool builds with reviewed Go 1.27.3 and
   disable implicit compiler downloads. Keep age v1.3.2, backup format and
   application images unchanged; verify the existing encryption/recovery cases.
