@@ -136,3 +136,13 @@ target traffic unchanged. Assessments/evidence must render in the installed UI a
 survive stop/start; scanner candidates never become confirmed findings implicitly.
 The historical no-scan installation checks above precede this explicit execution
 slice. Starting the platform still executes no scans.
+
+The expanded installed fixture adds an independently verified write case, reruns
+the identical reviewed case after an explicit repair, and exercises operator UI
+actions for finding confirmation, evidence links, remediation/retests, closure and
+two immutable client report revisions. Browser Markdown downloads must match
+persisted hashes. Stop/start and encrypted restore verify the accepted finding,
+history, linked evidence and delivered report versions. This covers synchronous
+isolated write readback and local report export/status; it does not establish
+arbitrary write strategies or external client receipt. See the
+[installed workflow checks](installed-gate-acceptance.md).

@@ -4,9 +4,23 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const readline = require('node:readline');
 const assert = require('node:assert/strict');
+const delivery = require('./delivery.cjs');
 
 const input = readline.createInterface({ input: process.stdin })[Symbol.asyncIterator]();
 const event = data => console.log('GATE_EVENT ' + JSON.stringify(data));
+async function acknowledge() {
+  const next = await input.next();
+  assert(!next.done);
+  const reply = JSON.parse(next.value);
+  assert.equal(reply.continue, true);
+  return reply;
+}
+async function composer(page) {
+  await page.locator('nav').getByRole('button', {name:/Dashboard$/}).click();
+  const picker = page.getByRole('button', {name:'Select vardrgate',exact:true});
+  if (!(await picker.isVisible())) await page.getByRole('button', {name:/Tools .*show all/}).click();
+  await picker.click();
+}
 
 (async () => {
   const cases = JSON.parse(process.env.FIXTURE_CASES);
@@ -45,17 +59,20 @@ const event = data => console.log('GATE_EVENT ' + JSON.stringify(data));
     const saved = await saving;
     assert.equal(saved.status(), 201);
     const stored = (await saved.json()).test_cases;
-    assert.equal(stored.length, 3);
+    assert.equal(stored.length, 4);
     event({type:'reviewed', cases:stored});
-    await page.getByRole('status').filter({hasText:'3 reviewed cases saved'}).waitFor();
-    await page.locator('nav').getByRole('button', {name:/Dashboard$/}).click();
-    const picker = page.getByRole('button', {name:'Select vardrgate',exact:true});
-    if (!(await picker.isVisible())) {
-      await page.getByRole('button', {name:/Tools .*show all/}).click();
-    }
-    await picker.click();
-    for (const scenario of ['blocked', 'vulnerable', 'fixed', 'unavailable']) {
-      const name = scenario === 'blocked' ? 'vulnerable' : scenario;
+    await page.getByRole('status').filter({hasText:'4 reviewed cases saved'}).waitFor();
+    await composer(page);
+    let state, firstEvidence;
+    const base = `/engagements/${engagement}`;
+    for (const scenario of ['blocked', 'vulnerable', 'fixed', 'unavailable', 'write-vulnerable', 'write-fixed']) {
+      if (scenario === 'write-fixed') {
+        event({type:'repair'});
+        await acknowledge();
+        await delivery.remediation(page, base);
+        await composer(page);
+      }
+      const name = scenario.startsWith('write-') ? 'write' : scenario === 'blocked' ? 'vulnerable' : scenario;
       const selected = stored.find(c => c.name === name);
       assert(selected);
       await page.getByLabel('Authorization test case', {exact:true}).selectOption(selected.id);
@@ -69,8 +86,7 @@ const event = data => console.log('GATE_EVENT ' + JSON.stringify(data));
       await expect(panel).toContainText(`Job: ${job.id}`);
       event({type:'queued', scenario, job:job.id, case:selected.id});
       // The host runs only the explicitly announced job, then acknowledges completion.
-      const next = await input.next();
-      assert(!next.done && JSON.parse(next.value).continue === true);
+      const reply = await acknowledge();
       const status = scenario === 'blocked' || scenario === 'unavailable' ? 'inconclusive' : 'conclusive';
       await expect(panel).toContainText(`Assessment: ${status}.`, {timeout:30000});
       await expect(panel).toContainText('Job completion alone does not establish authorization or a clean result.');
@@ -85,11 +101,25 @@ const event = data => console.log('GATE_EVENT ' + JSON.stringify(data));
         await record.getByText('Redacted execution record', {exact:true}).click();
         await expect(record.locator('pre')).toContainText('peer');
         await expect(record).toContainText('SHA-256');
+        if (scenario.startsWith('write-')) {
+          await expect(panel).toContainText('Reader reader: preflight passed');
+          await expect(panel).toContainText(`write readback: ${scenario === 'write-fixed' ? 'verified no effect' : 'verified effect'}`);
+        }
       }
       await panel.screenshot({path:`/artifacts/${scenario}.png`});
       event({type:'rendered', scenario});
+      if (scenario === 'write-vulnerable') {
+        firstEvidence = reply.evidence;
+        state = await delivery.confirm(page, base, reply.evidence, job.id);
+        event({type:'confirmed', ...state});
+        await acknowledge();
+      } else if (scenario === 'write-fixed') {
+        await delivery.complete(page, base, state, reply.evidence, job.id, firstEvidence);
+        event({type:'delivered', ...state});
+        await acknowledge();
+      }
     }
-    console.log('PASS: reviewed cases and queued jobs through installed UI; all four real assessments and evidence rendered over trusted HTTPS');
+    console.log('PASS: six installed assessments rendered; explicit finding confirmation, evidence links, retests and immutable delivered report exports verified through the UI');
     await page.getByRole('button', {name:'Sign out',exact:true}).click();
     await page.getByRole('button', {name:'Sign in locally',exact:true}).waitFor();
   } catch (error) {

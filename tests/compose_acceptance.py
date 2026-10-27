@@ -54,7 +54,7 @@ def main():
         urllib.request.HTTPSHandler(context=ctx),
     )
 
-    def request(path, data=None, csrf=None):
+    def request(path, data=None, csrf=None, method=None):
         headers = {"Origin": URL}
         if data is not None:
             headers["Content-Type"] = "application/json"
@@ -64,6 +64,7 @@ def main():
             URL + "/backend" + path,
             headers=headers,
             data=None if data is None else json.dumps(data).encode(),
+            method=method,
         )
         with client.open(req, timeout=20) as response:
             return json.load(response)
@@ -166,6 +167,9 @@ def main():
     # Cookie from the separate API client also survives restart within its normal expiry.
     assert request("/auth/local/session")["authMethod"] == "local"
     verify_retained(request, gate_receipt)
+    (ROOT / "artifacts/installed-gate/accepted.json").write_text(
+        json.dumps(gate_receipt, indent=2) + "\n", encoding="utf-8"
+    )
     services = compose(
         "ps", "--services", "--status", "running", capture_output=True, text=True
     ).stdout.splitlines()

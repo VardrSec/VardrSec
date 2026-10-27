@@ -13,6 +13,7 @@ import urllib.request
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import recovery
 import backup_crypto
+from gate_acceptance import verify_retained
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "vardrsec-compose-review"
@@ -109,6 +110,13 @@ def verify_application(restored, original_ca, images):
             return json.load(response)
 
     request("/auth/local/login", {"username": "operator", "password": password})
+    receipt = json.loads(
+        (ROOT / "artifacts/installed-gate/accepted.json").read_text(encoding="utf-8")
+    )
+    verify_retained(request, receipt)
+    print(
+        "PASS: restored authenticated account retains write/readback evidence, retest history and delivered report revisions"
+    )
     assert any(
         e["name"] == "Compose trusted HTTPS acceptance"
         for e in request("/engagements")["programs"]

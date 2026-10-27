@@ -14,7 +14,7 @@ the small event-contract correction exposed by this installed workflow.
    handling, using normal certificate verification and a CA enrolled only in the
    disposable browser container.
 2. Generate an OpenAPI draft in Review → API Surface. Confirm its decisions start
-   as `skip`, edit the three fixture cases to explicit allow/deny decisions and
+   as `skip`, edit the four fixture cases to explicit allow/deny decisions and
    local credential references, acknowledge review and save through the UI.
 3. Queue each case through Dashboard's Gate composer. While it is pending, run
    platform diagnostics and verify the job remains pending with no target traffic
@@ -36,9 +36,26 @@ the small event-contract correction exposed by this installed workflow.
    hashes through Map's authenticated API. Credential values, response cookies
    and private response canaries must be absent from uploaded records and captured
    output. No confirmed finding is created or evidence linked automatically.
-8. Require the installed UI to render each assessment and redacted execution
-   evidence. Stop/start the platform and compare the saved assessments/evidence
-   hashes against the same authenticated account.
+8. Run the same reviewed mutating case before and after explicitly enabling the
+   disposable target's ownership check. Both actors receive HTTP 204; a separate
+   reader identity, its own session preflight and reset/before/after checks must
+   prove the unauthorized effect before the fix and no effect after it. Verify
+   actual target traffic, reader/reset ownership and the unchanged case hash.
+9. Explicitly create a triaged finding in the UI, link the vulnerable write
+   evidence, record a still-open retest and deliver/export revision 1. Record the
+   repair and a verified-fixed retest using new linked evidence. A retest must
+   leave the finding status unchanged until the operator explicitly closes it.
+10. Create/deliver/export revision 2 with both evidence sets. Check actual browser
+    downloads against persisted Markdown and SHA-256 hashes; reopen revision 1
+    and prove its content did not change after the repair and retest. Delivery
+    here is the operator's report status and local export, not email or proof of
+    receipt by an external client.
+11. Require all six assessments and redacted execution records to render. The
+    synthetic engagement has a client, scope and time-bounded authorization
+    record. Stop/start must retain assessments, evidence links, finding history,
+    delivered report status and revision hashes for the authenticated account.
+    The encrypted backup/restore drill checks those same records after restoring
+    into a fresh installation and resetting its fixture administrator password.
 
 The synthetic target runs on the disposable project's Runner network without any
 host-published port. It serves only test records, enforces a request ceiling and
@@ -71,13 +88,18 @@ destructive cleanup action; never use that action against an ordinary installati
 
 Each run under `artifacts/installed-gate/` contains screenshots for each scenario,
 sanitized Runner logs and a JSON
-receipt with public fixture IDs, assessment metadata and evidence hashes.
+receipt with public fixture IDs, assessment metadata, evidence hashes and frozen
+finding/report snapshots. Browser report downloads are retained beside screenshots.
 These ignored artifacts contain no target credentials or private response bodies.
 CI retains them for seven days. The existing recovery drill then snapshots and
 restores this installation, including its actual Gate evidence, separately from
-the stop/start check.
+the stop/start check. A successful installation also writes
+`artifacts/installed-gate/accepted.json`; recovery requires that exact accepted
+receipt and checks the restored account's records against it.
 
 This is source-built development acceptance on Linux containers, including Docker
 Desktop. It does not establish a published release, real-target coverage, host/VPN
 routing, a fresh-host trust experience or full tool-mode compatibility. Those
-remain in the [acceptance plan](acceptance.md).
+remain in the [acceptance plan](acceptance.md). Write readback is tested only in
+the declared synchronous isolated fixture; asynchronous/shared-system strategies,
+additional tool modes and external client delivery are not established here.
