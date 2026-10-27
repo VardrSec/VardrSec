@@ -99,6 +99,12 @@ your shell environment when invoking `python vardrsec.py doctor`; do not put the
 in shell command arguments or an image. Runner mounts only the public CA read-only.
 The initial local user retains the normal organization/ownership permission rules.
 
+Settings displays API/database readiness and Runner reports with observation times.
+Use an explicit Runner heartbeat to report contact/tool versions; the status view
+does not run a worker or invoke diagnostics. Reports expire after five minutes,
+fetched observations after one minute, and failed/unsupported checks remain
+unreachable or unknown. A recent heartbeat is not complete tool/network acceptance.
+
 Runner is excluded from ordinary startup. The tool-enabled image includes Gate,
 nmap/libpcap and Runner's checksum-verified managed tools. Managed tools live in
 read-only image storage, separate from persistent Runner state. Native/keychain

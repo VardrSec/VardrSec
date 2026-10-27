@@ -100,6 +100,23 @@ def main():
     print(
         "PASS: Runner authenticates over CA-validated HTTPS; database/migrations ready; no API key in output"
     )
+    heartbeat = compose(
+        "run",
+        "--rm",
+        "--no-deps",
+        "runner",
+        "heartbeat",
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert key not in heartbeat.stdout + heartbeat.stderr
+    report = request("/runner/status")
+    assert report["schema_version"] == 1 and report["stale_after_seconds"] == 300
+    assert any(
+        row["freshness"] == "recent" and row["online"] for row in report["runners"]
+    )
+    print("PASS: explicit one-shot Runner heartbeat reaches Map through verified HTTPS")
     # The browser shares only the proxy's network namespace and receives the public CA.
     subprocess.run(
         [
