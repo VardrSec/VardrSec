@@ -188,6 +188,7 @@ No capability or privileged mode is enabled automatically. Diagnose the intended
 tools and host/VPN target reachability before explicitly invoking `jobs run`.
 The [tool/network fixture](tool-network-acceptance.md) documents selected modes,
 synthetic private-namespace/host checks and the remaining real-VPN/Desktop gates.
+See [networking and VPN guidance](networking.md) for choosing native or container Runner.
 
 `python3 vardrsec.py stop` stops services and retains all volumes. `start` reuses
 them. Never use `down --volumes` on a retained installation. No command starts scans.
