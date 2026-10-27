@@ -5,6 +5,9 @@ first; backup refuses while a Runner container is executing. Keep configuration
 secrets and the public URL in the private `.env`, matching the running services.
 Shell-only overrides or edits not yet applied to containers are refused.
 
+For encrypted retention, use `backup --recipient age1...` or seal a completed
+working bundle; see [encrypted recovery packages](encrypted-backups.md).
+
 ```sh
 python vardrsec.py backup --destination /private/backups/before-upgrade
 ```

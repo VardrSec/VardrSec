@@ -106,6 +106,8 @@ def main():
             "restore",
             "update",
             "cancel-update",
+            "seal-backup",
+            "unseal-backup",
         ),
     )
     parser.add_argument("--username", default="operator")
@@ -113,6 +115,8 @@ def main():
     parser.add_argument("--backup", type=Path)
     parser.add_argument("--project")
     parser.add_argument("--candidate", type=Path)
+    parser.add_argument("--recipient")
+    parser.add_argument("--identity", type=Path)
     args = parser.parse_args()
     if args.action in ("update", "cancel-update"):
         return dispatch(args, parser)
@@ -178,7 +182,12 @@ def dispatch(args, parser):
         if args.destination is None:
             parser.error("--destination is required")
         if args.action == "backup":
-            recovery.backup(ROOT, args.destination)
+            if args.recipient:
+                import backup_crypto
+
+                backup_crypto.encrypted_backup(ROOT, args.destination, args.recipient)
+            else:
+                recovery.backup(ROOT, args.destination)
         else:
             if args.backup is None or not args.project:
                 parser.error(
@@ -198,6 +207,19 @@ def dispatch(args, parser):
             updater.update(
                 ROOT, args.candidate, args.backup, args.destination, args.project
             )
+    elif args.action in ("seal-backup", "unseal-backup"):
+        import backup_crypto
+
+        if args.backup is None or args.destination is None:
+            parser.error("--backup and --destination are required")
+        if args.action == "seal-backup":
+            if args.recipient is None:
+                parser.error("seal-backup requires --recipient")
+            backup_crypto.seal(args.backup, args.destination, args.recipient)
+        else:
+            if args.identity is None:
+                parser.error("unseal-backup requires --identity")
+            backup_crypto.unseal(args.backup, args.destination, args.identity)
 
 
 if __name__ == "__main__":

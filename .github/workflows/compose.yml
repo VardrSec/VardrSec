@@ -16,6 +16,18 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.10'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.3'
+          cache: false
+      - name: Build pinned official age tools
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/age-bin
+        run: |
+          mkdir -p "$GOBIN"
+          go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
+          echo "$GOBIN" >> "$GITHUB_PATH"
       - run: python -m unittest discover -s tests -p 'test_*.py'
   installation:
     runs-on: ubuntu-latest
@@ -29,6 +41,18 @@ jobs:
           python-version: '3.12'
       - name: Verify configuration and source preservation
         run: python -m unittest discover -s tests -p 'test_*.py'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.3'
+          cache: false
+      - name: Build pinned official age tools
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/age-bin
+        run: |
+          mkdir -p "$GOBIN"
+          go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
+          echo "$GOBIN" >> "$GITHUB_PATH"
       - name: Prepare pinned source build
         run: |
           python vardrsec.py configure
