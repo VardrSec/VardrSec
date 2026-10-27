@@ -10,6 +10,8 @@ import subprocess
 import urllib.error
 import urllib.request
 
+from gate_acceptance import run_gate_workflow, verify_retained
+
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "vardrsec-compose-review"
 URL = "https://localhost:8443"
@@ -134,6 +136,7 @@ def main():
         env={**os.environ, "FIXTURE_PASSWORD": password},
         check=True,
     )
+    gate_receipt = run_gate_workflow(compose, request, key, password)
     compose("stop")
     compose(
         "up",
@@ -162,6 +165,7 @@ def main():
     )
     # Cookie from the separate API client also survives restart within its normal expiry.
     assert request("/auth/local/session")["authMethod"] == "local"
+    verify_retained(request, gate_receipt)
     services = compose(
         "ps", "--services", "--status", "running", capture_output=True, text=True
     ).stdout.splitlines()

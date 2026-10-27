@@ -124,3 +124,15 @@ The pin also includes [bounded refresh #115](https://github.com/VardrSec/VardrMa
 which enforces the deadline across authentication and body reads, enables retry
 after timeout and refuses late success. The existing role/authentication and
 heartbeat write contracts are unchanged.
+
+## Installed authorization workflow
+
+The [installed Gate acceptance](installed-gate-acceptance.md) extends the trusted
+Compose journey with UI-reviewed cases and queued jobs, explicit real toolkit
+execution, session preflight and traceable redacted evidence returned to Map.
+Its four scenarios cover default private-target rejection, a vulnerable API, a
+fixed API and unavailable resource responses. Diagnostics leave pending jobs and
+target traffic unchanged. Assessments/evidence must render in the installed UI and
+survive stop/start; scanner candidates never become confirmed findings implicitly.
+The historical no-scan installation checks above precede this explicit execution
+slice. Starting the platform still executes no scans.

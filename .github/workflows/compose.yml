@@ -72,13 +72,21 @@ jobs:
           docker compose config --quiet
           python vardrsec.py build
           docker build -t vardrsec-browser:acceptance tests/browser
-      - name: Verify trusted HTTPS installation and restart
+      - name: Verify trusted installation, explicit Gate workflow and restart
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
           python vardrsec.py start
           python vardrsec.py export-ca
           python tests/compose_acceptance.py
+      - name: Preserve installed workflow receipts and browser evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: installed-gate-acceptance
+          path: artifacts/installed-gate/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Verify portable recovery and migration failure
         run: python tests/recovery_acceptance.py
       - name: Stop restored disposable fixture
