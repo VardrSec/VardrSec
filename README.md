@@ -44,8 +44,9 @@ platform check; ordinary doctor calls remain supported.
    preserve volumes; platform startup executes no scans.
 3. Add fresh component/runner status presentation in Map and complete tooling,
    host/VPN networking and supported-OS acceptance.
-4. Prove upgrade, backup/restore, certificate renewal and recovery before adding
-   an update command or tagging a Community alpha.
+4. Review the controlled updater, portable recovery and encrypted backup drafts.
+   Complete certificate renewal and remaining release acceptance before tagging
+   a Community alpha.
 
 See the [architecture decision](docs/adr/0001-component-responsibilities.md) and
 [acceptance plan](docs/acceptance.md). Component source access depends on each

@@ -45,6 +45,12 @@ $cert = Import-Certificate -FilePath .\trust\root.crt -CertStoreLocation Cert:\C
 $cert.Thumbprint  # record this for removal
 ```
 
+Complete the Windows consent prompt. For unattended administrative provisioning,
+an explicitly elevated PowerShell can use `Cert:\LocalMachine\Root` instead;
+that trusts the CA machine-wide and requires removal from the same store. The
+native CI test exercises this administrative alternative, not the interactive
+CurrentUser consent UI.
+
 macOS (explicit privileged trust enrollment):
 
 ```sh
@@ -66,9 +72,18 @@ using Schannel may additionally reject a local CA without revocation metadata;
 use the CA-validating Runner check after enrollment rather than disabling checks.
 The installer does not execute trust enrollment automatically.
 
+The [native trust workflow](native-trust-acceptance.md) exercises enrollment and
+removal on disposable hosted Windows/macOS machines. Full Docker Desktop/fresh-host
+application acceptance remains separate from those certificate-store checks.
+
 Remove trust when retiring the installation: Windows `Remove-Item` on the exact
-recorded `Cert:\CurrentUser\Root\THUMBPRINT`; macOS `security delete-certificate -Z`
-with the exact certificate fingerprint and original keychain; Linux remove only
+recorded `Cert:\CurrentUser\Root\THUMBPRINT` (or `LocalMachine` when enrolled there);
+macOS `sudo security delete-certificate -Z THUMBPRINT /Library/Keychains/System.keychain`
+with the exact recorded fingerprint. This removes the certificate. The `-t` option
+also requests trust-settings removal, but can hang in non-interactive hosted macOS
+sessions; complete and verify that cleanup interactively with Keychain Access.
+The native CI check requires browser rejection after certificate deletion and
+reports residual trust metadata separately. Linux: remove only
 `/usr/local/share/ca-certificates/vardrsec-local.crt` then run
 `sudo update-ca-certificates --fresh`. Remove browser-specific imports separately.
 Do not delete a CA still used by another retained installation.
