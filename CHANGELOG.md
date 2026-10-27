@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Record partial Debian vulnerability exposure review with vendor conditions,
+  split-package context and bounded local file probes. Retain all blocked image
+  findings and the need for reviewed per-finding dispositions.
+
 - Exercise first-run Runner key creation through the real Settings UI before
   authenticated CLI diagnostics and status reporting. Keep its one-time secret
   out of shared logs/screenshots and clarify the installation guide's key step.

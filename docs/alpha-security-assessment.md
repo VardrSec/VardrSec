@@ -90,6 +90,10 @@ Prioritize verified upstream patches and symbol/exposure assessment. Full SBOMs,
 package paths, installed/fixed versions, source URLs and counts remain available
 in the unfiltered [image evidence](image-evidence.md) artifacts.
 
+The separate [Debian exposure review](alpha-os-exposure.md) records vendor
+conditions, split-package effects, local executable-absence probes and the
+remaining caller/privilege questions. It grants no waiver and changes no gate.
+
 The former bookworm zlib MiniZip critical finding illustrates why affected-status
 matters: [Debian documents](https://security-tracker.debian.org/tracker/CVE-2023-45853)
 that the vulnerable contrib code is not built into those binary packages. The
