@@ -56,7 +56,10 @@ platform check; ordinary doctor calls remain supported.
    unprivileged tool modes, host access, private isolation, explicit namespace
    sharing and state replacement on fresh Linux CI hosts. Genuine VPN and fresh
    Windows/macOS Desktop acceptance remain separate gates.
-6. Complete remaining tool modes and certificate
+6. Collect [development image SBOM/vulnerability evidence](docs/image-evidence.md)
+   and run its strict vulnerability check. Collection success and release
+   eligibility are separate; reported blockers require remediation.
+7. Complete remaining tool modes and certificate
    lifecycle acceptance. Recovery, controlled updates, encrypted packaging and
    [accelerated leaf renewal](docs/certificate-renewal-acceptance.md) are merged;
    image publication and a tagged Community alpha remain separate steps.
