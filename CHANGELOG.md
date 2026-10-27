@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Pin merged Runner #91 (`bd184c6`): container httpx 1.12.0, Subfinder 2.17.0 and FFUF 2.3.0
-  are rebuilt from recorded source with Go 1.27.3 and patched dependencies, extending the
+- Pin merged Runner #91 and #92 (`bbe2850`): container httpx 1.12.0, Subfinder 2.17.0, FFUF 2.3.0
+  and Nuclei 3.11.1 are rebuilt from recorded source with Go 1.27.3 and patched dependencies, extending the
   Katana/DNSx/Naabu/Gau contract. Native archives and runtime hash checks are unchanged.
   Image security gates remain blocked pending review of this pin's scan.
 
