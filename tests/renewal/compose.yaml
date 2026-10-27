@@ -1,0 +1,22 @@
+services:
+  proxy:
+    image: vardrsec-renewal-proxy:acceptance
+    build: ../../proxy
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - proxy-data:/data
+      - proxy-config:/config
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD-SHELL, "curl --fail --silent --show-error --cacert /data/caddy/pki/authorities/local/root.crt https://localhost:8446 >/dev/null"]
+      interval: 1s
+      timeout: 3s
+      retries: 40
+networks:
+  default:
+    internal: true
+volumes:
+  proxy-data: {}
+  proxy-config: {}

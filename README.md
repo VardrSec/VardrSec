@@ -45,7 +45,8 @@ platform check; ordinary doctor calls remain supported.
 3. Add fresh component/runner status presentation in Map and complete tooling,
    host/VPN networking and supported-OS acceptance.
 4. Review the controlled updater, portable recovery and encrypted backup drafts.
-   Complete certificate renewal and remaining release acceptance before tagging
+   Review [accelerated leaf renewal](docs/certificate-renewal-acceptance.md) and
+   complete remaining certificate lifecycle/fresh-host acceptance before tagging
    a Community alpha.
 
 See the [architecture decision](docs/adr/0001-component-responsibilities.md) and

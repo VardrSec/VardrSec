@@ -1,0 +1,16 @@
+{
+    admin off
+    auto_https disable_redirects
+    skip_install_trust
+    renew_interval 1s
+    renewal_window_ratio 0.5
+}
+
+https://localhost:8446 {
+    tls {
+        issuer internal {
+            lifetime 2m
+        }
+    }
+    respond "VardrSec certificate renewal acceptance"
+}
