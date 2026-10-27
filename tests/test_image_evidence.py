@@ -178,6 +178,12 @@ class ImageEvidenceTests(unittest.TestCase):
 
     def test_database_must_be_recent_and_timezone_aware(self):
         now = datetime(2026, 10, 27, tzinfo=timezone.utc)
+        self.assertEqual(
+            evidence.timestamp("2026-10-27T00:00:00.1234Z").microsecond, 123400
+        )
+        self.assertEqual(
+            evidence.timestamp("2026-10-27T00:00:00.123456789Z").microsecond, 123456
+        )
         for offset in (timedelta(days=-3), timedelta(days=1)):
             with self.assertRaises(ValueError):
                 evidence.check_database(
