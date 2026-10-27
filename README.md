@@ -36,18 +36,21 @@ platform check; ordinary doctor calls remain supported.
 
 ## Next implementation slices
 
-1. Review [Map images #113](https://github.com/VardrSec/VardrMap/pull/113) and
-   [Runner packaging #83](https://github.com/VardrSec/VardrRunner/pull/83). The
+1. [Map images #113](https://github.com/VardrSec/VardrMap/pull/113) and
+   [Runner packaging #83](https://github.com/VardrSec/VardrRunner/pull/83) are merged. The
    tool-enabled Runner includes Gate, nmap/libpcap and verified managed binaries.
 2. Validate the [Compose installation](docs/installation.md), explicit public-CA
    enrollment, one-time administrator bootstrap and Runner diagnostics. Start/stop
    preserve volumes; platform startup executes no scans.
-3. Add fresh component/runner status presentation in Map and complete tooling,
-   host/VPN networking and supported-OS acceptance.
-4. Review the controlled updater, portable recovery and encrypted backup drafts.
-   Review [accelerated leaf renewal](docs/certificate-renewal-acceptance.md) and
-   complete remaining certificate lifecycle/fresh-host acceptance before tagging
-   a Community alpha.
+3. Map [status presentation #114](https://github.com/VardrSec/VardrMap/pull/114)
+   and [bounded refresh #115](https://github.com/VardrSec/VardrMap/pull/115)
+   displays readiness and timestamped Runner reports, including stale/unknown/
+   unreachable states. Its matching source pin and trusted Compose status check
+   are included here; full doctor reports and release compatibility remain separate.
+4. Complete tooling, host/VPN networking, fresh-host and remaining certificate
+   lifecycle acceptance. Recovery, controlled updates, encrypted packaging and
+   [accelerated leaf renewal](docs/certificate-renewal-acceptance.md) are merged;
+   image publication and a tagged Community alpha remain separate steps.
 
 See the [architecture decision](docs/adr/0001-component-responsibilities.md) and
 [acceptance plan](docs/acceptance.md). Component source access depends on each

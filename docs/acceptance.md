@@ -104,3 +104,23 @@ verified handshakes, three leaf serials, post-expiry browser access and CA/key-m
 persistence after restart. Its CI job reports results separately from full Compose
 acceptance. Intermediate renewal, root rollover and sustained operation at normal
 lifetimes remain release gates.
+
+## Merged foundation and status integration (2026-10-26)
+
+Distribution #1–#7, Map #113, Runner #83 and Runner dependency updates #79/#80
+are merged. All three final main branches passed their post-merge workflows.
+These are merged development capabilities, not a published Community release.
+
+The Map source pin includes [status presentation #114](https://github.com/VardrSec/VardrMap/pull/114):
+API/database readiness, account-owned Runner reports, observation timestamps,
+reported versions/tools and stale/unknown/unreachable states. The Compose fixture
+now explicitly sends a one-shot Runner heartbeat over CA-validated HTTPS and
+requires the trusted browser to show migrated-database readiness and recent Runner
+contact in Settings. Its CI result establishes that integrated snapshot separately
+from Map's disposable self-signed authentication/browser fixture. No scan or
+background Runner worker is started.
+
+The pin also includes [bounded refresh #115](https://github.com/VardrSec/VardrMap/pull/115),
+which enforces the deadline across authentication and body reads, enables retry
+after timeout and refuses late success. The existing role/authentication and
+heartbeat write contracts are unchanged.
