@@ -6,6 +6,10 @@
   reachable path demonstrated in the packaged configuration, none accepted as risk,
   gates unchanged. Documentation only.
 
+- Add networking and VPN guidance: when to use the native Runner, what is verified,
+  and what remains unverified (genuine VPN routing, split tunnelling, kill switch).
+  Documentation only; no host network, firewall or VPN behavior changes.
+
 - Pin merged Runner #89 (`4fae92f`, squash of reviewed head `0fdb1c2`): container Gau is rebuilt from
   checksum-verified upstream source with four hash-pinned substitutions that enable
   provider TLS verification and make provider failures fatal. Runner CI exercised
