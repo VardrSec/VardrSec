@@ -306,6 +306,7 @@ def collect():
                 "versions.json",
                 "compose.yaml",
                 "proxy/Dockerfile",
+                "proxy/main.go",
                 "image_evidence.py",
             )
         },

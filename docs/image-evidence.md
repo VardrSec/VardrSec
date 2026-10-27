@@ -92,6 +92,10 @@ engagement data are mounted. No images, signatures or releases are published.
 
 ## Current release status
 
+The [alpha assessment](alpha-security-assessment.md) records focused remediation,
+vendor/exposure questions and the remaining blockers for the newer candidate.
+The following paragraph describes the initial baseline before those changes.
+
 The initial local scan blocks all five images. Findings include base OS packages,
 embedded Go runtimes and dependencies in Caddy and bundled Runner tools. Repeated
 package/path occurrences are not distinct advisories or confirmed exploit paths.

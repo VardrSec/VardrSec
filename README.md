@@ -8,6 +8,11 @@ Map UI/API, migrated PostgreSQL, an HTTPS proxy and explicitly invoked Runner.
 Application images are built locally from exact source pins; release images and
 automatic updates are not published. See [installation and explicit CA trust](docs/installation.md).
 
+Current work follows the [Community Alpha v0.1.0 stabilization plan](docs/community-alpha.md):
+security and clean Ubuntu installation first, then user-workflow validation and
+release preparation. Linux-only alpha support is permitted; other platforms must
+be labelled accurately from their own acceptance evidence.
+
 | Component | Responsibility |
 |---|---|
 | VardrSec | Install, start, stop and update the platform through Docker Compose; maintain tested component pins and recovery procedures. |
