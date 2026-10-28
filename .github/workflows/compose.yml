@@ -133,11 +133,8 @@ jobs:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
           if python vardrsec.py install; then echo 'install must refuse after first start'; exit 1; fi
-      - name: Exercise the install command's final state (CA export)
+      - name: Confirm the install exported the public CA
         run: test -s trust/root.crt
-        env:
-          COMPOSE_PROJECT_NAME: vardrsec-compose-review
-        run: python vardrsec.py install
       - name: Exercise explicit controlled updates
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
