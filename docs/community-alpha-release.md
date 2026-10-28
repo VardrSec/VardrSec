@@ -85,6 +85,10 @@ reading, not legal advice.
 
 ### 3. Residual security findings (checklist item 1)
 
+The per-finding [residual-risk register](residual-risk-register.md) lists every unresolved
+item with exposure assumptions, evidence and a proposed disposition; approve rows rather
+than an aggregate count.
+
 Nothing here is accepted. The owner chooses, per row, to accept as a documented alpha
 limitation, to require a fix before release, or to exclude the component.
 
