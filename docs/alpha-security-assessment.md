@@ -5,7 +5,14 @@ vulnerability gate remains blocked, raw reports are retained, and no exception o
 blanket suppression is introduced. Task 1 of the [alpha plan](community-alpha.md)
 remains in progress pending residual affected-status/exposure review and fixes.
 
-> **Update (post-#30):** the latest recounted combined baseline is **1 critical / 194 high**
+> **Current review, 2026-10-28:** the verified clean-main image baseline is
+> **1 critical / 197 high / 15 unknown**, with two high go-jose/v4 occurrences now
+> fixable and one newly reported unfixed go-jose/v3 occurrence in Caddy.
+> See [the current checkpoint](alpha-review-2026-10-28.md) and
+> [risk register](residual-risk-register.md). Candidate patches are not clearance.
+> Container Gau is fixed and native Gau is excluded; the Gau blocker text below is historical.
+>
+> **Historical update (post-#30):** the latest recounted combined baseline is **1 critical / 194 high**
 > (Runner 0/46; no occurrence with a fixed version); see the status table in [community-alpha.md](community-alpha.md). The
 > figures below are retained as the dated record and are superseded. Gate status is unchanged:
 > all strict image gates remain blocked.

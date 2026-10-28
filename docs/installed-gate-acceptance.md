@@ -17,7 +17,7 @@ the small event-contract correction exposed by this installed workflow.
    fixture captures it only in memory, never in screenshots or public logs, then
    uses that key for real CLI Doctor/heartbeat and Gate execution. A later key
    listing must retain metadata without returning the plaintext key.
-2. Generate an OpenAPI draft in Review → API Surface. Confirm its decisions start
+2. Generate an OpenAPI draft in Review â†’ API Surface. Confirm its decisions start
    as `skip`, edit the four fixture cases to explicit allow/deny decisions and
    local credential references, acknowledge review and save through the UI.
 3. Queue each case through Dashboard's Gate composer. While it is pending, run
@@ -107,3 +107,17 @@ routing, a fresh-host trust experience or full tool-mode compatibility. Those
 remain in the [acceptance plan](acceptance.md). Write readback is tested only in
 the declared synchronous isolated fixture; asynchronous/shared-system strategies,
 additional tool modes and external client delivery are not established here.
+
+
+## Authorization coverage and boundary drafts
+
+The integration candidate pins Map through #127 (including #120–#126) and Runner #96.
+After the real Gate assessments, the disposable fixture captures synthetic observed
+exchanges through Map's ordinary ingest API. It checks the installed coverage API:
+vulnerable results remain evidence-backed candidates, fixed results are conclusive,
+and unavailable results are inconclusive. The browser opens the coverage and boundary
+panels, generates a same-tenant boundary draft, and verifies references and all-`skip`
+decisions with `ready_to_run: false`. Cases, jobs and target traffic must remain
+unchanged by viewing and drafting. Existing UI-only setup, execution, reports,
+restart and recovery checks are retained. Passing results are recorded in CI;
+advancing the candidate pins does not publish a release or deploy an installation.

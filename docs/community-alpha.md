@@ -32,34 +32,35 @@ Priorities map onto the table above; they do not add tasks. Operational state
 
 | Priority | Table task | Status |
 | --- | --- | --- |
-| P0 release-blocking security | 1 | Engineering complete; owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
+| P0 release-blocking security | 1 | Security review reopened against the 2026-10-28 image baseline; fixable go-jose occurrences are being remediated. Owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
 | P0 complete researcher workflow | 4 | UI path verified in CI: the installed workflow now creates the client, testing window, scope and authorization through the Map interface (Map #119, VardrSec #26), then runs the reviewed Gate cases, confirms a finding and exports reports. Target/identity fixtures and Runner key issuance remain scripted by design; the unfamiliar-user exercise is still open. |
 | P1 first-user experience | 2, 3, 9 | Automated clean-Ubuntu install passes; no unfamiliar-user exercise has occurred. |
 | P1 networking | 5, 6, 7 | Synthetic host/private tests pass; genuine VPN unverified. Reliability drills pass and are reused for the candidate. |
 | P2 release preparation | 8 | Not started; follows security and acceptance review. |
 
-Image scan figures at the `versions.json` pins after distribution #30 (collection
-run 40595602465 on the tested head `666bfd0`, raw Trivy reports recounted 2026-10-27):
-**1 critical / 194 high** occurrences across five images (API 0/44, PostgreSQL 1/61,
-Proxy 0/0, Runner 0/46, Web 0/43), plus 15 unknown. This is down from 3/351 at
-`19b001c`. **No critical or high occurrence has a published fixed version any more**;
-what remains is Debian packages without fixes in the pinned suite (util-linux, libxml2,
-GnuPG, perl, libacl, systemd, ncurses, libpcap), reviewed in the
-[exposure review](alpha-os-exposure.md) with no reachable path demonstrated. These are
-scanner occurrences, not confirmed exploit paths, and all strict gates remain blocked.
-Earlier totals in [alpha-security-assessment.md](alpha-security-assessment.md) and the
-[checkpoint](alpha-checkpoint-2026-10-27.md) are dated snapshots.
-Nothing is an accepted risk; no exception has been authorized.
+Latest independently verified baseline: [image run 40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177),
+clean distribution commit `524585cac788d08c529df58b4dd82a20029e7c1b`, collected 2026-10-28.
+Raw reports total **1 critical / 197 high / 15 unknown** occurrences (API 0/44,
+PostgreSQL 1/61, Proxy 0/2, Runner 0/47, Web 0/43). Two high occurrences have a
+published fix: go-jose/v4 in Caddy and Nuclei, fixed in 4.1.6. A third new high
+occurrence is Caddy's go-jose/v3 3.0.5, for which upstream reports no fixed v3 release.
+The previous 1/194 baseline is historical; its blanket "none fixable" statement no
+longer describes current evidence. See the [current security checkpoint](alpha-review-2026-10-28.md).
+
+The integration candidate pins Map #127 (including coverage and boundary features
+through #120–#126) and Runner #96, patches Caddy's go-jose/v4, and extends installed
+acceptance. These are development candidates pending CI and PR review, not released
+artifacts. All strict image gates remain blocked; no residual risk is accepted.
 
 Group tasks only when sharing an acceptance environment helps; keep changes
-individually reviewable. Begin tasks 4–7 after tasks 1–3, then tasks 8–9.
+individually reviewable. Begin tasks 4â€“7 after tasks 1â€“3, then tasks 8â€“9.
 
 ## Acceptance discipline
 
 After each task record what completed, what changed, realistic tests/results,
 discovered/fixed defects, remaining blockers, unnecessary complexity and the next
 task. Unit-test counts alone do not establish readiness. The first alpha needs a
-reliable installation → engagement → authorized assessment → findings/report →
+reliable installation â†’ engagement â†’ authorized assessment â†’ findings/report â†’
 retained-data journey, not every possible tool mode or planned feature.
 
 Preserve authentication, ownership/tenant checks, explicit scope and human review,

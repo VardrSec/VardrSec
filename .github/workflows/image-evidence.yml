@@ -23,6 +23,33 @@ jobs:
           python vardrsec.py build
       - name: Collect all image SBOMs and unfiltered vulnerability reports
         run: python image_evidence.py collect
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Report live Go reachability in the rebuilt proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOBIN="$RUNNER_TEMP/proxy-go-bin" go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          id=$(docker create vardrsec-proxy:development)
+          docker cp "$id:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
+          docker rm "$id" > /dev/null
+          set +e
+          "$RUNNER_TEMP/proxy-go-bin/govulncheck" -mode=binary "$RUNNER_TEMP/caddy" > artifacts/proxy-go-reachability.txt 2>&1
+          status=$?
+          set -e
+          cat artifacts/proxy-go-reachability.txt
+          # Finding exit code 3 is evidence, never an accepted risk. Other errors fail collection.
+          if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then exit "$status"; fi
+      - name: Preserve raw proxy reachability
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: proxy-go-reachability
+          path: artifacts/proxy-go-reachability.txt
+          if-no-files-found: error
+          retention-days: 7
       - name: Preserve image evidence, including blocked findings
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

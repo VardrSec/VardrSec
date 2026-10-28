@@ -150,6 +150,31 @@ async function composer(page) {
         await acknowledge();
       }
     }
+    event({type:'surface'});
+    await acknowledge();
+    await page.locator('nav').getByRole('button', {name:/Review$/}).click();
+    await page.getByRole('button', {name:'API Surface',exact:true}).click();
+    await expect(page.getByRole('heading', {name:'Authorization coverage',exact:true})).toBeVisible();
+    await expect(page.getByRole('heading', {name:'Boundary questions',exact:true})).toBeVisible();
+    await page.getByRole('button', {name:/^Draft authorization test:.*Same-tenant peer$/}).first().click();
+    const previewing = waitSaved(`/engagements/${engagement}/test-cases/preview`, 'POST');
+    await page.getByRole('button', {name:'Generate draft cases',exact:true}).click();
+    const preview = await previewing;
+    assert.equal(preview.status(), 200);
+    const proposed = await preview.json();
+    assert.equal(proposed.boundary_context.boundary, 'same_tenant_peer');
+    assert.equal(proposed.boundary_context.ready_to_run, false);
+    assert.equal(proposed.drafts.length, 1);
+    const proposedCase = proposed.drafts[0].spec;
+    assert(proposedCase.identities.some(i => i.id === 'owner'));
+    assert(proposedCase.identities.some(i => i.id === 'peer'));
+    assert(proposedCase.expected_access.every(e => e.decision === 'skip'));
+    assert(proposedCase.identities.every(i => i.credential.value === undefined));
+    await expect(page.getByRole('note')).toContainText('Not ready to run');
+    await page.getByLabel('Draft cases JSON').waitFor();
+    await page.getByRole('heading', {name:'Boundary questions',exact:true}).screenshot({path:'/artifacts/boundary-questions.png'});
+    event({type:'surface-rendered'});
+    await acknowledge();
     console.log('PASS: six installed assessments rendered; explicit finding confirmation, evidence links, retests and immutable delivered report exports verified through the UI');
     await page.getByRole('button', {name:'Sign out',exact:true}).click();
     await page.getByRole('button', {name:'Sign in locally',exact:true}).waitFor();

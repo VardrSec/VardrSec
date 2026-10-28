@@ -6,6 +6,7 @@ COPY main.go .
 RUN go mod init vardrsec-proxy-build \
     && go get github.com/caddyserver/caddy/v2/cmd/caddy@v2.11.7 \
         golang.org/x/net@v0.62.0 github.com/go-chi/chi/v5@v5.4.0 \
+        github.com/go-jose/go-jose/v4@v4.1.6 \
     && go build -trimpath -o /out/caddy .
 
 FROM caddy@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489
