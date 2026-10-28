@@ -104,3 +104,29 @@ Do not infer that the v3 advisory disappeared because v4 was patched. No vulnera
 risk acceptance, release, image publication or deployment is authorized here.
 The unfamiliar-user exercise, actual VPN validation, licensing review and remaining
 release decisions retain their existing status in the [release checklist](community-alpha-release.md).
+
+
+## Build-download reliability follow-up
+
+After multiple independent failures and a failed retry at both `proxy.golang.org`
+and `sum.golang.org`, [Runner #97](https://github.com/VardrSec/VardrRunner/pull/97)
+sets `GODEBUG=http2client=0` only in source-download builders. The exact distribution
+pin is `96b1ac910919159af7085858b678f89c0c3c669e`. Downloads still use verified HTTPS
+and the public checksum database; source versions, patches and binary receipts are
+unchanged. Runtime CI asserts that the final toolkit inherits no `GODEBUG` setting.
+
+This advances the Runner source commit beyond the #96 image evidence above, so a
+fresh collection and installed acceptance are required for the new manifest.
+Their results and main ancestry verification are recorded in
+[distribution #40 checks](https://github.com/VardrSec/VardrSec/pull/40/checks) and its
+merge record. The dated #96 reports are retained as remediation evidence, not
+misrepresented as reports of the #97 source pin.
+
+The corrected installed run [40758980959](https://github.com/VardrSec/VardrSec/actions/runs/40758980959)
+passed the real UI coverage and same-tenant drafting path and restart checks.
+Its preserved receipt records all six Gate scenarios, `boundary_draft_rendered: true`,
+and vulnerable/fixed/unavailable coverage states of violation_candidate/conclusive/
+inconclusive. The complete tool/network matrix passed on Ubuntu 22.04 and 24.04
+in [run 40758981266](https://github.com/VardrSec/VardrSec/actions/runs/40758981266).
+These results precede the build-transport-only pin advance; the final head repeats
+the full checks rather than assuming that a build change proves acceptance.

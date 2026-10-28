@@ -53,9 +53,10 @@ remaining and **no critical/high fixed-version occurrence**. Caddy's actual bina
 scan reports zero reachable vulnerabilities; the v3 module advisory remains unaccepted.
 The [checkpoint](alpha-review-2026-10-28.md) records hashes, counts and limitations.
 
-Map #127 and Runner #96 are merged; the integration pins their exact tested commits,
-including Map's #120–#126 coverage and boundary features. All component pins are
-reachable on main. Final installed/recovery validation is tracked in
+Map #127 and Runner #96 are merged. The integration includes Map's #120–#126
+coverage and boundary features and advances Runner to the #97 build-download
+reliability follow-up. Fresh collection, installed/recovery validation and exact-pin
+main ancestry verification are tracked in
 [distribution #40 checks](https://github.com/VardrSec/VardrSec/pull/40/checks).
 These are development sources, not released artifacts. All strict image gates
 remain blocked; no residual risk is accepted.

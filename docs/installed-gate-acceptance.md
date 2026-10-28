@@ -111,7 +111,8 @@ additional tool modes and external client delivery are not established here.
 
 ## Authorization coverage and boundary drafts
 
-The integration pins merged Map #127 (including #120–#126) and Runner #96.
+The integration pins Map #127 (including #120–#126) and Runner #97, which retains
+#96's go-jose patch and changes only source-build download transport.
 After the real Gate assessments, the disposable fixture captures synthetic observed
 exchanges through Map's ordinary ingest API. It checks the installed coverage API:
 vulnerable results remain evidence-backed candidates, fixed results are conclusive,
