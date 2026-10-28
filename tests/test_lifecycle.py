@@ -159,6 +159,42 @@ class LifecycleTests(unittest.TestCase):
                 self.assertEqual("--generate-password" in command, generated)
                 self.assertNotIn("--password", command)
 
+    def test_install_chains_the_existing_steps_in_order(self):
+        calls = []
+        real = vardrsec.dispatch
+
+        def routed(args, parser):
+            if args.action == "install":
+                return real(args, parser)
+            calls.append(args.action)
+
+        with tempfile.TemporaryDirectory() as directory:
+            with (
+                patch.object(vardrsec, "ROOT", Path(directory)),
+                patch.object(vardrsec, "dispatch", side_effect=routed),
+                contextlib.redirect_stdout(io.StringIO()) as out,
+            ):
+                vardrsec.dispatch(argparse.Namespace(action="install"), None)
+        self.assertEqual(list(vardrsec.INSTALL_STEPS), calls)
+        self.assertIn("update-ca-certificates", out.getvalue())
+        self.assertIn("No scans were started", out.getvalue())
+
+    def test_install_refuses_to_run_over_an_existing_installation(self):
+        class Parser:
+            def error(self, message):
+                raise SystemExit(message)
+
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / ".env").write_text("POSTGRES_PASSWORD=keep")
+            with (
+                patch.object(vardrsec, "ROOT", Path(directory)),
+                patch.object(vardrsec, "configure") as configure,
+            ):
+                with self.assertRaises(SystemExit):
+                    vardrsec.dispatch(argparse.Namespace(action="install"), Parser())
+                configure.assert_not_called()
+            self.assertEqual("POSTGRES_PASSWORD=keep", (Path(directory) / ".env").read_text())
+
 
 if __name__ == "__main__":
     unittest.main()

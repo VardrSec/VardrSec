@@ -119,18 +119,14 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.12'
-      - name: Prepare pinned image set
-        run: |
-          python vardrsec.py configure
-          python vardrsec.py sources
-          python vardrsec.py build
+      - name: Install with the one-command path (configure, sources, build, start, export-ca)
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
+        run: python vardrsec.py install
       - name: Exercise explicit controlled updates
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
-        run: |
-          python vardrsec.py start
-          python vardrsec.py export-ca
-          python tests/update_acceptance.py
+        run: python tests/update_acceptance.py
       - name: Remove disposable update projects
         if: always()
         run: |

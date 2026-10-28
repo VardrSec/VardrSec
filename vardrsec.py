@@ -167,6 +167,7 @@ def main():
     parser.add_argument(
         "action",
         choices=(
+            "install",
             "configure",
             "sources",
             "build",
@@ -206,8 +207,33 @@ def main():
         return dispatch(args, parser)
 
 
+INSTALL_STEPS = ("configure", "sources", "build", "start", "export-ca")
+
+INSTALL_NEXT = """
+Installed. Remaining manual steps (they change your machine, so they are never automatic):
+  1. Trust the public CA after checking the fingerprint above:
+       sudo install -m 0644 trust/root.crt /usr/local/share/ca-certificates/vardrsec-local.crt
+       sudo update-ca-certificates
+     Firefox keeps its own store; see docs/installation.md. Restart the browser.
+  2. Create the first account:  python3 vardrsec.py bootstrap --username operator
+  3. Open https://localhost:8443 and follow the first-assessment walkthrough in docs/installation.md.
+No scans were started."""
+
+
 def dispatch(args, parser):
-    if args.action == "configure":
+    if args.action == "install":
+        # One command for a brand-new checkout. It only chains the existing steps, in
+        # order, and refuses to run over an existing installation's credentials.
+        if (ROOT / ".env").exists():
+            parser.error(
+                "An installation already exists here (.env present). Use start/stop/update; "
+                "install is only for a new checkout."
+            )
+        for step in INSTALL_STEPS:
+            print(f"== {step}", flush=True)
+            dispatch(argparse.Namespace(**{**vars(args), "action": step}), parser)
+        print(INSTALL_NEXT)
+    elif args.action == "configure":
         configure()
     elif args.action == "sources":
         sources()
