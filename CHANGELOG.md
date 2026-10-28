@@ -2,11 +2,19 @@
 
 ## Unreleased
 
+- Pin merged Runner #94/#95 (`954aa63`): the vulnerable native Gau archive is excluded
+  from install and execution, and container CI now reports `govulncheck` reachability for every
+  shipped Go binary, including Naabu (clean; Nuclei retains only the unfixable openpgp advisory).
+
 - Add `python3 vardrsec.py install`: one command for a new checkout that runs the existing
   configure, sources, build, start and export-ca steps in order and prints the remaining manual
   trust and bootstrap steps. It is resumable after an interruption (an existing `.env` is kept, never
   regenerated) and refuses once the database volume exists; it changes no architecture and enrolls
   no trust. The controlled-updates CI job now uses it on a clean Ubuntu runner.
+
+- Reconcile the plan, Gau review and security assessment with the final state: Gau remediated
+  for the container and excluded natively, status set to release candidate preparation, and
+  superseded rows marked. Documentation only.
 
 - Record the owner decision to exclude the native Gau archive, enforced in Runner #94, and mark
   the Gau checklist item done. Documentation only.

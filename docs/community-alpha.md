@@ -3,7 +3,8 @@
 Accepted owner direction, 2026-10-27. Prepare the first public Community Alpha;
 publication and deployment require a separate reviewed decision. This plan
 prioritizes completion of the existing product and supersedes broader roadmap
-expansion during alpha stabilization. There is no published alpha yet.
+expansion during alpha stabilization. There is no published alpha yet. Status: **release candidate preparation**; no
+features are being added, and publication is a separate owner decision.
 
 VardrSec keeps Compose lifecycle/recovery, Runner keeps diagnostics and explicit
 execution, Map keeps the researcher interface, and Gate keeps authorization
@@ -31,7 +32,7 @@ Priorities map onto the table above; they do not add tasks. Operational state
 
 | Priority | Table task | Status |
 | --- | --- | --- |
-| P0 release-blocking security | 1 | Open. Container Gau provider TLS verification is fixed in Runner #89 and pinned by distribution #24, with Runner CI fixtures and the installed workflow passing; the native archive keeps the defect and Gau's alpha scope is undecided ([review](gau-tls-review.md)). Image gates all blocked. |
+| P0 release-blocking security | 1 | Engineering complete; owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
 | P0 complete researcher workflow | 4 | UI path verified in CI: the installed workflow now creates the client, testing window, scope and authorization through the Map interface (Map #119, VardrSec #26), then runs the reviewed Gate cases, confirms a finding and exports reports. Target/identity fixtures and Runner key issuance remain scripted by design; the unfamiliar-user exercise is still open. |
 | P1 first-user experience | 2, 3, 9 | Automated clean-Ubuntu install passes; no unfamiliar-user exercise has occurred. |
 | P1 networking | 5, 6, 7 | Synthetic host/private tests pass; genuine VPN unverified. Reliability drills pass and are reused for the candidate. |
