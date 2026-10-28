@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reconcile the plan, Gau review and security assessment with the final state: Gau remediated
+  for the container and excluded natively, status set to release candidate preparation, and
+  superseded rows marked. Documentation only.
+
 - Record the owner decision to exclude the native Gau archive, enforced in Runner #94, and mark
   the Gau checklist item done. Documentation only.
 
