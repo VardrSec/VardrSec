@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Pin merged Runner #93 (`5803bb9`): source-built tools use x/net 0.62.0 and goldmark 1.7.17 for
+  reachable advisories newer than the frozen scan database. Nuclei keeps the unfixable
+  unmaintained-openpgp advisory.
+
 - Raise the proxy's x/net to 0.62.0 (GO-2026-6860 and GO-2026-6866, both reported reachable
   in the built Caddy by `govulncheck`) and the PostgreSQL image's gosu `moby/sys/user` to
   0.4.1 (GO-2026-6686, reachable). `govulncheck` reports nothing for either rebuilt binary.
