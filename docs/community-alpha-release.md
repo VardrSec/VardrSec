@@ -20,13 +20,13 @@ Each item needs evidence recorded in the repository, not only a green CI run.
 
 | # | Requirement | State |
 | --- | --- | --- |
-| 1 | Image security gates reviewed: every critical/high occurrence has a supported affected-status or exposure disposition, a fix, or an explicit owner-approved exception | **Open** (latest recount in [community-alpha.md](community-alpha.md); gates blocked) |
+| 1 | Image security gates reviewed: every critical/high occurrence has a supported affected-status or exposure disposition, a fix, or an explicit owner-approved exception | **Engineering complete, owner acceptance pending.** 1 critical / 194 high, none with a published fix; all are Debian packages reviewed in [alpha-os-exposure.md](alpha-os-exposure.md) with no reachable path demonstrated. Strict gates stay blocked until the owner accepts or Debian ships fixes |
 | 2 | Gau provider TLS: container fix pinned; native archive decision (fix, remove or exclude Gau from alpha scope) | **Open** owner decision ([review](gau-tls-review.md)) |
-| 3 | Full researcher workflow through the interface with no API seeding | In review (see the installed-acceptance change) |
+| 3 | Full researcher workflow through the interface with no API seeding | **Done in CI:** client, window, scope and authorization are recorded through the Map UI in the installed workflow (Map #119, VardrSec #26) |
 | 4 | Unfamiliar-user installation and first assessment, timed, with friction recorded | **Not done** (needs a real person) |
-| 5 | Exact component commits frozen in `versions.json`, each reachable on its repository's `main` | Re-check at freeze |
+| 5 | Exact component commits frozen in `versions.json`, each reachable on its repository's `main` | **Verified** (see reproducibility evidence); re-check at freeze |
 | 6 | Independent rebuild reproduces the install artifacts from the frozen pins | **Partially reproducible**, see below |
-| 7 | Backup, encrypted restore, successful update and failed-update recovery rerun against the frozen pins | Passing on development pins; rerun at freeze |
+| 7 | Backup, encrypted restore, successful update and failed-update recovery rerun against the frozen pins | **Passing** on the current development pins (VardrSec #33 CI: installation, controlled updates, certificate renewal, tool/network); rerun at freeze |
 | 8 | Redistribution and licensing review of every bundled tool and base image | **Open**, see below |
 | 9 | Release notes, limitations, troubleshooting and recovery instructions reviewed | This draft |
 | 10 | Owner approval for any image publication, tag or announcement | Not requested |
@@ -49,6 +49,60 @@ Not hermetic: apt packages and Python dependency ranges resolve when images are 
 and Go modules are downloaded (checksum-verified against `go.sum` and the checksum
 database) at build time. Describe the alpha as source-built from pinned sources and
 base images, reproducible in its inputs but not offline or bit-for-bit.
+
+## Decisions that need the owner
+
+Everything else in the plan is either complete or depends on a person or an
+environment. Each decision below states the evidence and a recommendation.
+
+### 1. Native Gau archive (checklist item 2)
+
+Evidence: the container Gau is fixed (Runner #89; fixtures reject untrusted and
+wrong-host certificates). `vardrrunner tools install gau` on a host still installs
+the upstream archive, which disables provider TLS verification
+([review](gau-tls-review.md)). Impact: an on-path attacker could falsify collected URLs
+and observe provider API keys during a native Gau run.
+
+| Option | Effect | Cost |
+| --- | --- | --- |
+| A. Exclude native Gau from the alpha | Eight-tool native baseline; container keeps Gau | Documentation change |
+| B. Warn when native Gau is installed or run | Visible notice only | Small Runner change |
+| C. Fail closed unless the operator opts in | Native Gau refuses to run by default | Small Runner change |
+
+Recommendation: **C**, with the opt-in documented. It preserves the tool while making
+the insecure state an explicit choice. The change is a few lines in Runner and does
+not alter the container.
+
+### 2. Nmap redistribution (checklist item 8)
+
+Evidence: the toolkit installs nmap from the base distribution; Nmap's license (NPSL)
+has specific bundling and redistribution terms. The alpha is source-built, so each user
+installs it on their own machine and no image containing nmap is published.
+
+Recommendation: **ship the alpha source-built only and do not publish any image that
+contains nmap** until the license terms have been reviewed. This is an engineering
+reading, not legal advice.
+
+### 3. Residual security findings (checklist item 1)
+
+Nothing here is accepted. The owner chooses, per row, to accept as a documented alpha
+limitation, to require a fix before release, or to exclude the component.
+
+| Residual | Evidence | Recommendation |
+| --- | --- | --- |
+| 194 high Debian findings (util-linux, libxml2, GnuPG, perl, libacl, systemd, ncurses, libpcap) with no fixed version in the pinned suite | Exposure reviews; no fixed version; database network is internal and unpublished | Accept for a source-built alpha, listing them in the release notes; re-scan before any published image |
+| 1 critical: CVE-2026-6653, libxml2 in the PostgreSQL image | Needs attacker-controlled XML parsed by SQL/XML functions; Map's source and migrations use none; only the API reaches the database | Accept for the alpha, conditional on Map continuing to avoid XML SQL functions |
+| Nuclei: GO-2026-5932 (unmaintained openpgp, no fix) | Reported reachable by `govulncheck`; upstream Nuclei dependency | Accept; track upstream |
+| Dalfox: moderate/low Rust advisories (`rustls` and others) | `Cargo.lock` against OSV; no critical/high; scanner cannot see Rust binaries | Accept; re-check on the next Dalfox release |
+| Naabu: reachability not scanned (CGO) | Module-level check: only the openpgp advisory | Accept, noting the weaker evidence |
+
+### 4. Items that need a person or an environment (not decisions)
+
+- **Unfamiliar-user test** ([protocol](first-user-test.md)) needs a real participant and a
+  fresh Ubuntu 24.04 machine. Recommended before any announcement.
+- **Genuine VPN routing** needs a VPN. Recommendation: ship as a documented, unverified
+  limitation with the native-Runner fallback ([networking](networking.md)).
+- **Publishing, tagging or announcing** needs explicit approval and has not been requested.
 
 ## Redistribution review items
 
