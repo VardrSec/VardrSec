@@ -69,19 +69,17 @@ jobs:
           echo "$GOBIN" >> "$GITHUB_PATH"
       - name: Verify genuinely clean Ubuntu installation host
         run: python tests/ubuntu_installation.py preflight
-      - name: Prepare pinned source build
+      - name: Install with the documented one-command path
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
-          python vardrsec.py configure
-          python vardrsec.py sources
+          python vardrsec.py install
           docker compose config --quiet
-          python vardrsec.py build
           docker build -t vardrsec-browser:acceptance tests/browser
       - name: Verify trusted installation, explicit Gate workflow and restart
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
-          python vardrsec.py start
-          python vardrsec.py export-ca
           python tests/ubuntu_installation.py enroll
           python tests/compose_acceptance.py
       - name: Remove only the disposable Ubuntu installation CA
