@@ -45,7 +45,7 @@ jobs:
           docker cp "$id:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
           docker rm "$id" > /dev/null
           set +e
-          "$RUNNER_TEMP/proxy-go-bin/govulncheck" -mode=binary "$RUNNER_TEMP/caddy" > artifacts/proxy-go-reachability.txt 2>&1
+          "$RUNNER_TEMP/proxy-go-bin/govulncheck" -mode=binary -show verbose "$RUNNER_TEMP/caddy" > artifacts/proxy-go-reachability.txt 2>&1
           status=$?
           set -e
           cat artifacts/proxy-go-reachability.txt

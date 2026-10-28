@@ -32,7 +32,7 @@ Priorities map onto the table above; they do not add tasks. Operational state
 
 | Priority | Table task | Status |
 | --- | --- | --- |
-| P0 release-blocking security | 1 | The two fixable go-jose/v4 occurrences are removed in verified rebuilt images (1 critical / 195 high / 15 unknown); unfixed Caddy v3 exposure was checked in the actual binary. Owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
+| P0 release-blocking security | 1 | The two fixable go-jose/v4 occurrences are removed in verified rebuilt images (1 critical / 195 high / 15 unknown); Caddy v3 reachability remains unestablished because the Go database does not yet cover its new advisory. Owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
 | P0 complete researcher workflow | 4 | UI path verified in CI: the installed workflow now creates the client, testing window, scope and authorization through the Map interface (Map #119, VardrSec #26), then runs the reviewed Gate cases, confirms a finding and exports reports. Target/identity fixtures and Runner key issuance remain scripted by design; the unfamiliar-user exercise is still open. |
 | P1 first-user experience | 2, 3, 9 | Automated clean-Ubuntu install passes; no unfamiliar-user exercise has occurred. |
 | P1 networking | 5, 6, 7 | Synthetic host/private tests pass; genuine VPN unverified. Reliability drills pass and are reused for the candidate. |
@@ -49,8 +49,9 @@ longer describes current evidence. See the [current security checkpoint](alpha-r
 
 The rebuilt [image run 40757052765](https://github.com/VardrSec/VardrSec/actions/runs/40757052765)
 verifies go-jose/v4 4.1.6 in Caddy and Nuclei, with **1 critical / 195 high / 15 unknown**
-remaining and **no critical/high fixed-version occurrence**. Caddy's actual binary
-scan reports zero reachable vulnerabilities; the v3 module advisory remains unaccepted.
+remaining and **no critical/high fixed-version occurrence**. Caddy's binary scan
+reports zero reachable vulnerabilities in its database coverage; the new v3 advisory
+is absent from that database and its reachability remains unestablished and unaccepted.
 The [checkpoint](alpha-review-2026-10-28.md) records hashes, counts and limitations.
 
 Map #127 and Runner #96 are merged. The integration includes Map's #120–#126

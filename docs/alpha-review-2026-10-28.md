@@ -88,7 +88,11 @@ explicitly rerun and exits **1 (blocked)** for all five images, as required.
 The same run retains the raw `proxy-go-reachability` artifact from `govulncheck`
 1.9.0 on the actual rebuilt Caddy binary: **0 reachable vulnerabilities**, zero in
 imported packages, and one in a required module whose vulnerable code is not called.
-This narrows the v3 exposure evidence; it is not a suppression or owner acceptance.
+This result covers only advisories known to that database. It does not establish the
+new v3 JWK advisory's reachability: the official Go module index lacks that advisory
+at this checkpoint. The single module-level result must not be attributed to v3
+without its advisory ID; verbose output is now retained for that purpose. The v3
+Trivy/GitHub finding stays open and unaccepted.
 Runner's [container run 40756125456](https://github.com/VardrSec/VardrRunner/actions/runs/40756125456)
 reports the unchanged reachable Nuclei OpenPGP advisory GO-2026-5932 and no
 reachable advisory in the other shipped Go binaries.
@@ -138,3 +142,31 @@ that proxy, database and Runner runtime images contain no `GODEBUG` override.
 TLS verification, checksum authentication, source versions and tool behavior stay
 unchanged. This completes the same workaround across the actual Go build stages;
 the first follow-up had omitted Gate's separate builder and hit another stream reset.
+
+
+## Final-pin validation and Go database coverage limit
+
+All checks for reviewed head `1292ef79aa1660d2c3eaf6520aa5b05b5f4b09e3` passed:
+[Compose/recovery/updates](https://github.com/VardrSec/VardrSec/actions/runs/40762760959),
+[Ubuntu tool/network matrix](https://github.com/VardrSec/VardrSec/actions/runs/40762760608),
+[native trust](https://github.com/VardrSec/VardrSec/actions/runs/40762760593),
+foundation and [image collection](https://github.com/VardrSec/VardrSec/actions/runs/40762760658).
+The final collection records clean CI merge `7739c441d51b1f505792cd4009556d71bf68c263`,
+tree-identical to that head. All five input hashes, ten report hashes, final component
+pins, raw counts and both go-jose/v4 4.1.6 inventories were independently verified.
+Counts remain **1 critical / 195 high / 15 unknown**, no critical/high fixed version;
+strict review still exits 1. Runtime-image checks confirm no builder `GODEBUG` leaks.
+
+The [official Go module index](https://vuln.go.dev/index/modules.json) listed only
+GO-2023-2334, GO-2024-2631, GO-2025-3485 and GO-2026-4945 for go-jose/v3 at the
+2026-10-28 audit. Fetching each official ID record confirmed that none aliases
+CVE-2026-116587 or GHSA-mgcc-cww5-fp2q. Therefore a zero-reachable govulncheck
+result is **not an affected-status determination for this new advisory**. The earlier
+module-only attribution was unsupported and is corrected above. Actual v3 function
+reachability/input exposure requires separate analysis; no exception is proposed.
+
+The final documentation/verbose-report correction does not change application code,
+source pins or image recipes. The PR retains the fresh raw evidence and requires
+its exact final-head checks before merge. Runner #97 merged as
+`6fb8800c175026fdd033262df3eb2dea939e9f70`; its exact pin is on main and its
+merged tree matches the tested head.

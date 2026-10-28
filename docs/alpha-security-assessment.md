@@ -10,8 +10,9 @@ remains in progress pending residual affected-status/exposure review and fixes.
 > fixable and one newly reported unfixed go-jose/v3 occurrence in Caddy.
 > Verified rebuilt run 40757052765 removes the two v4 occurrences: **1 critical /
 > 195 high / 15 unknown** remain, none of the critical/high occurrences with a fixed
-> version. Both SBOMs contain v4.1.6; Caddy binary reachability reports zero called
-> vulnerabilities. The v3 finding remains unaccepted. See [the checkpoint](alpha-review-2026-10-28.md)
+> version. Both SBOMs contain v4.1.6. Caddy reports zero reachable findings only
+> within Go database coverage; that database lacks the new v3 advisory, whose
+> reachability remains unestablished and unaccepted. See [the checkpoint](alpha-review-2026-10-28.md)
 > and [risk register](residual-risk-register.md); this is not clearance.
 > Container Gau is fixed and native Gau is excluded; the Gau blocker text below is historical.
 >
