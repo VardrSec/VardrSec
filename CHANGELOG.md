@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Record the owner decision to exclude the native Gau archive, enforced in Runner #94, and mark
+  the Gau checklist item done. Documentation only.
+
 - Add the Community Alpha residual-risk register: each unresolved finding with component,
   exposure assumptions, evidence and a proposed disposition for explicit owner decision.
   Nothing in it is accepted. Documentation only.
