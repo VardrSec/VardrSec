@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Update the release checklist with current evidence and add the owner-decision section
+  (native Gau, nmap redistribution, residual-risk acceptance) with recommendations.
+  Documentation only.
+
 - Pin merged Runner #93 (`5803bb9`): source-built tools use x/net 0.62.0 and goldmark 1.7.17 for
   reachable advisories newer than the frozen scan database. Nuclei keeps the unfixable
   unmaintained-openpgp advisory.
