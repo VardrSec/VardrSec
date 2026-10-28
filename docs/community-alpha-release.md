@@ -21,7 +21,7 @@ Each item needs evidence recorded in the repository, not only a green CI run.
 | # | Requirement | State |
 | --- | --- | --- |
 | 1 | Image security gates reviewed: every critical/high occurrence has a supported affected-status or exposure disposition, a fix, or an explicit owner-approved exception | **Engineering complete, owner acceptance pending.** 1 critical / 194 high, none with a published fix; all are Debian packages reviewed in [alpha-os-exposure.md](alpha-os-exposure.md) with no reachable path demonstrated. Strict gates stay blocked until the owner accepts or Debian ships fixes |
-| 2 | Gau provider TLS: container fix pinned; native archive decision (fix, remove or exclude Gau from alpha scope) | **Open** owner decision ([review](gau-tls-review.md)) |
+| 2 | Gau provider TLS: container fix pinned; native archive decision (fix, remove or exclude Gau from alpha scope) | **Done:** container fixed (Runner #89); native archive excluded and enforced (Runner #94) |
 | 3 | Full researcher workflow through the interface with no API seeding | **Done in CI:** client, window, scope and authorization are recorded through the Map UI in the installed workflow (Map #119, VardrSec #26) |
 | 4 | Unfamiliar-user installation and first assessment, timed, with friction recorded | **Not done** (needs a real person) |
 | 5 | Exact component commits frozen in `versions.json`, each reachable on its repository's `main` | **Verified** (see reproducibility evidence); re-check at freeze |
@@ -50,28 +50,19 @@ and Go modules are downloaded (checksum-verified against `go.sum` and the checks
 database) at build time. Describe the alpha as source-built from pinned sources and
 base images, reproducible in its inputs but not offline or bit-for-bit.
 
-## Decisions that need the owner
+## Owner decisions: status
 
-Everything else in the plan is either complete or depends on a person or an
+Gau is decided and enforced. Everything else in the plan is either complete or depends on a person or an
 environment. Each decision below states the evidence and a recommendation.
 
-### 1. Native Gau archive (checklist item 2)
+### 1. Native Gau archive (checklist item 2) — decided: excluded
 
-Evidence: the container Gau is fixed (Runner #89; fixtures reject untrusted and
-wrong-host certificates). `vardrrunner tools install gau` on a host still installs
-the upstream archive, which disables provider TLS verification
-([review](gau-tls-review.md)). Impact: an on-path attacker could falsify collected URLs
-and observe provider API keys during a native Gau run.
-
-| Option | Effect | Cost |
-| --- | --- | --- |
-| A. Exclude native Gau from the alpha | Eight-tool native baseline; container keeps Gau | Documentation change |
-| B. Warn when native Gau is installed or run | Visible notice only | Small Runner change |
-| C. Fail closed unless the operator opts in | Native Gau refuses to run by default | Small Runner change |
-
-Recommendation: **C**, with the opt-in documented. It preserves the tool while making
-the insecure state an explicit choice. The change is a few lines in Runner and does
-not alter the container.
+Decision (owner, 2026-10-27): exclude the vulnerable native Gau from the alpha and enforce
+the exclusion rather than only documenting it. Implemented in Runner #94: `tools install
+gau` is refused, `tools install --all` skips it with the reason, and Runner executes only
+the reviewed container source build (no PATH fallback, no opt-in). The container Gau is
+the fixed build (Runner #89; fixtures reject untrusted and wrong-host certificates). Native
+users who need Gau use the container toolkit. See [review](gau-tls-review.md).
 
 ### 2. Nmap redistribution (checklist item 8)
 

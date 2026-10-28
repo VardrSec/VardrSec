@@ -4,7 +4,7 @@ Update: [Runner #89](https://github.com/VardrSec/VardrRunner/pull/89) contains a
 source-patched container Gau (ADR 0021) whose Runner CI fixtures reject untrusted
 and wrong-host certificates and accept an explicitly trusted one. This distribution
 PR pins it; installed-workflow, tool/network and image-evidence results for this pin
-are still required. The native archive keeps the defect, and the finding below is
+are still required. The native archive keeps the defect but is excluded: Runner #94 refuses to install or run it, and the finding below is
 unresolved until those pass and the alpha Gau scope is decided.
 
 Confirmed existing behavior, 2026-10-27. This is a release blocker for a toolkit
