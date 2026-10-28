@@ -32,13 +32,13 @@ Priorities map onto the table above; they do not add tasks. Operational state
 
 | Priority | Table task | Status |
 | --- | --- | --- |
-| P0 release-blocking security | 1 | Security review reopened against the 2026-10-28 image baseline; fixable go-jose occurrences are being remediated. Owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
+| P0 release-blocking security | 1 | The two fixable go-jose/v4 occurrences are removed in verified rebuilt images (1 critical / 195 high / 15 unknown); unfixed Caddy v3 exposure was checked in the actual binary. Owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
 | P0 complete researcher workflow | 4 | UI path verified in CI: the installed workflow now creates the client, testing window, scope and authorization through the Map interface (Map #119, VardrSec #26), then runs the reviewed Gate cases, confirms a finding and exports reports. Target/identity fixtures and Runner key issuance remain scripted by design; the unfamiliar-user exercise is still open. |
 | P1 first-user experience | 2, 3, 9 | Automated clean-Ubuntu install passes; no unfamiliar-user exercise has occurred. |
 | P1 networking | 5, 6, 7 | Synthetic host/private tests pass; genuine VPN unverified. Reliability drills pass and are reused for the candidate. |
 | P2 release preparation | 8 | Not started; follows security and acceptance review. |
 
-Latest independently verified baseline: [image run 40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177),
+Pre-remediation independently verified baseline: [image run 40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177),
 clean distribution commit `524585cac788d08c529df58b4dd82a20029e7c1b`, collected 2026-10-28.
 Raw reports total **1 critical / 197 high / 15 unknown** occurrences (API 0/44,
 PostgreSQL 1/61, Proxy 0/2, Runner 0/47, Web 0/43). Two high occurrences have a
@@ -47,10 +47,18 @@ occurrence is Caddy's go-jose/v3 3.0.5, for which upstream reports no fixed v3 r
 The previous 1/194 baseline is historical; its blanket "none fixable" statement no
 longer describes current evidence. See the [current security checkpoint](alpha-review-2026-10-28.md).
 
-The integration candidate pins Map #127 (including coverage and boundary features
-through #120–#126) and Runner #96, patches Caddy's go-jose/v4, and extends installed
-acceptance. These are development candidates pending CI and PR review, not released
-artifacts. All strict image gates remain blocked; no residual risk is accepted.
+The rebuilt [image run 40757052765](https://github.com/VardrSec/VardrSec/actions/runs/40757052765)
+verifies go-jose/v4 4.1.6 in Caddy and Nuclei, with **1 critical / 195 high / 15 unknown**
+remaining and **no critical/high fixed-version occurrence**. Caddy's actual binary
+scan reports zero reachable vulnerabilities; the v3 module advisory remains unaccepted.
+The [checkpoint](alpha-review-2026-10-28.md) records hashes, counts and limitations.
+
+Map #127 and Runner #96 are merged; the integration pins their exact tested commits,
+including Map's #120–#126 coverage and boundary features. All component pins are
+reachable on main. Final installed/recovery validation is tracked in
+[distribution #40 checks](https://github.com/VardrSec/VardrSec/pull/40/checks).
+These are development sources, not released artifacts. All strict image gates
+remain blocked; no residual risk is accepted.
 
 Group tasks only when sharing an acceptance environment helps; keep changes
 individually reviewable. Begin tasks 4–7 after tasks 1–3, then tasks 8–9.

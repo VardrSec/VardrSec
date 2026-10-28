@@ -2,14 +2,17 @@
 
 Status: **proposed dispositions, nothing accepted.** Each row needs an explicit owner
 decision (accept as an alpha limitation, require a fix, or exclude the component).
-Latest baseline: [image-evidence run 40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177),
+Pre-remediation baseline: [image-evidence run 40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177),
 clean distribution `524585cac788d08c529df58b4dd82a20029e7c1b`, raw reports and all
 five input hashes independently verified 2026-10-28: **1 critical / 197 high / 15 unknown**
 occurrences. Two high go-jose/v4 occurrences have a published fix; Caddy also links an
 unfixed go-jose/v3 occurrence. The 1/194 figures from run 40605692767 are historical.
-Candidate fixes and their pending acceptance are tracked in the
-[current checkpoint](alpha-review-2026-10-28.md). Nothing is accepted; strict image
-gates remain blocked pending fixes and explicit owner decisions. See also
+Verified rebuilt [run 40757052765](https://github.com/VardrSec/VardrSec/actions/runs/40757052765)
+removes both v4 occurrences: **1 critical / 195 high / 15 unknown** remain, with no
+critical/high fixed-version occurrence. Both SBOMs contain v4.1.6; strict checking
+still exits 1. The [checkpoint](alpha-review-2026-10-28.md) records the exact clean
+PR merge tree, input/report hashes and reachability limits. Nothing is accepted;
+strict image gates remain blocked pending explicit owner decisions. See also
 [alpha-os-exposure.md](alpha-os-exposure.md) and
 [alpha-security-assessment.md](alpha-security-assessment.md).
 
@@ -38,8 +41,8 @@ Common exposure facts used below, each verified in this repository:
 
 | ID | Component | What exploitation needs | Evidence | Proposed disposition |
 | --- | --- | --- | --- | --- |
-| CVE-2026-116587 (high) | Caddy go-jose/v4 4.1.5 and Nuclei go-jose/v4 4.1.4 | Parsing attacker-controlled RSA JWKs can exhaust CPU | New baseline reports two occurrences with fixed version 4.1.6; Caddy and Runner #96 recipes now request that fix | **Fix required**, not an acceptance request; verify rebuilt binaries and refreshed unfiltered reports |
-| CVE-2026-116587 (high, no fixed v3 release) | Caddy go-jose/v3 3.0.5 | Same JWK parsing primitive; actual proxy reachability still requires verification | [Upstream advisory](https://github.com/go-jose/go-jose/security/advisories/GHSA-mgcc-cww5-fp2q) explicitly lists v3 with no patched version; the v4 patch does not remediate it | **Open, unaccepted**; assess binary reachability and upstream migration before proposing any disposition |
+| CVE-2026-116587 (high) | Caddy go-jose/v4 4.1.5 and Nuclei go-jose/v4 4.1.4 | Parsing attacker-controlled RSA JWKs can exhaust CPU | Both rebuilt SBOMs contain 4.1.6 and the two occurrences are absent in run 40757052765; Runner #96 merged | **Remediated in the reviewed source-built images**, no exception needed for these two occurrences |
+| CVE-2026-116587 (high, no fixed v3 release) | Caddy go-jose/v3 3.0.5 | Same JWK parsing primitive, if vulnerable code becomes reachable | [Upstream advisory](https://github.com/go-jose/go-jose/security/advisories/GHSA-mgcc-cww5-fp2q) lists no v3 fix. Actual rebuilt Caddy binary: govulncheck 1.9.0 reports zero reachable and zero imported-package vulnerabilities; one module-only advisory. Proxy admin is off and the installed config uses internal TLS; source and raw finding are retained | **Open, unaccepted**; module-only evidence narrows exposure but requires explicit owner disposition; revisit if proxy modules/configuration change |
 | GO-2026-5932 (unknown severity; unmaintained `x/crypto/openpgp`, no fix) | Nuclei (reported **reachable**); also linked in httpx, Katana, DNSx, Subfinder, Naabu and Caddy (not reachable per `govulncheck`) | Processing untrusted OpenPGP data, which Nuclei uses to verify signed template bundles | `govulncheck` on the patched Nuclei build; templates are not bundled or auto-provisioned; no fix exists upstream | Conditional acceptance: Nuclei runs only against operator-chosen templates; track upstream |
 | Naabu binary-level reachability | Naabu | n/a | **Verified:** `govulncheck` on the CI-built Naabu binary (with CGO/libpcap, Runner #95 run 40617830243) reports no vulnerabilities; the module-level OSV check agrees | None remaining |
 | `rustls` 0.23.45 (RUSTSEC-2026-0346/0347/0348/0349, moderate/low), `rustls-webpki` 0.103.15 (RUSTSEC-2026-0382), `tokio` 1.53.1 (RUSTSEC-2026-0386), `rsa` 0.9.10 (Marvin, no fix) | Dalfox 3.2.4 (Rust; invisible to the image scanner) | A hostile HTTPS target or on-path attacker influencing a Dalfox connection; Marvin needs RSA decryption timing, which Dalfox does not offer | `Cargo.lock` at the v3.2.4 tag against OSV: no critical/high; Dalfox is the latest release; rebuild would need a Rust build stage | Accept moderate/low residual risk; re-check on the next Dalfox release |

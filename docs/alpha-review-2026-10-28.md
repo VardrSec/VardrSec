@@ -41,7 +41,7 @@ Upstream fixes v4 in 4.1.6 and lists no fixed v3 release. Counts are package/pat
 occurrences, not unique exploit paths. The existing 194 Debian high occurrences
 and critical PostgreSQL/libxml2 occurrence remain unaccepted. Raw reports are retained.
 
-## Candidate corrections
+## Corrections and component merges
 
 - [Map #127](https://github.com/VardrSec/VardrMap/pull/127): use the resource's
   tenant for tenant-boundary drafts, matching classification. Fall back to the
@@ -57,8 +57,50 @@ and critical PostgreSQL/libxml2 occurrence remain unaccepted. Raw reports are re
   evidence-backed candidates, boundary panels and all-skip draft generation without
   changing cases, jobs or target traffic. No migration is added by these changes.
 
-Candidate validation and refreshed image counts are pending CI. Do not infer that
-the v3 advisory disappeared because v4 was patched. No vulnerability suppression,
+Map #127 merged as `e29bb0bfa295883c6bb7af5e69eb8510b8b19c3d`; Runner #96
+merged as `5ac08f8871064575a5529e68cf472b9c0ed24b9d`. Both exact component
+pins, plus the unchanged Gate pin, were reverified as ancestors of their main branches.
+Map and Runner PR checks passed in full, including PostgreSQL/browser integration,
+the OS/Python matrix and the real toolkit build.
+
+## Verified rebuilt-image evidence
+
+[Run 40757052765](https://github.com/VardrSec/VardrSec/actions/runs/40757052765)
+collected the patched images from GitHub's clean PR merge commit
+`434947e08e705fe71148e53e79d77fb341fd8d8e`, whose full tree equals reviewed
+head `53f889f63d70bd3ad45983f264b3619d55152dce`. Five input hashes and ten
+report hashes were independently verified and all raw findings recounted:
+
+| Image | Critical | High | Unknown | Critical/high occurrences with fixed version |
+| --- | ---: | ---: | ---: | ---: |
+| API | 0 | 44 | 1 | 0 |
+| Database | 1 | 61 | 5 | 0 |
+| Proxy | 0 | 1 | 1 | 0 |
+| Runner | 0 | 46 | 7 | 0 |
+| Web | 0 | 43 | 1 | 0 |
+| **Total** | **1** | **195** | **15** | **0** |
+
+Both proxy and Runner SBOMs contain go-jose/v4 **4.1.6**. The two fixable
+occurrences are removed; the remaining high occurrences are the existing 194 Debian
+package/path occurrences and Caddy's go-jose/v3 advisory. The strict check was
+explicitly rerun and exits **1 (blocked)** for all five images, as required.
+
+The same run retains the raw `proxy-go-reachability` artifact from `govulncheck`
+1.9.0 on the actual rebuilt Caddy binary: **0 reachable vulnerabilities**, zero in
+imported packages, and one in a required module whose vulnerable code is not called.
+This narrows the v3 exposure evidence; it is not a suppression or owner acceptance.
+Runner's [container run 40756125456](https://github.com/VardrSec/VardrRunner/actions/runs/40756125456)
+reports the unchanged reachable Nuclei OpenPGP advisory GO-2026-5932 and no
+reachable advisory in the other shipped Go binaries.
+
+Installed workflow and recovery results for the final integration head are recorded
+in [distribution #40 checks](https://github.com/VardrSec/VardrSec/pull/40/checks).
+The first installation run passed all six real Gate assessments, then correctly
+rejected a fixture write lacking CSRF. Commit `70bc2fd` supplies the session's
+`csrfToken`; no application protection was weakened. An additional local adapter
+test passed the new surface assertions against Map's disposable API fixtures.
+Later fixture/documentation changes do not alter the five image inputs above.
+Do not infer that the v3 advisory disappeared because v4 was patched. No vulnerability suppression,
 risk acceptance, release, image publication or deployment is authorized here.
 The unfamiliar-user exercise, actual VPN validation, licensing review and remaining
 release decisions retain their existing status in the [release checklist](community-alpha-release.md).

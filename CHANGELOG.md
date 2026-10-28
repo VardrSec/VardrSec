@@ -6,8 +6,9 @@
   corrected tenant-boundary drafts through #120–#127) with Runner #96's Nuclei go-jose
   fix. Rebuild Caddy 2.11.7 with go-jose 4.1.6 for CVE-2026-116587. Installed acceptance
   now verifies coverage and boundary drafting through the real browser without saving
-  cases, queueing jobs or contacting a target. Component pins remain development candidates
-  until their PRs and this integration pass review and installed acceptance.
+  cases, queueing jobs or contacting a target. Both component PRs are merged and their exact
+  pins are on main; final distribution validation is tracked in #40. Rebuilt image evidence
+  verifies both fixed modules and 1 critical / 195 high / 15 unknown remaining; no risk accepted.
 
 - Pin merged Runner #94/#95 (`954aa63`): the vulnerable native Gau archive is excluded
   from install and execution, and container CI now reports `govulncheck` reachability for every

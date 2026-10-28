@@ -8,8 +8,11 @@ remains in progress pending residual affected-status/exposure review and fixes.
 > **Current review, 2026-10-28:** the verified clean-main image baseline is
 > **1 critical / 197 high / 15 unknown**, with two high go-jose/v4 occurrences now
 > fixable and one newly reported unfixed go-jose/v3 occurrence in Caddy.
-> See [the current checkpoint](alpha-review-2026-10-28.md) and
-> [risk register](residual-risk-register.md). Candidate patches are not clearance.
+> Verified rebuilt run 40757052765 removes the two v4 occurrences: **1 critical /
+> 195 high / 15 unknown** remain, none of the critical/high occurrences with a fixed
+> version. Both SBOMs contain v4.1.6; Caddy binary reachability reports zero called
+> vulnerabilities. The v3 finding remains unaccepted. See [the checkpoint](alpha-review-2026-10-28.md)
+> and [risk register](residual-risk-register.md); this is not clearance.
 > Container Gau is fixed and native Gau is excluded; the Gau blocker text below is historical.
 >
 > **Historical update (post-#30):** the latest recounted combined baseline is **1 critical / 194 high**
