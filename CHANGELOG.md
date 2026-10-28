@@ -3,8 +3,10 @@
 ## Unreleased
 
 - Advance Runner to #97 for verified HTTPS/HTTP/1.1 module downloads in builder stages
-  after repeated upstream HTTP/2 stream resets. Runtime transport settings, source versions
-  and integrity checks are unchanged; the new pin receives fresh installed/image checks.
+  after repeated upstream HTTP/2 stream resets. Apply the same setting to the Caddy/gosu
+  builders and host build tools. CI verifies it is absent from all three runtime images.
+  Runtime transport settings, source versions and integrity checks are unchanged; the new
+  pin receives fresh installed/image checks.
 
 - Integrate Map #127 (coverage, evidence-backed candidates, boundary hypotheses and
   corrected tenant-boundary drafts through #120–#127) with Runner #96's Nuclei go-jose

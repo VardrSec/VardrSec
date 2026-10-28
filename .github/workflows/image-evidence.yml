@@ -21,6 +21,15 @@ jobs:
           python vardrsec.py configure
           python vardrsec.py sources
           python vardrsec.py build
+      - name: Verify build transport overrides are absent from runtime images
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          for image in ("vardrsec-proxy:development", "vardrsec-db:development", "vardrrunner:development"):
+              config = json.loads(subprocess.check_output(["docker", "image", "inspect", image]))[0]["Config"]
+              assert not any(value.startswith("GODEBUG=") for value in config.get("Env") or []), image
+          print("PASS: build-only Go transport settings are absent from all three runtime images")
+          PY
       - name: Collect all image SBOMs and unfiltered vulnerability reports
         run: python image_evidence.py collect
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
@@ -31,7 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          GOBIN="$RUNNER_TEMP/proxy-go-bin" go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          GODEBUG=http2client=0 GOBIN="$RUNNER_TEMP/proxy-go-bin" go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
           id=$(docker create vardrsec-proxy:development)
           docker cp "$id:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
           docker rm "$id" > /dev/null

@@ -110,8 +110,8 @@ release decisions retain their existing status in the [release checklist](commun
 
 After multiple independent failures and a failed retry at both `proxy.golang.org`
 and `sum.golang.org`, [Runner #97](https://github.com/VardrSec/VardrRunner/pull/97)
-sets `GODEBUG=http2client=0` only in source-download builders. The exact distribution
-pin is `96b1ac910919159af7085858b678f89c0c3c669e`. Downloads still use verified HTTPS
+sets `GODEBUG=http2client=0` only in Go builders, including the separate Gate stage. The exact distribution
+pin is `65186ddb6c26c9d895f146a74decc52e08d3913e`. Downloads still use verified HTTPS
 and the public checksum database; source versions, patches and binary receipts are
 unchanged. Runtime CI asserts that the final toolkit inherits no `GODEBUG` setting.
 
@@ -130,3 +130,11 @@ inconclusive. The complete tool/network matrix passed on Ubuntu 22.04 and 24.04
 in [run 40758981266](https://github.com/VardrSec/VardrSec/actions/runs/40758981266).
 These results precede the build-transport-only pin advance; the final head repeats
 the full checks rather than assuming that a build change proves acceptance.
+
+
+The same build-only transport is used by the distribution's Caddy/gosu builders
+and host-side age/govulncheck installation steps. The image collection job checks
+that proxy, database and Runner runtime images contain no `GODEBUG` override.
+TLS verification, checksum authentication, source versions and tool behavior stay
+unchanged. This completes the same workaround across the actual Go build stages;
+the first follow-up had omitted Gate's separate builder and hit another stream reset.

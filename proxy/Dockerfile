@@ -1,6 +1,6 @@
 FROM golang:1.27.3@sha256:9048d5e7751706200eb1719c7dae0436950d362f29a1da91fa05e5c63867c60f AS build
 WORKDIR /src
-ENV CGO_ENABLED=0
+ENV CGO_ENABLED=0 GODEBUG=http2client=0
 COPY main.go .
 # Keep the existing Caddy release; rebuild its affected runtime/dependency.
 RUN go mod init vardrsec-proxy-build \
