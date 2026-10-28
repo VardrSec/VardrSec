@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Advance Runner to #97 for verified HTTPS/HTTP/1.1 module downloads in builder stages
+  after repeated upstream HTTP/2 stream resets. Apply the same setting to the Caddy/gosu
+  builders and host build tools. CI verifies it is absent from all three runtime images.
+  Runtime transport settings, source versions and integrity checks are unchanged; the new
+  pin receives fresh installed/image checks.
+
+- Integrate Map #127 (coverage, evidence-backed candidates, boundary hypotheses and
+  corrected tenant-boundary drafts through #120–#127) with Runner #96's Nuclei go-jose
+  fix. Rebuild Caddy 2.11.7 with go-jose 4.1.6 for CVE-2026-116587. Installed acceptance
+  now verifies coverage and boundary drafting through the real browser without saving
+  cases, queueing jobs or contacting a target. Both component PRs are merged and their exact
+  pins are on main; final distribution validation is tracked in #40. Rebuilt image evidence
+  verifies both fixed modules and 1 critical / 195 high / 15 unknown remaining; no risk accepted.
+
 - Pin merged Runner #94/#95 (`954aa63`): the vulnerable native Gau archive is excluded
   from install and execution, and container CI now reports `govulncheck` reachability for every
   shipped Go binary, including Naabu (clean; Nuclei retains only the unfixable openpgp advisory).

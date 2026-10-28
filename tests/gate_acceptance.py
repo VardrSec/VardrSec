@@ -173,6 +173,33 @@ def verify_records(request, base, job_id, case_id, scenario, delivery=None):
     }, (job, evidence, scans, events)
 
 
+def verify_authorization_surface(request, base):
+    # Synthetic traffic capture uses the normal ingest API, not database seeding.
+    csrf = request("/auth/local/session")["csrfToken"]
+    for mode in ("vulnerable", "fixed", "unavailable"):
+        request(base + "/api/exchanges", {
+            "method": "GET", "url": f"{ORIGIN}/{mode}/records/42",
+            "identity_label": "owner", "response_status": 503 if mode == "unavailable" else 200,
+        }, csrf=csrf)
+    coverage = request(base + "/api/coverage")
+    operations = {op["path_template"]: op for op in coverage["operations"]}
+    expected = {"vulnerable": "violation_candidate", "fixed": "conclusive", "unavailable": "inconclusive"}
+    for mode, state in expected.items():
+        op = operations[f"/{mode}/records/{{id}}"]
+        assert op["state"] == state, op
+        assert len(op["cases"]) == 1 and op["cases"][0]["executed"]
+        assert op["cases"][0]["latest_job_id"]
+        assert op["priority_reasons"]
+    vulnerable = operations["/vulnerable/records/{id}"]
+    assert vulnerable["candidates"]["open"] > 0 and vulnerable["candidate_evidence"]
+    relationships = request(base + "/api/relationships")
+    assert relationships["identity_conflicts"] == []
+    assert any(h["endpoint_id"] == operations["/unavailable/records/{id}"]["endpoint_id"]
+               and h["boundary"] == "same_tenant_peer" and h["status"] == "inconclusive"
+               for h in relationships["hypotheses"])
+    return expected
+
+
 def run_gate_workflow(compose, request, key, password):
     # This helper never runs against an arbitrary/default installation or target.
     containers = compose(
@@ -343,6 +370,19 @@ def run_gate_workflow(compose, request, key, password):
                 print(line.rstrip(), flush=True)
                 continue
             event = json.loads(line.removeprefix("GATE_EVENT "))
+            if event["type"] == "surface":
+                surface_before = (request(base + "/jobs"), request(base + "/test-cases"), observations())
+                receipt["authorization_surface"] = verify_authorization_surface(request, base)
+                browser.stdin.write('{"continue":true}\n')
+                browser.stdin.flush()
+                continue
+            if event["type"] == "surface-rendered":
+                assert (request(base + "/jobs"), request(base + "/test-cases"), observations()) == surface_before
+                receipt["boundary_draft_rendered"] = True
+                print("PASS: installed authorization coverage, evidence-backed candidates and boundary draft UI; no case saved, job queued or target contacted", flush=True)
+                browser.stdin.write('{"continue":true}\n')
+                browser.stdin.flush()
+                continue
             if event["type"] == "reviewed":
                 # The UI-recorded setup must be what the backend now holds.
                 recorded = request(base)
@@ -452,6 +492,7 @@ def run_gate_workflow(compose, request, key, password):
             "write-vulnerable",
             "write-fixed",
         ]
+        assert receipt["boundary_draft_rendered"] is True
         assert len(receipt["jobs"]) == 6
         verify_delivery(receipt["delivery"])
         writes = [j for j in receipt["jobs"] if j["scenario"].startswith("write-")]

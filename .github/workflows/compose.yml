@@ -37,6 +37,7 @@ jobs:
         env:
           GOBIN: ${{ runner.temp }}/age-bin
           GOTOOLCHAIN: local
+          GODEBUG: http2client=0
         run: |
           mkdir -p "$GOBIN"
           go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
@@ -63,6 +64,7 @@ jobs:
         env:
           GOBIN: ${{ runner.temp }}/age-bin
           GOTOOLCHAIN: local
+          GODEBUG: http2client=0
         run: |
           mkdir -p "$GOBIN"
           go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2

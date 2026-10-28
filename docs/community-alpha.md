@@ -32,24 +32,35 @@ Priorities map onto the table above; they do not add tasks. Operational state
 
 | Priority | Table task | Status |
 | --- | --- | --- |
-| P0 release-blocking security | 1 | Engineering complete; owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
+| P0 release-blocking security | 1 | The two fixable go-jose/v4 occurrences are removed in verified rebuilt images (1 critical / 195 high / 15 unknown); Caddy v3 reachability remains unestablished because the Go database does not yet cover its new advisory. Owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
 | P0 complete researcher workflow | 4 | UI path verified in CI: the installed workflow now creates the client, testing window, scope and authorization through the Map interface (Map #119, VardrSec #26), then runs the reviewed Gate cases, confirms a finding and exports reports. Target/identity fixtures and Runner key issuance remain scripted by design; the unfamiliar-user exercise is still open. |
 | P1 first-user experience | 2, 3, 9 | Automated clean-Ubuntu install passes; no unfamiliar-user exercise has occurred. |
 | P1 networking | 5, 6, 7 | Synthetic host/private tests pass; genuine VPN unverified. Reliability drills pass and are reused for the candidate. |
 | P2 release preparation | 8 | Not started; follows security and acceptance review. |
 
-Image scan figures at the `versions.json` pins after distribution #30 (collection
-run 40595602465 on the tested head `666bfd0`, raw Trivy reports recounted 2026-10-27):
-**1 critical / 194 high** occurrences across five images (API 0/44, PostgreSQL 1/61,
-Proxy 0/0, Runner 0/46, Web 0/43), plus 15 unknown. This is down from 3/351 at
-`19b001c`. **No critical or high occurrence has a published fixed version any more**;
-what remains is Debian packages without fixes in the pinned suite (util-linux, libxml2,
-GnuPG, perl, libacl, systemd, ncurses, libpcap), reviewed in the
-[exposure review](alpha-os-exposure.md) with no reachable path demonstrated. These are
-scanner occurrences, not confirmed exploit paths, and all strict gates remain blocked.
-Earlier totals in [alpha-security-assessment.md](alpha-security-assessment.md) and the
-[checkpoint](alpha-checkpoint-2026-10-27.md) are dated snapshots.
-Nothing is an accepted risk; no exception has been authorized.
+Pre-remediation independently verified baseline: [image run 40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177),
+clean distribution commit `524585cac788d08c529df58b4dd82a20029e7c1b`, collected 2026-10-28.
+Raw reports total **1 critical / 197 high / 15 unknown** occurrences (API 0/44,
+PostgreSQL 1/61, Proxy 0/2, Runner 0/47, Web 0/43). Two high occurrences have a
+published fix: go-jose/v4 in Caddy and Nuclei, fixed in 4.1.6. A third new high
+occurrence is Caddy's go-jose/v3 3.0.5, for which upstream reports no fixed v3 release.
+The previous 1/194 baseline is historical; its blanket "none fixable" statement no
+longer describes current evidence. See the [current security checkpoint](alpha-review-2026-10-28.md).
+
+The rebuilt [image run 40757052765](https://github.com/VardrSec/VardrSec/actions/runs/40757052765)
+verifies go-jose/v4 4.1.6 in Caddy and Nuclei, with **1 critical / 195 high / 15 unknown**
+remaining and **no critical/high fixed-version occurrence**. Caddy's binary scan
+reports zero reachable vulnerabilities in its database coverage; the new v3 advisory
+is absent from that database and its reachability remains unestablished and unaccepted.
+The [checkpoint](alpha-review-2026-10-28.md) records hashes, counts and limitations.
+
+Map #127 and Runner #96 are merged. The integration includes Map's #120–#126
+coverage and boundary features and advances Runner to the #97 build-download
+reliability follow-up. Fresh collection, installed/recovery validation and exact-pin
+main ancestry verification are tracked in
+[distribution #40 checks](https://github.com/VardrSec/VardrSec/pull/40/checks).
+These are development sources, not released artifacts. All strict image gates
+remain blocked; no residual risk is accepted.
 
 Group tasks only when sharing an acceptance environment helps; keep changes
 individually reviewable. Begin tasks 4–7 after tasks 1–3, then tasks 8–9.

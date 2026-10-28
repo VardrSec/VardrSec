@@ -2,10 +2,17 @@
 
 Status: **proposed dispositions, nothing accepted.** Each row needs an explicit owner
 decision (accept as an alpha limitation, require a fix, or exclude the component).
-Evidence: image-evidence run 40605692767 (raw Trivy reports recounted), `govulncheck`
-reachability results and the manual reviews linked below. Counts are scanner
-occurrences: **1 critical / 194 high / 15 unknown**, none with a published fixed version.
-Strict image gates stay blocked until the owner decides. See also
+Pre-remediation baseline: [image-evidence run 40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177),
+clean distribution `524585cac788d08c529df58b4dd82a20029e7c1b`, raw reports and all
+five input hashes independently verified 2026-10-28: **1 critical / 197 high / 15 unknown**
+occurrences. Two high go-jose/v4 occurrences have a published fix; Caddy also links an
+unfixed go-jose/v3 occurrence. The 1/194 figures from run 40605692767 are historical.
+Verified rebuilt [run 40757052765](https://github.com/VardrSec/VardrSec/actions/runs/40757052765)
+removes both v4 occurrences: **1 critical / 195 high / 15 unknown** remain, with no
+critical/high fixed-version occurrence. Both SBOMs contain v4.1.6; strict checking
+still exits 1. The [checkpoint](alpha-review-2026-10-28.md) records the exact clean
+PR merge tree, input/report hashes and reachability limits. Nothing is accepted;
+strict image gates remain blocked pending explicit owner decisions. See also
 [alpha-os-exposure.md](alpha-os-exposure.md) and
 [alpha-security-assessment.md](alpha-security-assessment.md).
 
@@ -34,6 +41,8 @@ Common exposure facts used below, each verified in this repository:
 
 | ID | Component | What exploitation needs | Evidence | Proposed disposition |
 | --- | --- | --- | --- | --- |
+| CVE-2026-116587 (high) | Caddy go-jose/v4 4.1.5 and Nuclei go-jose/v4 4.1.4 | Parsing attacker-controlled RSA JWKs can exhaust CPU | Both rebuilt SBOMs contain 4.1.6 and the two occurrences are absent in run 40757052765; Runner #96 merged | **Remediated in the reviewed source-built images**, no exception needed for these two occurrences |
+| CVE-2026-116587 (high, no fixed v3 release) | Caddy go-jose/v3 3.0.5 | Parsing attacker-controlled RSA JWKs in the affected v3 code | [Upstream advisory](https://github.com/go-jose/go-jose/security/advisories/GHSA-mgcc-cww5-fp2q) lists no v3 fix. The official Go database lacks this advisory at the audit checkpoint, so govulncheck's zero reachable findings do not establish its reachability. Proxy admin is off and the installed config uses internal TLS, but that configuration fact is not a source-level disposition | **Open, unaccepted, reachability unestablished**; review the actual affected functions and input paths or an upstream migration before proposing any exception |
 | GO-2026-5932 (unknown severity; unmaintained `x/crypto/openpgp`, no fix) | Nuclei (reported **reachable**); also linked in httpx, Katana, DNSx, Subfinder, Naabu and Caddy (not reachable per `govulncheck`) | Processing untrusted OpenPGP data, which Nuclei uses to verify signed template bundles | `govulncheck` on the patched Nuclei build; templates are not bundled or auto-provisioned; no fix exists upstream | Conditional acceptance: Nuclei runs only against operator-chosen templates; track upstream |
 | Naabu binary-level reachability | Naabu | n/a | **Verified:** `govulncheck` on the CI-built Naabu binary (with CGO/libpcap, Runner #95 run 40617830243) reports no vulnerabilities; the module-level OSV check agrees | None remaining |
 | `rustls` 0.23.45 (RUSTSEC-2026-0346/0347/0348/0349, moderate/low), `rustls-webpki` 0.103.15 (RUSTSEC-2026-0382), `tokio` 1.53.1 (RUSTSEC-2026-0386), `rsa` 0.9.10 (Marvin, no fix) | Dalfox 3.2.4 (Rust; invisible to the image scanner) | A hostile HTTPS target or on-path attacker influencing a Dalfox connection; Marvin needs RSA decryption timing, which Dalfox does not offer | `Cargo.lock` at the v3.2.4 tag against OSV: no critical/high; Dalfox is the latest release; rebuild would need a Rust build stage | Accept moderate/low residual risk; re-check on the next Dalfox release |

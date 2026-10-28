@@ -20,13 +20,13 @@ Each item needs evidence recorded in the repository, not only a green CI run.
 
 | # | Requirement | State |
 | --- | --- | --- |
-| 1 | Image security gates reviewed: every critical/high occurrence has a supported affected-status or exposure disposition, a fix, or an explicit owner-approved exception | **Engineering complete, owner acceptance pending.** 1 critical / 194 high, none with a published fix; all are Debian packages reviewed in [alpha-os-exposure.md](alpha-os-exposure.md) with no reachable path demonstrated. Strict gates stay blocked until the owner accepts or Debian ships fixes |
+| 1 | Image security gates reviewed: every critical/high occurrence has a supported affected-status or exposure disposition, a fix, or an explicit owner-approved exception | **Remediation verified, residual disposition pending.** Rebuilt images: 1 critical / 195 high / 15 unknown; both fixable v4 occurrences removed; v3 reachability remains unestablished because its new advisory is absent from the Go database. See [checkpoint](alpha-review-2026-10-28.md). Nothing accepted; strict gates stay blocked |
 | 2 | Gau provider TLS: container fix pinned; native archive decision (fix, remove or exclude Gau from alpha scope) | **Done:** container fixed (Runner #89); native archive excluded and enforced (Runner #94) |
 | 3 | Full researcher workflow through the interface with no API seeding | **Done in CI:** client, window, scope and authorization are recorded through the Map UI in the installed workflow (Map #119, VardrSec #26) |
 | 4 | Unfamiliar-user installation and first assessment, timed, with friction recorded | **Not done** (needs a real person) |
-| 5 | Exact component commits frozen in `versions.json`, each reachable on its repository's `main` | **Verified** (see reproducibility evidence); re-check at freeze |
+| 5 | Exact component commits frozen in `versions.json`, each reachable on its repository's `main` | **Exact development pins recorded:** Map #127, Runner #97 and unchanged Gate. Main ancestry for every exact pin is required at integration merge and rechecked at freeze; see #40 checks/merge record. This is not a release freeze |
 | 6 | Independent rebuild reproduces the install artifacts from the frozen pins | **Partially reproducible**, see below |
-| 7 | Backup, encrypted restore, successful update and failed-update recovery rerun against the frozen pins | **Passing** on the current development pins (VardrSec #33 CI: installation, controlled updates, certificate renewal, tool/network); rerun at freeze |
+| 7 | Backup, encrypted restore, successful update and failed-update recovery rerun against the frozen pins | Historical development baseline passed; integration results for the new exact pins are recorded in [#40 checks](https://github.com/VardrSec/VardrSec/pull/40/checks). Rerun at freeze |
 | 8 | Redistribution and licensing review of every bundled tool and base image | **Open**, see below |
 | 9 | Release notes, limitations, troubleshooting and recovery instructions reviewed | This draft |
 | 10 | Owner approval for any image publication, tag or announcement | Not requested |
@@ -38,7 +38,7 @@ inputs, not a hermetic or byte-identical image build.
 
 | Check | Result | Limit |
 | --- | --- | --- |
-| Component pins are ancestors of each repository's `main` | Verified through the GitHub compare API; Runner identical to `main`, Map and Gate behind by instruction-document commits only (diffed) | Re-run at freeze |
+| Component pins are ancestors of each repository's `main` | Verified after Map #127 / Runner #96 merged. Runner then advanced to #97 for builder HTTP/1.1 transport; the final exact-pin ancestry check is required in #40's merge record. Map includes #120–#127 | Re-run at freeze |
 | Base images pinned by digest | Verified in every Dockerfile at the pinned commits | Digest availability is outside our control |
 | Gate binary from the pinned commit, two clean builds (separate caches), Go 1.27.3 | Byte-identical SHA-256 | Local linux/amd64 build, not compared to the CI image |
 | FFUF source build, two clean builds | Byte-identical SHA-256 | As above |
@@ -52,8 +52,9 @@ base images, reproducible in its inputs but not offline or bit-for-bit.
 
 ## Owner decisions: status
 
-Gau is decided and enforced. Everything else in the plan is either complete or depends on a person or an
-environment. Each decision below states the evidence and a recommendation.
+Gau is decided and enforced. The go-jose/v4 fixes are verified in rebuilt images;
+the unfixed v3 module advisory and the existing Debian/OpenPGP/Rust findings remain
+unaccepted. The human and environment gates still apply. Each decision below states the evidence and a recommendation.
 
 ### 1. Native Gau archive (checklist item 2) — decided: excluded
 
@@ -97,7 +98,8 @@ limitation, to require a fix before release, or to exclude the component.
 | 1 critical: CVE-2026-6653, libxml2 in the PostgreSQL image | Needs attacker-controlled XML parsed by SQL/XML functions; Map's source and migrations use none; only the API reaches the database | Accept for the alpha, conditional on Map continuing to avoid XML SQL functions |
 | Nuclei: GO-2026-5932 (unmaintained openpgp, no fix) | Reported reachable by `govulncheck`; upstream Nuclei dependency | Accept; track upstream |
 | Dalfox: moderate/low Rust advisories (`rustls` and others) | `Cargo.lock` against OSV; no critical/high; scanner cannot see Rust binaries | Accept; re-check on the next Dalfox release |
-| Naabu: reachability not scanned (CGO) | Module-level check: only the openpgp advisory | Accept, noting the weaker evidence |
+| Caddy go-jose/v3: CVE-2026-116587, no upstream v3 fix | Raw finding retained; the Go database lacks this advisory at the checkpoint, so a zero-reachable scan cannot disposition it | Open, unaccepted; review affected code/input paths or an upstream migration before any exception |
+| Naabu: binary reachability verified | Runner #95 scanned the actual CGO/libpcap binary and reported no vulnerabilities | No exception required for the former evidence gap |
 
 ### 4. Items that need a person or an environment (not decisions)
 

@@ -1,5 +1,5 @@
 FROM golang:1.27.3@sha256:9048d5e7751706200eb1719c7dae0436950d362f29a1da91fa05e5c63867c60f AS gosu
-ENV CGO_ENABLED=0 GOTOOLCHAIN=local
+ENV CGO_ENABLED=0 GOTOOLCHAIN=local GODEBUG=http2client=0
 WORKDIR /src
 # The reviewed PostgreSQL image bundles gosu 1.19.0 built with Go 1.24.6. Keep that
 # release (tag 1.19, commit below; gosu tags are not Go semver) and rebuild it from its
