@@ -15,6 +15,13 @@ sudo update-ca-certificates            # trust only your own CA; compare the pri
 python3 vardrsec.py bootstrap --username operator
 ```
 
+If `install` is interrupted (network drop, full disk, Docker error), fix the cause and run
+`python3 vardrsec.py install` again. It resumes: your `.env` secrets are kept, source checkouts
+are continued and never reset, and image builds reuse their cache. Nothing is deleted. Once
+the platform has been started, `install` refuses to run again (use `start`, `stop` and the
+controlled updater); if it stopped after the services started, run `python3 vardrsec.py
+export-ca` and continue with the steps above.
+
 Then open `https://localhost:8443` (restart the browser; Firefox needs the CA imported in its
 own settings) and sign in. The CA step is manual on purpose: it changes your machine's trust
 and VardrSec never does that for you. A plain `docker compose up -d --build` does not work on

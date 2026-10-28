@@ -119,7 +119,24 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.12'
-      - name: Install with the one-command path (configure, sources, build, start, export-ca)
+      - name: Interrupt the install part-way, then resume it
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
+        run: |
+          # Kill the first run during source acquisition/build. Credentials must survive and the
+          # rerun must complete the install without regenerating or overwriting them.
+          timeout 40 python vardrsec.py install || true
+          test -f .env
+          sha256sum .env > "$RUNNER_TEMP/env.sha256"
+          python vardrsec.py install
+          sha256sum -c "$RUNNER_TEMP/env.sha256"
+      - name: Confirm a started installation is protected from a second install
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
+        run: |
+          if python vardrsec.py install; then echo 'install must refuse after first start'; exit 1; fi
+      - name: Exercise the install command's final state (CA export)
+        run: test -s trust/root.crt
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: python vardrsec.py install

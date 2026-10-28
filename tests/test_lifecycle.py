@@ -159,7 +159,7 @@ class LifecycleTests(unittest.TestCase):
                 self.assertEqual("--generate-password" in command, generated)
                 self.assertNotIn("--password", command)
 
-    def test_install_chains_the_existing_steps_in_order(self):
+    def _install(self, env_present, started, fail_at=None):
         calls = []
         real = vardrsec.dispatch
 
@@ -167,33 +167,63 @@ class LifecycleTests(unittest.TestCase):
             if args.action == "install":
                 return real(args, parser)
             calls.append(args.action)
+            if args.action == fail_at:
+                raise RuntimeError("network dropped")
 
-        with tempfile.TemporaryDirectory() as directory:
-            with (
-                patch.object(vardrsec, "ROOT", Path(directory)),
-                patch.object(vardrsec, "dispatch", side_effect=routed),
-                contextlib.redirect_stdout(io.StringIO()) as out,
-            ):
-                vardrsec.dispatch(argparse.Namespace(action="install"), None)
-        self.assertEqual(list(vardrsec.INSTALL_STEPS), calls)
-        self.assertIn("update-ca-certificates", out.getvalue())
-        self.assertIn("No scans were started", out.getvalue())
-
-    def test_install_refuses_to_run_over_an_existing_installation(self):
         class Parser:
             def error(self, message):
                 raise SystemExit(message)
 
         with tempfile.TemporaryDirectory() as directory:
-            (Path(directory) / ".env").write_text("POSTGRES_PASSWORD=keep")
+            if env_present:
+                (Path(directory) / ".env").write_text("POSTGRES_PASSWORD=keep")
             with (
                 patch.object(vardrsec, "ROOT", Path(directory)),
-                patch.object(vardrsec, "configure") as configure,
+                patch.object(vardrsec, "dispatch", side_effect=routed),
+                patch.object(vardrsec, "has_installation_data", return_value=started),
+                contextlib.redirect_stdout(io.StringIO()) as out,
+                contextlib.redirect_stderr(io.StringIO()) as err,
             ):
-                with self.assertRaises(SystemExit):
+                try:
                     vardrsec.dispatch(argparse.Namespace(action="install"), Parser())
-                configure.assert_not_called()
-            self.assertEqual("POSTGRES_PASSWORD=keep", (Path(directory) / ".env").read_text())
+                    error = None
+                except BaseException as exc:  # noqa: BLE001 - the test inspects it
+                    error = exc
+            kept = (
+                (Path(directory) / ".env").read_text()
+                if (Path(directory) / ".env").exists()
+                else None
+            )
+        return calls, out.getvalue(), err.getvalue(), error, kept
+
+    def test_install_chains_the_existing_steps_in_order(self):
+        calls, out, _, error, _ = self._install(env_present=False, started=False)
+        self.assertIsNone(error)
+        self.assertEqual(list(vardrsec.INSTALL_STEPS), calls)
+        self.assertIn("update-ca-certificates", out)
+        self.assertIn("No scans were started", out)
+
+    def test_install_resumes_without_regenerating_secrets(self):
+        calls, out, _, error, kept = self._install(env_present=True, started=False)
+        self.assertIsNone(error)
+        self.assertNotIn("configure", calls)
+        self.assertEqual(["sources", "build", "start", "export-ca"], calls)
+        self.assertIn("Resuming", out)
+        self.assertEqual("POSTGRES_PASSWORD=keep", kept)
+
+    def test_install_refuses_once_the_platform_has_been_started(self):
+        calls, _, _, error, kept = self._install(env_present=True, started=True)
+        self.assertIsInstance(error, SystemExit)
+        self.assertEqual([], calls)
+        self.assertEqual("POSTGRES_PASSWORD=keep", kept)
+
+    def test_a_failed_step_explains_how_to_resume_and_keeps_credentials(self):
+        calls, _, err, error, kept = self._install(env_present=True, started=False, fail_at="build")
+        self.assertIsInstance(error, RuntimeError)
+        self.assertEqual(["sources", "build"], calls)
+        self.assertIn("run `python3 vardrsec.py install` again", err)
+        self.assertIn("Nothing was deleted", err)
+        self.assertEqual("POSTGRES_PASSWORD=keep", kept)
 
 
 if __name__ == "__main__":

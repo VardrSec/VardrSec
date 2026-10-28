@@ -209,6 +209,17 @@ def main():
 
 INSTALL_STEPS = ("configure", "sources", "build", "start", "export-ca")
 
+
+def has_installation_data():
+    """True once the database volume exists, i.e. the platform was started before."""
+    project = os.environ.get("COMPOSE_PROJECT_NAME") or "vardrsec"
+    result = subprocess.run(
+        ["docker", "volume", "inspect", f"{project}_database"],
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
 INSTALL_NEXT = """
 Installed. Remaining manual steps (they change your machine, so they are never automatic):
   1. Trust the public CA after checking the fingerprint above:
@@ -224,14 +235,33 @@ def dispatch(args, parser):
     if args.action == "install":
         # One command for a brand-new checkout. It only chains the existing steps, in
         # order, and refuses to run over an existing installation's credentials.
-        if (ROOT / ".env").exists():
+        # Safe to rerun after an interruption: an existing .env is kept (never
+        # regenerated), source checkouts are resumed and never reset, and image builds
+        # reuse their cache. Once the database volume exists the platform has held
+        # data, so install refuses and start/update must be used instead.
+        if has_installation_data():
             parser.error(
-                "An installation already exists here (.env present). Use start/stop/update; "
-                "install is only for a new checkout."
+                "This installation has been started before and may hold data. Use start, "
+                "stop or the controlled updater; install is only for a new or interrupted install."
             )
-        for step in INSTALL_STEPS:
+        steps = list(INSTALL_STEPS)
+        if (ROOT / ".env").exists():
+            print("Resuming: the existing .env is kept and its secrets are not regenerated.")
+            steps.remove("configure")
+        for step in steps:
             print(f"== {step}", flush=True)
-            dispatch(argparse.Namespace(**{**vars(args), "action": step}), parser)
+            try:
+                dispatch(argparse.Namespace(**{**vars(args), "action": step}), parser)
+            except Exception as error:
+                print(
+                    f"\nInstall stopped at '{step}': {error}\n"
+                    "Nothing was deleted and your credentials are untouched. Fix the cause "
+                    "(network, disk space, Docker) and run `python3 vardrsec.py install` again "
+                    "to resume. If it stopped after the services started, run "
+                    "`python3 vardrsec.py export-ca` instead.",
+                    file=sys.stderr,
+                )
+                raise
         print(INSTALL_NEXT)
     elif args.action == "configure":
         configure()

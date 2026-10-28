@@ -4,8 +4,9 @@
 
 - Add `python3 vardrsec.py install`: one command for a new checkout that runs the existing
   configure, sources, build, start and export-ca steps in order and prints the remaining manual
-  trust and bootstrap steps. It refuses to run over an existing `.env`, changes no architecture
-  and enrolls no trust. The controlled-updates CI job now uses it on a clean Ubuntu runner.
+  trust and bootstrap steps. It is resumable after an interruption (an existing `.env` is kept, never
+  regenerated) and refuses once the database volume exists; it changes no architecture and enrolls
+  no trust. The controlled-updates CI job now uses it on a clean Ubuntu runner.
 
 - Record the owner decision to exclude the native Gau archive, enforced in Runner #94, and mark
   the Gau checklist item done. Documentation only.
