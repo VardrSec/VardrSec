@@ -1,12 +1,42 @@
 # VardrSec
 
-The local-first distribution for the VardrSec security-testing platform.
+The local-first distribution for the VardrSec security-testing platform: a research
+interface (VardrMap), an explicit-execution runner (VardrRunner) and a multi-identity API
+authorization tester (VardrGate), run together with Docker Compose on your own machine.
 
-**Status: implementation started; a runnable Compose distribution is not released.**
-This repository provides a source-built Compose development installation with
-Map UI/API, migrated PostgreSQL, an HTTPS proxy and explicitly invoked Runner.
-Application images are built locally from exact source pins; release images and
-automatic updates are not published. See [installation and explicit CA trust](docs/installation.md).
+> **Source-built alpha, not an official release.** You build it locally from pinned sources.
+> No images are published and there are no automatic updates.
+
+## Install (Ubuntu 24.04, Docker and Compose, Python 3.10+, Git)
+
+```sh
+git clone https://github.com/VardrSec/VardrSec.git vardrsec
+cd vardrsec
+python3 vardrsec.py install        # builds everything; takes several minutes
+sudo install -m 0644 trust/root.crt /usr/local/share/ca-certificates/vardrsec-local.crt
+sudo update-ca-certificates        # trust only your own local CA (compare the printed fingerprint)
+python3 vardrsec.py bootstrap --username operator
+```
+
+If the install is interrupted, run `python3 vardrsec.py install` again: it resumes, keeps your
+secrets and deletes nothing. The certificate step is manual by design; VardrSec never changes
+your trust store or starts a scan on its own. Firefox needs the CA imported in its own settings.
+
+## Use it
+
+1. Open **https://localhost:8443** and sign in with the username and passphrase you just created.
+2. Create an engagement, then on its Overview add the client, testing window and written
+   authorization, and add your target under Scope.
+3. Draft test cases from your OpenAPI document under Review, edit each identity's expected
+   access yourself, and queue a case. Nothing runs until you run the Runner explicitly.
+
+The full step-by-step, including running the assessment and exporting a report, is the
+[first-assessment walkthrough](docs/installation.md#first-assessment-walkthrough).
+Stop with `python3 vardrsec.py stop` (your data is kept). Other platforms, VPN-only
+targets and recovery are covered in [installation](docs/installation.md),
+[networking](docs/networking.md) and [recovery](docs/recovery.md).
+
+## Project status
 
 Current work follows the [Community Alpha v0.1.0 stabilization plan](docs/community-alpha.md):
 security and clean Ubuntu installation first, then user-workflow validation and

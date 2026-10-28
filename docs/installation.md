@@ -1,5 +1,35 @@
 # Development Compose installation
 
+## Quick start (source-built, not an official release)
+
+Tested on Ubuntu 24.04 amd64 with Docker, Compose, Python 3.10+ and Git already installed
+(`docker compose version` must work for your user). CI runs these steps on a clean hosted
+Ubuntu 24.04 machine; the unfamiliar-user, zero-prerequisite run has not been done.
+
+```sh
+git clone https://github.com/VardrSec/VardrSec.git vardrsec
+cd vardrsec
+python3 vardrsec.py install            # configure, sources, build, start, export-ca (several minutes)
+sudo install -m 0644 trust/root.crt /usr/local/share/ca-certificates/vardrsec-local.crt
+sudo update-ca-certificates            # trust only your own CA; compare the printed fingerprint first
+python3 vardrsec.py bootstrap --username operator
+```
+
+If `install` is interrupted (network drop, full disk, Docker error), fix the cause and run
+`python3 vardrsec.py install` again. It resumes: your `.env` secrets are kept, source checkouts
+are continued and never reset, and image builds reuse their cache. Nothing is deleted. Once
+the platform has been started, `install` refuses to run again (use `start`, `stop` and the
+controlled updater); if it stopped after the services started, run `python3 vardrsec.py
+export-ca` and continue with the steps above.
+
+Then open `https://localhost:8443` (restart the browser; Firefox needs the CA imported in its
+own settings) and sign in. The CA step is manual on purpose: it changes your machine's trust
+and VardrSec never does that for you. A plain `docker compose up -d --build` does not work on
+a fresh clone because the secrets file and the pinned component sources do not exist yet;
+`install` creates them (and refuses to run over an existing installation). Platform startup
+never runs a scan; the first-assessment walkthrough below shows how to run one explicitly.
+
+
 This is a source-built development installation, not a released Community package.
 The first alpha candidate targets Ubuntu 24.04 Linux/amd64. Windows/macOS Docker
 Desktop instructions remain experimental until their own full installation
