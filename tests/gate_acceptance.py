@@ -175,11 +175,12 @@ def verify_records(request, base, job_id, case_id, scenario, delivery=None):
 
 def verify_authorization_surface(request, base):
     # Synthetic traffic capture uses the normal ingest API, not database seeding.
+    csrf = request("/auth/local/session")["csrfToken"]
     for mode in ("vulnerable", "fixed", "unavailable"):
         request(base + "/api/exchanges", {
             "method": "GET", "url": f"{ORIGIN}/{mode}/records/42",
             "identity_label": "owner", "response_status": 503 if mode == "unavailable" else 200,
-        })
+        }, csrf=csrf)
     coverage = request(base + "/api/coverage")
     operations = {op["path_template"]: op for op in coverage["operations"]}
     expected = {"vulnerable": "violation_candidate", "fixed": "conclusive", "unavailable": "inconclusive"}

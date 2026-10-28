@@ -17,7 +17,7 @@ the small event-contract correction exposed by this installed workflow.
    fixture captures it only in memory, never in screenshots or public logs, then
    uses that key for real CLI Doctor/heartbeat and Gate execution. A later key
    listing must retain metadata without returning the plaintext key.
-2. Generate an OpenAPI draft in Review â†’ API Surface. Confirm its decisions start
+2. Generate an OpenAPI draft in Review → API Surface. Confirm its decisions start
    as `skip`, edit the four fixture cases to explicit allow/deny decisions and
    local credential references, acknowledge review and save through the UI.
 3. Queue each case through Dashboard's Gate composer. While it is pending, run

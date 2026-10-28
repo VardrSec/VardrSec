@@ -53,14 +53,14 @@ acceptance. These are development candidates pending CI and PR review, not relea
 artifacts. All strict image gates remain blocked; no residual risk is accepted.
 
 Group tasks only when sharing an acceptance environment helps; keep changes
-individually reviewable. Begin tasks 4â€“7 after tasks 1â€“3, then tasks 8â€“9.
+individually reviewable. Begin tasks 4–7 after tasks 1–3, then tasks 8–9.
 
 ## Acceptance discipline
 
 After each task record what completed, what changed, realistic tests/results,
 discovered/fixed defects, remaining blockers, unnecessary complexity and the next
 task. Unit-test counts alone do not establish readiness. The first alpha needs a
-reliable installation â†’ engagement â†’ authorized assessment â†’ findings/report â†’
+reliable installation → engagement → authorized assessment → findings/report →
 retained-data journey, not every possible tool mode or planned feature.
 
 Preserve authentication, ownership/tenant checks, explicit scope and human review,
