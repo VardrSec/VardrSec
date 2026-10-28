@@ -75,6 +75,14 @@ not alter the container.
 
 ### 2. Nmap redistribution (checklist item 8)
 
+Usage audit (2026-10-27): no repository vendors Nmap code, data or binaries (the only
+`nmap` files tracked are Runner's own tests and documentation). Nmap reaches a user only
+through `apt-get install nmap` in the Runner toolkit Dockerfile, executed on the user's
+machine during a local build. Runner invokes it as a separate process with a fixed safe
+argument list (no `-A`, `-O`, `--script`, `-p-` or `-T5`) and reads its XML output; it does
+not link, modify or embed it. Publishing a prebuilt image would redistribute the Debian
+package, which is the situation that needs the license review.
+
 Evidence: the toolkit installs nmap from the base distribution; Nmap's license (NPSL)
 has specific bundling and redistribution terms. The alpha is source-built, so each user
 installs it on their own machine and no image containing nmap is published.
@@ -84,6 +92,10 @@ contains nmap** until the license terms have been reviewed. This is an engineeri
 reading, not legal advice.
 
 ### 3. Residual security findings (checklist item 1)
+
+The per-finding [residual-risk register](residual-risk-register.md) lists every unresolved
+item with exposure assumptions, evidence and a proposed disposition; approve rows rather
+than an aggregate count.
 
 Nothing here is accepted. The owner chooses, per row, to accept as a documented alpha
 limitation, to require a fix before release, or to exclude the component.

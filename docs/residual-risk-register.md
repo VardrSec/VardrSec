@@ -1,0 +1,57 @@
+# Community Alpha residual-risk register
+
+Status: **proposed dispositions, nothing accepted.** Each row needs an explicit owner
+decision (accept as an alpha limitation, require a fix, or exclude the component).
+Evidence: image-evidence run 40605692767 (raw Trivy reports recounted), `govulncheck`
+reachability results and the manual reviews linked below. Counts are scanner
+occurrences: **1 critical / 194 high / 15 unknown**, none with a published fixed version.
+Strict image gates stay blocked until the owner decides. See also
+[alpha-os-exposure.md](alpha-os-exposure.md) and
+[alpha-security-assessment.md](alpha-security-assessment.md).
+
+Common exposure facts used below, each verified in this repository:
+- The database is on an `internal: true` network reachable only by the API; no database or
+  API port is published (`compose.yaml`). The only published port is the loopback HTTPS proxy.
+- Containers run without added capabilities and without the Docker socket
+  ([tool/network acceptance](tool-network-acceptance.md)).
+- Runner executes only on an explicit operator command.
+
+## A. Debian packages (19 distinct advisories, no fix in the pinned Trixie suite)
+
+| ID | Package / images | What exploitation needs | Evidence and assumptions | Proposed disposition |
+| --- | --- | --- | --- | --- |
+| CVE-2026-76642, 78408, 78409, 78410 (high) | util-linux (`mount`, `nsenter`, libmount, libblkid, ...) / all four Debian images | A privileged user running `mount`/`nsenter` with attacker-controlled mount options, targets or helpers | Containers are unprivileged, run no `mount` or `nsenter` in any entry point, and have no `CAP_SYS_ADMIN` ([exposure review](alpha-os-exposure.md)) | Accept as alpha limitation; re-scan before any published image |
+| CVE-2026-16742 (high) | systemd-homed (`libsystemd0`, `libudev1`) / all | A logged-in homed-managed user | No systemd, no homed, no login sessions in containers | Accept (not applicable in a container) |
+| CVE-2026-54369 (high) | libacl1 / all | A privileged ACL caller following an attacker-controlled symlink | No component calls ACL functions on attacker-named paths; unprivileged containers | Accept |
+| CVE-2026-9538 (high) | Perl `Archive::Tar` / all | A perl process extracting an attacker-crafted tar | Perl is present as a Debian dependency; no component runs perl on untrusted archives | Accept |
+| CVE-2025-69720 (high) | ncurses `infocmp` / all | Someone running `infocmp` on a crafted terminfo argument | A source search of all four repositories finds no `infocmp` invocation; needs an operator shell inside the container | Accept |
+| CVE-2026-24882 (high) | GnuPG tpm2daemon, dirmngr, gpg* / db | A TPM-backed decrypt request to the GnuPG daemon | GnuPG ships with the PostgreSQL base image; no TPM, no gpg-agent started, database network internal | Accept |
+| CVE-2026-0799, 6554 (high) | libpcap / Runner | Malicious BPF programs or crafted packets handed to libpcap | Only TCP-connect modes are certified; raw-packet modes need capabilities the container lacks | Accept; revisit if raw-packet modes are certified |
+| CVE-2026-6653 (**critical**), 86138, 86139, 86140, 86142, 86143, 86144 (high) | libxml2 / db | Attacker-controlled XML parsed inside PostgreSQL by SQL/XML functions (`xmlparse`, `xpath`, `xmltable`, `xml` casts) | Map's source and migrations use none; only the API reaches the database; exploitation would need arbitrary SQL, a larger compromise | **Narrow conditional acceptance**: valid only while Map avoids XML SQL functions; a fixed Debian build or libxml2/PostgreSQL rebuild closes it. Requires an explicit owner decision because it is the only critical |
+| CVE-2026-74860 (high) | libxml2 Python bindings / db | The Python bindings, which the PostgreSQL image does not load | Reported against the `libxml2` package | Accept as likely not applicable; confirm against a fixed advisory |
+
+## B. Go and Rust components
+
+| ID | Component | What exploitation needs | Evidence | Proposed disposition |
+| --- | --- | --- | --- | --- |
+| GO-2026-5932 (unknown severity; unmaintained `x/crypto/openpgp`, no fix) | Nuclei (reported **reachable**); also linked in httpx, Katana, DNSx, Subfinder, Naabu and Caddy (not reachable per `govulncheck`) | Processing untrusted OpenPGP data, which Nuclei uses to verify signed template bundles | `govulncheck` on the patched Nuclei build; templates are not bundled or auto-provisioned; no fix exists upstream | Conditional acceptance: Nuclei runs only against operator-chosen templates; track upstream |
+| Naabu binary-level reachability | Naabu | n/a | Module-level OSV check of 107 Go modules finds only GO-2026-5932; reachability scan needs CGO/libpcap. A report-only `govulncheck` step in Runner container CI (Runner #95) will cover it | Accept pending that CI report |
+| `rustls` 0.23.45 (RUSTSEC-2026-0346/0347/0348/0349, moderate/low), `rustls-webpki` 0.103.15 (RUSTSEC-2026-0382), `tokio` 1.53.1 (RUSTSEC-2026-0386), `rsa` 0.9.10 (Marvin, no fix) | Dalfox 3.2.4 (Rust; invisible to the image scanner) | A hostile HTTPS target or on-path attacker influencing a Dalfox connection; Marvin needs RSA decryption timing, which Dalfox does not offer | `Cargo.lock` at the v3.2.4 tag against OSV: no critical/high; Dalfox is the latest release; rebuild would need a Rust build stage | Accept moderate/low residual risk; re-check on the next Dalfox release |
+| CVE-2026-39824 (unknown) | gosu `x/sys` v0.1.0 | Windows-only API (`NewNTUnicodeString`) | gosu runs on Linux; not compiled into any Linux code path that is reachable (`govulncheck` reports none) | Accept (not applicable) |
+| CVE-2026-82560 (unknown) | Perl `Pod::Text` | A perl process rendering attacker-supplied POD | Same as Perl above; no component renders POD | Accept |
+
+## C. Excluded or limited (not vulnerabilities in the shipped path)
+
+| Item | State |
+| --- | --- |
+| Native Gau archive disables TLS verification | **Excluded in code** (Runner #94): install refused, `--all` skips it, no PATH fallback. The container Gau is a reviewed patched build |
+| Genuine VPN routing | Unverified; stated as a limitation with the native Runner fallback ([networking](networking.md)) |
+| Nmap redistribution | Source-built alpha only; no published image containing nmap pending license review ([release checklist](community-alpha-release.md)) |
+
+## How to use this register
+
+Approve rows (or groups), reject any that must be fixed first, and the release notes
+list the approved rows verbatim. Anything unlisted here is not covered by an
+acceptance. Re-run the image evidence and `govulncheck` at the release freeze and
+compare against this register; a new critical or high with a published fix is a
+release blocker, not a register entry.
