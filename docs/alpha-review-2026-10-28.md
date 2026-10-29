@@ -1,5 +1,10 @@
 # Alpha review checkpoint — 2026-10-28
 
+> **Later manual review:** [Caddy v3 JWK exposure](caddy-v3-jwk-exposure.md)
+> now traces the affected code and tests the shipped configuration against an ACME
+> positive control. Older "reachability unestablished" statements below describe
+> the preceding checkpoint. The dependency remains affected and no risk is accepted.
+
 This checkpoint supersedes current-state claims in the 2026-10-27 strategy and
 handoff snapshots. It does not accept risks or approve publication.
 

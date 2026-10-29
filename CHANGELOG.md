@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add the source-level Caddy v3 JWK exposure review and a bounded, TLS-verified
+  loopback regression guard against the actual proxy binary. Shipped routes forward
+  the test bytes; enabling ACME changes the parsing boundary. CI rejects unreviewed
+  handler/admin/issuer/upstream/trust changes and retains hash-bound receipts.
+  The v3 module remains affected, raw gates remain blocked and no risk is accepted.
+
 - Advance Runner to #97 for verified HTTPS/HTTP/1.1 module downloads in builder stages
   after repeated upstream HTTP/2 stream resets. Apply the same setting to the Caddy/gosu
   builders and host build tools. CI verifies it is absent from all three runtime images.
