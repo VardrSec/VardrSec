@@ -55,7 +55,7 @@ Common exposure facts used below, each verified in this repository:
 | --- | --- |
 | Native Gau archive disables TLS verification | **Excluded in code** (Runner #94): install refused, `--all` skips it, no PATH fallback. The container Gau is a reviewed patched build |
 | Genuine VPN routing | Unverified; stated as a limitation with the native Runner fallback ([networking](networking.md)) |
-| Nmap redistribution | Source-built alpha only; no published image containing nmap pending license review ([release checklist](community-alpha-release.md)) |
+| Nmap integration/redistribution | Exact-package license terms and Runner execution/XML parsing need compatibility review even for source builds; no licensing clearance or publication approval ([inventory](release-license-inventory.md)) |
 
 ## How to use this register
 

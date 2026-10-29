@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-10-28",
+  "status": "direct-component-inventory-verified-release-review-open",
+  "distribution_commit": "bc865d2d448f4d80738738a91c7f332d8aa6bfaa",
+  "component_pins": {
+    "map": {
+      "repository": "VardrSec/VardrMap",
+      "commit": "1c560f8b72f93c4396e57216e1ad93cc10785609",
+      "review": "https://github.com/VardrSec/VardrMap/pull/127",
+      "readiness_contract": 1
+    },
+    "runner": {
+      "repository": "VardrSec/VardrRunner",
+      "commit": "65186ddb6c26c9d895f146a74decc52e08d3913e",
+      "review": "https://github.com/VardrSec/VardrRunner/pull/97",
+      "readiness_contract": 1
+    },
+    "gate": {
+      "repository": "VardrSec/VardrGate",
+      "commit": "af29a93140b54cf5b684a06f552a05cd92f6dee6"
+    }
+  },
+  "scope": "Top-level source licenses and observed SBOM metadata; not a complete transitive review, artifact notice bundle or publication approval",
+  "managed_tools": [
+    {
+      "name": "dalfox",
+      "version": "3.2.4",
+      "license": "MIT",
+      "source_commit": "da19527f9c82d8525e911ca3669fc456daeb50f2",
+      "license_path": "LICENSE.txt",
+      "license_url": "https://github.com/hahwul/dalfox/blob/da19527f9c82d8525e911ca3669fc456daeb50f2/LICENSE.txt",
+      "license_git_blob": "018457e3e63ad439bb648883f9a9ec1f22b0147e",
+      "license_text_sha256": "ffb8b51dc4186526fa4cc8226e458f8655dcfa2feed8e90a8543d77441b8e572"
+    },
+    {
+      "name": "dnsx",
+      "version": "1.3.1",
+      "license": "MIT",
+      "source_commit": "01e315f216db7d36198ec326fac13dd7846b1bec",
+      "license_path": "LICENSE.md",
+      "license_url": "https://github.com/projectdiscovery/dnsx/blob/01e315f216db7d36198ec326fac13dd7846b1bec/LICENSE.md",
+      "license_git_blob": "b22968b6c36eb06b1dbd058aac75cac6143910f8",
+      "license_text_sha256": "cbcdaab87df3175107aa28915bd253cebdd618a49c9ac5d6c669c0b1cbebcacb"
+    },
+    {
+      "name": "ffuf",
+      "version": "2.3.0",
+      "license": "MIT",
+      "source_commit": "256c1b02499f5f8672af965d4ad7a321d606bc65",
+      "license_path": "LICENSE",
+      "license_url": "https://github.com/ffuf/ffuf/blob/256c1b02499f5f8672af965d4ad7a321d606bc65/LICENSE",
+      "license_git_blob": "c6624529ad4b05c85876f2a32878e214d98a0485",
+      "license_text_sha256": "27efda573d21acd87c68e008a190c7456bcd93b510b8c35a1500088249d5d930"
+    },
+    {
+      "name": "gau",
+      "version": "2.2.4",
+      "license": "MIT",
+      "source_commit": "5d4e1270e632732756fe98717520c43c86e8bd18",
+      "license_path": "LICENSE",
+      "license_url": "https://github.com/lc/gau/blob/5d4e1270e632732756fe98717520c43c86e8bd18/LICENSE",
+      "license_git_blob": "34b98b5cd332e7e7ac8c3c05a922573efe3b8999",
+      "license_text_sha256": "2bc98dc696486599c0b0588972238256e567bc2639fd2a06372f5059f9f84e74"
+    },
+    {
+      "name": "httpx",
+      "version": "1.12.0",
+      "license": "MIT",
+      "source_commit": "4b6a9a9d476f94a4f3a630f37051f5671ecfb1f8",
+      "license_path": "LICENSE.md",
+      "license_url": "https://github.com/projectdiscovery/httpx/blob/4b6a9a9d476f94a4f3a630f37051f5671ecfb1f8/LICENSE.md",
+      "license_git_blob": "b22968b6c36eb06b1dbd058aac75cac6143910f8",
+      "license_text_sha256": "cbcdaab87df3175107aa28915bd253cebdd618a49c9ac5d6c669c0b1cbebcacb"
+    },
+    {
+      "name": "katana",
+      "version": "1.8.0",
+      "license": "MIT",
+      "source_commit": "35267ac5c8ff1db9694a319d0eb466ed97b0969f",
+      "license_path": "LICENSE.md",
+      "license_url": "https://github.com/projectdiscovery/katana/blob/35267ac5c8ff1db9694a319d0eb466ed97b0969f/LICENSE.md",
+      "license_git_blob": "3b864fa731978d161aea04f6df0ea74f8b8e6fee",
+      "license_text_sha256": "49982116f64385bdf8582a379e591a19d6040dec22e50e29dc311596d357af23"
+    },
+    {
+      "name": "naabu",
+      "version": "2.6.1",
+      "license": "MIT",
+      "source_commit": "5a0ca8bde91b5bb16213e9e8b5c6871eac954bd8",
+      "license_path": "LICENSE.md",
+      "license_url": "https://github.com/projectdiscovery/naabu/blob/5a0ca8bde91b5bb16213e9e8b5c6871eac954bd8/LICENSE.md",
+      "license_git_blob": "b22968b6c36eb06b1dbd058aac75cac6143910f8",
+      "license_text_sha256": "cbcdaab87df3175107aa28915bd253cebdd618a49c9ac5d6c669c0b1cbebcacb"
+    },
+    {
+      "name": "nuclei",
+      "version": "3.11.1",
+      "license": "MIT",
+      "source_commit": "a8c88feb4a1c8e961b7902534ce3af97e9d524a4",
+      "license_path": "LICENSE.md",
+      "license_url": "https://github.com/projectdiscovery/nuclei/blob/a8c88feb4a1c8e961b7902534ce3af97e9d524a4/LICENSE.md",
+      "license_git_blob": "93c6a78f51fce232923d923e5e1fa1080eeb99df",
+      "license_text_sha256": "5fa6644d2dd1987a79c06f4af210d2cf8cfc4ee799999029d0f9980c9cf95a2c"
+    },
+    {
+      "name": "subfinder",
+      "version": "2.17.0",
+      "license": "MIT",
+      "source_commit": "c97f25802892093060f0fc424bfc3f39e273693a",
+      "license_path": "LICENSE.md",
+      "license_url": "https://github.com/projectdiscovery/subfinder/blob/c97f25802892093060f0fc424bfc3f39e273693a/LICENSE.md",
+      "license_git_blob": "b22968b6c36eb06b1dbd058aac75cac6143910f8",
+      "license_text_sha256": "cbcdaab87df3175107aa28915bd253cebdd618a49c9ac5d6c669c0b1cbebcacb"
+    }
+  ],
+  "component_licenses": {
+    "map": {
+      "observed_license": "AGPL version 3 text; README identifies AGPL v3.0",
+      "license_url": "https://github.com/VardrSec/VardrMap/blob/1c560f8b72f93c4396e57216e1ad93cc10785609/LICENSE",
+      "license_text_sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+    },
+    "runner": {
+      "observed_license": "MIT",
+      "license_url": "https://github.com/VardrSec/VardrRunner/blob/65186ddb6c26c9d895f146a74decc52e08d3913e/LICENSE",
+      "license_text_sha256": "20e0b31b23b5504a0723b1e7376eccab5478a16c6e7be6311fc0989325c1b26e"
+    },
+    "gate": {
+      "observed_license": "Apache-2.0",
+      "license_url": "https://github.com/VardrSec/VardrGate/blob/af29a93140b54cf5b684a06f552a05cd92f6dee6/LICENSE",
+      "license_text_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "distribution": {
+      "observed_license": null,
+      "status": "owner-license-selection-required"
+    }
+  },
+  "base_images": {
+    "runner": {
+      "recipe": "https://github.com/VardrSec/VardrRunner/blob/65186ddb6c26c9d895f146a74decc52e08d3913e/Dockerfile",
+      "references": [
+        "python:3.12-slim-trixie@sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f",
+        "golang:1.27.3@sha256:9048d5e7751706200eb1719c7dae0436950d362f29a1da91fa05e5c63867c60f"
+      ],
+      "review_status": "mixed runtime/dependency licenses; full image clearance pending"
+    },
+    "api": {
+      "recipe": "https://github.com/VardrSec/VardrMap/blob/1c560f8b72f93c4396e57216e1ad93cc10785609/backend/Dockerfile",
+      "references": [
+        "python:3.12-slim-trixie@sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f"
+      ],
+      "review_status": "mixed runtime/dependency licenses; full image clearance pending"
+    },
+    "web": {
+      "recipe": "https://github.com/VardrSec/VardrMap/blob/1c560f8b72f93c4396e57216e1ad93cc10785609/frontend/Dockerfile",
+      "references": [
+        "node:24-trixie-slim@sha256:43b9ba1142b8dcf33fa8f922ca1be85714adc444e0586c7cf7726daaeabc1bea"
+      ],
+      "review_status": "mixed runtime/dependency licenses; full image clearance pending"
+    },
+    "proxy": {
+      "recipe": "https://github.com/VardrSec/VardrSec/blob/bc865d2d448f4d80738738a91c7f332d8aa6bfaa/proxy/Dockerfile",
+      "references": [
+        "golang:1.27.3@sha256:9048d5e7751706200eb1719c7dae0436950d362f29a1da91fa05e5c63867c60f",
+        "caddy@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489"
+      ],
+      "review_status": "mixed runtime/dependency licenses; full image clearance pending"
+    },
+    "db": {
+      "recipe": "https://github.com/VardrSec/VardrSec/blob/bc865d2d448f4d80738738a91c7f332d8aa6bfaa/db/Dockerfile",
+      "references": [
+        "golang:1.27.3@sha256:9048d5e7751706200eb1719c7dae0436950d362f29a1da91fa05e5c63867c60f",
+        "postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6"
+      ],
+      "review_status": "mixed runtime/dependency licenses; full image clearance pending"
+    }
+  },
+  "sbom_metadata": {
+    "api": {
+      "image_id": "sha256:b3e12ec162e5e371a426c2f88cadf3ae2a142097647261d92080dca6aef234f7",
+      "sbom_sha256": "126025108773004be458f2097dfb660c248322f209183541d84cdfb64b1a2156",
+      "components": 134,
+      "with_licenses_field": 129,
+      "missing_licenses_field": 5
+    },
+    "db": {
+      "image_id": "sha256:b410d11e7e7a2866ced520027902f4676fab416eb451ef5b85f3b054ed7afb91",
+      "sbom_sha256": "0c18aee25632be397602433d112ed3fefb75f8f930bf4efa798b857bc41b5329",
+      "components": 151,
+      "with_licenses_field": 140,
+      "missing_licenses_field": 11
+    },
+    "proxy": {
+      "image_id": "sha256:8180a3ad504f002b688f16e4de397e72fc692d344848d21c643f6b6e97f76d79",
+      "sbom_sha256": "0979a746f54632bb3d0ae1e362b1f480e2bce208ed0b92250a0aebf5290321db",
+      "components": 196,
+      "with_licenses_field": 32,
+      "missing_licenses_field": 164
+    },
+    "runner": {
+      "image_id": "sha256:89ae21259c464d5034527d32f99052c17584eac64a033acb70c87943f2bb7c40",
+      "sbom_sha256": "0b25e3148d25eb347fceb175bd1c98dbe984d7524f741dbae79499b2875314d5",
+      "components": 1193,
+      "with_licenses_field": 115,
+      "missing_licenses_field": 1078
+    },
+    "web": {
+      "image_id": "sha256:015e8973957e0712f32bbe0c0059db893ab962a65ff4adee87cec7e7055ef7a7",
+      "sbom_sha256": "5a8759346f8ad835f2e026fdb5b2cb0352ccd584dbf9fd75bd013b53ce2988c6",
+      "components": 256,
+      "with_licenses_field": 251,
+      "missing_licenses_field": 5
+    }
+  },
+  "other_top_level_licenses": [
+    {
+      "name": "caddy",
+      "observed_license": "Apache-2.0",
+      "source_url": "https://github.com/caddyserver/caddy/blob/72dd0fb067f6d7826c7f79907670ba4a713bfe37/LICENSE",
+      "license_git_blob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "license_text_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "name": "gosu",
+      "observed_license": "Apache-2.0",
+      "source_url": "https://github.com/tianon/gosu/blob/6456aaa0f3c854d199d0f037f068eb97515b7513/LICENSE",
+      "license_git_blob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "license_text_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "name": "age",
+      "observed_license": "BSD-3-Clause",
+      "source_url": "https://github.com/FiloSottile/age/blob/v1.3.2/LICENSE",
+      "license_git_blob": "0080870bc29b23d7605816ac0a535a4eef9d1553",
+      "license_text_sha256": "c5d65279d02955c0fc2294ae417c3add650d228f4f5c82bd6d531fc26c89cd96"
+    }
+  ],
+  "image_evidence_run": "https://github.com/VardrSec/VardrSec/actions/runs/40794172256",
+  "image_evidence_commit": "ce78e1f8bac059b9aebc653db0bbe807ca0edab5"
+}

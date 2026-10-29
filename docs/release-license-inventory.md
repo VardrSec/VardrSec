@@ -1,0 +1,127 @@
+# Community Alpha license inventory — 2026-10-28
+
+Status: **direct-component inventory verified; release licensing review open**.
+This records the existing licenses, not a license change, compatibility opinion,
+permission to publish, or substitute for the actual license texts. Source-built
+packaging is a proposal, not an exemption from license conditions.
+
+## Reviewed inputs
+
+Distribution `bc865d2d448f4d80738738a91c7f332d8aa6bfaa`; exact component pins:
+Map `1c560f8b72f93c4396e57216e1ad93cc10785609`, Runner
+`65186ddb6c26c9d895f146a74decc52e08d3913e`, Gate
+`af29a93140b54cf5b684a06f552a05cd92f6dee6`. The inventory uses the pinned
+Runner tool manifest and Dockerfile, distribution Dockerfiles and actual image
+SBOMs from [run 40794172256](https://github.com/VardrSec/VardrSec/actions/runs/40794172256).
+The CI merge tree equals the reviewed #41 tree. Each SBOM hash matches its receipt.
+
+[Machine-readable evidence](release-license-inventory.json) records the immutable
+upstream revisions, license Git blob IDs and text SHA-256 values. All nine license
+files were fetched again at their resolved commits and matched the tagged blobs.
+These are top-level licenses; dependency licenses require their own review.
+
+## VardrSec components
+
+| Component | Observed root license at the reviewed revision | Release action |
+| --- | --- | --- |
+| Distribution | No root LICENSE/LICENCE/COPYING file found | Owner must select and authorize its license before public source distribution; do not inherit a component's license by assumption |
+| [Map](https://github.com/VardrSec/VardrMap/blob/1c560f8b72f93c4396e57216e1ad93cc10785609/LICENSE) | GNU AGPL version 3 text; README identifies AGPL v3.0 | Retain license/notices and review complete corresponding-source delivery and modified network-service obligations; private source pins alone are not a public source offer |
+| [Runner](https://github.com/VardrSec/VardrRunner/blob/65186ddb6c26c9d895f146a74decc52e08d3913e/LICENSE) | MIT | Retain copyright and permission notice |
+| [Gate](https://github.com/VardrSec/VardrGate/blob/af29a93140b54cf5b684a06f552a05cd92f6dee6/LICENSE) | Apache-2.0 | Retain license/attributions and applicable notices; identify modifications as required |
+
+The repositories remain independent. This inventory makes no assertion about
+cross-component license compatibility or alternative commercial terms.
+
+## Managed tools
+
+All nine pinned top-level license texts are MIT. Preserve their copyright and
+permission notices; [the collected notices](managed-tool-notices.md) are review
+inputs. Source-build dependency overrides and Gau's local patch remain governed
+by their respective licenses and need provenance retained.
+
+| Tool | Pinned version | Immutable license source | Delivery in the toolkit |
+| --- | --- | --- | --- |
+| dalfox | 3.2.4 | [MIT text](https://github.com/hahwul/dalfox/blob/da19527f9c82d8525e911ca3669fc456daeb50f2/LICENSE.txt) | Checksum-pinned release binary |
+| dnsx | 1.3.1 | [MIT text](https://github.com/projectdiscovery/dnsx/blob/01e315f216db7d36198ec326fac13dd7846b1bec/LICENSE.md) | Source build with recorded dependency overrides |
+| ffuf | 2.3.0 | [MIT text](https://github.com/ffuf/ffuf/blob/256c1b02499f5f8672af965d4ad7a321d606bc65/LICENSE) | Source build with recorded dependency overrides |
+| gau | 2.2.4 | [MIT text](https://github.com/lc/gau/blob/5d4e1270e632732756fe98717520c43c86e8bd18/LICENSE) | Source build with reviewed local patch and dependency overrides; native excluded |
+| httpx | 1.12.0 | [MIT text](https://github.com/projectdiscovery/httpx/blob/4b6a9a9d476f94a4f3a630f37051f5671ecfb1f8/LICENSE.md) | Source build with recorded dependency overrides |
+| katana | 1.8.0 | [MIT text](https://github.com/projectdiscovery/katana/blob/35267ac5c8ff1db9694a319d0eb466ed97b0969f/LICENSE.md) | Source build with recorded dependency overrides |
+| naabu | 2.6.1 | [MIT text](https://github.com/projectdiscovery/naabu/blob/5a0ca8bde91b5bb16213e9e8b5c6871eac954bd8/LICENSE.md) | Source build with recorded dependency overrides |
+| nuclei | 3.11.1 | [MIT text](https://github.com/projectdiscovery/nuclei/blob/a8c88feb4a1c8e961b7902534ce3af97e9d524a4/LICENSE.md) | Source build with recorded dependency overrides |
+| subfinder | 2.17.0 | [MIT text](https://github.com/projectdiscovery/subfinder/blob/c97f25802892093060f0fc424bfc3f39e273693a/LICENSE.md) | Source build with recorded dependency overrides |
+
+The current installers stage binaries and provenance, not a complete dependency
+notice bundle. Gau explicitly retains `upstream.LICENSE`; the other eight managed
+tool notices are not explicitly copied by those build/install paths. The collected
+document does not install notices into existing images or native tool directories.
+Before distributing binaries, bind and package the required notices and source
+materials with those exact artifacts; verify their presence in the final images.
+Native Gau remains excluded. Nuclei templates are not included in this inventory
+or automatically approved for acquisition/distribution.
+
+## Nmap: exact package and integration require review
+
+The Runner SBOM identifies `nmap` and `nmap-common` **7.95+dfsg-3**. Debian's
+[copyright metadata](https://metadata.ftp-master.debian.org/changelogs//main/n/nmap/nmap_7.95%2Bdfsg-3_copyright)
+uses `nmap-GPL-2`; the same source package's
+[LICENSE](https://sources.debian.org/src/nmap/7.95%2Bdfsg-3/LICENSE)
+starts with **NPSL 0.95**. Preserve both records and reconcile them for the exact
+binary before assigning an SPDX expression or claiming redistribution clearance.
+
+Both texts discuss software specifically executing Nmap and parsing results, and
+installers fetching it at runtime. Runner has dedicated Nmap execution and XML
+parsing. That is a concrete review question even when users build locally; separate
+process execution and an apt download do not establish a licensing exemption.
+This is an engineering identification of relevant terms, not a legal conclusion.
+
+Owner action: obtain a supported licensing/compatibility determination, choose an
+appropriate permission arrangement, or authorize excluding Nmap with compatibility
+tests. Do not silently remove it or approve a license arrangement in this pass.
+Keep publication blocked while this remains unresolved.
+
+## Other runtime and build materials
+
+| Material | Reviewed version/source | Observed license or review boundary |
+| --- | --- | --- |
+| [Caddy](https://github.com/caddyserver/caddy/blob/72dd0fb067f6d7826c7f79907670ba4a713bfe37/LICENSE) | 2.11.7, rebuilt with recorded dependency overrides | Apache-2.0; retain license/notices and review statically linked dependencies |
+| [gosu](https://github.com/tianon/gosu/blob/6456aaa0f3c854d199d0f037f068eb97515b7513/LICENSE) | 1.19 source revision from db/Dockerfile, rebuilt with moby/sys/user override | Apache-2.0; preserve source/patch provenance and dependency notices |
+| [libpcap package](https://metadata.ftp-master.debian.org/changelogs//main/libp/libpcap/libpcap_1.10.5-2_copyright) | libpcap0.8t64 1.10.5-2 in Runner | Debian copyright records BSD-3-Clause; review actual package notices and linked libraries |
+| [PostgreSQL](https://www.postgresql.org/about/licence/) | postgres base digest in db/Dockerfile; SBOM PostgreSQL 18.6-1.pgdg13+2 | PostgreSQL license for server; the package and image contain additional separately licensed code |
+| [Python](https://docs.python.org/3.12/license.html) / [Node](https://github.com/nodejs/node/blob/v24.x/LICENSE) | Digest-pinned python:3.12-slim-trixie and node:24-trixie-slim | Runtime vendor terms plus bundled dependencies; the Node link is orientation, not exact-image evidence |
+| Debian / Alpine packages, including curl and CA data | Actual five-image SBOM package versions | Mixed licenses; retain package copyright/common-license files and collect missing metadata; a base-image label is not one license for the image |
+| [age](https://github.com/FiloSottile/age/blob/v1.3.2/LICENSE) | CI host builds age/age-keygen 1.3.2; recovery requires operator-provided age | BSD-3-Clause top-level text; no claim that host tools are included in runtime images |
+| Go compiler and build/CI utilities | Go 1.27.3 builders and pinned workflow tools | Separate build inputs; audit notices for code incorporated into shipped binaries; do not count a discarded build stage as a runtime package |
+
+Base image digests are recorded in the JSON alongside the source recipes. They
+identify build inputs, not immutable apt/pip package resolutions. Re-run the
+inventory at the candidate freeze; no tagged candidate exists yet.
+
+## SBOM license-metadata coverage
+
+| Image | Components | With a nonempty licenses field | Missing that field |
+| --- | ---: | ---: | ---: |
+| api | 134 | 129 | 5 |
+| db | 151 | 140 | 11 |
+| proxy | 196 | 32 | 164 |
+| runner | 1193 | 115 | 1078 |
+| web | 256 | 251 | 5 |
+| **Total occurrences** | **1930** | **667** | **1263** |
+
+Counts are per-image occurrences, not deduplicated packages or validated license
+determinations. Scanner fields can be stale, incomplete or ambiguous, as Nmap
+demonstrates. Go module entries account for many gaps; Dalfox's Rust dependencies
+also require its source lockfile review rather than assuming binary SBOM coverage.
+Zero security findings would not close these licensing tasks.
+
+## Before release approval
+
+1. Owner selects the distribution license; preserve each component's existing grant.
+2. Resolve Nmap's exact terms and compatibility with the proposed integration/channel.
+3. Complete transitive Go/Rust/Python/npm/OS license and notice review, including
+   missing/custom metadata, copyleft source obligations and statically linked code.
+4. Assemble and verify notices and corresponding source for the actual distributed
+   artifacts. This inventory and its links are not that complete delivery bundle.
+5. Freeze the candidate, refresh evidence, and approve the packaging/publication
+   decision explicitly. Security dispositions and unfamiliar-user testing remain
+   separate open gates in the [release checklist](community-alpha-release.md).

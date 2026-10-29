@@ -26,8 +26,8 @@ Each item needs evidence recorded in the repository, not only a green CI run.
 | 4 | Unfamiliar-user installation and first assessment, timed, with friction recorded | **Not done** (needs a real person) |
 | 5 | Exact component commits frozen in `versions.json`, each reachable on its repository's `main` | **Exact development pins recorded:** Map #127, Runner #97 and unchanged Gate. Main ancestry for every exact pin is required at integration merge and rechecked at freeze; see #40 checks/merge record. This is not a release freeze |
 | 6 | Independent rebuild reproduces the install artifacts from the frozen pins | **Partially reproducible**, see below |
-| 7 | Backup, encrypted restore, successful update and failed-update recovery rerun against the frozen pins | Historical development baseline passed; integration results for the new exact pins are recorded in [#40 checks](https://github.com/VardrSec/VardrSec/pull/40/checks). Rerun at freeze |
-| 8 | Redistribution and licensing review of every bundled tool and base image | **Open**, see below |
+| 7 | Backup, encrypted restore, successful update and failed-update recovery rerun against the frozen pins | Current development pins passed installed, encrypted/portable recovery, controlled-update and failure-recovery checks in [#40](https://github.com/VardrSec/VardrSec/pull/40/checks) and [#41](https://github.com/VardrSec/VardrSec/pull/41/checks). Rerun against the frozen candidate |
+| 8 | Redistribution and licensing review of every bundled tool and base image | **Direct inventory verified; release review open.** All nine managed top-level licenses verified; distribution license absent; Nmap terms/compatibility, transitive licenses and artifact notice/source delivery remain unresolved. See [inventory](release-license-inventory.md) |
 | 9 | Release notes, limitations, troubleshooting and recovery instructions reviewed | This draft |
 | 10 | Owner approval for any image publication, tag or announcement | Not requested |
 
@@ -38,7 +38,7 @@ inputs, not a hermetic or byte-identical image build.
 
 | Check | Result | Limit |
 | --- | --- | --- |
-| Component pins are ancestors of each repository's `main` | Verified after Map #127 / Runner #96 merged. Runner then advanced to #97 for builder HTTP/1.1 transport; the final exact-pin ancestry check is required in #40's merge record. Map includes #120–#127 | Re-run at freeze |
+| Component pins are ancestors of each repository's `main` | Verified again on 2026-10-28 for the exact Map #127 / Runner #97 / Gate development pins; all are ancestors of component main. Map includes #120–#127 | Re-run at freeze |
 | Base images pinned by digest | Verified in every Dockerfile at the pinned commits | Digest availability is outside our control |
 | Gate binary from the pinned commit, two clean builds (separate caches), Go 1.27.3 | Byte-identical SHA-256 | Local linux/amd64 build, not compared to the CI image |
 | FFUF source build, two clean builds | Byte-identical SHA-256 | As above |
@@ -65,23 +65,25 @@ the reviewed container source build (no PATH fallback, no opt-in). The container
 the fixed build (Runner #89; fixtures reject untrusted and wrong-host certificates). Native
 users who need Gau use the container toolkit. See [review](gau-tls-review.md).
 
-### 2. Nmap redistribution (checklist item 8)
+### 2. Distribution license and Nmap integration (checklist item 8)
 
-Usage audit (2026-10-27): no repository vendors Nmap code, data or binaries (the only
-`nmap` files tracked are Runner's own tests and documentation). Nmap reaches a user only
-through `apt-get install nmap` in the Runner toolkit Dockerfile, executed on the user's
-machine during a local build. Runner invokes it as a separate process with a fixed safe
-argument list (no `-A`, `-O`, `--script`, `-p-` or `-T5`) and reads its XML output; it does
-not link, modify or embed it. Publishing a prebuilt image would redistribute the Debian
-package, which is the situation that needs the license review.
+The [pinned-source inventory](release-license-inventory.md) verifies all nine
+managed tool top-level MIT licenses and the existing Map AGPL v3, Runner MIT and
+Gate Apache-2.0 texts. The distribution has **no root license**. Its license must
+be selected explicitly by the owner before public source distribution; component
+licenses are preserved and are not automatically inherited by the distributor.
 
-Evidence: the toolkit installs nmap from the base distribution; Nmap's license (NPSL)
-has specific bundling and redistribution terms. The alpha is source-built, so each user
-installs it on their own machine and no image containing nmap is published.
+The actual Nmap/nmap-common package is 7.95+dfsg-3. Debian's copyright metadata
+uses an older `nmap-GPL-2` label, while its source LICENSE contains NPSL 0.95.
+Both records discuss dedicated execution/result parsing and runtime acquisition.
+Runner implements that integration. Source-built packaging and separate processes
+therefore do not establish clearance. The inventory links both exact records.
 
-Recommendation: **ship the alpha source-built only and do not publish any image that
-contains nmap** until the license terms have been reviewed. This is an engineering
-reading, not legal advice.
+Recommendation for review: retain the proposed source-built channel, but resolve
+the distribution license and Nmap terms/compatibility before release. Obtain a
+supported determination or suitable permission, or explicitly approve exclusion
+with compatibility tests. No license change, exclusion or publication is approved
+by this document. Do not treat the earlier source-build recommendation as a waiver.
 
 ### 3. Residual security findings (checklist item 1)
 
@@ -111,16 +113,16 @@ limitation, to require a fix before release, or to exclude the component.
 
 ## Redistribution review items
 
-The toolkit bundles nine managed tools (dalfox, dnsx, ffuf, gau, httpx, katana,
-naabu, nuclei, subfinder) plus nmap and libpcap from the base distribution. Most
-are believed to be MIT-licensed, but this has not been verified for this release:
-confirm each license and its notice requirements against the pinned upstream
-versions. Nmap is distributed under its own Nmap Public Source License, which has
-specific terms for redistribution and bundling that need an explicit decision
-before any published image includes it; a source-built distribution that installs
-it on the user's machine is a different situation from shipping an image. Nuclei
-templates are not bundled and must not be provisioned automatically without review.
-This is an engineering checklist, not legal advice.
+The [direct-component inventory](release-license-inventory.md),
+[machine-readable evidence](release-license-inventory.json) and
+[collected managed-tool notices](managed-tool-notices.md) bind the nine tool
+licenses to exact source revisions. This replaces the earlier unverified
+"believed to be MIT" claim. It does not complete the transitive or final-artifact
+review: many SBOM license fields are missing, the Rust binary needs separate
+dependency provenance, and the build/install paths do not assemble a complete
+notice bundle. Resolve custom/missing metadata, applicable source obligations,
+and retained notices for every actual distributed artifact before publication.
+Nuclei templates remain outside the bundle and require separate review.
 
 ## Known limitations to state in the release notes
 

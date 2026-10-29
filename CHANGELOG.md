@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Record the verified pinned-source license inventory and managed-tool notices,
+  including the missing distribution license, exact Nmap metadata/source mismatch
+  and transitive/artifact delivery gaps. Correct the source-build licensing assumption
+  and reconcile alpha status with merged #40/#41 evidence. Documentation only; no
+  license, packaging, risk acceptance or publication decision is made.
+
 - Add the source-level Caddy v3 JWK exposure review and a bounded, TLS-verified
   loopback regression guard against the actual proxy binary. Shipped routes forward
   the test bytes; enabling ACME changes the parsing boundary. CI rejects unreviewed
