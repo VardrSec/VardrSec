@@ -1,5 +1,10 @@
 # Alpha security assessment — in progress
 
+> **Later manual review:** [Caddy v3 JWK exposure](caddy-v3-jwk-exposure.md)
+> now traces the affected code and tests the shipped configuration against an ACME
+> positive control. Older "reachability unestablished" statements below describe
+> the preceding checkpoint. The dependency remains affected and no risk is accepted.
+
 Assessment checkpoint, 2026-10-27. This is not release approval. The strict image
 vulnerability gate remains blocked, raw reports are retained, and no exception or
 blanket suppression is introduced. Task 1 of the [alpha plan](community-alpha.md)

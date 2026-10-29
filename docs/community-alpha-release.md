@@ -20,7 +20,7 @@ Each item needs evidence recorded in the repository, not only a green CI run.
 
 | # | Requirement | State |
 | --- | --- | --- |
-| 1 | Image security gates reviewed: every critical/high occurrence has a supported affected-status or exposure disposition, a fix, or an explicit owner-approved exception | **Remediation verified, residual disposition pending.** Rebuilt images: 1 critical / 195 high / 15 unknown; both fixable v4 occurrences removed; v3 reachability remains unestablished because its new advisory is absent from the Go database. See [checkpoint](alpha-review-2026-10-28.md). Nothing accepted; strict gates stay blocked |
+| 1 | Image security gates reviewed: every critical/high occurrence has a supported affected-status or exposure disposition, a fix, or an explicit owner-approved exception | **Remediation verified, residual disposition pending.** Rebuilt images: 1 critical / 195 high / 15 unknown; both fixable v4 occurrences removed; v3 has a [configuration-specific source/control review](caddy-v3-jwk-exposure.md) with no shipped JWK ingress; the dependency remains affected and unaccepted. See [checkpoint](alpha-review-2026-10-28.md). Nothing accepted; strict gates stay blocked |
 | 2 | Gau provider TLS: container fix pinned; native archive decision (fix, remove or exclude Gau from alpha scope) | **Done:** container fixed (Runner #89); native archive excluded and enforced (Runner #94) |
 | 3 | Full researcher workflow through the interface with no API seeding | **Done in CI:** client, window, scope and authorization are recorded through the Map UI in the installed workflow (Map #119, VardrSec #26) |
 | 4 | Unfamiliar-user installation and first assessment, timed, with friction recorded | **Not done** (needs a real person) |
@@ -98,7 +98,7 @@ limitation, to require a fix before release, or to exclude the component.
 | 1 critical: CVE-2026-6653, libxml2 in the PostgreSQL image | Needs attacker-controlled XML parsed by SQL/XML functions; Map's source and migrations use none; only the API reaches the database | Accept for the alpha, conditional on Map continuing to avoid XML SQL functions |
 | Nuclei: GO-2026-5932 (unmaintained openpgp, no fix) | Reported reachable by `govulncheck`; upstream Nuclei dependency | Accept; track upstream |
 | Dalfox: moderate/low Rust advisories (`rustls` and others) | `Cargo.lock` against OSV; no critical/high; scanner cannot see Rust binaries | Accept; re-check on the next Dalfox release |
-| Caddy go-jose/v3: CVE-2026-116587, no upstream v3 fix | Raw finding retained; the Go database lacks this advisory at the checkpoint, so a zero-reachable scan cannot disposition it | Open, unaccepted; review affected code/input paths or an upstream migration before any exception |
+| Caddy go-jose/v3: CVE-2026-116587, no upstream v3 fix | Raw finding retained; [source/control review](caddy-v3-jwk-exposure.md) identifies the affected optional ACME path and its absence from shipped routes | Conditional non-exposure proposed only for the recorded pins/configuration, with CI regression guards; explicit owner disposition still required |
 | Naabu: binary reachability verified | Runner #95 scanned the actual CGO/libpcap binary and reported no vulnerabilities | No exception required for the former evidence gap |
 
 ### 4. Items that need a person or an environment (not decisions)
