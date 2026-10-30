@@ -75,10 +75,10 @@ parsing. That is a concrete review question even when users build locally; separ
 process execution and an apt download do not establish a licensing exemption.
 This is an engineering identification of relevant terms, not a legal conclusion.
 
-Owner action: obtain a supported licensing/compatibility determination, choose an
-appropriate permission arrangement, or authorize excluding Nmap with compatibility
-tests. Do not silently remove it or approve a license arrangement in this pass.
-Keep publication blocked while this remains unresolved.
+Release licensing remains unresolved. Required outcomes are a supported
+licensing/compatibility determination for the bundled Nmap binary, appropriate
+permission terms, or an Nmap-free distribution validated by compatibility tests.
+Image publication remains blocked until this is resolved.
 
 ## Other runtime and build materials
 
