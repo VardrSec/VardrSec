@@ -50,18 +50,18 @@ and Go modules are downloaded (checksum-verified against `go.sum` and the checks
 database) at build time. Describe the alpha as source-built from pinned sources and
 base images, reproducible in its inputs but not offline or bit-for-bit.
 
-## Owner decisions: status
+## Release preparation status
 
-Gau is decided and enforced. The go-jose/v4 fixes are verified in rebuilt images;
-the unfixed v3 module advisory and the existing Debian/OpenPGP/Rust findings remain
-unaccepted. The human and environment gates still apply. Each decision below states the evidence and a recommendation.
+Native Gau is excluded from the alpha. The go-jose/v4 fixes are verified in
+rebuilt images; the unfixed v3 module advisory and the existing Debian/OpenPGP/Rust
+findings remain unaccepted. Usability and environment acceptance remain release
+requirements. The sections below record evidence and proposed dispositions.
 
-### 1. Native Gau archive (checklist item 2) — decided: excluded
+### 1. Native Gau archive (checklist item 2) — excluded
 
-Decision (owner, 2026-10-27): exclude the vulnerable native Gau from the alpha and enforce
-the exclusion rather than only documenting it. Implemented in Runner #94: `tools install
-gau` is refused, `tools install --all` skips it with the reason, and Runner executes only
-the reviewed container source build (no PATH fallback, no opt-in). The container Gau is
+The alpha excludes the vulnerable native Gau archive. Runner #94 enforces the
+exclusion: `tools install gau` is refused, `tools install --all` skips it with the
+reason, and Runner executes only the reviewed container source build (no PATH fallback, no opt-in). The container Gau is
 the fixed build (Runner #89; fixtures reject untrusted and wrong-host certificates). Native
 users who need Gau use the container toolkit. See [review](gau-tls-review.md).
 
@@ -79,20 +79,22 @@ Both records discuss dedicated execution/result parsing and runtime acquisition.
 Runner implements that integration. Source-built packaging and separate processes
 therefore do not establish clearance. The inventory links both exact records.
 
-Recommendation for review: retain the proposed source-built channel, but resolve
-the distribution license and Nmap terms/compatibility before release. Obtain a
-supported determination or suitable permission, or explicitly approve exclusion
-with compatibility tests. No license change, exclusion or publication is approved
-by this document. Do not treat the earlier source-build recommendation as a waiver.
+Release requires resolving the distribution license and Nmap terms/compatibility.
+Required outcomes are a supported determination, suitable permission, or an
+Nmap-free distribution validated by compatibility tests. Source-built packaging
+does not waive these requirements. Distribution licensing and Nmap integration
+remain unresolved.
 
 ### 3. Residual security findings (checklist item 1)
 
 The per-finding [residual-risk register](residual-risk-register.md) lists every unresolved
-item with exposure assumptions, evidence and a proposed disposition; approve rows rather
-than an aggregate count.
+item with exposure assumptions, evidence and a proposed disposition. Each finding
+requires an individual disposition; an aggregate count does not establish release
+eligibility.
 
-Nothing here is accepted. The owner chooses, per row, to accept as a documented alpha
-limitation, to require a fix before release, or to exclude the component.
+All proposed dispositions remain unaccepted. Each finding requires an explicit
+release disposition: acceptance as a documented alpha limitation, remediation
+before release, or component exclusion.
 
 | Residual | Evidence | Recommendation |
 | --- | --- | --- |
