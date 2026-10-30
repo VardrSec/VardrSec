@@ -54,50 +54,42 @@ Keep the component repositories separate. Reuse Runner's existing diagnostics;
 there is no additional VardrSec doctor or scanning engine. Starting services must
 not start scans or a detached queue worker. Stop operations must preserve data.
 
-## First implementation slice
+## Implemented development workflow
 
-- [Map #110](https://github.com/VardrSec/VardrMap/pull/110): value-free database and
-  migration-marker readiness through `GET /ready`, preserving `/health` liveness.
-- [Runner #82](https://github.com/VardrSec/VardrRunner/pull/82): opt-in
-  `doctor --platform` and `doctor --offline`, preserving ordinary diagnostics.
-- [versions.json](versions.json): exact development source revisions for the image PRs and Gate,
-  with publication/runnable status kept separate from source compatibility.
+The following capabilities are merged and exercised by the retained development
+acceptance checks. They describe source-built development artifacts, not a
+published Community alpha:
 
-These readiness features are merged; a published installation is a separate step.
-When using the pinned sources, `vardrrunner doctor --platform --offline --json`
-checks the configured backend and skips release discovery. It does not install,
-repair, migrate or execute jobs. An older Map without `/ready` fails the requested
-platform check; ordinary doctor calls remain supported.
+- [Pinned source builds and Compose installation](docs/installation.md): Map UI/API,
+  PostgreSQL and HTTPS proxy; explicit CA trust enrollment and terminal local-account
+  bootstrap. Startup launches no scans and stop preserves data volumes.
+- Runner's opt-in platform diagnostics and Map's timestamped platform/Runner status,
+  including stale, unknown and unreachable states. With the pinned sources,
+  `vardrrunner doctor --platform --offline --json` checks the configured backend
+  without release discovery, installation, migration or job execution.
+- The [installed authorization workflow](docs/installed-gate-acceptance.md): browser
+  engagement setup, reviewed case queueing, explicit Runner/Gate execution, negative
+  and inconclusive outcomes, independent readback, evidence review and report exports.
+- [Recovery](docs/recovery.md), [encrypted backups](docs/encrypted-backups.md),
+  [controlled updates](docs/updates.md), failed-update recovery and
+  [accelerated certificate renewal](docs/certificate-renewal-acceptance.md).
+- A bounded [tool/network matrix](docs/tool-network-acceptance.md) for selected modes
+  on fresh Linux CI hosts, plus retained [image evidence](docs/image-evidence.md).
+  Evidence collection succeeds independently of the strict vulnerability gate;
+  that gate still reports unresolved blockers.
 
-## Next implementation slices
+## Remaining release gates
 
-1. [Map images #113](https://github.com/VardrSec/VardrMap/pull/113) and
-   [Runner packaging #83](https://github.com/VardrSec/VardrRunner/pull/83) are merged. The
-   tool-enabled Runner includes Gate, nmap/libpcap and verified managed binaries.
-2. Validate the [Compose installation](docs/installation.md), explicit public-CA
-   enrollment, one-time administrator bootstrap and Runner diagnostics. Start/stop
-   preserve volumes; platform startup executes no scans.
-3. Map [status presentation #114](https://github.com/VardrSec/VardrMap/pull/114)
-   and [bounded refresh #115](https://github.com/VardrSec/VardrMap/pull/115)
-   displays readiness and timestamped Runner reports, including stale/unknown/
-   unreachable states. Its matching source pin and trusted Compose status check
-   are included here; full doctor reports and release compatibility remain separate.
-4. Verify the [installed authorization workflow](docs/installed-gate-acceptance.md):
-   UI case review/queue, explicit toolkit Runner execution, Gate assessment and
-   redacted evidence returned to Map, including negative/inconclusive outcomes,
-   independent write readback, explicit retest/finding actions and immutable report
-   exports. Restart and encrypted restore verify the retained workflow records.
-5. Run the [bounded tool/network matrix](docs/tool-network-acceptance.md): selected
-   unprivileged tool modes, host access, private isolation, explicit namespace
-   sharing and state replacement on fresh Linux CI hosts. Genuine VPN and fresh
-   Windows/macOS Desktop acceptance remain separate gates.
-6. Collect [development image SBOM/vulnerability evidence](docs/image-evidence.md)
-   and run its strict vulnerability check. Collection success and release
-   eligibility are separate; reported blockers require remediation.
-7. Complete remaining tool modes and certificate
-   lifecycle acceptance. Recovery, controlled updates, encrypted packaging and
-   [accelerated leaf renewal](docs/certificate-renewal-acceptance.md) are merged;
-   image publication and a tagged Community alpha remain separate steps.
+The [Community alpha release checklist](docs/community-alpha-release.md) is the
+authoritative current queue. Remaining work includes residual security dispositions,
+the distribution/bundled-tool licensing and artifact-delivery review, a timed
+unfamiliar-user installation and first assessment, freezing a release candidate,
+independent artifact reproduction and recovery/update reruns against that freeze.
+No risk exception, license decision, tag or publication is implied by merged checks.
+
+The [alpha scope](docs/community-alpha.md) remains Ubuntu 24.04/amd64 first.
+The bounded tool matrix does not establish genuine VPN or fresh Windows/macOS
+Desktop acceptance, nor support for every tool mode. Follow its documented limits.
 
 See the [architecture decision](docs/adr/0001-component-responsibilities.md) and
 [acceptance plan](docs/acceptance.md). Component source access depends on each

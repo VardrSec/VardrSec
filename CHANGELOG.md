@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Replace the README's completed implementation queue with merged development
+  capabilities and links to the actual remaining Community alpha release gates.
+  Preserve source pins, acceptance limitations and unpublished status.
+
 - Record the verified pinned-source license inventory and managed-tool notices,
   including the missing distribution license, exact Nmap metadata/source mismatch
   and transitive/artifact delivery gaps. Correct the source-build licensing assumption
