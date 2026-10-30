@@ -193,7 +193,7 @@ read -rsp 'Runner API key: ' VARDRMAP_API_KEY
 export VARDRMAP_API_KEY
 echo
 python3 vardrsec.py doctor
-docker compose run --rm --no-deps runner heartbeat
+python3 vardrsec.py runner -- heartbeat
 ```
 
 The doctor command delegates to Runner, retains JSON on stdout and confirms
@@ -238,8 +238,8 @@ except the last step happens in the browser at `https://localhost:8443`.
 4. **Identities and cases.** Open Review → API Surface and generate draft cases from
    your OpenAPI document. Drafts are review-only: edit each access decision for
    every identity yourself and tick the review confirmation before saving. Identities
-   reference credentials by environment variable name (for example `${OWNER_TOKEN}`);
-   never paste a token into a case.
+   reference credentials by environment variable name (for example
+   `"value_env": "OWNER_TOKEN"`); never paste a token into a case.
 5. **Queue.** On the Dashboard choose the `vardrgate` tool, select your saved case and
    queue the job. Queuing runs nothing.
 6. **Run it explicitly.** In a private terminal, supply the Runner key and the
@@ -247,12 +247,19 @@ except the last step happens in the browser at `https://localhost:8443`.
 
 ```bash
 export VARDRMAP_API_KEY OWNER_TOKEN PEER_TOKEN   # set beforehand without echoing them
-docker compose run --rm --no-deps -e OWNER_TOKEN -e PEER_TOKEN runner jobs run
+python3 vardrsec.py runner --env OWNER_TOKEN --env PEER_TOKEN -- jobs run
 ```
 
-   A target on a private or loopback address also needs
-   `-e VARDRRUNNER_ALLOW_PRIVATE_TARGETS=1`, which is a deliberate opt-in. The
+   `--env NAME` passes one variable from your shell by name; its value never appears
+   on a command line. A target on a private or loopback address also needs
+   `VARDRRUNNER_ALLOW_PRIVATE_TARGETS=1` passed the same way
+   (`--env VARDRRUNNER_ALLOW_PRIVATE_TARGETS`), which is a deliberate opt-in. The
    container cannot reach a host-only or VPN target; see [networking](networking.md).
+
+   `python3 vardrsec.py runner -- <command>` runs any Runner command once in the
+   installed Runner image, the one recorded after a controlled update or restore.
+   Use it rather than a plain `docker compose run`, which builds or reuses the
+   development-tagged image instead. Everything after `--` goes to Runner.
 7. **Review.** Back in the browser, the job shows its assessment status and evidence.
    Results are candidates: confirm or reject each finding yourself, link the
    supporting evidence, then draft and export a report.

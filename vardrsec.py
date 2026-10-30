@@ -182,6 +182,7 @@ def main():
             "cancel-update",
             "seal-backup",
             "unseal-backup",
+            "runner",
         ),
     )
     parser.add_argument("--username", default="operator")
@@ -196,7 +197,18 @@ def main():
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--recipient")
     parser.add_argument("--identity", type=Path)
-    args = parser.parse_args()
+    args, extra = parser.parse_known_args()
+    if args.action == "runner":
+        # Everything after `--` belongs to Runner, so none of its options can be
+        # taken as one of ours (for example `--destination`).
+        if "--" not in sys.argv[2:]:
+            parser.error(
+                "separate Runner's arguments with --, for example: "
+                "python3 vardrsec.py runner -- jobs run"
+            )
+        args.runner_args = extra
+    elif extra:
+        parser.error("unrecognized arguments: " + " ".join(extra))
     if args.generate_password and args.action != "bootstrap":
         parser.error("--generate-password is only valid with bootstrap")
     if args.action in ("update", "cancel-update"):
@@ -208,6 +220,33 @@ def main():
 
 
 INSTALL_STEPS = ("configure", "sources", "build", "start", "export-ca")
+
+
+_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def runner_invocation(arguments):
+    """Split `[--env NAME]... [--] COMMAND...` into Compose `-e` flags and Runner's argv.
+
+    `--env NAME` passes one variable from the caller's environment, such as an
+    identity token a reviewed case references. Only the name reaches the command
+    line; Compose reads the value from this process's environment.
+    """
+    flags, rest = [], list(arguments)
+    while rest and (rest[0] == "--env" or rest[0].startswith("--env=")):
+        item = rest.pop(0)
+        if item == "--env":
+            if not rest:
+                raise ValueError("--env needs a variable name")
+            name = rest.pop(0)
+        else:
+            name = item.split("=", 1)[1]
+        if not _ENV_NAME.fullmatch(name):
+            raise ValueError(f"--env takes an environment variable name, not {name!r}")
+        flags += ["-e", name]
+    if rest and rest[0] == "--":
+        rest.pop(0)
+    return flags, rest
 
 
 def has_installation_data():
@@ -313,6 +352,11 @@ def dispatch(args, parser):
             args.username,
             *(["--generate-password"] if generated else []),
         )
+    elif args.action == "runner":
+        # The installed image set (.active-images.json after an update or restore)
+        # is selected by compose(), unlike a plain `docker compose run`.
+        flags, command = runner_invocation(args.runner_args)
+        compose("run", "--rm", "--no-deps", *flags, "runner", *command)
     elif args.action == "doctor":
         compose(
             "run",

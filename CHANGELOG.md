@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add `python3 vardrsec.py runner [--env NAME]... -- <command>`, which runs one Runner
+  command in the installed image set (including `.active-images.json` after a
+  controlled update or restore) and passes named variables from the caller's shell
+  without putting values on a command line. The installation walkthrough uses it in
+  place of plain `docker compose run`, which selects the development-tagged image.
+  Correct the walkthrough's credential reference example to `value_env`.
+
 - Replace the README's completed implementation queue with merged development
   capabilities and links to the actual remaining Community alpha release gates.
   Preserve source pins, acceptance limitations and unpublished status.

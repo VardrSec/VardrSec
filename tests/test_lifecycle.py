@@ -226,5 +226,81 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual("POSTGRES_PASSWORD=keep", kept)
 
 
+    def test_runner_runs_the_installed_image_set_with_named_variables(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".active-images.json").write_text("{}")
+            with (
+                patch.object(vardrsec, "ROOT", root),
+                patch.object(vardrsec, "run") as run,
+            ):
+                vardrsec.dispatch(
+                    argparse.Namespace(
+                        action="runner",
+                        runner_args=["--env", "OWNER_TOKEN", "--env=PEER_TOKEN", "--", "jobs", "run"],
+                    ),
+                    None,
+                )
+        command = list(run.call_args.args)
+        # The active image file is what a plain `docker compose run` would miss.
+        self.assertEqual(
+            [
+                "docker", "compose",
+                "-f", str(root / "compose.yaml"),
+                "-f", str(root / ".active-images.json"),
+                "run", "--rm", "--no-deps",
+                "-e", "OWNER_TOKEN", "-e", "PEER_TOKEN",
+                "runner", "jobs", "run",
+            ],
+            command,
+        )
+
+    def test_runner_arguments_after_the_separator_are_passed_unchanged(self):
+        flags, command = vardrsec.runner_invocation(
+            ["credentials", "approve", "--env", "OWNER_TOKEN", "--destination", "x"]
+        )
+        self.assertEqual([], flags)
+        self.assertEqual(
+            ["credentials", "approve", "--env", "OWNER_TOKEN", "--destination", "x"], command
+        )
+
+    def test_runner_variable_names_are_checked(self):
+        for arguments in (["--env"], ["--env", "A=B"], ["--env=1BAD"], ["--env", "$(id)"]):
+            with self.subTest(arguments=arguments), self.assertRaises(ValueError):
+                vardrsec.runner_invocation(arguments)
+
+    def _main(self, *argv):
+        captured = {}
+
+        def dispatched(args, parser):
+            captured["args"] = args
+
+        with (
+            patch.object(sys, "argv", ["vardrsec.py", *argv]),
+            patch.object(vardrsec, "dispatch", side_effect=dispatched),
+            patch("updater.operation_guard", return_value=contextlib.nullcontext()),
+            contextlib.redirect_stderr(io.StringIO()) as err,
+        ):
+            try:
+                vardrsec.main()
+            except SystemExit as exc:
+                return None, exc.code, err.getvalue()
+        return captured.get("args"), None, err.getvalue()
+
+    def test_runner_requires_the_separator_so_its_options_stay_its_own(self):
+        args, code, err = self._main("runner", "jobs", "run")
+        self.assertEqual(2, code)
+        self.assertIn("runner -- jobs run", err)
+        args, code, _ = self._main("runner", "--", "test-cases", "save", "--destination", "x")
+        self.assertIsNone(code)
+        self.assertEqual(["test-cases", "save", "--destination", "x"], args.runner_args)
+        self.assertIsNone(args.destination)
+
+    def test_other_actions_still_reject_unknown_arguments(self):
+        _, code, err = self._main("start", "--bogus")
+        self.assertEqual(2, code)
+        self.assertIn("unrecognized arguments: --bogus", err)
+
+
 if __name__ == "__main__":
     unittest.main()
