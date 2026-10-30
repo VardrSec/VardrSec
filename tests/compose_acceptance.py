@@ -127,17 +127,17 @@ def main():
     print(
         "PASS: Runner authenticates over CA-validated HTTPS; database/migrations ready; no API key in output"
     )
-    heartbeat = compose(
-        "run",
-        "--rm",
-        "--no-deps",
-        "runner",
-        "heartbeat",
-        env=env,
+    # The installed-image command operators are told to use, not a plain compose run.
+    heartbeat = subprocess.run(
+        [sys.executable, str(ROOT / "vardrsec.py"), "runner", "--", "heartbeat"],
+        cwd=ROOT,
+        env={**env, "COMPOSE_PROJECT_NAME": PROJECT},
         capture_output=True,
         text=True,
+        check=False,
     )
     assert key not in heartbeat.stdout + heartbeat.stderr
+    assert heartbeat.returncode == 0, heartbeat.stderr[-2000:]
     report = request("/runner/status")
     assert report["schema_version"] == 1 and report["stale_after_seconds"] == 300
     assert any(

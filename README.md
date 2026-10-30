@@ -100,7 +100,8 @@ remain separate reviewed steps; this foundation publishes none of those artifact
 
 `python vardrsec.py configure`, `sources`, `build`, `start`, `export-ca`,
 `bootstrap`, `doctor` and `stop` delegate lifecycle to Compose and diagnostics to
-Runner. Follow the [installation guide](docs/installation.md) for prerequisites,
+Runner. `python vardrsec.py runner [--env NAME]... -- <command>` runs one Runner
+command in the installed image set. Follow the [installation guide](docs/installation.md) for prerequisites,
 explicit trust enrollment and credentials. `start` alone does not establish browser trust.
 
 `backup` and `restore` provide quiesced portable snapshots, saved service images
