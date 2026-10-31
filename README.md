@@ -2,7 +2,8 @@
 
 The local-first distribution for the VardrSec security-testing platform: a research
 interface (VardrMap), an explicit-execution runner (VardrRunner) and a multi-identity API
-authorization tester (VardrGate), run together with Docker Compose on your own machine.
+authorization tester (VardrGate), run together with Docker Compose on your own machine. Each
+component also runs natively; see [platforms](docs/platforms.md).
 
 > **Source-built alpha, not an official release.** You build it locally from pinned sources.
 > No images are published and there are no automatic updates.
@@ -40,8 +41,10 @@ targets and recovery are covered in [installation](docs/installation.md),
 
 Current work follows the [Community Alpha v0.1.0 stabilization plan](docs/community-alpha.md):
 security and clean Ubuntu installation first, then user-workflow validation and
-release preparation. Linux-only alpha support is permitted; other platforms must
-be labelled accurately from their own acceptance evidence.
+release preparation. The initial packaged distribution is officially supported on Ubuntu
+24.04; other platforms are labelled from their own acceptance evidence. See
+[platforms and deployment methods](docs/platforms.md) for native component execution and
+future cross-platform work.
 
 | Component | Responsibility |
 |---|---|
