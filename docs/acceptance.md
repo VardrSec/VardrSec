@@ -79,7 +79,7 @@ only db/api/web/proxy were running after startup. No target scans were executed.
 
 The Map image build passed 201 frontend tests, lint/typecheck and production build.
 Runner passed 1,571 tests, ten opt-in skips, 96.48% coverage, lint/format and types.
-The tool image verified all nine managed binaries and contained Gate and nmap.
+The tool image verified all nine managed binaries and contained Gate and nmap (historical: later pins carry no Nmap; see the tool/network acceptance).
 These checks prove this development fixture; fresh-host OS/browser enrollment,
 certificate renewal over time, raw-packet/headless/template modes and host/VPN
 routing remain release gates. See the reproducible

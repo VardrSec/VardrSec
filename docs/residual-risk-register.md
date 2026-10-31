@@ -68,7 +68,7 @@ Common exposure facts used below, each verified in this repository:
 | --- | --- |
 | Native Gau archive disables TLS verification | **Excluded in code** (Runner #94): install refused, `--all` skips it, no PATH fallback. The container Gau is a reviewed patched build |
 | Genuine VPN routing | Unverified; stated as a limitation with the native Runner fallback ([networking](networking.md)) |
-| Nmap integration/redistribution | Exact-package license terms and Runner execution/XML parsing need compatibility review even for source builds; no licensing clearance or publication approval ([inventory](release-license-inventory.md)) |
+| Nmap integration/redistribution | Nmap is excluded from packaging and every image (CI-enforced); naabu is the port-discovery tool. Runner's retained, opt-in Nmap integration code is an open licensing question; no licensing clearance or publication approval ([inventory](release-license-inventory.md)) |
 
 ## How to use this register
 

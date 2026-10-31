@@ -43,7 +43,7 @@ none was modified.
 | --- | --- | --- |
 | Original distribution code | Apache-2.0 | Keep `LICENSE` and `NOTICE`; retain notices in redistributed copies |
 | Independently licensed components (Map, Runner, Gate) | Their own licenses (AGPL-3.0, MIT, Apache-2.0), unchanged | Preserve each license and its notices; Map's AGPL obligations, including source for a modified network service, apply to Map and are not altered by the distribution's license |
-| Third-party tools, dependencies, base images and OS packages | Mixed; see the tables below | Notice and source obligations per package; Nmap unresolved; transitive review incomplete |
+| Third-party tools, dependencies, base images and OS packages | Mixed; see the tables below | Notice and source obligations per package; Nmap excluded from packaging (retained integration code is an open question); transitive review incomplete |
 | Source-built distribution (Community Alpha) | This repository distributes its own source, pins and scripts; users fetch the pinned component sources and build the images themselves | Components and their notices come from their own repositories and are not redistributed by this repository, but source-built packaging is not an exemption and the Nmap question stands |
 | Future prebuilt-image redistribution | Not authorized | Would make the project a redistributor of every package in each image: a complete notice bundle, corresponding source or written offers for copyleft code, the Nmap determination and the transitive review, verified in the final images |
 
@@ -78,25 +78,37 @@ materials with those exact artifacts; verify their presence in the final images.
 Native Gau remains excluded. Nuclei templates are not included in this inventory
 or automatically approved for acquisition/distribution.
 
-## Nmap: exact package and integration require review
+## Nmap: excluded from packaging; retained integration code is a separate question
 
-The Runner SBOM identifies `nmap` and `nmap-common` **7.95+dfsg-3**. Debian's
-[copyright metadata](https://metadata.ftp-master.debian.org/changelogs//main/n/nmap/nmap_7.95%2Bdfsg-3_copyright)
-uses `nmap-GPL-2`; the same source package's
-[LICENSE](https://sources.debian.org/src/nmap/7.95%2Bdfsg-3/LICENSE)
-starts with **NPSL 0.95**. Preserve both records and reconcile them for the exact
-binary before assigning an SPDX expression or claiming redistribution clearance.
+**Decision (owner, 2026-10-31):** Community Alpha uses Naabu for port discovery and does not
+package or support Nmap. Verified on the pins of
+[distribution #58](https://github.com/VardrSec/VardrSec/pull/58):
 
-Both texts discuss software specifically executing Nmap and parsing results, and
-installers fetching it at runtime. Runner has dedicated Nmap execution and XML
-parsing. That is a concrete review question even when users build locally; separate
-process execution and an apt download do not establish a licensing exemption.
-This is an engineering identification of relevant terms, not a legal conclusion.
+- The Runner `toolkit` image no longer installs `nmap` or `nmap-common`
+  ([Runner #103](https://github.com/VardrSec/VardrRunner/pull/103)); no installer, manifest or
+  `tools install` path ever downloaded Nmap. Runner's container workflow, the tool/network
+  fixture (no `nmap` binary, `nmap`/`nmap-common` package or `nmap*` file in the image, and
+  not an inventoried tool) and the image evidence check (an SBOM or package inventory
+  containing `nmap`/`nmap-common` is rejected for all five images) enforce this.
+- No `nmap-service-probes` database or any `nmap*` file is in the image. Naabu is run with
+  `-list -top-ports -json -o -silent` only, never its Nmap hooks, which a Runner unit test
+  asserts; HTTPx still identifies web services.
+- Map no longer offers Nmap in the Composer, and Host Enumeration is `naabu -> httpx`
+  ([Map #141](https://github.com/VardrSec/VardrMap/pull/141)). Map's API still accepts the
+  `nmap` job type; a Runner that did not opt in fails it as unsupported. Map has no Nmap XML
+  file import (its import types are ffuf, httpx, nuclei, katana, gau and dalfox), so none was
+  removed; Runner's `parse_nmap_xml` remains for the opt-in path.
 
-Release licensing remains unresolved. Required outcomes are a supported
-licensing/compatibility determination for the bundled Nmap binary, appropriate
-permission terms, or an Nmap-free distribution validated by compatibility tests.
-Image publication remains blocked until this is resolved.
+**Not resolved by this:** Runner still contains the Nmap execution and XML-parsing code,
+off unless an operator sets `VARDRRUNNER_ENABLE_NMAP=1` and supplies their own Nmap. It is
+isolated (disabled, never packaged), not removed. NPSL 0.95 section 3 treats software
+"designed specifically to execute Covered Software and parse the results" as a derivative
+work and says its authors interpret that term broadly; whether keeping that code in the
+public Runner repository raises a concern is a legal question this document does not
+answer. Removing the code is the alternative. The earlier Debian metadata mismatch
+(`nmap-GPL-2` versus NPSL 0.95 for `nmap` 7.95+dfsg-3) concerned the package that is no longer
+shipped and is kept only as history.
+Removing Nmap from packaging does not resolve any other third-party obligation.
 
 ## Other runtime and build materials
 
@@ -136,7 +148,8 @@ Zero security findings would not close these licensing tasks.
 
 1. **Done (2026-10-31):** the owner selected Apache-2.0 for the distribution; each
    component's existing grant is preserved.
-2. Resolve Nmap's exact terms and compatibility with the proposed integration/channel.
+2. **Packaging done (2026-10-31):** Nmap is excluded from every image. Still open: decide whether
+   the retained, opt-in Nmap integration code in Runner is acceptable or should be removed.
 3. Complete transitive Go/Rust/Python/npm/OS license and notice review, including
    missing/custom metadata, copyleft source obligations and statically linked code.
 4. Assemble and verify notices and corresponding source for the actual distributed

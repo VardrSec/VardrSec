@@ -28,7 +28,7 @@ Each item needs evidence recorded in the repository, not only a green CI run.
 | 5 | Exact component commits frozen in `versions.json`, each reachable on its repository's `main` | **Exact development pins recorded:** Map #134 (`696a8bf`), Runner v0.54.0 (`854b973`) and Gate v0.2.0 (`7f82e49`), set by [#46](https://github.com/VardrSec/VardrSec/pull/46) and [#47](https://github.com/VardrSec/VardrSec/pull/47). Main ancestry for every exact pin is required at integration merge and rechecked at freeze. This is not a release freeze |
 | 6 | Independent rebuild reproduces the install artifacts from the frozen pins | **Partially reproducible**, see below |
 | 7 | Backup, encrypted restore, successful update and failed-update recovery rerun against the frozen pins | Current development pins passed installed, encrypted/portable recovery, controlled-update and failure-recovery checks in [#46](https://github.com/VardrSec/VardrSec/pull/46/checks) and [#47](https://github.com/VardrSec/VardrSec/pull/47/checks) (12 of 12 checks each) and on `main` ([run 41161013912](https://github.com/VardrSec/VardrSec/actions/runs/41161013912), [run 41175264906](https://github.com/VardrSec/VardrSec/actions/runs/41175264906)). Rerun against the frozen candidate |
-| 8 | Redistribution and licensing review of every bundled tool and base image | **Direct inventory verified; release review open.** All nine managed top-level licenses verified; distribution license adopted (Apache-2.0, original files only); Nmap terms/compatibility, transitive licenses and artifact notice/source delivery remain unresolved. See [inventory](release-license-inventory.md) |
+| 8 | Redistribution and licensing review of every bundled tool and base image | **Direct inventory verified; release review open.** All nine managed top-level licenses verified; distribution license adopted (Apache-2.0, original files only); Nmap is excluded from packaging (Naabu is the port-discovery tool) but its retained opt-in integration code is an open question; transitive licenses and artifact notice/source delivery remain unresolved. See [inventory](release-license-inventory.md) |
 | 9 | Release notes, limitations, troubleshooting and recovery instructions reviewed | This draft |
 | 10 | Owner approval for any image publication, tag or announcement | Not requested |
 
@@ -75,17 +75,14 @@ Gate Apache-2.0 texts. The owner selected **Apache-2.0** for the distribution
 original files only; component and third-party licenses are preserved and neither inherited
 nor overridden by it.
 
-The actual Nmap/nmap-common package is 7.95+dfsg-3. Debian's copyright metadata
-uses an older `nmap-GPL-2` label, while its source LICENSE contains NPSL 0.95.
-Both records discuss dedicated execution/result parsing and runtime acquisition.
-Runner implements that integration. Source-built packaging and separate processes
-therefore do not establish clearance. The inventory links both exact records.
-
-Release requires resolving Nmap terms/compatibility. The distribution license decision
-is complete. Required outcomes are a supported determination, suitable permission, or an
-Nmap-free distribution validated by compatibility tests. Source-built packaging
-does not waive these requirements. Nmap integration, transitive notices and artifact
-source delivery remain unresolved.
+Nmap is excluded from Community Alpha packaging: the Runner image no longer installs it,
+Naabu is the default and supported port-discovery tool, and CI asserts that no image contains
+Nmap. This is the checklist's Nmap-free outcome, validated by the existing Naabu fixture
+checks. The distribution license decision is complete. Runner still carries the Nmap
+integration code, disabled unless an operator opts in with their own installation; whether
+retaining that code is acceptable is not decided here (see the
+[inventory](release-license-inventory.md#nmap-excluded-from-packaging-retained-integration-code-is-a-separate-question)).
+Transitive notices and artifact source delivery remain unresolved.
 
 ### 3. Residual security findings (checklist item 1)
 
