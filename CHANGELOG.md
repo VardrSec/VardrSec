@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Adopt the Apache License 2.0 for the distribution's original files: add the official
+  unmodified `LICENSE` and a `NOTICE` naming Jorge Aquino as copyright holder (the only author
+  of this repository, matching the owner's other repositories), and a README license section
+  stating that it neither relicenses nor overrides VardrMap (AGPL-3.0), VardrRunner (MIT),
+  VardrGate (Apache-2.0) or any third-party license. The license inventory and release
+  checklist record the layered structure and mark the distribution-license decision
+  complete; Nmap, transitive notices and any prebuilt-image redistribution remain open.
+  No code, component license, release gate or support claim changes.
+
 - Add `docs/platforms.md` and align platform wording: the packaged Docker Compose
   distribution is officially supported on Ubuntu 24.04, Docker's Linux-container requirement
   is separated from application requirements, native Map/Runner/Gate execution on Windows

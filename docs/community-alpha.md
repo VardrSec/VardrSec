@@ -36,7 +36,7 @@ Priorities map onto the table above; they do not add tasks. Operational state
 | P0 complete researcher workflow | 4 | UI path verified in CI: the installed workflow now creates the client, testing window, scope and authorization through the Map interface (Map #119, VardrSec #26), then runs the reviewed Gate cases, confirms a finding and exports reports. Target/identity fixtures and Runner key issuance remain scripted by design; the unfamiliar-user exercise is still open. |
 | P1 first-user experience | 2, 3, 9 | Automated clean-Ubuntu install passes; no unfamiliar-user exercise has occurred. |
 | P1 networking | 5, 6, 7 | Synthetic host/private tests pass; genuine VPN unverified. Reliability drills pass and are reused for the candidate. |
-| P2 release preparation | 8 | In progress: checklist and verified direct license inventory prepared. Distribution license, Nmap integration terms, transitive notices/source delivery and candidate freeze remain open. |
+| P2 release preparation | 8 | In progress: checklist and verified direct license inventory prepared. The distribution license is adopted (Apache-2.0); Nmap integration terms, transitive notices/source delivery and candidate freeze remain open. |
 
 Pre-remediation independently verified baseline: [image run 40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177),
 clean distribution commit `524585cac788d08c529df58b4dd82a20029e7c1b`, collected 2026-10-28.

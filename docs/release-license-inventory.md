@@ -1,7 +1,8 @@
 # Community Alpha license inventory — 2026-10-28
 
-Status: **direct-component inventory verified; release licensing review open**.
-This records the existing licenses, not a license change, compatibility opinion,
+Status: **direct-component inventory verified; distribution license adopted
+(Apache-2.0, 2026-10-31); release licensing review open**.
+This records the existing licenses, not a compatibility opinion,
 permission to publish, or substitute for the actual license texts. Source-built
 packaging is a proposal, not an exemption from license conditions.
 
@@ -24,13 +25,30 @@ These are top-level licenses; dependency licenses require their own review.
 
 | Component | Observed root license at the reviewed revision | Release action |
 | --- | --- | --- |
-| Distribution | No root LICENSE/LICENCE/COPYING file found | Owner must select and authorize its license before public source distribution; do not inherit a component's license by assumption |
+| Distribution (this repository) | **Apache-2.0**, root `LICENSE` (official unmodified text, SHA-256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`) and `NOTICE`, adopted by the owner on 2026-10-31. At the reviewed revision above no root license existed. Copyright holder Jorge Aquino, supported by the sole-author history of this repository (every commit on `main` as of 2026-10-31 is authored by Jorge Aquino), Runner's `LICENSE` and Map's README; no other holder is evidenced | Original files only; the grant does not extend to, replace or override any component or third-party license |
 | [Map](https://github.com/VardrSec/VardrMap/blob/1c560f8b72f93c4396e57216e1ad93cc10785609/LICENSE) | GNU AGPL version 3 text; README identifies AGPL v3.0 | Retain license/notices and review complete corresponding-source delivery and modified network-service obligations; private source pins alone are not a public source offer |
 | [Runner](https://github.com/VardrSec/VardrRunner/blob/65186ddb6c26c9d895f146a74decc52e08d3913e/LICENSE) | MIT | Retain copyright and permission notice |
 | [Gate](https://github.com/VardrSec/VardrGate/blob/af29a93140b54cf5b684a06f552a05cd92f6dee6/LICENSE) | Apache-2.0 | Retain license/attributions and applicable notices; identify modifications as required |
 
-The repositories remain independent. This inventory makes no assertion about
-cross-component license compatibility or alternative commercial terms.
+VardrForge is a separate research project with no license file; it is not part of the
+platform release and is unchanged. The repositories remain independent. This inventory makes
+no assertion about cross-component license compatibility or alternative commercial terms.
+Confirmed 2026-10-31: Map's root `LICENSE` is AGPL-3.0, Runner's is MIT and Gate's is
+Apache-2.0 (text identical to the official Apache-2.0 apart from surrounding whitespace);
+none was modified.
+
+## License structure and obligations
+
+| Layer | License position | Obligations tracked here |
+| --- | --- | --- |
+| Original distribution code | Apache-2.0 | Keep `LICENSE` and `NOTICE`; retain notices in redistributed copies |
+| Independently licensed components (Map, Runner, Gate) | Their own licenses (AGPL-3.0, MIT, Apache-2.0), unchanged | Preserve each license and its notices; Map's AGPL obligations, including source for a modified network service, apply to Map and are not altered by the distribution's license |
+| Third-party tools, dependencies, base images and OS packages | Mixed; see the tables below | Notice and source obligations per package; Nmap unresolved; transitive review incomplete |
+| Source-built distribution (Community Alpha) | This repository distributes its own source, pins and scripts; users fetch the pinned component sources and build the images themselves | Components and their notices come from their own repositories and are not redistributed by this repository, but source-built packaging is not an exemption and the Nmap question stands |
+| Future prebuilt-image redistribution | Not authorized | Would make the project a redistributor of every package in each image: a complete notice bundle, corresponding source or written offers for copyleft code, the Nmap determination and the transitive review, verified in the final images |
+
+Adding the root `LICENSE` does not establish that any third-party or component
+redistribution requirement is satisfied; the open items remain open.
 
 ## Managed tools
 
@@ -116,7 +134,8 @@ Zero security findings would not close these licensing tasks.
 
 ## Before release approval
 
-1. Owner selects the distribution license; preserve each component's existing grant.
+1. **Done (2026-10-31):** the owner selected Apache-2.0 for the distribution; each
+   component's existing grant is preserved.
 2. Resolve Nmap's exact terms and compatibility with the proposed integration/channel.
 3. Complete transitive Go/Rust/Python/npm/OS license and notice review, including
    missing/custom metadata, copyleft source obligations and statically linked code.
