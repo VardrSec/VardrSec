@@ -72,7 +72,12 @@ Runner 0/46/9, Web 0/43/3). The #47-merge collection
 is identical. Against run 40757052765 the critical and high occurrences are unchanged;
 the ten additional unknown occurrences are a single advisory, glibc CVE-2026-84243
 (unfixed `libc6`, `libc-bin`, `libc-l10n`, `locales` in the four Debian images), added to
-the scanner database after that run. Its [exposure review](glibc-gettext-language-exposure.md) identifies no
+the scanner database after that run. A later collection ([run 41232304416](https://github.com/VardrSec/VardrSec/actions/runs/41232304416),
+distribution `5226299`, scanner database updated 2026-10-31T13:09Z) rates the same ten
+CVE-2026-84243 occurrences MEDIUM (Red Hat), so the recount there is **1 critical / 195 high /
+15 unknown**. That is a scanner reclassification, not a fix: the advisory is still `affected`
+with no fixed version, the review stands, and strict checking still exits 1.
+Its [exposure review](glibc-gettext-language-exposure.md) identifies no
 untrusted path to the vulnerable condition in the sources and records a proposed
 conditional exception in the [register](residual-risk-register.md); it is not accepted,
 the runtime probe in installed acceptance confirmed the locale and environment conditions, and no gate changes. These are development sources, not released artifacts. All strict image gates

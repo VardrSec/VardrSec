@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Note in the register and plan that the scanner database later rated glibc CVE-2026-84243 MEDIUM
+  (recount 1 critical / 195 high / 15 unknown); it remains affected and unfixed. Documentation
+  only; nothing is accepted and no gate changes.
+
 - Record the remediation of the superuser API database role in the CVE-2026-84243 exposure
   review, register and release checklist. Documentation only; nothing is accepted and no
   gate changes.

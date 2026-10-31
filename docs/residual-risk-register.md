@@ -19,7 +19,12 @@ Latest recount, 2026-10-31, from the raw reports of [run 41175264942](https://gi
 41161013898 is identical): **1 critical / 195 high / 25 unknown**. The critical and high
 occurrences match run 40757052765. The ten additional unknown occurrences are glibc
 CVE-2026-84243, now reviewed in section A with a conditional exception proposed, not accepted. Strict
-checking exits 1; nothing is accepted. See also
+checking exits 1; nothing is accepted. A later collection ([run 41232304416](https://github.com/VardrSec/VardrSec/actions/runs/41232304416),
+distribution `5226299`, scanner database updated 2026-10-31T13:09Z) rates the same ten
+CVE-2026-84243 occurrences MEDIUM (Red Hat), so the recount there is **1 critical / 195 high /
+15 unknown**. That is a scanner reclassification, not a fix: the advisory is still `affected`
+with no fixed version, the review stands, and strict checking still exits 1.
+See also
 [alpha-os-exposure.md](alpha-os-exposure.md) and
 [alpha-security-assessment.md](alpha-security-assessment.md).
 
