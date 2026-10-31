@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Advance only the VardrMap development source pin to #134, including the
+  read-only running-job hint (#133) and nonce-based **report-only** script CSP
+  (#134). Runner v0.54.0 and Gate v0.2.0 remain unchanged. Re-run installed
+  workflow, recovery, networking, and image checks before merging; do not
+  enable CSP enforcement or change Community Alpha release status. The
+  HSTS named-host browser verification remains separately tracked (Map #135).
+
 - Advance the development distribution pins together to Map #132, Runner v0.54.0
   and Gate v0.2.0; keep source installation, image gates and Community Alpha
   publication status unchanged. Installed Gate acceptance now explicitly approves
