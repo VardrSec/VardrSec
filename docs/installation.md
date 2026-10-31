@@ -31,9 +31,11 @@ never runs a scan; the first-assessment walkthrough below shows how to run one e
 
 
 This is a source-built development installation, not a released Community package.
-The first alpha candidate targets Ubuntu 24.04 Linux/amd64. Windows/macOS Docker
-Desktop instructions remain experimental until their own full installation
-acceptance passes; they do not automatically block a Linux-only alpha.
+The first alpha candidate's packaged distribution is officially supported on Ubuntu 24.04
+Linux/amd64. Windows/macOS Docker Desktop instructions remain experimental until their own
+full installation acceptance passes; they do not block an Ubuntu-first alpha. Docker needs
+to run *Linux containers*; that is a Docker requirement, not an operating-system requirement
+of Map, Runner or Gate, which also run natively ([platforms](platforms.md)).
 
 Prerequisites: Docker with Linux containers and Compose 2.17+ for additional build
 contexts, Python 3.10+, Git and access to the pinned component sources. Start
@@ -288,6 +290,6 @@ applications remain stopped until credential review and explicit startup.
 The [current checkpoint](alpha-checkpoint-2026-10-27.md) separates passed clean
 Ubuntu installation/recovery checks from security and unfamiliar-user work still
 open. Windows/macOS remain experimental; their fresh Desktop acceptance does not
-block a Linux-only alpha. Certificate lifetime coverage, broader tool/network
+block an Ubuntu-first alpha. Certificate lifetime coverage, broader tool/network
 modes and real VPN remain explicit limitations in [acceptance](acceptance.md).
 No image or release is published here.

@@ -13,6 +13,7 @@ The authoritative scope and task status are in [community-alpha.md](community-al
 | Windows 11 / macOS with Docker Desktop | Experimental, no certification |
 | Linux arm64, other hosts | Not established |
 | Native Runner on the host | Supported as the fallback for VPN or host-only targets ([networking](networking.md)) |
+| Native Map, Runner and Gate on Windows or Linux | Individual development and execution as each component documents; no integrated native installation is claimed ([platforms](platforms.md)) |
 
 ## Release candidate checklist
 

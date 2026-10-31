@@ -4,7 +4,7 @@ Current direction: the [Community Alpha plan](community-alpha.md) targets Ubuntu
 24.04 Linux/amd64 first. The [2026-10-27 checkpoint](alpha-checkpoint-2026-10-27.md)
 records the clean installation and remaining gates. Windows/macOS stay experimental
 until their own full acceptance passes; incomplete Desktop support alone does not
-block a Linux-only alpha. Older dated observations below remain historical evidence.
+block an Ubuntu-first alpha. See [platforms](platforms.md). Older dated observations below remain historical evidence.
 
 The first source-level slice is merged in Map #110 and Runner #82. The refreshed
 Map integration includes local authentication; 1,136 backend tests passed locally

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add `docs/platforms.md` and align platform wording: the packaged Docker Compose
+  distribution is officially supported on Ubuntu 24.04, Docker's Linux-container requirement
+  is separated from application requirements, native Map/Runner/Gate execution on Windows
+  and Linux is recorded with its 2026-10-31 evidence and CI coverage, and future
+  cross-platform milestones are listed as planning direction. Replaces "Linux-only alpha"
+  wording. Documentation only; no support claim, gate or behavior changes.
+
 - Note in the register and plan that the scanner database later rated glibc CVE-2026-84243 MEDIUM
   (recount 1 critical / 195 high / 15 unknown); it remains affected and unfixed. Documentation
   only; nothing is accepted and no gate changes.
