@@ -1,0 +1,11 @@
+VardrSec distribution
+Copyright 2026 Jorge Aquino
+
+This notice covers only the original files of this repository (Compose configuration,
+lifecycle, backup and update scripts, tests and documentation), which are licensed under
+the Apache License, Version 2.0 (see LICENSE).
+
+VardrMap, VardrRunner and VardrGate, and every third-party tool, dependency, base image
+and package that this distribution pins, downloads or builds, are separate works under their
+own licenses and notices, which this file does not replace. See
+docs/release-license-inventory.md.

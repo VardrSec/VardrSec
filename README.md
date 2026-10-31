@@ -116,3 +116,16 @@ recovery record on failure. There is no unattended updater or in-place restore.
 Add `--recipient age1...` to `backup` for encrypted packaging, or seal an existing
 working bundle. [Encrypted recovery](docs/encrypted-backups.md) explains separate
 key custody, authenticated unsealing and the plaintext working-data boundary.
+
+## License
+
+The original code of this distribution repository (Compose configuration, lifecycle, backup
+and update scripts, tests and documentation) is licensed under the
+[Apache License 2.0](LICENSE); see also [NOTICE](NOTICE). That license applies only to this
+repository's own files. It does not relicense, and does not override the terms of, the
+independently licensed components that the distribution pins and builds: VardrMap
+(AGPL-3.0, including its network-service source obligations), VardrRunner (MIT) and
+VardrGate (Apache-2.0), nor any third-party tool, dependency, base image or package. Each
+keeps its own license and notices. The [license inventory](docs/release-license-inventory.md)
+records what is verified and what remains open before any release or redistribution of
+built images.
