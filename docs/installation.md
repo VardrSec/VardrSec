@@ -215,7 +215,7 @@ fetched observations after one minute, and failed/unsupported checks remain
 unreachable or unknown. A recent heartbeat is not complete tool/network acceptance.
 
 Runner is excluded from ordinary startup. The tool-enabled image includes Gate,
-nmap/libpcap and Runner's checksum-verified managed tools. Managed tools live in
+libpcap (for naabu, the port-discovery tool; Nmap is not packaged) and Runner's checksum-verified managed tools. Managed tools live in
 read-only image storage, separate from persistent Runner state. Native/keychain
 operation remains available. Raw-packet scans, headless-browser tooling, operator
 wordlists and nuclei template provisioning are not certified by this baseline.

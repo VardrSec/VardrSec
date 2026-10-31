@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Record the Nmap-free Community Alpha in the license inventory, release checklist, risk register
+  and installation guide: Nmap is excluded from packaging and every image (enforced by Runner's
+  container workflow, the tool/network fixture and image evidence), Naabu is the port-discovery
+  tool, Map no longer offers Nmap, and Runner's retained opt-in integration code remains an open
+  licensing question. Removing Nmap does not resolve other third-party obligations.
+  Documentation only; no gate, license or support claim changes.
+
 - Advance the development pins for the Nmap-free Community Alpha: Map to #141 (the Jobs Composer
   no longer offers Nmap and Host Enumeration is `naabu -> httpx`) and Runner to #103 (the
   `toolkit` image no longer installs Nmap; the Nmap integration is off unless an operator opts
