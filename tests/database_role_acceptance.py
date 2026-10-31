@@ -92,22 +92,29 @@ def verify_privileges(root, project):
         raise AssertionError("A wrong password was accepted over the network")
     with roles.credential(password):
         state = roles.state(root, project)
+    assert state["objects"] > 0 and state["foreign"] == 0, state
+    return {"objects_owned": state["objects"], "denied": len(DENIED)}
+
+
+def verify_api(root, project):
+    """The running API connects as the application role and never holds the administrator."""
+    password = roles.read_password(root)
+    with roles.credential(password):
         user = recovery.compose(
             root, "exec", "-T", "api", "python", "-c",
             "import os, urllib.parse as u; print(u.urlparse(os.environ['DATABASE_URL']).username)",
             project=project, capture_output=True, text=True,
         ).stdout.strip()
-        administrator_password_absent = recovery.compose(
+        administrator_absent = recovery.compose(
             root, "exec", "-T", "-e", "ADMIN_SECRET", "api", "python", "-c",
             "import os; secret = os.environ.pop('ADMIN_SECRET'); "
             "print(secret not in ''.join(os.environ.values()))",
             project=project, capture_output=True, text=True,
             env={**os.environ, "ADMIN_SECRET": env_value(root, "POSTGRES_PASSWORD")},
         ).stdout.strip()
-    assert state["objects"] > 0 and state["foreign"] == 0, state
     assert user == roles.APP, "The API does not connect as the application role"
-    assert administrator_password_absent == "True", "The API holds the administrator password"
-    return {"objects_owned": state["objects"], "api_user": user, "denied": len(DENIED)}
+    assert administrator_absent == "True", "The API holds the administrator password"
+    return {"api_user": user, "administrator_password_in_api": False}
 
 
 def env_value(root, name):
@@ -255,6 +262,7 @@ def upgrade_drill(receipt):
             project=DRILL, capture_output=True, text=True,
         )
         assert "(head)" in head.stdout + head.stderr, "Migrations are not current on the upgraded volume"
+        receipt["upgrade"].update(verify_api(root, DRILL))
         receipt["upgrade"]["api_reads_existing_rows"] = True
         # 8. The pre-change backup still restores, as a pre-change installation.
         recovery.compose(root, "stop", "api", project=DRILL)
@@ -292,7 +300,10 @@ def verify_privileges_on_drill(root):
 
 def main():
     receipt = {}
-    receipt["fresh_install"] = verify_privileges(ROOT, PROJECT)
+    receipt["fresh_install"] = {
+        **verify_privileges(ROOT, PROJECT),
+        **verify_api(ROOT, PROJECT),
+    }
     print("PASS: fresh install runs migrations and the API as a non-superuser role")
     upgrade_drill(receipt)
     print(
