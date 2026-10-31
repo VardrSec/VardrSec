@@ -21,7 +21,9 @@ services:
     build:
       context: ${MAP_SOURCE:-./.sources/map}/backend
     environment:
-      DATABASE_URL: postgresql://vardrmap:${POSTGRES_PASSWORD:?Run configuration setup first}@db/vardrmap?sslmode=disable
+      # Least-privilege login created by `vardrsec.py database-role`; the administrative
+      # `vardrmap` credential never reaches the API (docs/database-roles.md).
+      DATABASE_URL: postgresql://vardrmap_app:${POSTGRES_APP_PASSWORD:?Run python3 vardrsec.py database-role (see docs/database-roles.md)}@db/vardrmap?sslmode=disable
       BACKEND_JWT_SECRET: ${BACKEND_JWT_SECRET:?Run configuration setup first}
       ENV: production
       VARDRMAP_AUTH_METHODS: local

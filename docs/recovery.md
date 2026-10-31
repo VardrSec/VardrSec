@@ -78,6 +78,10 @@ all later writes. Use only a separately reviewed, compatible image set. Preserve
 the backup's image archive and source revisions. Do not prune recovery images or
 delete the source volumes during an upgrade.
 
+The API connects as the non-superuser `vardrmap_app`; backups and restores use the
+administrator inside the database container, and restore hands restored data to the
+application role (see [database-roles.md](database-roles.md)).
+
 Application startup runs Alembic. If migration/startup fails, keep application
 traffic stopped and restore the proven bundle into a new project. An image
 rollback cannot undo an applied schema change. Never stamp over a failed schema

@@ -238,7 +238,13 @@ def backup(root, destination):
         k: v
         for k, v in os.environ.items()
         if k
-        not in {"POSTGRES_PASSWORD", "BACKEND_JWT_SECRET", "AUTH_SECRET", "HTTPS_PORT"}
+        not in {
+            "POSTGRES_PASSWORD",
+            "POSTGRES_APP_PASSWORD",
+            "BACKEND_JWT_SECRET",
+            "AUTH_SECRET",
+            "HTTPS_PORT",
+        }
     }
     from_file = json.loads(
         compose(
@@ -499,6 +505,10 @@ def restore(root, backup_path, destination, project):
             project=project,
             stdin=source,
         )
+    # pg_restore --no-owner leaves the data owned by the administrator.
+    import database_roles
+
+    database_roles.restore_role(destination, project)
     if database_fingerprint(destination, project) != metadata["database"]:
         raise ValueError(
             "Restored database fingerprint differs; applications remain stopped"

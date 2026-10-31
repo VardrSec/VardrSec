@@ -55,6 +55,15 @@ def verify_application(restored, original_ca, images):
     assert (
         recovery.sql(
             restored,
+            "SELECT count(*) FROM pg_tables WHERE schemaname='public' "
+            "AND tableowner <> 'vardrmap_app'",
+            RESTORE_PROJECT,
+        )
+        == "0"
+    ), "Restored data is not owned by the application role"
+    assert (
+        recovery.sql(
+            restored,
             "SELECT to_regclass('public.successful_upgrade_fixture') IS NULL",
             RESTORE_PROJECT,
         )
