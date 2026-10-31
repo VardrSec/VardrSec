@@ -111,8 +111,9 @@ additional tool modes and external client delivery are not established here.
 
 ## Authorization coverage and boundary drafts
 
-The integration pins Map #132 (including the reviewed authorization coverage and
-boundary features), Runner v0.54.0 (PR #101), and Gate v0.2.0 (PR #26). Before the
+The integration pins Map #134 (including the reviewed boundary features,
+#133's read-only running-job indicator, and #134's nonce-based report-only CSP),
+Runner v0.54.0 (PR #101), and Gate v0.2.0 (PR #26). Before the
 first queued Gate job executes, the disposable fixture approves its three synthetic
 identity credential references for the engagement and fixture origin using Runner's
 `credentials approve` command. Approvals are stored in the fixture's Runner state;
