@@ -6,13 +6,13 @@ import json
 import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
 import urllib.request
 import urllib.error
 from urllib.parse import urlsplit
-import xml.etree.ElementTree as ET
 
 from vardrrunner import config, runner, toolchain
 
@@ -38,9 +38,33 @@ def inventory():
     }
     assert sum(s["source"] == "managed" for s in tools.values()) == 9
     assert all(s["path"] for s in tools.values())
+    assert "nmap" not in tools, "Nmap must not be an inventoried tool"
+    assert nmap_absent() == {
+        "binary": False,
+        "packages": False,
+        "files": [],
+    }, "Nmap is present in the image"
     assert ctypes.util.find_library("pcap")
     assert (Path.home() / ".config").resolve() == config.config_dir().resolve()
     return tools
+
+
+def nmap_absent():
+    """What the image contains of Nmap: nothing, by design (see docs/release-license-inventory.md)."""
+    dpkg = [
+        subprocess.run(["dpkg", "-s", name], capture_output=True).returncode == 0
+        for name in ("nmap", "nmap-common")
+    ]
+    found = subprocess.run(
+        ["find", "/", "-xdev", "-name", "nmap*", "-not", "-path", "/proc/*"],
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    return {
+        "binary": shutil.which("nmap") is not None,
+        "packages": any(dpkg),
+        "files": found,
+    }
 
 
 def probe(url):
@@ -157,27 +181,6 @@ def smoke(url):
             ],
         )
         assert [r["status"] for r in json.loads(ffuf.read_text())["results"]] == [200]
-        nmap = work / "nmap.xml"
-        execute(
-            "nmap",
-            [
-                "-sT",
-                "-Pn",
-                "-n",
-                "-p",
-                "8080",
-                "--max-retries",
-                "0",
-                "--host-timeout",
-                "10s",
-                "-oX",
-                str(nmap),
-                host,
-            ],
-        )
-        assert (
-            ET.parse(nmap).find(".//port[@portid='8080']/state").get("state") == "open"
-        )
         naabu = execute(
             "naabu",
             [
@@ -226,19 +229,25 @@ def smoke(url):
             ],
         )
         assert "/probe" in katana.stdout, runs["katana"]
-        raw = execute("nmap", ["-sS", "-Pn", "-n", "-p", "8080", host], expected=1)
-        assert "root privileges" in raw.stderr.lower(), runs["nmap-raw"]
+        # Raw sockets stay unavailable without capabilities (the boundary the former Nmap
+        # raw-SYN rejection demonstrated); naabu's default connect mode is what was run above.
+        try:
+            socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP).close()
+        except PermissionError:
+            raw_sockets = "denied_without_privilege"
+        else:
+            raise AssertionError("A raw socket opened without privileges")
         # Presence/version checks do not certify headless or provider/DNS-dependent modes.
         return {
             "passed_modes": [
                 "httpx-http",
                 "nuclei-local-template",
                 "ffuf-local-wordlist",
-                "nmap-tcp-connect",
                 "naabu-tcp-connect",
                 "katana-non-headless",
             ],
-            "raw_syn": "rejected_without_privilege",
+            "raw_sockets": raw_sockets,
+            "nmap": "absent",
             "headless": "not_provisioned"
             if not any(
                 shutil.which(b)

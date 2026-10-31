@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Advance the development pins for the Nmap-free Community Alpha: Map to #141 (the Jobs Composer
+  no longer offers Nmap and Host Enumeration is `naabu -> httpx`) and Runner to #103 (the
+  `toolkit` image no longer installs Nmap; the Nmap integration is off unless an operator opts
+  in with `VARDRRUNNER_ENABLE_NMAP=1` and their own installation). Gate is unchanged. Naabu is the
+  supported port-discovery tool. Image evidence now rejects any image whose SBOM or package
+  inventory contains `nmap` or `nmap-common`, and the tool/network fixture drops its Nmap checks,
+  asserts that Nmap is absent from the Runner image and checks that raw sockets stay denied. The
+  Map pin also brings Map's dependency updates (#137, #138) and test-only migration guard (#139);
+  installed acceptance, recovery, update and role drills run against these pins. **Deploy order:**
+  none beyond the usual rebuild; an installation that used `nmap` jobs must opt in and supply its
+  own Nmap. Documentation of the licensing position follows in a separate change.
+
 - Adopt the Apache License 2.0 for the distribution's original files: add the official
   unmodified `LICENSE` and a `NOTICE` naming Jorge Aquino as copyright holder (the only author
   of this repository, matching the owner's other repositories), and a README license section

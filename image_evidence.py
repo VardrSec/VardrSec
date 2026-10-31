@@ -111,6 +111,10 @@ def check_database(metadata, now):
     )
 
 
+# Nmap is outside Community Alpha packaging (license terms unresolved): no image may carry it.
+EXCLUDED_PACKAGES = frozenset({"nmap", "nmap-common"})
+
+
 def analyze(report, bom, image_id):
     require(re.fullmatch(r"sha256:[0-9a-f]{64}", image_id), "Invalid image ID")
     require(report.get("SchemaVersion") == 2, "Unsupported scan report")
@@ -143,6 +147,13 @@ def analyze(report, bom, image_id):
         ]
         == [image_id],
         "SBOM image ID mismatch",
+    )
+    packaged = {c.get("name") for c in bom["components"]} | {
+        p.get("Name") for r in results for p in r.get("Packages") or []
+    }
+    require(
+        not packaged & EXCLUDED_PACKAGES,
+        "An image contains Nmap, which Community Alpha packaging excludes",
     )
     counts = Counter({s: 0 for s in sorted(SEVERITIES)})
     fixable = Counter()
