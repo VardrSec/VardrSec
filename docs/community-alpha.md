@@ -72,9 +72,10 @@ Runner 0/46/9, Web 0/43/3). The #47-merge collection
 is identical. Against run 40757052765 the critical and high occurrences are unchanged;
 the ten additional unknown occurrences are a single advisory, glibc CVE-2026-84243
 (unfixed `libc6`, `libc-bin`, `libc-l10n`, `locales` in the four Debian images), added to
-the scanner database after that run. Its [exposure review](glibc-gettext-language-exposure.md) finds no
-untrusted path to the vulnerable condition and proposes a conditional acceptance in the
-[register](residual-risk-register.md); the owner has not decided. These are development sources, not released artifacts. All strict image gates
+the scanner database after that run. Its [exposure review](glibc-gettext-language-exposure.md) identifies no
+untrusted path to the vulnerable condition in the sources and records a proposed
+conditional exception in the [register](residual-risk-register.md); it is not accepted,
+runtime checks are pending and no gate changes. These are development sources, not released artifacts. All strict image gates
 remain blocked; no residual risk is accepted.
 
 Group tasks only when sharing an acceptance environment helps; keep changes
