@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add the glibc gettext `LANGUAGE` exposure review for CVE-2026-84243 and update the
+  residual-risk register, release checklist and plan. No untrusted path to the vulnerable
+  condition was found in the shipped configuration; a conditional acceptance is proposed
+  only. Documentation only; no code, pin, Compose or release-status change, and no risk
+  accepted.
+
 - Refresh the Community Alpha release checklist, plan and residual-risk register to the
   current development pins (Map #134, Runner v0.54.0, Gate v0.2.0; #46/#47) and the
   2026-10-31 image recount from the raw reports: 1 critical / 195 high / 25 unknown.
