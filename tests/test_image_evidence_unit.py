@@ -107,6 +107,24 @@ class ScanEvidenceTests(unittest.TestCase):
         report["Metadata"]["OS"]["EOSL"] = True
         self.assertEqual(evidence.analyze(report, bom, IMAGE_ID)["vulnerability_gate"], "blocked")
 
+    def test_nmap_in_the_sbom_is_rejected(self):
+        report, bom = fixtures()
+        bom["components"].append({"name": "nmap", "type": "library"})
+        with self.assertRaisesRegex(ValueError, "Nmap"):
+            evidence.analyze(report, bom, IMAGE_ID)
+
+    def test_nmap_common_in_the_package_inventory_is_rejected(self):
+        report, bom = fixtures()
+        report["Results"][0]["Packages"].append({"Name": "nmap-common"})
+        with self.assertRaisesRegex(ValueError, "Nmap"):
+            evidence.analyze(report, bom, IMAGE_ID)
+
+    def test_similarly_named_packages_are_not_mistaken_for_nmap(self):
+        report, bom = fixtures()
+        bom["components"].append({"name": "python-nmapper", "type": "library"})
+        report["Results"][0]["Packages"].append({"Name": "libnmap0"})
+        evidence.analyze(report, bom, IMAGE_ID)
+
     def test_mismatched_report_image_id_rejected(self):
         report, bom = fixtures()
         report["Metadata"]["ImageID"] = "sha256:" + "b" * 64

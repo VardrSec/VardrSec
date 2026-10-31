@@ -20,12 +20,12 @@ from those pins before running; the receipt does not infer image source history.
 
 | Check | Required evidence |
 | --- | --- |
-| Immutable inventory | All nine managed binaries pass Runner integrity verification; Gate/nmap resolve; libpcap is present. |
+| Immutable inventory | All nine managed binaries pass Runner integrity verification; Gate resolves; libpcap is present; Nmap is absent (no binary, `nmap`/`nmap-common` package or `nmap*` file) and is not an inventoried tool. |
 | Runtime baseline | UID 10001, zero effective capabilities, no-new-privileges, managed tool directory not writable. |
 | HTTP tools | httpx sees HTTP 200; Nuclei matches one explicit local template; FFUF finds one path from a two-entry local wordlist. |
-| Port tools | Nmap TCP connect and Naabu CONNECT find only the selected fixture port. |
+| Port tools | Naabu CONNECT finds only the selected fixture port. Naabu is the supported port-discovery tool; Nmap is not packaged. |
 | Crawler | Non-headless Katana emits the fixture's linked `/probe` endpoint. |
-| Privilege boundary | Nmap raw SYN mode is rejected without root privileges. No capabilities are added. |
+| Privilege boundary | Opening a raw socket is denied without privileges. No capabilities are added. |
 | Private target | A separate internal network cannot reach it; explicitly sharing a private namespace can. |
 | Host service | A container reaches a temporary synthetic host HTTP service through `host.docker.internal`. |
 | Replacement | A state marker, generated Nuclei/Katana configuration and identical tool inventory survive container replacement. |
@@ -65,9 +65,8 @@ VPN settings; this fixture changes neither host routes nor Docker settings.
 | Headless browser tools | Browser not provisioned by this toolkit; never inferred healthy from binary presence. |
 | subfinder, gau, dnsx, dalfox and provider/DNS-dependent modes | Inventory only; no execution or provider credential claim. |
 | Arbitrary Nuclei templates/wordlists | Only the explicit local fixture inputs are exercised. |
-| Raw-packet modes | Rejection verified at the ordinary baseline; privileged operation is not certified. |
+| Raw-packet modes | Raw-socket denial verified at the ordinary baseline; privileged operation is not certified. |
 
-Nmap documents the distinction between
-[TCP connect and privileged raw scans](https://nmap.org/book/scan-methods).
+Naabu's connect mode needs no privilege; its raw modes would.
 These checks do not grant permissions, install browsers or provider data, publish
 images, start scans implicitly, or establish a released compatibility guarantee.

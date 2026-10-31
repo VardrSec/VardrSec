@@ -73,7 +73,9 @@ disposable cache. Each image scan then runs with networking disabled and the
 database frozen. It reads an exported archive through a read-only bind mount;
 there is no Docker socket mount and no image or target execution. Version notices,
 dependency API lookup and implicit config/ignore files are disabled. No severity
-filter or unfixed-vulnerability suppression is used.
+filter or unfixed-vulnerability suppression is used. Evidence is also rejected if any
+image's SBOM or package inventory contains `nmap` or `nmap-common`: Community Alpha packaging
+excludes Nmap.
 
 Scanner containers have a read-only root filesystem, no capabilities,
 no-new-privileges and a temporary writable `/tmp`. Linux uses the invoking UID/GID;
