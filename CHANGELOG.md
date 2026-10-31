@@ -12,8 +12,8 @@
 - Add the glibc gettext `LANGUAGE` exposure review for CVE-2026-84243 and update the
   residual-risk register, release checklist and plan. No untrusted path to the vulnerable
   condition was identified in the sources of the shipped configuration; a conditional
-  exception is proposed only, with runtime checks still unverified and the non-root
-  impact limit stated. Documentation only; no code, pin, Compose or release-status change, and no risk
+  exception is proposed only, with the non-root impact limit stated. The runtime probe
+  (see below) later confirmed the locale and environment conditions. Documentation only; no code, pin, Compose or release-status change, and no risk
   accepted.
 
 - Refresh the Community Alpha release checklist, plan and residual-risk register to the
