@@ -289,6 +289,7 @@ def run_gate_workflow(compose, request, key, password):
     browser = None
     deadline = None
     receipt = {"engagement": engagement["id"], "jobs": [], "rendered": []}
+    approvals_recorded = False
     try:
         docker(
             "run",
@@ -435,6 +436,19 @@ def run_gate_workflow(compose, request, key, password):
             assert event["type"] == "queued"
             scenario, jid = event["scenario"], event["job"]
             mark = observations()
+            if not approvals_recorded:
+                # v0.54.0 resolves Gate identity references only after an operator
+                # approval bound to this disposable engagement and target origin.
+                for who in ("owner", "peer", "reader"):
+                    runner(
+                        "credentials", "approve",
+                        "--engagement", engagement["id"],
+                        "--origin", ORIGIN,
+                        "--env", f"FIXTURE_{who.upper()}_TOKEN",
+                    )
+                runner("credentials", "approvals")
+                approvals_recorded = True
+                assert observations() == mark  # Approval sends no target traffic.
             runner("doctor", "--platform", "--offline", "--json")
             job = next(j for j in request(base + "/jobs")["jobs"] if j["id"] == jid)
             assert job["status"] == "pending" and not job["assessment"]

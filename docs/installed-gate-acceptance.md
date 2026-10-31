@@ -111,8 +111,13 @@ additional tool modes and external client delivery are not established here.
 
 ## Authorization coverage and boundary drafts
 
-The integration pins Map #127 (including #120–#126) and Runner #97, which retains
-#96's go-jose patch and changes only source-build download transport.
+The integration pins Map #132 (including the reviewed authorization coverage and
+boundary features), Runner v0.54.0 (PR #101), and Gate v0.2.0 (PR #26). Before the
+first queued Gate job executes, the disposable fixture approves its three synthetic
+identity credential references for the engagement and fixture origin using Runner's
+`credentials approve` command. Approvals are stored in the fixture's Runner state;
+no credential values are written to logs or receipts. Older Gate builds without
+`--literal-job` are incompatible with Runner v0.54.0.
 After the real Gate assessments, the disposable fixture captures synthetic observed
 exchanges through Map's ordinary ingest API. It checks the installed coverage API:
 vulnerable results remain evidence-backed candidates, fixed results are conclusive,
