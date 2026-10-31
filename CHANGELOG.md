@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Consolidate agent instructions: `AGENTS.md` is the single source for Claude Code
+  and Codex, now including the platform context, division of labour and verification
+  notes that only `CLAUDE.md` carried; `CLAUDE.md` imports it. Documentation only;
+  no pin, Compose or release-status change.
+
 - Advance only the VardrMap development source pin to #134, including the
   read-only running-job hint (#133) and nonce-based **report-only** script CSP
   (#134). Runner v0.54.0 and Gate v0.2.0 remain unchanged. Re-run installed
