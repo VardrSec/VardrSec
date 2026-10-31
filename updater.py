@@ -47,7 +47,9 @@ def installation_lock(root):
 @contextmanager
 def operation_guard(root, action):
     with installation_lock(root):
-        if action in ("install", "start", "build", "bootstrap") and (root / STATE).exists():
+        if action in ("install", "start", "build", "bootstrap", "database-role") and (
+            root / STATE
+        ).exists():
             raise ValueError(
                 "An update is pending or failed; use cancel-update before mutation, or restore its backup after mutation"
             )

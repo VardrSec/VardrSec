@@ -98,7 +98,7 @@ remain separate reviewed steps; this foundation publishes none of those artifact
 
 ## Development entry point
 
-`python vardrsec.py configure`, `sources`, `build`, `start`, `export-ca`,
+`python vardrsec.py configure`, `sources`, `build`, `database-role`, `start`, `export-ca`,
 `bootstrap`, `doctor` and `stop` delegate lifecycle to Compose and diagnostics to
 Runner. `python vardrsec.py runner [--env NAME]... -- <command>` runs one Runner
 command in the installed image set. Follow the [installation guide](docs/installation.md) for prerequisites,

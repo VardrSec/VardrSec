@@ -80,7 +80,12 @@ def configure():
         ) from None
     with os.fdopen(fd, "w", encoding="utf-8") as output:
         output.write("HTTPS_PORT=8443\n")
-        for name in ("POSTGRES_PASSWORD", "BACKEND_JWT_SECRET", "AUTH_SECRET"):
+        for name in (
+            "POSTGRES_PASSWORD",
+            "POSTGRES_APP_PASSWORD",
+            "BACKEND_JWT_SECRET",
+            "AUTH_SECRET",
+        ):
             output.write(f"{name}={secrets.token_hex(32)}\n")
     (ROOT / "trust").mkdir(exist_ok=True)
     print("Created .env without displaying secrets. Keep it private and back it up.")
@@ -175,6 +180,7 @@ def main():
             "stop",
             "export-ca",
             "bootstrap",
+            "database-role",
             "doctor",
             "backup",
             "restore",
@@ -219,7 +225,7 @@ def main():
         return dispatch(args, parser)
 
 
-INSTALL_STEPS = ("configure", "sources", "build", "start", "export-ca")
+INSTALL_STEPS = ("configure", "sources", "build", "database-role", "start", "export-ca")
 
 
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -296,8 +302,9 @@ def dispatch(args, parser):
                     f"\nInstall stopped at '{step}': {error}\n"
                     "Nothing was deleted and your credentials are untouched. Fix the cause "
                     "(network, disk space, Docker) and run `python3 vardrsec.py install` again "
-                    "to resume. If it stopped after the services started, run "
-                    "`python3 vardrsec.py export-ca` instead.",
+                    "to resume. If it stopped at database-role or later, the database volume "
+                    "exists: run the failed step yourself (`python3 vardrsec.py database-role`, "
+                    "then `start` and `export-ca`).",
                     file=sys.stderr,
                 )
                 raise
@@ -309,6 +316,16 @@ def dispatch(args, parser):
     elif args.action == "build":
         build_prerequisites()
         compose("--profile", "tools", "build")
+    elif args.action == "database-role":
+        import database_roles
+
+        result = database_roles.apply(ROOT, backup=args.backup)
+        if result["created_password"]:
+            print("Added POSTGRES_APP_PASSWORD to .env (value not shown). Keep .env private.")
+        print(
+            "Application database role ready: the API will use non-superuser "
+            f"{database_roles.APP}; {result['reassigned']} existing object(s) reassigned."
+        )
     elif args.action == "start":
         compose(
             "up", "-d", "--wait", "--wait-timeout", "180", "db", "api", "web", "proxy"

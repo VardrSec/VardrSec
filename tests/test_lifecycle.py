@@ -26,9 +26,14 @@ class LifecycleTests(unittest.TestCase):
             values = dict(line.split("=", 1) for line in original.decode().splitlines())
             keys = [
                 values[name]
-                for name in ("POSTGRES_PASSWORD", "BACKEND_JWT_SECRET", "AUTH_SECRET")
+                for name in (
+                    "POSTGRES_PASSWORD",
+                    "POSTGRES_APP_PASSWORD",
+                    "BACKEND_JWT_SECRET",
+                    "AUTH_SECRET",
+                )
             ]
-            self.assertEqual(len(set(keys)), 3)
+            self.assertEqual(len(set(keys)), 4)
             for key in keys:
                 self.assertEqual(len(key), 64)
                 self.assertNotIn(key, output.getvalue())
@@ -207,7 +212,7 @@ class LifecycleTests(unittest.TestCase):
         calls, out, _, error, kept = self._install(env_present=True, started=False)
         self.assertIsNone(error)
         self.assertNotIn("configure", calls)
-        self.assertEqual(["sources", "build", "start", "export-ca"], calls)
+        self.assertEqual(["sources", "build", "database-role", "start", "export-ca"], calls)
         self.assertIn("Resuming", out)
         self.assertEqual("POSTGRES_PASSWORD=keep", kept)
 

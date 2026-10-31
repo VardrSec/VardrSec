@@ -9,7 +9,7 @@ Ubuntu 24.04 machine; the unfamiliar-user, zero-prerequisite run has not been do
 ```sh
 git clone https://github.com/VardrSec/VardrSec.git vardrsec
 cd vardrsec
-python3 vardrsec.py install            # configure, sources, build, start, export-ca (several minutes)
+python3 vardrsec.py install            # configure, sources, build, database-role, start, export-ca (several minutes)
 sudo install -m 0644 trust/root.crt /usr/local/share/ca-certificates/vardrsec-local.crt
 sudo update-ca-certificates            # trust only your own CA; compare the printed fingerprint first
 python3 vardrsec.py bootstrap --username operator
@@ -66,6 +66,7 @@ For a new installation:
 python3 vardrsec.py configure
 python3 vardrsec.py sources
 python3 vardrsec.py build
+python3 vardrsec.py database-role
 python3 vardrsec.py start
 python3 vardrsec.py export-ca
 ```
@@ -78,7 +79,9 @@ overwrite dirty or different checkouts. Advanced development may supply MAP_SOUR
 RUNNER_SOURCE and GATE_SOURCE paths to Compose explicitly.
 
 For an existing installation, skip `configure`; it preserves and refuses to
-replace `.env`. Lost credentials require the documented recovery process, not
+replace `.env`. An installation made before the least-privilege database role needs the
+one-time upgrade in [database-roles.md](database-roles.md) (back up first, then
+`database-role --backup DIR`) before `start`. Lost credentials require the documented recovery process, not
 fresh signing/database secrets. If the first source download is interrupted,
 rerun `sources`: an empty initial Git repository can resume. A checked-out revision
 or user files are never reset to force a retry. Preserve differing checkouts.

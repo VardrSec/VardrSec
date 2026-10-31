@@ -45,7 +45,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_*.py'
   installation:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -86,6 +86,16 @@ jobs:
           python tests/compose_acceptance.py
       - name: Verify read-only glibc locale and environment exposure (CVE-2026-84243)
         run: python tests/glibc_locale_acceptance.py
+      - name: Verify least-privilege database role (fresh install, existing-volume upgrade, recovery)
+        run: python tests/database_role_acceptance.py
+      - name: Preserve database role receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: database-role-receipt
+          path: artifacts/role-receipt/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Preserve glibc locale receipt
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

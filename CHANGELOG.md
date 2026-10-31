@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Run the API as a least-privilege PostgreSQL role (issue #52, Phase 1). New
+  `python3 vardrsec.py database-role` creates `vardrmap_app` (no SUPERUSER, CREATEDB,
+  CREATEROLE, REPLICATION or BYPASSRLS), hands it ownership of the application schema and
+  verifies it over the network; `vardrmap` remains the administrator, used only inside the
+  database container and by backup/restore, and its password never reaches the API.
+  `install` runs the step before `start`, `configure` generates `POSTGRES_APP_PASSWORD`,
+  and restore re-applies it after `pg_restore`. The Alembic startup migrations, Map code,
+  database image and component pins are unchanged. **Deploy order for existing
+  installations:** back up with the current version, update the checkout, run
+  `python3 vardrsec.py database-role --backup DIR`, then `start`; Compose refuses to start
+  until `POSTGRES_APP_PASSWORD` exists. See `docs/database-roles.md` and ADR 0003.
+  Installed acceptance verifies the role flags, denied privileged operations, a fresh
+  install, an existing-volume upgrade (refusals, rollback of a failed change, repeat,
+  pre-change backup restore) and the existing recovery and update drills on the new role.
+  A separate migration account (Phase 2) is not part of this change.
+
 - Add a read-only runtime probe to the installed Ubuntu 24.04 acceptance job for the glibc
   gettext `LANGUAGE` review (CVE-2026-84243): installed locales, locale variables in the
   API, web, Runner and database containers (only those names are read), a harmless
