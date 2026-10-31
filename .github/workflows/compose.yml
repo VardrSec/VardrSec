@@ -84,6 +84,16 @@ jobs:
         run: |
           python tests/ubuntu_installation.py enroll
           python tests/compose_acceptance.py
+      - name: Verify read-only glibc locale and environment exposure (CVE-2026-84243)
+        run: python tests/glibc_locale_acceptance.py
+      - name: Preserve glibc locale receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: glibc-locale-exposure
+          path: artifacts/glibc-locale/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Remove only the disposable Ubuntu installation CA
         if: always()
         run: python tests/ubuntu_installation.py cleanup
