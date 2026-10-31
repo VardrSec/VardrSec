@@ -18,8 +18,8 @@ Latest recount, 2026-10-31, from the raw reports of [run 41175264942](https://gi
 (distribution `2f71c32`, Map #134 / Runner v0.54.0 / Gate v0.2.0 pins; the #47-merge run
 41161013898 is identical): **1 critical / 195 high / 25 unknown**. The critical and high
 occurrences match run 40757052765. The ten additional unknown occurrences are glibc
-CVE-2026-84243, listed in section A as not yet reviewed. Strict checking exits 1; nothing
-is accepted. See also
+CVE-2026-84243, now reviewed in section A with a conditional exception proposed, not accepted. Strict
+checking exits 1; nothing is accepted. See also
 [alpha-os-exposure.md](alpha-os-exposure.md) and
 [alpha-security-assessment.md](alpha-security-assessment.md).
 
@@ -30,7 +30,7 @@ Common exposure facts used below, each verified in this repository:
   ([tool/network acceptance](tool-network-acceptance.md)).
 - Runner executes only on an explicit operator command.
 
-## A. Debian packages (19 reviewed advisories and 1 new unreviewed, no fix in the pinned Trixie suite)
+## A. Debian packages (20 distinct advisories, no fix in the pinned Trixie suite)
 
 | ID | Package / images | What exploitation needs | Evidence and assumptions | Proposed disposition |
 | --- | --- | --- | --- | --- |
@@ -43,7 +43,7 @@ Common exposure facts used below, each verified in this repository:
 | CVE-2026-0799, 6554 (high) | libpcap / Runner | Malicious BPF programs or crafted packets handed to libpcap | Only TCP-connect modes are certified; raw-packet modes need capabilities the container lacks | Accept; revisit if raw-packet modes are certified |
 | CVE-2026-6653 (**critical**), 86138, 86139, 86140, 86142, 86143, 86144 (high) | libxml2 / db | Attacker-controlled XML parsed inside PostgreSQL by SQL/XML functions (`xmlparse`, `xpath`, `xmltable`, `xml` casts) | Map's source and migrations use none; only the API reaches the database; exploitation would need arbitrary SQL, a larger compromise | **Narrow conditional acceptance**: valid only while Map avoids XML SQL functions; a fixed Debian build or libxml2/PostgreSQL rebuild closes it. Requires an explicit owner decision because it is the only critical |
 | CVE-2026-74860 (high) | libxml2 Python bindings / db | The Python bindings, which the PostgreSQL image does not load | Reported against the `libxml2` package | Accept as likely not applicable; confirm against a fixed advisory |
-| CVE-2026-84243 (unknown severity; **new since run 40757052765, not yet reviewed**) | glibc `gettext` family (`libc6`, `libc-bin`, `libc-l10n`, `locales`) / api, db, runner, web (10 occurrences) | Per the upstream advisory (GLIBC-SA-2026-0025), an attacker who controls the `LANGUAGE` environment of a program using gettext can make it load a message catalog from an arbitrary path | Unfixed in the pinned suite per the scanner. No exposure review has been done: whether any entry point lets an untrusted party set `LANGUAGE` is not established | **None proposed**; needs review and an owner decision like every other row |
+| CVE-2026-84243 (unknown severity; CNA CVSS 7.0 High, `AV:L/AC:H/PR:L`; CISA SSVC exploitation none) | glibc `gettext` family (`libc6`, `libc-bin`, `libc-l10n`, `locales`) / api, db, runner, web (10 occurrences) | An attacker who controls the `LANGUAGE` environment of a glibc-gettext program, with a non-`C` locale selected and a crafted `.mo` at a reachable path, loads an arbitrary catalog | Reviewed 2026-10-31 in [glibc-gettext-language-exposure.md](glibc-gettext-language-exposure.md): no untrusted path to any container's environment identified (Compose, Map, Runner and Gate sources); API/web/Runner inferred to have no locale beyond `C.UTF-8` (SBOM only); code execution as a service account would still reach that service's secrets and data; no Debian fix exists in any suite; nothing runtime-tested | **Proposed conditional exception; not formally accepted.** Would hold only while there is no untrusted environment control, no extra locales in API/web/Runner and no environment-forwarding service; re-assess at the first Debian fix. Runtime locale/environment checks are still unverified (see the review's conditions table)
 
 ## B. Go and Rust components
 
