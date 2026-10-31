@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Record the remediation of the superuser API database role in the CVE-2026-84243 exposure
+  review, register and release checklist. Documentation only; nothing is accepted and no
+  gate changes.
+
 - Run the API as a least-privilege PostgreSQL role (issue #52, Phase 1). New
   `python3 vardrsec.py database-role` creates `vardrmap_app` (no SUPERUSER, CREATEDB,
   CREATEROLE, REPLICATION or BYPASSRLS), hands it ownership of the application schema and

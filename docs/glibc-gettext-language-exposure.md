@@ -10,8 +10,9 @@ by which an untrusted party can set the environment of a glibc-gettext program, 
 API, web and Runner images lack the second precondition (a non-`C` locale).** The
 first statement is a source-review negative finding. The second was confirmed at
 runtime on 2026-10-31 in the disposable Ubuntu 24.04 acceptance environment (see
-[Verification status](#verification-status)). A related finding needs a separate
-review: the API's database role is a PostgreSQL superuser. This is a
+[Verification status](#verification-status)). A related finding, that the API's
+database role was a PostgreSQL superuser, was remediated afterwards (see
+[database-roles.md](database-roles.md)). This is a
 configuration-specific exposure assessment, not a claim that glibc is patched or a
 scanner suppression.
 
@@ -64,7 +65,7 @@ has no occurrence; musl was not otherwise assessed.
 | No `LANGUAGE`, `LC_*` or `LOCPATH` in any container; `LANG` is `C.UTF-8` (API, Runner), unset (web), `en_US.utf8` (database) | **Runtime-verified** | Locale variables read from `/proc/1/environ` (API, web, database) and `env` in a one-off container (Runner), same run |
 | `LANGUAGE` (ordinary and `../` traversal) is ignored under `C.UTF-8` | **Runtime-verified, bounded** | Harmless catalog probe through bash `$"…"`, all four images, glibc 2.41; the plain-`C` default of the web image is short-circuited by bash, so only the `C.UTF-8` result there is glibc evidence |
 | The probe and fixture are valid, and the traversal behavior exists in this glibc | **Runtime-verified (positive control)** | Database image under `en_US.utf8`: both the ordinary and the `../xx` catalog loaded |
-| The API database role is a PostgreSQL superuser | **Runtime-verified: true** | `rolsuper`, `rolcreaterole`, `rolcreatedb` and `rolbypassrls` are all true for role `vardrmap`, same run. **Flagged for separate security review** |
+| The API database role is a PostgreSQL superuser | **Runtime-verified: true at the time; remediated by distribution #53** | `rolsuper`, `rolcreaterole`, `rolcreatedb` and `rolbypassrls` are all true for role `vardrmap`, same run. Remediation: the API now connects as non-superuser `vardrmap_app` (all five flags false, no memberships; CI run 41230580334) |
 | Behavior of Python, Node and PostgreSQL processes themselves | **Not tested** | Probe uses bash as the gettext caller; the logic is in libc, but no other program was run |
 | Upstream fix status, advisory text | **Unknown** | sourceware.org was unreachable |
 
@@ -145,9 +146,11 @@ does.
 API database role `vardrmap` (the user in the API's `DATABASE_URL`): superuser,
 create-role, create-database and bypass-RLS all **true**. This is the PostgreSQL image's
 default for `POSTGRES_USER`. It is outside CVE-2026-84243 but widens the consequence of
-any API or SQL compromise (for example `COPY … PROGRAM` runs as `postgres`). It needs a
-**separate security review** of a least-privilege application role; no change is made
-here, and Map's migrations, which may need owner rights, must be part of that review.
+any API or SQL compromise (for example `COPY … PROGRAM` runs as `postgres`). This was
+remediated in distribution #53 (Phase 1 of issue #52): the API uses `vardrmap_app`, which
+owns the schema and runs the unchanged migrations, with no superuser, create-role,
+create-database, replication or bypass-RLS rights; see [database-roles.md](database-roles.md).
+A separate migration account (Phase 2) is deferred.
 
 Remaining limits: the probe covers a bash caller and one glibc build (2.41); the Runner
 result is for a one-off container of the Compose service, not a running job; nothing
@@ -183,7 +186,7 @@ If the owner later accepts, it should hold only while all of these remain true:
 | 1 | API, web and Runner images contain only `C`/`C.UTF-8`/`POSIX` locales | **Runtime-verified** (run 41221261206); re-run at the frozen candidate |
 | 2 | No `LANGUAGE`/`LC_*`/`LOCPATH` in any container's environment | **Runtime-verified** for the installed stack and a one-off Runner container; re-run at freeze |
 | 3 | `LANGUAGE` is ignored under `C.UTF-8` and honored only where a non-`C` locale exists | **Runtime-verified** with a bash caller and positive control; other callers untested |
-| 4 | The API database role is a superuser | **Runtime-verified: true.** Separate security review required; not part of this exception |
+| 4 | The API database role is a superuser | **Remediated** (distribution #53); installed acceptance now asserts the role has no superuser, create-role, create-database, replication or bypass-RLS rights. No longer a condition of this exception |
 | 5 | Upstream advisory text and patch status | Still not read (sourceware.org unreachable) |
 | 6 | Whether a target can cause a correctly structured `.mo` file to be written in the Runner state or temp paths | Not investigated; matters only if 1 or 2 stops holding |
 | 7 | Native Runner on a host uses that host's glibc, outside Compose | Out of scope here; needs operator guidance in the release notes |
