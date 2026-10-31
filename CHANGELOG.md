@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Refresh the Community Alpha release checklist, plan and residual-risk register to the
+  current development pins (Map #134, Runner v0.54.0, Gate v0.2.0; #46/#47) and the
+  2026-10-31 image recount from the raw reports: 1 critical / 195 high / 25 unknown.
+  The critical and high occurrences are unchanged; ten additional unknown occurrences
+  are glibc CVE-2026-84243, added to the register as unreviewed with no proposed
+  disposition. Documentation only; no pin, Compose or release-status change, and no
+  risk accepted.
+
 - Consolidate agent instructions: `AGENTS.md` is the single source for Claude Code
   and Codex, now including the platform context, division of labour and verification
   notes that only `CLAUDE.md` carried; `CLAUDE.md` imports it. Documentation only;

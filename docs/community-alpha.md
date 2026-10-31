@@ -32,7 +32,7 @@ Priorities map onto the table above; they do not add tasks. Operational state
 
 | Priority | Table task | Status |
 | --- | --- | --- |
-| P0 release-blocking security | 1 | The two fixable go-jose/v4 occurrences are removed in verified rebuilt images (1 critical / 195 high / 15 unknown); Caddy v3 now has a [source and bounded-control exposure review](caddy-v3-jwk-exposure.md): no JWK ingress in the shipped configuration; the dependency and proposed conditional disposition remain unaccepted. Owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
+| P0 release-blocking security | 1 | The two fixable go-jose/v4 occurrences are removed in verified rebuilt images (latest recount, 2026-10-31: 1 critical / 195 high / 25 unknown); Caddy v3 now has a [source and bounded-control exposure review](caddy-v3-jwk-exposure.md): no JWK ingress in the shipped configuration; the dependency and proposed conditional disposition remain unaccepted. Owner disposition of the [residual-risk register](residual-risk-register.md) pending. Container Gau TLS is fixed (Runner #89, pinned) and the native archive is excluded and enforced (Runner #94) ([review](gau-tls-review.md)). Image gates stay blocked until the owner decides. |
 | P0 complete researcher workflow | 4 | UI path verified in CI: the installed workflow now creates the client, testing window, scope and authorization through the Map interface (Map #119, VardrSec #26), then runs the reviewed Gate cases, confirms a finding and exports reports. Target/identity fixtures and Runner key issuance remain scripted by design; the unfamiliar-user exercise is still open. |
 | P1 first-user experience | 2, 3, 9 | Automated clean-Ubuntu install passes; no unfamiliar-user exercise has occurred. |
 | P1 networking | 5, 6, 7 | Synthetic host/private tests pass; genuine VPN unverified. Reliability drills pass and are reused for the candidate. |
@@ -54,13 +54,26 @@ reports zero reachable vulnerabilities in its database coverage; the new v3 advi
 was absent from that database at the checkpoint. The later [manual review](caddy-v3-jwk-exposure.md) establishes no affected JWK ingress in the shipped configuration; the dependency remains affected and its proposed disposition unaccepted.
 The [checkpoint](alpha-review-2026-10-28.md) records hashes, counts and limitations.
 
-Map #127 and Runner #96 are merged. The integration includes Map's #120–#126
-coverage and boundary features and advances Runner to the #97 build-download
-reliability follow-up. Fresh collection, installed/recovery validation and exact-pin
-main ancestry verification passed [distribution #40](https://github.com/VardrSec/VardrSec/pull/40/checks);
-[#41](https://github.com/VardrSec/VardrSec/pull/41/checks) also passed all 12 checks,
-including live boundary controls against the actual Linux proxy binary.
-These are development sources, not released artifacts. All strict image gates
+The current development pins are Map #134 (`696a8bf`), Runner v0.54.0 (`854b973`)
+and Gate v0.2.0 (`7f82e49`), set by [distribution #46](https://github.com/VardrSec/VardrSec/pull/46)
+and [#47](https://github.com/VardrSec/VardrSec/pull/47); all three are ancestors of their
+repositories' `main` (verified 2026-10-31). Both PRs passed all 12 checks, and the
+workflows on `main` ([#47 merge](https://github.com/VardrSec/VardrSec/actions/runs/41161013898),
+[#48 merge](https://github.com/VardrSec/VardrSec/actions/runs/41175264942)) are green. Earlier
+integration evidence ([#40](https://github.com/VardrSec/VardrSec/pull/40/checks),
+[#41](https://github.com/VardrSec/VardrSec/pull/41/checks)) covered older pins.
+
+The [#48-merge image collection](https://github.com/VardrSec/VardrSec/actions/runs/41175264942)
+(distribution `2f71c32`, database updated 2026-10-31) was recounted from its raw reports
+with `image_evidence.py check` (exit 1) and independently from the JSON:
+**1 critical / 195 high / 25 unknown** (API 0/44/3, PostgreSQL 1/61/9, Proxy 0/1/1,
+Runner 0/46/9, Web 0/43/3). The #47-merge collection
+([run 41161013898](https://github.com/VardrSec/VardrSec/actions/runs/41161013898))
+is identical. Against run 40757052765 the critical and high occurrences are unchanged;
+the ten additional unknown occurrences are a single advisory, glibc CVE-2026-84243
+(unfixed `libc6`, `libc-bin`, `libc-l10n`, `locales` in the four Debian images), added to
+the scanner database after that run. It has no review in the [register](residual-risk-register.md)
+yet. These are development sources, not released artifacts. All strict image gates
 remain blocked; no residual risk is accepted.
 
 Group tasks only when sharing an acceptance environment helps; keep changes
