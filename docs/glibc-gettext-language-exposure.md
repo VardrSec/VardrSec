@@ -7,9 +7,11 @@ remain and strict image checking still exits 1.
 
 **Finding: the vulnerable glibc is present in four images, but no path was identified
 by which an untrusted party can set the environment of a glibc-gettext program, and the
-API, web and Runner images are believed to lack the second precondition (a non-`C`
-locale).** Both statements rest on source and package-inventory review. No runtime
-check has been made (see [Verification status](#verification-status)). This is a
+API, web and Runner images lack the second precondition (a non-`C` locale).** The
+first statement is a source-review negative finding. The second was confirmed at
+runtime on 2026-10-31 in the disposable Ubuntu 24.04 acceptance environment (see
+[Verification status](#verification-status)). A related finding needs a separate
+review: the API's database role is a PostgreSQL superuser. This is a
 configuration-specific exposure assessment, not a claim that glibc is patched or a
 scanner suppression.
 
@@ -57,10 +59,13 @@ has no occurrence; musl was not otherwise assessed.
 | Image `LANG`/user settings | **Source-verified** | Image configuration in the same receipts |
 | No `LANGUAGE`, `LANG`, `LC_*`, `LOCPATH` in `compose.yaml` | **Source-verified** | `compose.yaml` at distribution `2149361` |
 | No path from requests, jobs or targets to process environments | **Source-verified, negative** | Searches recorded below, at the pinned commits |
-| API/web/Runner install no locale beyond `C`/`C.UTF-8` | **Inferred** | Package inventory (SBOM); the filesystem was not listed |
-| `LANGUAGE` is ignored when the message locale is `C`/`C.UTF-8`/`POSIX` | **Vendor statement, untested** | CVE record; not reproduced |
-| The running containers' effective environment is as configured | **Runtime assumption** | Not inspected |
-| The API database role is a PostgreSQL superuser | **Documented behavior, unchecked** | PostgreSQL image's `POSTGRES_USER` semantics |
+| API/web/Runner contain only `C`/`C.utf8`/`POSIX` locales | **Runtime-verified** | `locale -a` in each container, CI run 41221261206 |
+| Database image contains `en_US.utf8` in addition | **Runtime-verified** | Same run |
+| No `LANGUAGE`, `LC_*` or `LOCPATH` in any container; `LANG` is `C.UTF-8` (API, Runner), unset (web), `en_US.utf8` (database) | **Runtime-verified** | Locale variables read from `/proc/1/environ` (API, web, database) and `env` in a one-off container (Runner), same run |
+| `LANGUAGE` (ordinary and `../` traversal) is ignored under `C.UTF-8` | **Runtime-verified, bounded** | Harmless catalog probe through bash `$"…"`, all four images, glibc 2.41; the plain-`C` default of the web image is short-circuited by bash, so only the `C.UTF-8` result there is glibc evidence |
+| The probe and fixture are valid, and the traversal behavior exists in this glibc | **Runtime-verified (positive control)** | Database image under `en_US.utf8`: both the ordinary and the `../xx` catalog loaded |
+| The API database role is a PostgreSQL superuser | **Runtime-verified: true** | `rolsuper`, `rolcreaterole`, `rolcreatedb` and `rolbypassrls` are all true for role `vardrmap`, same run. **Flagged for separate security review** |
+| Behavior of Python, Node and PostgreSQL processes themselves | **Not tested** | Probe uses bash as the gettext caller; the logic is in libc, but no other program was run |
 | Upstream fix status, advisory text | **Unknown** | sourceware.org was unreachable |
 
 ## No untrusted environment-control path identified (evidence record)
@@ -114,32 +119,39 @@ mitigations above reduce the likelihood of reaching that point, not the conseque
 Container isolation, internal networks and the loopback-only published port limit
 lateral movement but are not a boundary against these in-process assets.
 
-## Runtime verification: feasibility
+## Runtime verification (CI run 41221261206, 2026-10-31)
 
-No container runtime was available when this review was written, so nothing above was
-checked at runtime. The existing disposable acceptance environment can do it safely:
-the `installation` job in `.github/workflows/compose.yml` builds the five images on a
-clean `ubuntu-24.04` runner from the pinned sources, runs a labelled disposable
-Compose project and removes it afterwards. A probe needs no scan, no target, no
-credentials and no job; it is read-only and local. Proposed probes, **not yet run or
-added** (a workflow or test change would be a separate PR):
+[`tests/glibc_locale_acceptance.py`](../tests/glibc_locale_acceptance.py) runs in the
+`installation` job on a clean `ubuntu-24.04` runner after the installed workflow, against
+the disposable `vardrsec-compose-review` project. It starts no scan or job, contacts no
+target and changes no image, Compose setting or pin. Environments are read in memory and
+filtered to locale variable names; no other name or value is printed or stored. The
+gettext fixture is a two-string catalog in a throwaway directory. The API's database
+password is never read or printed. The job uploads a `glibc-locale-exposure` receipt.
 
-1. For API, web, Runner and database: `docker run --rm --network none --cap-drop ALL
-   --security-opt no-new-privileges --read-only --entrypoint <locale|ls|printenv>
-   <image>` to list `locale -a` and `/usr/lib/locale`, and print `LANG`, `LANGUAGE`,
-   `LC_ALL`, `LOCPATH`. This starts neither PostgreSQL nor Map and touches no volume.
-2. In the running disposable stack, read each service's effective environment (`docker
-   compose exec <service> printenv`, or `/proc/1/environ`) for the same variables.
-3. In the database service, confirm the API role (`SELECT rolsuper FROM pg_roles WHERE
-   rolname = 'vardrmap'`).
-4. Optional behavioral confirmation in a throwaway container with `--network none`: a
-   harmless catalog with one benign translated string, `LANGUAGE` set to a `..`
-   path, run first under `C.UTF-8` and then in the database image under `en_US.utf8`, to
-   confirm the catalog is ignored and honored respectively. It uses no crafted or
-   malicious content.
+| Image | glibc | Locales | Locale variables | `LANGUAGE` under `C.UTF-8` |
+| --- | --- | --- | --- | --- |
+| API | 2.41 | `C`, `C.utf8`, `POSIX` | `LANG=C.UTF-8` | Ignored (ordinary and `../xx`) |
+| Web | 2.41 | `C`, `C.utf8`, `POSIX` | none | Ignored |
+| Runner (one-off container) | 2.41 | `C`, `C.utf8`, `POSIX` | `LANG=C.UTF-8` | Ignored |
+| Database | 2.41 | adds `en_US.utf8` | `LANG=en_US.utf8` | Ignored under `C.UTF-8`; **honored under `en_US.utf8`** (positive control) |
 
-Probes 1–3 are low risk and fit the existing job. Probe 4 should be a separate local
-script, kept out of the default acceptance path.
+The positive control shows the vulnerable behavior is real in this glibc: with a
+non-`C` locale selected, `LANGUAGE=../xx` loaded a catalog outside the locale
+directory. It also shows the probe would have detected loading in the other images. It
+does not show an attacker can set `LANGUAGE` in the database container; nothing found
+does.
+
+API database role `vardrmap` (the user in the API's `DATABASE_URL`): superuser,
+create-role, create-database and bypass-RLS all **true**. This is the PostgreSQL image's
+default for `POSTGRES_USER`. It is outside CVE-2026-84243 but widens the consequence of
+any API or SQL compromise (for example `COPY … PROGRAM` runs as `postgres`). It needs a
+**separate security review** of a least-privilege application role; no change is made
+here, and Map's migrations, which may need owner rights, must be part of that review.
+
+Remaining limits: the probe covers a bash caller and one glibc build (2.41); the Runner
+result is for a one-off container of the Compose service, not a running job; nothing
+was run under the other base-image variants or the native Runner on a host.
 
 ## Options
 
@@ -166,14 +178,19 @@ If the owner later accepts, it should hold only while all of these remain true:
 
 ### Conditions still requiring verification before formal acceptance
 
-| # | Condition | Status | How to verify |
-| --- | --- | --- | --- |
-| 1 | API, web and Runner images contain only `C`/`C.UTF-8`/`POSIX` locales | Inferred from SBOMs | Probe 1 |
-| 2 | No `LANGUAGE`/`LC_*`/`LOCPATH` in any running container's environment | Source-verified for Compose; runtime unchecked | Probe 2 |
-| 3 | `LANGUAGE` is ignored under `C.UTF-8` and honored only where a non-`C` locale exists | Vendor statement, untested | Probe 4 |
-| 4 | The API database role is a superuser (so SQL access already implies code execution) | Documented, unchecked | Probe 3 |
-| 5 | Upstream advisory text and patch status | Not read | Read GLIBC-SA-2026-0025 from a reachable network |
-| 6 | Whether a target can cause a correctly structured `.mo` file to be written in the Runner state or temp paths | Not investigated | Review Runner output naming; matters only if 1 or 2 fails |
-| 7 | Native Runner on a host uses that host's glibc, outside Compose | Out of scope here | Operator patching guidance in the release notes |
-| 8 | Negative search findings stay true at the frozen candidate pins | Pins `696a8bf`/`854b973`/`7f82e49` only | Repeat the searches at freeze |
-| 9 | Owner decision | Pending | Owner |
+| # | Condition | Status |
+| --- | --- | --- |
+| 1 | API, web and Runner images contain only `C`/`C.UTF-8`/`POSIX` locales | **Runtime-verified** (run 41221261206); re-run at the frozen candidate |
+| 2 | No `LANGUAGE`/`LC_*`/`LOCPATH` in any container's environment | **Runtime-verified** for the installed stack and a one-off Runner container; re-run at freeze |
+| 3 | `LANGUAGE` is ignored under `C.UTF-8` and honored only where a non-`C` locale exists | **Runtime-verified** with a bash caller and positive control; other callers untested |
+| 4 | The API database role is a superuser | **Runtime-verified: true.** Separate security review required; not part of this exception |
+| 5 | Upstream advisory text and patch status | Still not read (sourceware.org unreachable) |
+| 6 | Whether a target can cause a correctly structured `.mo` file to be written in the Runner state or temp paths | Not investigated; matters only if 1 or 2 stops holding |
+| 7 | Native Runner on a host uses that host's glibc, outside Compose | Out of scope here; needs operator guidance in the release notes |
+| 8 | Negative source-search findings stay true at the frozen candidate pins | Pins `696a8bf`/`854b973`/`7f82e49` only; repeat at freeze |
+| 9 | Owner decision | Pending |
+
+Conditions 1–3 are now evidenced and re-run automatically in the installed acceptance
+job, so a regression (an added locale, a locale variable or a catalog loading under
+`C.UTF-8`) fails CI. They hold for the shipped images only; they do not remove the
+need for items 4–9.

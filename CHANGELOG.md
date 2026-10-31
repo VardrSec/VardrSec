@@ -2,11 +2,18 @@
 
 ## Unreleased
 
+- Add a read-only runtime probe to the installed Ubuntu 24.04 acceptance job for the glibc
+  gettext `LANGUAGE` review (CVE-2026-84243): installed locales, locale variables in the
+  API, web, Runner and database containers (only those names are read), a harmless
+  two-string gettext catalog tested under `C.UTF-8` and `en_US.utf8`, and the API
+  database role's privilege flags. It starts no scan or job and changes no image,
+  Compose setting, pin or release status; no risk is accepted.
+
 - Add the glibc gettext `LANGUAGE` exposure review for CVE-2026-84243 and update the
   residual-risk register, release checklist and plan. No untrusted path to the vulnerable
   condition was identified in the sources of the shipped configuration; a conditional
-  exception is proposed only, with runtime checks still unverified and the non-root
-  impact limit stated. Documentation only; no code, pin, Compose or release-status change, and no risk
+  exception is proposed only, with the non-root impact limit stated. The runtime probe
+  (see below) later confirmed the locale and environment conditions. Documentation only; no code, pin, Compose or release-status change, and no risk
   accepted.
 
 - Refresh the Community Alpha release checklist, plan and residual-risk register to the

@@ -75,7 +75,7 @@ the ten additional unknown occurrences are a single advisory, glibc CVE-2026-842
 the scanner database after that run. Its [exposure review](glibc-gettext-language-exposure.md) identifies no
 untrusted path to the vulnerable condition in the sources and records a proposed
 conditional exception in the [register](residual-risk-register.md); it is not accepted,
-runtime checks are pending and no gate changes. These are development sources, not released artifacts. All strict image gates
+the runtime probe in installed acceptance confirmed the locale and environment conditions, and no gate changes. These are development sources, not released artifacts. All strict image gates
 remain blocked; no residual risk is accepted.
 
 Group tasks only when sharing an acceptance environment helps; keep changes
