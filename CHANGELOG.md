@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Advance the development distribution pins together to Map #132, Runner v0.54.0
+  and Gate v0.2.0; keep source installation, image gates and Community Alpha
+  publication status unchanged. Installed Gate acceptance now explicitly approves
+  the three disposable fixture credential references before any job is claimed, so
+  the new Runner credential boundary is exercised end to end. Fresh integration and
+  image evidence must pass before merging; historical license inventories remain
+  pinned to their recorded source snapshot and need regeneration for any release.
+
 - Add `python3 vardrsec.py runner [--env NAME]... -- <command>`, which runs one Runner
   command in the installed image set (including `.active-images.json` after a
   controlled update or restore) and passes named variables from the caller's shell
