@@ -17,7 +17,9 @@ The authoritative scope and task status are in [community-alpha.md](community-al
 
 ## Release candidate checklist
 
-Each item needs evidence recorded in the repository, not only a green CI run.
+Each item needs evidence recorded in the repository, not only a green CI run. The exact
+verification, owner decisions and human acceptance required before a freeze, and the
+evidence record to fill, are in the [candidate-freeze checklist](candidate-freeze.md).
 
 | # | Requirement | State |
 | --- | --- | --- |

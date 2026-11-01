@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add `docs/candidate-freeze.md`: the owner decisions that gate a candidate freeze, the human
+  acceptance automation cannot provide, the exact verification run on the frozen commit (pins,
+  workflows, component CI, image evidence against the register, the conditions behind each
+  register decision, licensing refresh, reproducibility, documents), the freeze procedure and an
+  unfilled evidence record. A freeze neither tags nor publishes. Documentation only; no gate or
+  release status changes.
+
 - Record the Nmap-free Community Alpha in the license inventory, release checklist, risk register
   and installation guide: Nmap is excluded from packaging and every image (enforced by Runner's
   container workflow, the tool/network fixture and image evidence), Naabu is the port-discovery
