@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Advance only the VardrMap development pin to `41d3ef6` (Map #143). Relative to the previous pin
+  `428be22` it adds Map's test-only changes: the integration acceptance now runs against the
+  Runner and Gate commits this distribution pins (#142, fixing #140) and verifies Naabu results end
+  to end into Map (#143). No application, API, migration or behavior change. Runner (`668dc56`) and
+  Gate (`7f82e49`) are unchanged; release status and gates are unchanged.
+
 - Add `docs/candidate-freeze.md`: the owner decisions that gate a candidate freeze, the human
   acceptance automation cannot provide, the exact verification run on the frozen commit (pins,
   workflows, component CI, image evidence against the register, the conditions behind each
