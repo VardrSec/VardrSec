@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Add a read-only privilege-posture probe to the installed acceptance job (register decision R1):
+  for the API, Web, Proxy and database containers it records Docker's privilege fields and the
+  process capability sets, and fails on a privileged container, a Docker socket mount, an unexpected
+  added or missing dropped capability, a missing no-new-privileges, any forbidden capability
+  (such as `SYS_ADMIN`, `NET_ADMIN`, `SYS_PTRACE`, `BPF`) in any set, or a port published other than
+  the loopback proxy; the Runner's one-off container must hold none. This turns the previously
+  unasserted API/Web/database capability condition into a CI safeguard. Test-only; no image,
+  Compose or release-status change.
+
 - Add `docs/candidate-freeze.md`: the owner decisions that gate a candidate freeze, the human
   acceptance automation cannot provide, the exact verification run on the frozen commit (pins,
   workflows, component CI, image evidence against the register, the conditions behind each
