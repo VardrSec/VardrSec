@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add `docs/candidate-freeze.md`: the owner decisions that gate a candidate freeze, the human
+  acceptance automation cannot provide, the exact verification run on the frozen commit (pins,
+  workflows, component CI, image evidence against the register, the conditions behind each
+  register decision, licensing refresh, reproducibility, documents), the freeze procedure and an
+  unfilled evidence record. A freeze neither tags nor publishes. Documentation only; no gate or
+  release status changes.
+
 - Prepare the residual-risk register for the owner's approval: a nine-decision sheet (R1-R9) with each
   proposed conditional disposition, the exact conditions it depends on, the automatic safeguards that
   exist today (and the places where none does) and the re-verification required at the candidate
