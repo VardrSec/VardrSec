@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Prepare the residual-risk register for the owner's approval: a nine-decision sheet (R1-R9) with each
+  proposed conditional disposition, the exact conditions it depends on, the automatic safeguards that
+  exist today (and the places where none does) and the re-verification required at the candidate
+  freeze, an unfilled approval record, and a single recount history. The critical libxml2 finding is
+  separately gated on a source search and a fix check at the freeze; Caddy, Nuclei and glibc stay
+  explicit conditional limitations. The plan and checklist now state the current recount
+  (1 critical / 195 high / 15 unknown, run 41252576786) instead of the superseded 25-unknown figure.
+  Documentation only; nothing is accepted and no gate changes.
+
 - Record the Nmap-free Community Alpha in the license inventory, release checklist, risk register
   and installation guide: Nmap is excluded from packaging and every image (enforced by Runner's
   container workflow, the tool/network fixture and image evidence), Naabu is the port-discovery

@@ -1,31 +1,69 @@
 # Community Alpha residual-risk register
 
-Status: **proposed dispositions, nothing accepted.** Each row needs an explicit owner
-decision (accept as an alpha limitation, require a fix, or exclude the component).
-Pre-remediation baseline: [image-evidence run 40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177),
-clean distribution `524585cac788d08c529df58b4dd82a20029e7c1b`, raw reports and all
-five input hashes independently verified 2026-10-28: **1 critical / 197 high / 15 unknown**
-occurrences. Two high go-jose/v4 occurrences have a published fix; Caddy also links an
-unfixed go-jose/v3 occurrence. The 1/194 figures from run 40605692767 are historical.
-Verified rebuilt [run 40757052765](https://github.com/VardrSec/VardrSec/actions/runs/40757052765)
-removes both v4 occurrences: **1 critical / 195 high / 15 unknown** remain, with no
-critical/high fixed-version occurrence. Both SBOMs contain v4.1.6; strict checking
-still exits 1. The [checkpoint](alpha-review-2026-10-28.md) records the exact clean
-PR merge tree, input/report hashes and reachability limits. Nothing is accepted;
-strict image gates remain blocked pending explicit owner decisions.
+Status: **conditional dispositions are prepared for the owner's approval; nothing is accepted.**
+The [owner decision sheet](#owner-decision-sheet) groups every critical, high and unknown
+occurrence in the latest raw reports into nine decisions, each with its proposed disposition,
+the exact conditions it depends on, the automatic safeguards that exist today and what is
+re-verified at the candidate freeze. Anything unlisted here is not covered. Strict image
+gates stay blocked (`image_evidence.py check` exits 1) until the owner decides.
 
-Latest recount, 2026-10-31, from the raw reports of [run 41175264942](https://github.com/VardrSec/VardrSec/actions/runs/41175264942)
-(distribution `2f71c32`, Map #134 / Runner v0.54.0 / Gate v0.2.0 pins; the #47-merge run
-41161013898 is identical): **1 critical / 195 high / 25 unknown**. The critical and high
-occurrences match run 40757052765. The ten additional unknown occurrences are glibc
-CVE-2026-84243, now reviewed in section A with a conditional exception proposed, not accepted. Strict
-checking exits 1; nothing is accepted. A later collection ([run 41232304416](https://github.com/VardrSec/VardrSec/actions/runs/41232304416),
-distribution `5226299`, scanner database updated 2026-10-31T13:09Z) rates the same ten
-CVE-2026-84243 occurrences MEDIUM (Red Hat), so the recount there is **1 critical / 195 high /
-15 unknown**. That is a scanner reclassification, not a fix: the advisory is still `affected`
-with no fixed version, the review stands, and strict checking still exits 1.
-See also
-[alpha-os-exposure.md](alpha-os-exposure.md) and
+**Current recount** (run [41252576786](https://github.com/VardrSec/VardrSec/actions/runs/41252576786),
+distribution `1cc92d2`; pins Map `428be22`, Runner `668dc56`, Gate `7f82e49`):
+**1 critical / 195 high / 15 unknown**, with no critical or high occurrence that has a fixed
+version. By image (critical/high/unknown): API 0/44/1, PostgreSQL 1/61/5, Proxy 0/1/1,
+Runner 0/46/7, Web 0/43/1. No image contains Nmap.
+
+## Recount history
+
+Counts are occurrences in the raw Trivy reports (one advisory can repeat across packages and
+images). Each row was recounted from the run's reports; the checkpoint documents record hashes.
+
+| Run | Date | Source | Critical | High | Unknown | Note |
+| --- | --- | --- | --- | --- | --- | --- |
+| [40622056177](https://github.com/VardrSec/VardrSec/actions/runs/40622056177) | 2026-10-28 | `524585c`, clean baseline | 1 | 197 | 15 | Before remediation; the earlier 1/194 figure (run 40605692767) is historical |
+| [40757052765](https://github.com/VardrSec/VardrSec/actions/runs/40757052765) | 2026-10-28 | Rebuilt, go-jose/v4 4.1.6 | 1 | 195 | 15 | Both fixable v4 occurrences removed; see the [checkpoint](alpha-review-2026-10-28.md) |
+| [41175264942](https://github.com/VardrSec/VardrSec/actions/runs/41175264942) | 2026-10-31 | `2f71c32`, Map #134 / Runner 0.54.0 / Gate 0.2.0 | 1 | 195 | 25 | +10 unknown: glibc CVE-2026-84243, newly in the scanner database |
+| [41232304416](https://github.com/VardrSec/VardrSec/actions/runs/41232304416) | 2026-10-31 | `5226299`, same pins | 1 | 195 | 15 | Database of 13:09Z rates CVE-2026-84243 MEDIUM: a reclassification, not a fix |
+| [41252576786](https://github.com/VardrSec/VardrSec/actions/runs/41252576786) | 2026-10-31 | `1cc92d2`, Map #141 / Runner #103 / Gate 0.2.0 | 1 | 195 | 15 | **Current.** Nmap removed from the Runner image; critical and high unchanged |
+
+## Owner decision sheet
+
+Approving a decision means the owner accepts that group **as a documented Community Alpha
+limitation, only while its conditions hold**, and the release notes list it verbatim. It is not
+an exploitability or absence-of-vulnerability claim. Rejecting one means it must be fixed or the
+component excluded before release. A new critical or high with a published fix is a release
+blocker, not a register entry. Every approval is conditional on the freeze re-verification
+column, and any change to the listed conditions invalidates it.
+
+| # | Group and occurrences (latest raw reports) | Proposed conditional disposition | Conditions that must hold | Automatic safeguards today | Re-verified at the candidate freeze |
+| --- | --- | --- | --- | --- | --- |
+| R1 | util-linux CVE-2026-76642, 78408, 78409, 78410 (high): 36 each, 144 total, API/DB/Runner/Web | Accept as an alpha limitation | Containers unprivileged; no entry point or service runs `mount`/`nsenter`; no `CAP_SYS_ADMIN`; Docker socket not mounted | Compose drops all capabilities with `no-new-privileges` on API, Web, Proxy (plus `NET_BIND_SERVICE`) and Runner; the database keeps Docker's default capabilities, which exclude `SYS_ADMIN`; tool/network baseline asserts UID 10001, zero effective capabilities and no-new-privileges for the Runner image. **No CI assertion covers the effective capabilities of API, Web or database** | `docker inspect` of each running container: not privileged, no `CapAdd` beyond `NET_BIND_SERVICE`, no socket mount; effective capabilities read from `/proc/1/status` |
+| R2 | Other Debian packages: systemd-homed CVE-2026-16742 (8); libacl CVE-2026-54369 (4); Perl Archive::Tar CVE-2026-9538 (7 high) and Pod::Text CVE-2026-82560 (7 unknown); ncurses `infocmp` CVE-2025-69720 (15); GnuPG CVE-2026-24882 (7, database only); libpcap CVE-2026-0799 and 6554 (1 each, Runner) | Accept as alpha limitations (rows in section A) | No systemd, login sessions, TPM or `gpg-agent` in containers; no component runs `infocmp`, perl on untrusted archives or POD, or ACL calls on attacker-named paths; raw-packet modes uncertified and the Runner has no capabilities; database network internal | Runner capability baseline and raw-socket denial in the tool/network fixture; `internal: true` database and application networks; no scan or worker starts with the platform | Repeat the source searches recorded in [alpha-os-exposure.md](alpha-os-exposure.md) at the pins; raw-socket denial from the tool/network receipt |
+| R3 | libxml2 in the database image: **CVE-2026-6653 (the only critical)** and CVE-2026-86138, 86139, 86140, 86142, 86143, 86144, 74860 (high): 8 occurrences | **Narrow conditional acceptance; the critical needs its own explicit approval** | Attacker-controlled XML must reach PostgreSQL's SQL/XML functions (`xmlparse`, `xpath`, `xmltable`, XML casts); Map's source and migrations use none; only the API reaches the database, over an internal network, and as the non-superuser `vardrmap_app`. Reaching the condition needs a compromised API or SQL injection first | Installed acceptance and the role drill run Map's migrations and workflow as `vardrmap_app` on the internal network. **No CI check forbids XML SQL functions in Map** | **Mandatory:** (1) search Map's backend, migrations and raw SQL at the pinned commit for `xmlparse`, `xpath`, `xmltable`, `xmlelement`, `xmlforest`, `xmlagg` and `::xml`; (2) recount to confirm libxml2 is still unfixed in the pinned Trixie suite; a fixed Debian build or PostgreSQL image digest lapses this exception and requires a rebuild |
+| R4 | glibc gettext CVE-2026-84243 (MEDIUM in the current scanner database): 10 occurrences, API/DB/Runner/Web | Conditional alpha limitation, per [the exposure review](glibc-gettext-language-exposure.md) | (1) No untrusted party can set a container's environment; (2) API, Web and Runner contain no locale beyond `C`/`C.UTF-8`/`POSIX`; (3) no SSH or other environment-forwarding service; re-assess at the first Debian glibc fix and before any published image | `tests/glibc_locale_acceptance.py` in every installed acceptance run fails on an added locale, a `LANGUAGE`/`LC_*`/`LOCPATH` variable or a catalog loading under `C.UTF-8` (receipt `glibc-locale-exposure`); Runner passes tools an allowlisted environment (ADR 0022) | Run the probe on the frozen pins; repeat the negative source searches in the review; read the upstream advisory text (sourceware.org was unreachable); state native-Runner host glibc in the release notes |
+| R5 | Caddy go-jose/v3 CVE-2026-116587 (high, no v3 fix): 1 occurrence, Proxy | Conditional non-exposure for the shipped configuration only | No JWK-consuming ingress: no ACME server, JWK provisioners or JWK-authenticated handler; no dynamic admin configuration; the recorded Caddy 2.11.7, smallstep/certificates 0.30.2, go.step.sm/crypto 0.91.0 and go-jose/v3 3.0.5 dependency graph; operator-customised Caddyfiles are not covered | `tests/proxy_jwk_boundary.py` and its unit tests, run in the image-evidence workflow against the binary copied from the built proxy image (receipt `proxy-jwk-boundary`), plus `govulncheck` (artifact `proxy-go-reachability`) | Green `proxy-jwk-boundary` and `proxy-go-reachability` on the frozen commit; Caddyfile and dependency recipe unchanged since the review |
+| R6 | Nuclei and others: GO-2026-5932, unmaintained `x/crypto/openpgp`, no fix (unknown): 7 occurrences, Runner (Nuclei reported reachable) and Proxy | Conditional acceptance | Nuclei runs only against operator-chosen templates; no template bundle is shipped or auto-provisioned; the openpgp path is reachable only when verifying signed template bundles | Runner's container workflow reports reachable Go advisories for every shipped binary with `govulncheck`; the tool/network fixture runs Nuclei only against one explicit local template | Runner container job green on the pinned commit; confirm no image contains templates or a template-update step |
+| R7 | Dalfox 3.2.4 Rust advisories (`rustls`, `rustls-webpki`, `tokio`, `rsa`; moderate/low, invisible to the image scanner) | Accept the moderate/low residual risk | A hostile HTTPS target or on-path attacker is needed; Dalfox is the latest release | `Cargo.lock` reviewed against OSV at the v3.2.4 tag | Re-check for a newer Dalfox release |
+| R8 | gosu `golang.org/x/sys` CVE-2026-39824 (unknown): 1 occurrence, database. **A fixed version (0.44.0) exists** | Either accept as not applicable (Windows-only API; `govulncheck` reports it unreachable) or rebuild gosu with the fix | gosu runs on Linux only | `govulncheck` in the review; the gosu rebuild recipe is pinned in `db/Dockerfile` | If the owner chooses the rebuild, it changes the database image, so the controlled updater will refuse it for existing installations (they use the restore path) |
+| R9 | Excluded or limited items in section C: native Gau (excluded in code), genuine VPN routing (unverified), Nmap (not packaged; retained opt-in code is an open licensing question) | Document as limitations in the release notes | As stated in section C | Runner #94 enforcement tests; image evidence rejects `nmap`/`nmap-common` in any image | Gau exclusion test and Nmap-absence checks green on the frozen pins |
+
+### Approval record
+
+Nothing below is approved. The owner fills this in; Claude does not.
+
+| Decision | Owner decision (approve / reject / modify) | Date |
+| --- | --- | --- |
+| R1 | Pending | |
+| R2 | Pending | |
+| R3 (including the critical, separately) | Pending | |
+| R4 | Pending | |
+| R5 | Pending | |
+| R6 | Pending | |
+| R7 | Pending | |
+| R8 | Pending | |
+| R9 | Pending | |
+
+See also [alpha-os-exposure.md](alpha-os-exposure.md) and
 [alpha-security-assessment.md](alpha-security-assessment.md).
 
 Common exposure facts used below, each verified in this repository:
