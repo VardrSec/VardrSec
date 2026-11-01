@@ -96,6 +96,16 @@ jobs:
           path: artifacts/role-receipt/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Verify container privilege posture (register decision R1)
+        run: python tests/container_capabilities_acceptance.py
+      - name: Preserve container capability receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: container-capabilities
+          path: artifacts/container-capabilities/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Preserve glibc locale receipt
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
