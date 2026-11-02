@@ -7,6 +7,8 @@
   execution, and existing Map/distribution regressions. Production source pins are
   unchanged. Private Lab remains covered by its own hosted workflows; no new
   credential or deployment setting is introduced.
+  Coalesce same-branch push/PR conformance runs so the draft PR supplies the final
+  reviewed run without concurrent duplicate execution.
 
 - Advance only the VardrMap development pin to `41d3ef6` (Map #143). Relative to the previous pin
   `428be22` it adds Map's test-only changes: the integration acceptance now runs against the
