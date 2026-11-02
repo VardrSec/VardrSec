@@ -1,0 +1,18 @@
+{
+  "map": {
+    "repository": "VardrSec/VardrMap",
+    "commit": "6c06315fd1ee4ad2649afdfeb0363b421b6e7c54"
+  },
+  "runner": {
+    "repository": "VardrSec/VardrRunner",
+    "commit": "ab5f23f87fa765038f70f3d91a16470bd05d73e2"
+  },
+  "gate": {
+    "repository": "VardrSec/VardrGate",
+    "commit": "e99714b8567d1bc415c8feeeef4c7454e13aa905"
+  },
+  "lab": {
+    "repository": "VardrSec/VardrLab",
+    "commit": "8ba687998721b0bbf883315b82a5961b8c83ddb0"
+  }
+}
