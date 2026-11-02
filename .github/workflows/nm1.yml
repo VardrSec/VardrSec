@@ -1,0 +1,231 @@
+name: NM-1 exact-source verification
+
+on:
+  push:
+    branches: [codex/nm1-ci-verification]
+    paths:
+      - .github/workflows/nm1.yml
+      - .github/nm1-sources.json
+      - tests/nm1_*.py
+  pull_request:
+    paths:
+      - .github/workflows/nm1.yml
+      - .github/nm1-sources.json
+      - tests/nm1_*.py
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: VardrSec/VardrMap
+          ref: 6c06315fd1ee4ad2649afdfeb0363b421b6e7c54
+          path: .nm1/map
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: VardrSec/VardrRunner
+          ref: ab5f23f87fa765038f70f3d91a16470bd05d73e2
+          path: .nm1/runner
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: VardrSec/VardrGate
+          ref: e99714b8567d1bc415c8feeeef4c7454e13aa905
+          path: .nm1/gate
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Install isolated conformance dependencies
+        run: |
+          python -m pip install -r .nm1/map/backend/requirements.txt './.nm1/runner[authorization]'
+          mkdir -p "$RUNNER_TEMP/nm1-receipts"
+          python -m pip freeze --all > "$RUNNER_TEMP/nm1-receipts/dependencies.txt"
+      - name: Assert exact reviewed checkout commits and trees
+        env:
+          EXPECTED_DISTRIBUTION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python tests/nm1_source_receipt.py --expected-distribution "$EXPECTED_DISTRIBUTION" --out "$RUNNER_TEMP/nm1-receipts/sources.json"
+      - name: Build the pinned request-guard Gate
+        working-directory: .nm1/gate
+        run: go build -trimpath -o "$RUNNER_TEMP/vardrgate-nm1" ./cmd/vardrgate
+      - name: Common standalone and Map issuance semantics
+        run: >-
+          python tests/nm1_contract_acceptance.py
+          --map-source .nm1/map --runner-source .nm1/runner
+          --out "$RUNNER_TEMP/nm1-receipts/contracts.json"
+      - name: Real guarded Runner and Gate against ephemeral loopback only
+        run: >-
+          python tests/nm1_guarded_execution.py
+          --runner-source .nm1/runner --gate-binary "$RUNNER_TEMP/vardrgate-nm1"
+          --out "$RUNNER_TEMP/nm1-receipts/guarded.json"
+      - name: Retain allowlisted conformance receipts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: nm1-conformance
+          path: |
+            ${{ runner.temp }}/nm1-receipts/sources.json
+            ${{ runner.temp }}/nm1-receipts/dependencies.txt
+            ${{ runner.temp }}/nm1-receipts/contracts.json
+            ${{ runner.temp }}/nm1-receipts/guarded.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  map-legacy:
+    name: Map backend and integration (${{ matrix.database }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-fixture-password
+          POSTGRES_DB: vardrmap_test_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      # Same disposable loopback PostgreSQL fixture as Map CI; no production transport change.
+      TEST_DATABASE_URL: ${{ matrix.database == 'postgres' && 'postgresql://postgres:ci-fixture-password@127.0.0.1:5432/vardrmap_test_ci?sslmode=disable' || 'sqlite:///vardrmap_test_ci.db' }}
+      INTEGRATION_DATABASE_URL: postgresql://postgres:ci-fixture-password@127.0.0.1:5432/vardrmap_test_integration?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: VardrSec/VardrMap
+          ref: 6c06315fd1ee4ad2649afdfeb0363b421b6e7c54
+          path: .nm1/map
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: VardrSec/VardrRunner
+          ref: ab5f23f87fa765038f70f3d91a16470bd05d73e2
+          path: .nm1/runner
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: VardrSec/VardrGate
+          ref: e99714b8567d1bc415c8feeeef4c7454e13aa905
+          path: .nm1/gate
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Install existing backend and Runner test dependencies
+        env:
+          EXPECTED_DISTRIBUTION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python -m pip install -r .nm1/map/backend/requirements.txt -r .nm1/map/backend/requirements-dev.txt './.nm1/runner[authorization]'
+          mkdir -p "$RUNNER_TEMP/nm1-map-receipts"
+          python -m pip freeze --all > "$RUNNER_TEMP/nm1-map-receipts/dependencies.txt"
+          python - <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          pins=json.loads(Path('.github/nm1-sources.json').read_text())
+          actual={}
+          for name in ('map','runner','gate'):
+              directory=Path('.nm1')/name
+              sha=subprocess.check_output(['git','-C',str(directory),'rev-parse','HEAD'],text=True).strip()
+              assert sha==pins[name]['commit']
+              actual[name]={'commit':sha,'tree':subprocess.check_output(['git','-C',str(directory),'rev-parse','HEAD^{tree}'],text=True).strip()}
+          distribution=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          assert distribution==os.environ['EXPECTED_DISTRIBUTION']
+          receipt={'sources':actual,'distribution':distribution,'python':sys.version,'go':subprocess.check_output(['go','version'],text=True).strip()}
+          (Path(os.environ['RUNNER_TEMP'])/'nm1-map-receipts/sources.json').write_text(json.dumps(receipt,indent=2))
+          print(json.dumps(receipt,indent=2))
+          PY
+      - name: Prepare the existing PostgreSQL integration fixture
+        if: matrix.database == 'postgres'
+        run: |
+          python - <<'PY'
+          import os, psycopg
+          with psycopg.connect(os.environ['TEST_DATABASE_URL'], autocommit=True) as conn:
+              conn.execute("ALTER DATABASE vardrmap_test_ci SET timezone TO 'America/Chicago'")
+              conn.execute('CREATE DATABASE vardrmap_test_integration')
+              conn.execute("ALTER DATABASE vardrmap_test_integration SET timezone TO 'America/Chicago'")
+          PY
+          python -m pytest .nm1/map/backend/postgres_tests -q
+      - name: Complete existing backend suite on the selected database
+        working-directory: .nm1/map/backend
+        run: python -m pytest tests -q
+      - name: Existing Map to Runner to Gate acceptance with exact NM-1 sources
+        if: matrix.database == 'postgres'
+        run: >-
+          python .nm1/map/scripts/integration/run.py --postgres --semantic-evidence --platform-readiness
+          --runner .nm1/runner --gate .nm1/gate --runner-python "$(command -v python)"
+          --map-ref 6c06315fd1ee4ad2649afdfeb0363b421b6e7c54
+          --runner-ref ab5f23f87fa765038f70f3d91a16470bd05d73e2
+          --gate-ref e99714b8567d1bc415c8feeeef4c7454e13aa905
+          --output "$RUNNER_TEMP"
+      - name: Retain allowlisted integration verdict and source manifest
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: nm1-map-${{ matrix.database }}
+          path: |
+            ${{ runner.temp }}/vardr-integration-*/acceptance-results.json
+            ${{ runner.temp }}/vardr-integration-*/sources.json
+            ${{ runner.temp }}/nm1-map-receipts/sources.json
+            ${{ runner.temp }}/nm1-map-receipts/dependencies.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+  distribution-unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.10'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build the existing pinned age fixture tools
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/age-bin
+          GOTOOLCHAIN: local
+          GODEBUG: http2client=0
+        run: |
+          mkdir -p "$GOBIN"
+          go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
+          echo "$GOBIN" >> "$GITHUB_PATH"
+      - name: Existing distribution unit suite
+        run: python -m unittest discover -s tests -p 'test_*.py'
