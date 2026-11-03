@@ -20,6 +20,7 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import acceptance_retention
+from acceptance_diagnostics import diagnostics, mark, wrap_shared
 import database_roles
 import recovery
 import updater
@@ -128,7 +129,8 @@ def state_fingerprints(root, project, images):
     }
 
 
-def operator_client(root, project, origin, ca):
+def operator_client(root, project, origin, ca, diagnostic_prefix="upgrade.operator"):
+    mark(diagnostic_prefix + ".reset")
     reset = recovery.compose(
         root, "exec", "-T", "api", "python", "-m", "local_accounts",
         "reset-password", "--username", "operator", "--generate-password",
@@ -155,6 +157,7 @@ def operator_client(root, project, origin, ca):
         with client.open(req, timeout=20) as response:
             return json.load(response)
 
+    mark(diagnostic_prefix + ".login")
     request("/auth/local/login", {"username": "operator", "password": password})
     return request
 
@@ -179,26 +182,33 @@ def require_owned_source(root, project):
 
 
 def run(root, candidate_path, output, rehearsal_project):
+    mark("upgrade.preflight.paths")
     root, candidate_path, output = root.resolve(), candidate_path.resolve(), output.resolve()
     if output.exists():
         raise ValueError("Upgrade evidence destination must be new")
+    mark("upgrade.preflight.pins")
     pins = json.loads((root / "versions.json").read_text())
     if {name: value["commit"] for name, value in pins["components"].items()} != OLD:
         raise ValueError("Fixture requires the exact old Community source pins")
     pin_hash = recovery.digest(root / "versions.json")
+    mark("upgrade.preflight.images")
     config, baseline_images = updater.image_set(root)
     project = config["name"]
+    mark("upgrade.preflight.ownership")
     require_owned_source(root, project)
     if not rehearsal_project.startswith("vardrsec-restore-nm2-community-") or rehearsal_project == project:
         raise ValueError("Fixture requires a separate owned rehearsal project")
     origin = config["services"]["web"]["environment"]["AUTH_URL"]
     if origin != "https://localhost:8443":
         raise ValueError("Fixture requires the existing trusted loopback HTTPS origin")
+    mark("upgrade.preflight.candidate")
     candidate = updater.candidate_set(candidate_path, baseline_images, origin)
     if candidate["components"] != CURRENT:
         raise ValueError("Candidate must record the exact NM-2 component commits")
+    mark("upgrade.preflight.schema")
     if recovery.sql(root, "SELECT version_num FROM alembic_version", project) != "0031localauth":
         raise ValueError("Actual installed schema must be 0031localauth")
+    mark("upgrade.preflight.receipts")
     old_receipt_path = root / "artifacts/installed-gate/accepted.json"
     gate_receipt = json.loads(old_receipt_path.read_text())
     ca = root / "trust/root.crt"
@@ -215,16 +225,25 @@ def run(root, candidate_path, output, rehearsal_project):
     }
     recovery.json_write(output / "started.json", report)
     try:
+        mark("upgrade.operator.reset")
         request = operator_client(root, project, origin, ca)
+        mark("upgrade.operator.readback")
         verify_retained(request, gate_receipt)
+        mark("upgrade.operator.key")
         csrf = request("/auth/local/session")["csrfToken"]
         key = request("/auth/apikeys", {"label": "Disposable NM2 Community upgrade diagnostics", "scope": "runner"}, csrf)
         token, diagnostic_key_id = key["token"], key["id"]
+        mark("upgrade.snapshot.telemetry")
         telemetry_before = key_telemetry(root, project, diagnostic_key_id)
+        mark("upgrade.snapshot.columns")
         original_columns = columns(root, project)
+        mark("upgrade.snapshot.rows")
         before = projected_rows(root, project, original_columns, diagnostic_key_id)
+        mark("upgrade.snapshot.sequences")
         before_sequences = sequences(root, project)
+        mark("upgrade.snapshot.state")
         before_state = state_fingerprints(root, project, baseline_images)
+        mark("upgrade.snapshot.role")
         password = database_roles.read_password(root)
         if password is None:
             raise ValueError("Fixture requires the normal restricted application role")
@@ -232,30 +251,45 @@ def run(root, candidate_path, output, rehearsal_project):
         previous = os.environ.get("VARDRMAP_API_KEY")
         os.environ["VARDRMAP_API_KEY"] = token
         try:
+            mark("upgrade.update")
             updater.update(root, candidate_path, output / "backup", output / "rehearsal", rehearsal_project)
         finally:
             if previous is None:
                 os.environ.pop("VARDRMAP_API_KEY", None)
             else:
                 os.environ["VARDRMAP_API_KEY"] = previous
+        mark("upgrade.post.schema")
         if recovery.sql(root, "SELECT version_num FROM alembic_version", project) != "0038managedstops":
             raise ValueError("Actual product upgrade did not reach 0038managedstops")
+        mark("upgrade.post.rows")
         assert_retained(before, projected_rows(root, project, original_columns, diagnostic_key_id))
+        mark("upgrade.post.telemetry")
         assert_key_telemetry(telemetry_before, key_telemetry(root, project, diagnostic_key_id))
+        mark("upgrade.post.sequences")
         if sequences(root, project) != before_sequences:
             raise ValueError("Existing sequence values changed during upgrade")
+        mark("upgrade.post.role")
         database_roles.verify(root, project, password)
+        mark("upgrade.post.ca")
         if recovery.digest(ca) != ca_hash:
             raise ValueError("Trusted CA changed during upgrade")
+        mark("upgrade.post.state")
         if state_fingerprints(root, project, candidate["images"]) != before_state:
             raise ValueError("Existing Runner/proxy state changed during upgrade")
+        mark("upgrade.post.pins")
         if recovery.digest(root / "versions.json") != pin_hash:
             raise ValueError("Original source pins changed during the upgrade fixture")
-        verify_retained(operator_client(root, project, origin, ca), gate_receipt)
+        mark("upgrade.post.operator.reset")
+        request = operator_client(root, project, origin, ca, diagnostic_prefix="upgrade.post.operator")
+        mark("upgrade.post.readback")
+        verify_retained(request, gate_receipt)
+        mark("upgrade.post.anonymous")
         verify_anonymous_denied(origin, ca)
+        mark("upgrade.post.receipt")
         last = json.loads((root / ".last-update.json").read_text())
         if last.get("status") != "success" or last.get("candidate") != candidate:
             raise ValueError("Normal updater did not retain the expected successful receipt")
+        mark("upgrade.post.report")
         report.update(status="passed", final_revision="0038managedstops",
                       original_column_rows_preserved=True, sequences_preserved=True,
                       diagnostic_key_telemetry="Only the newly issued diagnostic key last_used_at is normalized; separately verified valid, bounded and nondecreasing. All other original columns/rows are checked.",
@@ -278,8 +312,13 @@ if __name__ == "__main__":
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--rehearsal-project", required=True)
+    parser.add_argument("--safe-diagnostics", action="store_true")
     args = parser.parse_args()
     try:
-        run(ROOT, args.candidate, args.output, args.rehearsal_project)
+        if args.safe_diagnostics:
+            with diagnostics(ROOT, "upgrade"), wrap_shared():
+                run(ROOT, args.candidate, args.output, args.rehearsal_project)
+        else:
+            run(ROOT, args.candidate, args.output, args.rehearsal_project)
     except Exception as error:
         raise SystemExit("Community upgrade verification failed: " + type(error).__name__) from None

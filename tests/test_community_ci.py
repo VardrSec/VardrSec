@@ -10,6 +10,23 @@ import community_ci as ci
 
 
 class CommunityPreparationTests(unittest.TestCase):
+    def test_diagnostic_export_never_exposes_reader_errors(self):
+        for error, code in ((FileNotFoundError("PRIVATE_PATH"), "diagnostics_missing"),
+                            (ValueError("PRIVATE_MESSAGE"), "diagnostics_invalid"),
+                            (RuntimeError("PRIVATE_CLASS_DATA"), "diagnostics_invalid")):
+            with self.subTest(code=code), patch.object(ci, "read_public", side_effect=error):
+                record = ci.export_diagnostics(Path("/private-not-read"))
+            self.assertEqual(record, {"status": "unavailable", "code": code})
+            self.assertNotIn("PRIVATE", json.dumps(record))
+
+    def test_diagnostic_export_includes_only_strict_reader_payload(self):
+        payload = {"schema": 1, "events": [
+            {"stage": "upgrade", "state": "started", "code": "none"},
+            {"stage": "upgrade", "state": "failed", "code": "E_VALUE"}]}
+        with patch.object(ci, "read_public", return_value=payload):
+            self.assertEqual(ci.export_diagnostics(Path("/not-read")),
+                             {"status": "recorded", "record": payload})
+
     def test_existing_destination_is_preserved(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

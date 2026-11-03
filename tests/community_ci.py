@@ -15,6 +15,8 @@ import shutil
 import subprocess
 import sys
 
+from acceptance_diagnostics import error_code, read_public
+
 SOURCE = Path(__file__).resolve().parents[1]
 PINS = {
     "baseline": {
@@ -161,6 +163,16 @@ def stop_owned(root):
     return stopped
 
 
+def export_diagnostics(root):
+    """Only the strict static diagnostic schema crosses the public boundary."""
+    try:
+        return {"status": "recorded", "record": read_public(root)}
+    except FileNotFoundError:
+        return {"status": "unavailable", "code": "diagnostics_missing"}
+    except (OSError, ValueError, RuntimeError):
+        return {"status": "unavailable", "code": "diagnostics_invalid"}
+
+
 def run(kind, destination, evidence):
     host_guard()
     temporary = Path(os.environ["RUNNER_TEMP"]).resolve()
@@ -179,8 +191,12 @@ def run(kind, destination, evidence):
         raise ValueError("Private log destination must be new")
     private.mkdir(mode=0o700)
     owned = False
+    diagnostics_requested = False
 
     def stage(name, args, cwd=destination):
+        nonlocal diagnostics_requested
+        if name in ("encrypted-whole-install-restore", "actual-0031-to-0038"):
+            diagnostics_requested = True
         log = private / (name + ".log")
         with log.open("x") as out:
             log.chmod(0o600)
@@ -213,7 +229,7 @@ def run(kind, destination, evidence):
             stage("database-role", [sys.executable, "tests/database_role_acceptance.py"])
             summary["recovery_capacity"] = recovery_capacity(destination)
             stage("encrypted-whole-install-restore", [sys.executable, "tests/recovery_acceptance.py",
-                  "--expected-installed-head", "0038managedstops"])
+                  "--expected-installed-head", "0038managedstops", "--safe-diagnostics"])
         else:
             summary["upgrade_capacity"] = recovery_capacity(destination, generations=2)
             candidate = build_candidate(destination, destination.parent / "community-candidate", stage)
@@ -223,7 +239,7 @@ def run(kind, destination, evidence):
             summary["upgrade_capacity"] = recovery_capacity(destination, generations=2)
             stage("actual-0031-to-0038", [sys.executable, "tests/community_upgrade_acceptance.py",
                   "--candidate", str(candidate), "--output", str(destination / "artifacts/actual-upgrade"),
-                  "--rehearsal-project", "vardrsec-restore-nm2-community-upgrade"])
+                  "--rehearsal-project", "vardrsec-restore-nm2-community-upgrade", "--safe-diagnostics"])
             result = destination / "artifacts/actual-upgrade/result.json"
             receipt = json.loads(result.read_text())
             allowed = ("status", "initial_revision", "final_revision", "original_column_rows_preserved",
@@ -235,12 +251,16 @@ def run(kind, destination, evidence):
         summary["status"] = "passed"
     except (ValueError, OSError, subprocess.SubprocessError) as error:
         summary["status"] = "failed_or_unproven"
-        summary["failure_type"] = type(error).__name__
+        summary["failure_code"] = error_code(error)
         if isinstance(error, CapacityError):
             summary["capacity_shortfall"] = {"free_bytes": error.free,
                                              "required_free_bytes": error.required}
         print("Community verification incomplete; no acceptance claimed", flush=True)
     finally:
+        if owned and diagnostics_requested:
+            summary["safe_diagnostics"] = export_diagnostics(destination)
+            if summary["safe_diagnostics"]["status"] != "recorded":
+                summary["status"] = "failed_or_unproven"
         try:
             summary["owned_containers_stopped"] = stop_owned(destination) if owned else 0
         except (OSError, ValueError, subprocess.SubprocessError):

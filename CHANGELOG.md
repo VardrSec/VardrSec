@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add opt-in, test-only Community substage diagnostics with fixed identifiers and
+  error codes. Export only strictly validated bounded records in the existing
+  sanitized summary, preserving exceptions and fixture assertions. Keep prior
+  stage failures unresolved until their inner locations are observed; rerun only
+  affected regressions and the two necessary isolated cohorts.
+
 - Prepare an exact-source, branch-scoped Ubuntu Community verification cohort and
   a real schema-0031-to-0038 controlled-upgrade drill, with test-only retention
   guards, immutable candidate images and summary-only artifact export. Execution,

@@ -14,6 +14,7 @@ import urllib.request
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import recovery
 import backup_crypto
+from acceptance_diagnostics import diagnostics, mark, wrap_shared
 from gate_acceptance import verify_retained
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -217,6 +218,7 @@ def downgrade():
 
 
 def main(expected_head="0031localauth"):
+    mark("recovery.preflight")
     successful_revision, failed_revision = fixture_revisions(expected_head)
     if (ROOT / ".active-images.json").exists():
         raise ValueError(
@@ -230,6 +232,7 @@ def main(expected_head="0031localauth"):
         "failed_revision": failed_revision,
         "scope": "Synthetic child-migration recovery drill; does not prove a historical product upgrade.",
     })
+    mark("recovery.statefixture")
     # Existing Compose acceptance seeded a real engagement, account and API key.
     compose(
         "run",
@@ -245,13 +248,16 @@ def main(expected_head="0031localauth"):
     previous = os.environ.get("COMPOSE_PROJECT_NAME")
     os.environ["COMPOSE_PROJECT_NAME"] = PROJECT
     try:
+        mark("recovery.backup")
         recovery.backup(ROOT, ARTIFACTS / "backup")
     finally:
         if previous is None:
             os.environ.pop("COMPOSE_PROJECT_NAME", None)
         else:
             os.environ["COMPOSE_PROJECT_NAME"] = previous
+    mark("recovery.validate")
     snapshot = recovery.validate(ARTIFACTS / "backup")
+    mark("recovery.age.keygen")
     identity = ARTIFACTS / "private-age-identity.txt"
     subprocess.run(
         ["age-keygen", "--output", str(identity)], check=True, capture_output=True
@@ -259,7 +265,9 @@ def main(expected_head="0031localauth"):
     recipient = subprocess.check_output(
         ["age-keygen", "-y", str(identity)], text=True
     ).strip()
+    mark("recovery.age.seal")
     backup_crypto.seal(ARTIFACTS / "backup", ARTIFACTS / "snapshot.age", recipient)
+    mark("recovery.age.unseal")
     backup_crypto.unseal(ARTIFACTS / "snapshot.age", ARTIFACTS / "unsealed", identity)
     assert recovery.digest(ARTIFACTS / "unsealed/snapshot.json") == recovery.digest(
         ARTIFACTS / "backup/snapshot.json"
@@ -267,6 +275,7 @@ def main(expected_head="0031localauth"):
     print(
         "PASS: full image/data/CA backup sealed and authenticated with age before recovery"
     )
+    mark("recovery.migration.success")
     current_base = recovery.command(
         "docker",
         "image",
@@ -306,6 +315,7 @@ def main(expected_head="0031localauth"):
     print(
         "PASS: real additive image migration retains every pre-upgrade database row and sequence"
     )
+    mark("recovery.migration.failure")
     compose("stop", "proxy", "web", "api")
     failed = candidate(
         "failed-fixture", successful_revision, failed_revision, fail=True
@@ -328,6 +338,7 @@ def main(expected_head="0031localauth"):
         raise AssertionError("Intentional migration failure unexpectedly succeeded")
     except subprocess.CalledProcessError as exc:
         assert "intentional recovery acceptance failure" in exc.stdout + exc.stderr
+    mark("recovery.migration.failure-verify")
     assert (
         recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT)
         == successful_revision
@@ -341,9 +352,11 @@ def main(expected_head="0031localauth"):
     print(
         "PASS: failing migration aborts application startup and rolls back its partial DDL"
     )
+    mark("recovery.restore")
     recovery.restore(
         ROOT, ARTIFACTS / "unsealed", ARTIFACTS / "restored", RESTORE_PROJECT
     )
+    mark("recovery.restoredapp")
     verify_application(ARTIFACTS / "restored", original_ca, snapshot["images"], expected_head)
     print(
         "PASS: fresh-install restore recovers original images, schema/data, evidence contents/ownership and CA; source project is retained"
@@ -353,4 +366,10 @@ def main(expected_head="0031localauth"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--expected-installed-head", choices=("0031localauth", "0038managedstops"), default="0031localauth")
-    main(parser.parse_args().expected_installed_head)
+    parser.add_argument("--safe-diagnostics", action="store_true")
+    args = parser.parse_args()
+    if args.safe_diagnostics:
+        with diagnostics(ROOT, "recovery"), wrap_shared():
+            main(args.expected_installed_head)
+    else:
+        main(args.expected_installed_head)

@@ -101,6 +101,34 @@ review of this preparation is not the designated independent phase acceptance.
 
 ## Exact external actions requiring approval
 
+### Approved diagnostic follow-up
+
+The owner authorized a narrowly bounded diagnostic update and rerun of the two
+necessary cohorts after the initial stage failures. Both old capacity guards
+passed; neither generic `ValueError` establishes that migration execution itself
+failed or that backup caused both failures.
+
+The two fixture CLIs opt in with `--safe-diagnostics`. Test-only wrappers restore
+original functions and re-raise the original exception. Only fixed substage IDs,
+operation states and allowlisted error codes cross the public boundary. No raw
+exception text or class names, command arguments, environment, paths, logs, keys
+or recovery packages are exported. The reader rejects unknown/duplicate fields,
+unknown values, incomplete terminal records, symlinks/nonregular files and records
+over1024 events/128KiB. Invalid or missing diagnostics remain unavailable, never
+acceptance. A diagnostic operation state is not a test/phase verdict; expected
+negative operations can fail within a passing drill.
+
+Follow-up CI runs the affected diagnostic, cohort-helper and fixture-baseline
+regressions. Unchanged component CI and unrelated distribution unit evidence are
+reused. Only the clean cohort builds host age tools, because the actual-upgrade
+cohort uses normal unencrypted updater backup. Both still perform their unchanged
+normal source builds and necessary fresh synthetic installation/journey setup:
+the previous VMs and unexported fixture state were discarded as authorized.
+
+No trust, containment, assertion, pin or data-retention boundary is relaxed by this
+diagnostic permission. Publication of the reviewed diagnostic commit to the same
+branch automatically starts those two jobs under the owner's follow-up authority.
+
 After local independent review and final commit binding, request permission to:
 
 1. Publish the named reviewed commit to the new public distribution review branch
