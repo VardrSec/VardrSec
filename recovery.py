@@ -20,7 +20,9 @@ LEGACY_FILES = (
     "recovery.py",
 )
 UPDATE_FILES = LEGACY_FILES + ("updater.py",)
-FILES = UPDATE_FILES + ("backup_crypto.py",)
+# Historical snapshot manifests are immutable; a new dependency needs a new format.
+ENCRYPTED_FILES = UPDATE_FILES + ("backup_crypto.py",)
+FILES = ENCRYPTED_FILES + ("database_roles.py",)
 VOLUMES = {
     "runner-state": ("runner", "/home/runner/.vardrmap"),
     "proxy-data": ("proxy", "/data"),
@@ -335,7 +337,7 @@ def backup(root, destination):
     for file in destination.iterdir():
         file.chmod(0o600)
     metadata = {
-        "schema_version": 3,
+        "schema_version": 4,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "project": project,
         "images": images,
@@ -356,9 +358,12 @@ def backup(root, destination):
 
 def validate(backup_path):
     metadata = json.loads((backup_path / "snapshot.json").read_text(encoding="utf-8"))
-    scripts = {1: LEGACY_FILES, 2: UPDATE_FILES, 3: FILES}.get(
-        metadata.get("schema_version")
-    )
+    scripts = {
+        1: LEGACY_FILES,
+        2: UPDATE_FILES,
+        3: ENCRYPTED_FILES,
+        4: FILES,
+    }.get(metadata.get("schema_version"))
     if scripts is None:
         raise ValueError("Unsupported snapshot version")
     required = (

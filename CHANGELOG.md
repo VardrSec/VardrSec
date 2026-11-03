@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Include the database-role recovery module in new version-4 portable snapshots,
+  so a copied bundle and restored installation retain the restore command's module
+  dependencies. Continue accepting the exact historical version-1, -2 and -3 file
+  manifests; require checksummed role code in version 4, including encrypted bundles.
+  Add isolated copied-bundle recovery and CLI tests without starting services.
+
 - Add bounded NM-1 hosted verification with explicit review-only companion SHAs,
   actual checkout/tree/dependency receipts, common issuance and guarded loopback
   execution, and existing Map/distribution regressions. Production source pins are

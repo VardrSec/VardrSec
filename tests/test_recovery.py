@@ -13,6 +13,61 @@ import recovery
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_new_backup_emits_version_four_with_verified_role_module(self):
+        class ImageSave:
+            def __init__(self, *args, **kwargs):
+                self.stdout = io.BytesIO(b"synthetic image archive")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+            def wait(self):
+                return 0
+
+        configuration = {
+            "name": "synthetic",
+            "services": {
+                s: {"environment": {k: "synthetic" for k in names}}
+                for s, names in recovery.PERSISTED_ENV.items()
+            },
+        }
+
+        def container(root, service):
+            return {
+                "Image": "sha256:" + "a" * 64,
+                "Config": {"Env": [f"{key}=synthetic" for key in recovery.PERSISTED_ENV.get(service, ())]},
+                "Mounts": [{"Type": "volume", "Name": name, "Destination": mount}
+                           for name, (_, mount) in recovery.VOLUMES.items()],
+            }
+
+        def archive(image, volume, action, stream):
+            self.assertEqual(action, "backup")
+            with tarfile.open(fileobj=stream, mode="w:gz") as output:
+                info = tarfile.TarInfo("retained-evidence")
+                info.size = 4
+                output.addfile(info, io.BytesIO(b"test"))
+
+        with (tempfile.TemporaryDirectory() as directory,
+              patch.object(recovery, "compose", return_value=subprocess.CompletedProcess([], 0, stdout=json.dumps(configuration))),
+              patch.object(recovery, "container", side_effect=container),
+              patch.object(recovery, "command", return_value=subprocess.CompletedProcess([], 0, stdout="")),
+              patch.object(recovery, "volume_stream", side_effect=archive),
+              patch.object(recovery, "volume_fingerprint", return_value="synthetic"),
+              patch.object(recovery, "database_fingerprint", return_value={"_sequences": "synthetic"}),
+              patch.object(recovery.subprocess, "Popen", ImageSave)):
+            root = Path(directory)
+            for name in recovery.FILES:
+                (root / name).write_bytes(b"synthetic source " + name.encode())
+            destination = root / "snapshot"
+            recovery.backup(root, destination)
+            metadata = recovery.validate(destination)
+            self.assertEqual(metadata["schema_version"], 4)
+            self.assertEqual(metadata["files"]["database_roles.py"], recovery.digest(root / "database_roles.py"))
+            self.assertEqual((destination / "database_roles.py").read_bytes(), (root / "database_roles.py").read_bytes())
+
     def test_configuration_mismatch_refuses_backup_before_stopping_services(self):
         live = {
             "name": "fixture",
@@ -47,8 +102,10 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(compose.call_count, 2)
             self.assertFalse((Path(directory) / "backup").exists())
 
-    def snapshot(self, root):
-        for name in recovery.FILES + ("database.dump", "images.tar.gz"):
+    def snapshot(self, root, version=4):
+        scripts = {1: recovery.LEGACY_FILES, 2: recovery.UPDATE_FILES,
+                   3: recovery.ENCRYPTED_FILES, 4: recovery.FILES}[version]
+        for name in scripts + ("database.dump", "images.tar.gz"):
             (root / name).write_bytes(b"disposable fixture")
         for name in recovery.VOLUMES:
             with tarfile.open(root / f"{name}.tar.gz", "w:gz") as archive:
@@ -56,7 +113,7 @@ class RecoveryTests(unittest.TestCase):
                 info.size = 4
                 archive.addfile(info, io.BytesIO(b"test"))
         metadata = {
-            "schema_version": 3,
+            "schema_version": version,
             "images": {s: "sha256:" + "a" * 64 for s in recovery.SERVICES},
             "volumes": {v: "fixture" for v in recovery.VOLUMES},
             "files": {p.name: recovery.digest(p) for p in root.iterdir()},
@@ -102,26 +159,39 @@ class RecoveryTests(unittest.TestCase):
             self.assertFalse((root / "restored").exists())
             self.assertEqual(command.call_count, 1)
 
-    def test_version_one_snapshot_remains_supported(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self.snapshot(root)
-            metadata = json.loads((root / "snapshot.json").read_text())
-            metadata["schema_version"] = 1
-            metadata["files"].pop("updater.py")
-            metadata["files"].pop("backup_crypto.py")
-            (root / "snapshot.json").write_text(json.dumps(metadata))
-            self.assertEqual(recovery.validate(root)["schema_version"], 1)
+    def test_historical_and_current_snapshot_formats_remain_supported(self):
+        for version in (1, 2, 3, 4):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.snapshot(root, version)
+                self.assertEqual(recovery.validate(root)["schema_version"], version)
 
-    def test_version_two_snapshot_remains_supported(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self.snapshot(root)
-            metadata = json.loads((root / "snapshot.json").read_text())
-            metadata["schema_version"] = 2
-            metadata["files"].pop("backup_crypto.py")
-            (root / "snapshot.json").write_text(json.dumps(metadata))
-            self.assertEqual(recovery.validate(root)["schema_version"], 2)
+    def test_version_four_requires_hashed_role_module_before_any_restore_action(self):
+        for mutation in ("missing", "corrupt", "symlink", "old-version-with-new-manifest"):
+            with (self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory,
+                  patch.object(recovery, "command") as command):
+                root = Path(directory)
+                source = root / "backup"
+                source.mkdir()
+                self.snapshot(source)
+                module = source / "database_roles.py"
+                if mutation == "missing":
+                    metadata = json.loads((source / "snapshot.json").read_text())
+                    metadata["files"].pop("database_roles.py")
+                    (source / "snapshot.json").write_text(json.dumps(metadata))
+                elif mutation == "corrupt":
+                    module.write_bytes(b"changed after snapshot")
+                elif mutation == "symlink":
+                    module.unlink()
+                    module.symlink_to(source / "recovery.py")
+                else:
+                    metadata = json.loads((source / "snapshot.json").read_text())
+                    metadata["schema_version"] = 3
+                    (source / "snapshot.json").write_text(json.dumps(metadata))
+                with self.assertRaises(ValueError):
+                    recovery.restore(root, source, root / "restored", "vardrsec-restore-test")
+                self.assertFalse((root / "restored").exists())
+                command.assert_not_called()
 
     def test_state_archives_reject_traversal_and_links(self):
         with tempfile.TemporaryDirectory() as directory:
