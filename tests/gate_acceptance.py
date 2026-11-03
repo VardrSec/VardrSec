@@ -9,6 +9,8 @@ import subprocess
 import threading
 import time
 
+from acceptance_retention import (enabled, fixture_name, run_flags, stop_container, compose_fixture_run)
+
 from write_lifecycle import (
     delivery_snapshot,
     verify_delivery,
@@ -20,8 +22,8 @@ from write_lifecycle import (
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "vardrsec-compose-review"
 ARTIFACTS = ROOT / "artifacts" / "installed-gate"
-TARGET = f"{PROJECT}-gate-fixture"
-BROWSER = f"{PROJECT}-gate-browser"
+TARGET = fixture_name(f"{PROJECT}-gate-fixture")
+BROWSER = fixture_name(f"{PROJECT}-gate-browser")
 ORIGIN = "http://gate-fixture:8080"
 CANARIES = ("disposable-private-response-canary", "disposable-response-cookie-canary")
 
@@ -254,8 +256,8 @@ def run_gate_workflow(compose, request, key, password):
         )
 
     def runner(*command, allow=False):
-        result = compose(
-            "run",
+        result = compose_fixture_run(
+            compose, "run",
             "--rm",
             "--no-deps",
             "-e",
@@ -273,9 +275,12 @@ def run_gate_workflow(compose, request, key, password):
             text=True,
             encoding="utf-8",
             timeout=120,
+            project=PROJECT, purpose="gate-runner",
             check=False,
         )
         no_secrets(result.stdout + result.stderr)
+        if enabled() and len((result.stdout + result.stderr).encode("utf-8")) > 1024 * 1024:
+            raise RuntimeError("Fixture log exceeds retention bound; private container retained")
         (artifacts / f"runner-{scenario}-{command[0]}.log").write_text(
             result.stdout + result.stderr, encoding="utf-8"
         )
@@ -294,9 +299,7 @@ def run_gate_workflow(compose, request, key, password):
         docker(
             "run",
             "-d",
-            "--rm",
-            "--name",
-            TARGET,
+            *(run_flags(TARGET) if enabled() else ["--rm", "--name", TARGET]),
             "--network",
             PROJECT + "_runner",
             "--network-alias",
@@ -333,10 +336,8 @@ def run_gate_workflow(compose, request, key, password):
             [
                 "docker",
                 "run",
-                "--rm",
+                *(run_flags(BROWSER) if enabled() else ["--rm", "--name", BROWSER]),
                 "-i",
-                "--name",
-                BROWSER,
                 "--network",
                 f"container:{PROJECT}-proxy-1",
                 "--mount",
@@ -363,7 +364,14 @@ def run_gate_workflow(compose, request, key, password):
             encoding="utf-8",
             bufsize=1,
         )
-        deadline = threading.Timer(600, browser.kill)
+        def expire_browser():
+            try:
+                if enabled():
+                    stop_container(BROWSER)
+            finally:
+                browser.kill()
+
+        deadline = threading.Timer(600, expire_browser)
         deadline.start()
         for line in browser.stdout:
             no_secrets(line)
@@ -540,13 +548,23 @@ def run_gate_workflow(compose, request, key, password):
     finally:
         if deadline:
             deadline.cancel()
-        if browser:
-            docker("rm", "-f", BROWSER, check=False, capture_output=True)
-            if browser.poll() is None:
-                browser.kill()
-            browser.wait(timeout=10)
-        if target_started:
-            docker("rm", "-f", TARGET, check=False, capture_output=True)
+        try:
+            if browser:
+                try:
+                    if enabled():
+                        stop_container(BROWSER)
+                    else:
+                        docker("rm", "-f", BROWSER, check=False, capture_output=True)
+                finally:
+                    if browser.poll() is None:
+                        browser.kill()
+                    browser.wait(timeout=10)
+        finally:
+            if target_started:
+                if enabled():
+                    stop_container(TARGET)
+                else:
+                    docker("rm", "-f", TARGET, check=False, capture_output=True)
 
 
 def verify_retained(request, receipt):

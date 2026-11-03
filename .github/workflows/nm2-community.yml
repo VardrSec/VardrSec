@@ -1,0 +1,61 @@
+name: NM-2 isolated Community cohort
+
+# Publication of THIS branch starts external execution. Owner approval is required
+# before the first push; no PR or default-branch workflow change is needed.
+on:
+  push:
+    branches: [codex/nm2-community-verification]
+
+permissions:
+  contents: read
+
+jobs:
+  community:
+    strategy:
+      fail-fast: false
+      matrix:
+        cohort: [clean, upgrade]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      VARDRSEC_CI_RETAIN: '1'
+      COMPOSE_PROJECT_NAME: vardrsec-compose-review
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build pinned official age tools
+        env:
+          GOBIN: ${{ runner.temp }}/age-bin
+          GOTOOLCHAIN: local
+          GODEBUG: http2client=0
+        run: |
+          mkdir -p "$GOBIN"
+          go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
+          echo "$GOBIN" >> "$GITHUB_PATH"
+      - name: Verify offline regressions
+        env:
+          VARDRSEC_CI_RETAIN: '0'
+        run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: Run exact retained synthetic cohort
+        run: >-
+          python tests/community_ci.py --kind '${{ matrix.cohort }}'
+          --destination '${{ runner.temp }}/community-run'
+          --evidence '${{ runner.temp }}/community-public-evidence'
+      - name: Preserve only sanitized cohort summary
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: nm2-community-${{ matrix.cohort }}-summary
+          path: ${{ runner.temp }}/community-public-evidence/summary.json
+          if-no-files-found: error
+          retention-days: 7
+      # No down/rm/prune, CA removal, private log, DB, .env, age identity,
+      # private CA key or recovery-package upload. GitHub disposes of its VM.

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Prepare an exact-source, branch-scoped Ubuntu Community verification cohort and
+  a real schema-0031-to-0038 controlled-upgrade drill, with test-only retention
+  guards, immutable candidate images and summary-only artifact export. Execution,
+  public branch publication and ephemeral-host trust changes still require owner
+  authorization; installed acceptance and managed-worker recovery remain unproven.
+
 - Allow lifecycle acceptance drills to select the exact installed schema 0038
   explicitly, while retaining the schema-0031 default and exact-head assertions.
   Record their synthetic migration scope; these fixtures do not establish the

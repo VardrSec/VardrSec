@@ -12,6 +12,7 @@ import urllib.error
 import urllib.request
 
 from gate_acceptance import run_gate_workflow, verify_retained
+from acceptance_retention import enabled, docker_fixture_run, stop_project
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "vardrsec-compose-review"
@@ -88,8 +89,8 @@ def main():
         "vardrsec-browser:acceptance",
     ]
     browser_env = {**os.environ, "FIXTURE_PASSWORD": password}
-    generated = subprocess.run(
-        browser_command,
+    generated = docker_fixture_run(
+        browser_command, project=PROJECT, purpose="setup-browser",
         env={**browser_env, "FIXTURE_CREATE_RUNNER_KEY": "1"},
         capture_output=True,
         text=True,
@@ -145,8 +146,8 @@ def main():
     )
     print("PASS: explicit one-shot Runner heartbeat reaches Map through verified HTTPS")
     # The browser shares only the proxy's network namespace and receives the public CA.
-    subprocess.run(
-        browser_command,
+    docker_fixture_run(
+        browser_command, project=PROJECT, purpose="journey-browser",
         env={**browser_env, "FIXTURE_CREATE_RUNNER_KEY": "0"},
         check=True,
     )
@@ -193,4 +194,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except BaseException:
+        if enabled():
+            stop_project(ROOT, PROJECT)
+        raise

@@ -17,6 +17,8 @@ import struct
 import subprocess
 import sys
 
+from acceptance_retention import compose_fixture_run, enabled
+
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "vardrsec-compose-review"
 RECEIPT = ROOT / "artifacts" / "glibc-locale" / "receipt.json"
@@ -123,9 +125,9 @@ def compose(*args, stdin=None):
 def run_in(service, *argv, stdin=None):
     """Run a command in a service; stdout only. Runner is not a running service."""
     if service == "runner":
-        result = compose(
-            "--profile", "tools", "run", "--rm", "--no-deps", "-T",
-            "--entrypoint", argv[0], service, *argv[1:], stdin=stdin,
+        result = compose_fixture_run(
+            compose, "--profile", "tools", "run", "--rm", "--no-deps", "-T",
+            "--entrypoint", argv[0], service, *argv[1:], stdin=stdin, project=PROJECT, purpose="locale",
         )
     else:
         user = ["-u", "postgres"] if service == "db" else []
@@ -151,7 +153,9 @@ def gettext_probe(service, locale):
         base64.b64encode(build_catalog({SOURCE: TRAVERSAL})),
     )
     output = run_in(
-        service, "bash", "-c", GETTEXT_SCRIPT, "probe", locale or "-",
+        service, "bash", "-c",
+        GETTEXT_SCRIPT.replace('trap \'rm -rf "$d"\' EXIT\n', '') if enabled() else GETTEXT_SCRIPT,
+        "probe", locale or "-",
         stdin=b"\n".join(catalogs) + b"\n",
     )
     return parse_gettext(output.decode("utf-8", "replace"))

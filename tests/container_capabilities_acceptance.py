@@ -13,6 +13,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from acceptance_retention import compose_fixture_run
+
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "vardrsec-compose-review"
 RECEIPT = ROOT / "artifacts" / "container-capabilities" / "receipt.json"
@@ -77,7 +79,10 @@ def docker(*args, stdin=None):
 
 
 def compose(*args):
-    return docker("compose", "-p", PROJECT, *args)
+    return compose_fixture_run(
+        lambda *command: docker("compose", "-p", PROJECT, *command),
+        *args, project=PROJECT, purpose="capabilities",
+    )
 
 
 def names(values):

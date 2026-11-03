@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import database_roles as roles
 import recovery
+from acceptance_retention import enabled, fresh_work, stop_project, require_new_project
 
 PROJECT = "vardrsec-compose-review"
 DRILL = "vardrsec-role-upgrade"
@@ -127,7 +128,11 @@ def env_value(root, name):
 
 def legacy_installation():
     """A copy of the repository files as an installation made before this change had them."""
-    if WORK.exists():
+    if enabled():
+        require_new_project(DRILL)
+        require_new_project(RESTORED)
+        fresh_work(WORK)
+    elif WORK.exists():
         shutil.rmtree(WORK)
     root = WORK / "legacy-install"
     (root / "trust").mkdir(parents=True)
@@ -280,6 +285,9 @@ def upgrade_drill(receipt):
     finally:
         for project, directory in ((RESTORED, WORK / "restored"), (DRILL, root)):
             if (directory / "compose.yaml").exists():
+                if enabled():
+                    stop_project(directory, project)
+                    continue
                 with roles.credential(PLACEHOLDER):
                     recovery.compose(
                         directory, "--profile", "tools", "down", "--volumes",
@@ -291,7 +299,8 @@ def upgrade_drill(receipt):
                 os.environ.pop(name, None)
             else:
                 os.environ[name] = value
-        shutil.rmtree(WORK, ignore_errors=True)
+        if not enabled():
+            shutil.rmtree(WORK, ignore_errors=True)
 
 
 def verify_privileges_on_drill(root):
