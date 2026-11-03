@@ -1,5 +1,6 @@
 """Controlled-updater drill; only the named disposable source/rehearsal projects."""
 
+import argparse
 import http.cookiejar
 import json
 import os
@@ -16,6 +17,17 @@ import updater
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = "vardrsec-compose-review"
 ARTIFACTS = ROOT / "artifacts/update-drill"
+
+
+def fixture_revisions(expected_head):
+    """Synthetic sibling/child migrations, not a historical product upgrade."""
+    revisions = {
+        "0031localauth": ("0032updatebad", "0032updategood", "0033updatefailed"),
+        "0038managedstops": ("0039updatebad", "0039updategood", "0040updatefailed"),
+    }
+    if expected_head not in revisions:
+        raise ValueError("Unsupported update acceptance baseline")
+    return revisions[expected_head]
 
 
 def compose(*args, **kwargs):
@@ -93,9 +105,18 @@ def run(name, candidate):
     )
 
 
-def main():
+def main(expected_head="0031localauth"):
+    bad_revision, good_revision, failed_revision = fixture_revisions(expected_head)
+    assert recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT) == expected_head
     updater.WAIT_SECONDS = 90
     ARTIFACTS.mkdir(parents=True)
+    recovery.json_write(ARTIFACTS / "fixture-baseline.json", {
+        "expected_installed_head": expected_head,
+        "bad_revision": bad_revision,
+        "good_revision": good_revision,
+        "failed_revision": failed_revision,
+        "scope": "Synthetic child-migration updater drill; does not prove a historical product upgrade.",
+    })
     os.environ["COMPOSE_PROJECT_NAME"] = PROJECT
     action = (
         "init"
@@ -157,8 +178,8 @@ def main():
     baseline = recovery.database_fingerprint(ROOT, PROJECT)
     bad = image(
         "update-bad",
-        "0031localauth",
-        "0032updatebad",
+        expected_head,
+        bad_revision,
         "vardrmap-api:development",
         "raise RuntimeError('intentional rehearsal failure')",
     )
@@ -182,13 +203,13 @@ def main():
         "PASS: failed private rehearsal preserves original data, blocks startup and permits verified baseline cancellation"
     )
     good = image(
-        "update-good", "0031localauth", "0032updategood", "vardrmap-api:development"
+        "update-good", expected_head, good_revision, "vardrmap-api:development"
     )
     run("successful", manifest("good", good))
     assert not (ROOT / updater.STATE).exists()
     assert (
         recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT)
-        == "0032updategood"
+        == good_revision
     )
     assert any(
         e["name"] == "Controlled update acceptance"
@@ -205,8 +226,8 @@ def main():
     )
     failed = image(
         "update-apply-failure",
-        "0032updategood",
-        "0033updatefailed",
+        good_revision,
+        failed_revision,
         "vardrsec-api:update-good",
         f"\n    if os.environ.get('FORWARDED_ALLOW_IPS') == {source_ip!r}:\n        raise RuntimeError('intentional original apply failure')",
     )
@@ -242,7 +263,7 @@ def main():
             "SELECT version_num FROM alembic_version",
             "vardrsec-restore-update-recovered",
         )
-        == "0032updategood"
+        == good_revision
     )
     print(
         "PASS: failed update recovered from its portable snapshot with original schema, data, CA and Runner authentication"
@@ -250,4 +271,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--expected-installed-head", choices=("0031localauth", "0038managedstops"), default="0031localauth")
+    main(parser.parse_args().expected_installed_head)

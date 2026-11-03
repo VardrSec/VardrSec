@@ -1,5 +1,6 @@
 """Real recovery/migration drill. Mutates only the disposable acceptance projects."""
 
+import argparse
 import hashlib
 import http.cookiejar
 import json
@@ -21,7 +22,18 @@ RESTORE_PROJECT = "vardrsec-restore-acceptance"
 ARTIFACTS = ROOT / "artifacts" / "recovery-drill"
 
 
-def verify_application(restored, original_ca, images):
+def fixture_revisions(expected_head):
+    """Synthetic children of the explicitly asserted installed baseline."""
+    revisions = {
+        "0031localauth": ("0032restorefixture", "0033failedfixture"),
+        "0038managedstops": ("0039restorefixture", "0040failedfixture"),
+    }
+    if expected_head not in revisions:
+        raise ValueError("Unsupported recovery acceptance baseline")
+    return revisions[expected_head]
+
+
+def verify_application(restored, original_ca, images, expected_head="0031localauth"):
     recovery.compose(
         restored,
         "up",
@@ -50,7 +62,7 @@ def verify_application(restored, original_ca, images):
         recovery.sql(
             restored, "SELECT version_num FROM alembic_version", RESTORE_PROJECT
         )
-        == "0031localauth"
+        == expected_head
     )
     assert (
         recovery.sql(
@@ -204,12 +216,20 @@ def downgrade():
     ).stdout.strip()
 
 
-def main():
-    ARTIFACTS.mkdir(parents=True)
+def main(expected_head="0031localauth"):
+    successful_revision, failed_revision = fixture_revisions(expected_head)
     if (ROOT / ".active-images.json").exists():
         raise ValueError(
             "Recovery fixture requires the unchanged development installation"
         )
+    assert recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT) == expected_head
+    ARTIFACTS.mkdir(parents=True)
+    recovery.json_write(ARTIFACTS / "fixture-baseline.json", {
+        "expected_installed_head": expected_head,
+        "successful_revision": successful_revision,
+        "failed_revision": failed_revision,
+        "scope": "Synthetic child-migration recovery drill; does not prove a historical product upgrade.",
+    })
     # Existing Compose acceptance seeded a real engagement, account and API key.
     compose(
         "run",
@@ -258,7 +278,7 @@ def main():
         text=True,
     ).stdout.strip()
     assert current_base == snapshot["images"]["api"]
-    successful = candidate("successful-fixture", "0031localauth", "0032restorefixture")
+    successful = candidate("successful-fixture", expected_head, successful_revision)
     recovery.json_write(
         ROOT / ".active-images.json", {"services": {"api": {"image": successful}}}
     )
@@ -275,7 +295,7 @@ def main():
     )
     assert (
         recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT)
-        == "0032restorefixture"
+        == successful_revision
     )
     after = recovery.database_fingerprint(ROOT, PROJECT)
     assert all(
@@ -288,7 +308,7 @@ def main():
     )
     compose("stop", "proxy", "web", "api")
     failed = candidate(
-        "failed-fixture", "0032restorefixture", "0033failedfixture", fail=True
+        "failed-fixture", successful_revision, failed_revision, fail=True
     )
     (ROOT / ".active-images.json").write_text(
         json.dumps({"services": {"api": {"image": failed}}}), encoding="utf-8"
@@ -310,7 +330,7 @@ def main():
         assert "intentional recovery acceptance failure" in exc.stdout + exc.stderr
     assert (
         recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT)
-        == "0032restorefixture"
+        == successful_revision
     )
     assert (
         recovery.sql(
@@ -324,11 +344,13 @@ def main():
     recovery.restore(
         ROOT, ARTIFACTS / "unsealed", ARTIFACTS / "restored", RESTORE_PROJECT
     )
-    verify_application(ARTIFACTS / "restored", original_ca, snapshot["images"])
+    verify_application(ARTIFACTS / "restored", original_ca, snapshot["images"], expected_head)
     print(
         "PASS: fresh-install restore recovers original images, schema/data, evidence contents/ownership and CA; source project is retained"
     )
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--expected-installed-head", choices=("0031localauth", "0038managedstops"), default="0031localauth")
+    main(parser.parse_args().expected_installed_head)
