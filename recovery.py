@@ -80,9 +80,21 @@ def container(root, service, project=None):
     ids = compose(
         root, "ps", "-a", "-q", service, project=project, capture_output=True, text=True
     ).stdout.split()
-    if len(ids) != 1:
+    # Compose --all includes retained `compose run` containers. They are not the
+    # canonical service whose image and persistent mounts a snapshot must use.
+    services = []
+    for identifier in ids:
+        info = inspect(identifier)
+        labels = (info.get("Config") or {}).get("Labels") or {}
+        if (labels.get("com.docker.compose.oneoff") not in ("True", "False")
+            or labels.get("com.docker.compose.service") != service
+            or (project is not None and labels.get("com.docker.compose.project") != project)):
+            raise ValueError(f"Expected exactly one {service} container")
+        if labels["com.docker.compose.oneoff"] == "False":
+            services.append(info)
+    if len(services) != 1:
         raise ValueError(f"Expected exactly one {service} container")
-    return inspect(ids[0])
+    return services[0]
 
 
 def volume_name(info, destination):

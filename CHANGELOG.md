@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Select exactly one canonical Compose service for recovery, excluding known
+  retained one-shot containers and refusing unknown or ambiguous identity labels.
+  Prepare the upgrade fixture's stopped Runner service before mount discovery;
+  creation never starts Runner or an execution job. Preserve diagnostic evidence
+  and prior failures; full hosted resolution is verified separately.
+
 - Add opt-in, test-only Community substage diagnostics with fixed identifiers and
   error codes. Export only strictly validated bounded records in the existing
   sanitized summary, preserving exceptions and fixture assertions. Keep prior

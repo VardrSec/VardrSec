@@ -99,7 +99,29 @@ remains failed/open under the authorized bounded scope exception. Windows-native
 cancellation and current20/20 native Gate evidence remain separately bound. Scoped
 review of this preparation is not the designated independent phase acceptance.
 
-## Exact external actions requiring approval
+## Publication authority and disclosure history
+
+### Focused service-lookup correction
+
+Both diagnostic summaries locate their failure at Runner container discovery:
+upgrade during its state snapshot, and clean recovery through backup. The original
+hosted count is unknown, so neither migration failure nor completed-restore failure
+is established. A small isolated Compose2.40.3 check demonstrated that `ps --all`
+includes retained one-shots: one was previously selected as the service; two caused
+ambiguity; adding a stopped canonical container still returned all three.
+
+Recovery now selects exactly one container with known canonical identity, excluding
+known one-shots and refusing unknown, wrong-service, wrong-explicit-project or
+duplicate canonical identities. The upgrade state fixture explicitly uses create
+with no-build/no-recreate/pull-never to prepare a stopped Runner container before
+mount discovery. It never invokes a Runner command. Labels and flags are supported
+in the minimum Compose2.17 source; actual focused runtime verification used2.40.3.
+
+The follow-up validation targets the23 changed recovery/upgrade cases. Unchanged
+diagnostic/privacy/component evidence remains available at its exact source hashes.
+Full cohorts are appropriate only after both diagnostic failures are understood;
+their later paths and acceptance remain unproven until observed. No retained
+container, volume, old evidence or existing environment is deleted by this fix.
 
 ### Approved diagnostic follow-up
 
@@ -129,7 +151,7 @@ No trust, containment, assertion, pin or data-retention boundary is relaxed by t
 diagnostic permission. Publication of the reviewed diagnostic commit to the same
 branch automatically starts those two jobs under the owner's follow-up authority.
 
-After local independent review and final commit binding, request permission to:
+The original request, subsequently authorized by the owner, covered:
 
 1. Publish the named reviewed commit to the new public distribution review branch
    using a normal fast-forward push. This discloses the verification source and

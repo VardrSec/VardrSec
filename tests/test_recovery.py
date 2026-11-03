@@ -13,6 +13,54 @@ import recovery
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_service_lookup_ignores_retained_oneoffs(self):
+        canonical = {"Id": "service", "Config": {"Labels": {
+            "com.docker.compose.oneoff": "False", "com.docker.compose.service": "runner",
+            "com.docker.compose.project": "owned"}}, "Mounts": ["unchanged"]}
+        oneoff = {"Config": {"Labels": {"com.docker.compose.oneoff": "True",
+            "com.docker.compose.service": "runner", "com.docker.compose.project": "owned"}}}
+        with patch.object(recovery, "compose", return_value=subprocess.CompletedProcess(
+            [], 0, stdout="oneoff1 service oneoff2\n")), patch.object(
+                recovery, "inspect", side_effect=[oneoff, canonical, oneoff]):
+            self.assertIs(recovery.container(Path("/synthetic"), "runner", "owned"), canonical)
+
+    def test_service_lookup_refuses_zero_or_multiple_canonical_services(self):
+        actual = {"Config": {"Labels": {"com.docker.compose.oneoff": "False",
+            "com.docker.compose.service": "runner", "com.docker.compose.project": "owned"}}}
+        oneoff = {"Config": {"Labels": {"com.docker.compose.oneoff": "True",
+            "com.docker.compose.service": "runner", "com.docker.compose.project": "owned"}}}
+        for infos in ([], [oneoff], [oneoff, oneoff], [actual, actual],
+                      [oneoff, actual, actual]):
+            with self.subTest(count=len(infos)), patch.object(
+                recovery, "compose", return_value=subprocess.CompletedProcess(
+                    [], 0, stdout=" ".join(str(i) for i in range(len(infos))))
+            ), patch.object(recovery, "inspect", side_effect=infos):
+                with self.assertRaisesRegex(ValueError, "^Expected exactly one runner container$"):
+                    recovery.container(Path("/synthetic"), "runner", "owned")
+
+    def test_service_lookup_refuses_unknown_oneoff_metadata(self):
+        for labels in (None, {}, {"com.docker.compose.oneoff": "unknown"},
+                       {"com.docker.compose.oneoff": False}):
+            with self.subTest(labels=labels), patch.object(
+                recovery, "compose", return_value=subprocess.CompletedProcess([], 0, stdout="candidate")
+            ), patch.object(recovery, "inspect", return_value={"Config": {"Labels": labels}}):
+                with self.assertRaisesRegex(ValueError, "^Expected exactly one runner container$"):
+                    recovery.container(Path("/synthetic"), "runner", "owned")
+
+    def test_service_lookup_refuses_unclassified_or_foreign_candidates(self):
+        labels = {"com.docker.compose.oneoff": "False", "com.docker.compose.service": "runner",
+                  "com.docker.compose.project": "owned"}
+        canonical = {"Config": {"Labels": labels}}
+        for key, value in (("com.docker.compose.oneoff", "unknown"),
+                           ("com.docker.compose.service", "api"),
+                           ("com.docker.compose.project", "other")):
+            other = {"Config": {"Labels": {**labels, key: value}}}
+            with self.subTest(key=key), patch.object(recovery, "compose",
+                return_value=subprocess.CompletedProcess([], 0, stdout="canonical other")), patch.object(
+                    recovery, "inspect", side_effect=[canonical, other]):
+                with self.assertRaisesRegex(ValueError, "^Expected exactly one runner container$"):
+                    recovery.container(Path("/synthetic"), "runner", "owned")
+
     def test_new_backup_emits_version_four_with_verified_role_module(self):
         class ImageSave:
             def __init__(self, *args, **kwargs):

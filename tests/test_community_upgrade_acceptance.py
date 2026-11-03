@@ -13,6 +13,27 @@ import community_upgrade_acceptance as drill
 
 
 class CommunityUpgradeTests(unittest.TestCase):
+    def test_state_snapshot_prepares_stopped_runner_without_execution(self):
+        calls = []
+        def lookup(root, service, project):
+            self.assertEqual(calls, ["create"])
+            return {"Mounts": [{"Type": "volume", "Name": name, "Destination": mount}
+                for name, (owner, mount) in drill.recovery.VOLUMES.items() if owner == service]}
+        with patch.object(drill.recovery, "compose", side_effect=lambda *a, **kw: calls.append(a[1])) as compose, patch.object(
+            drill.recovery, "container", side_effect=lookup), patch.object(
+                drill.recovery, "volume_fingerprint", side_effect=lambda image, volume: volume):
+            result = drill.state_fingerprints(Path("/synthetic"), "owned", {"runner": "immutable"})
+        compose.assert_called_once_with(Path("/synthetic"), "create", "--no-build", "--no-recreate",
+            "--pull", "never", "runner", project="owned", capture_output=True, text=True)
+        self.assertEqual(set(result), set(drill.recovery.VOLUMES))
+
+    def test_failed_runner_preparation_does_not_read_state(self):
+        with patch.object(drill.recovery, "compose", side_effect=ValueError("fixture preparation failed")), patch.object(
+            drill.recovery, "container") as lookup:
+            with self.assertRaises(ValueError):
+                drill.state_fingerprints(Path("/synthetic"), "owned", {"runner": "immutable"})
+        lookup.assert_not_called()
+
     def test_sequence_snapshot_includes_definition_and_is_called(self):
         metadata = [{"sequencename": 'odd"sequence', "increment_by": 1, "last_value": 4}]
         with patch.object(drill.recovery, "sql", side_effect=[json.dumps(metadata), "4|t"]) as sql:

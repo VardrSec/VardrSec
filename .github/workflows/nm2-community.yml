@@ -42,13 +42,12 @@ jobs:
           mkdir -p "$GOBIN"
           go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
           echo "$GOBIN" >> "$GITHUB_PATH"
-      - name: Verify affected diagnostic and fixture regressions
+      - name: Verify affected snapshot and fixture regressions
         env:
           VARDRSEC_CI_RETAIN: '0'
         run: |
-          python -m unittest discover -s tests -p 'test_acceptance_diagnostics.py'
-          python -m unittest discover -s tests -p 'test_community*.py'
-          python -m unittest discover -s tests -p 'test_acceptance_baselines.py'
+          python -m unittest discover -s tests -p 'test_recovery.py'
+          python -m unittest discover -s tests -p 'test_community_upgrade_acceptance.py'
       - name: Run exact retained synthetic cohort
         run: >-
           python tests/community_ci.py --kind '${{ matrix.cohort }}'

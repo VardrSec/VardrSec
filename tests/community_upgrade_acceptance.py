@@ -120,6 +120,10 @@ def sequences(root, project):
 
 
 def state_fingerprints(root, project, images):
+    # The profile-only Runner is invoked explicitly via one-shots in the journey.
+    # Prepare its stopped service container for mount discovery; never start it.
+    recovery.compose(root, "create", "--no-build", "--no-recreate", "--pull", "never",
+                     "runner", project=project, capture_output=True, text=True)
     return {
         name: recovery.volume_fingerprint(
             images["runner"],
