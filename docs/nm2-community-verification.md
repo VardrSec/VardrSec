@@ -167,3 +167,20 @@ Owner approval of those actions does not declare the four Community paths passed
 Read the terminal exact-SHA outcomes and retained receipts first. Replacement of
 the personal Railway comparison remains conditional on demonstrated equivalent
 supported Community coverage; no Railway deployment is required for this workflow.
+
+
+### Additive sequence verification follow-up
+
+Run 41725629820 at `7a86b83b2a60e8825d57b679e54df94a75af692b` passed
+the clean cohort, including encrypted whole-install restore. Its upgrade
+diagnostic failed directly after `upgrade.post.sequences`, after schema, old-row
+and diagnostic-key checks and the normal updater had passed. Migration 0036
+adds the integer primary-key `managed_clock` table; PostgreSQL creates its new
+sequence. Comparing the complete old and new sequence lists rejects this valid
+addition. The fixture now compares every original sequence by name, preserving
+its entire definition, last value and `is_called` state, rejecting missing or
+changed originals and duplicate identities, while permitting new sequences.
+This changes a test assertion only, not product migrations or execution controls.
+The workflow runs only the affected upgrade cohort; clean evidence is reused
+from the exact preceding head because its code and inputs are unchanged. The
+new installed upgrade result remains unproven until that cohort completes.

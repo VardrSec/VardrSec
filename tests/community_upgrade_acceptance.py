@@ -119,6 +119,21 @@ def sequences(root, project):
         for row in metadata]
 
 
+def assert_sequences_retained(before, after):
+    """Preserve every old definition and state; additive migrations may add sequences."""
+    def indexed(snapshot):
+        result = {}
+        for row in snapshot:
+            name = row["definition"]["sequencename"]
+            if name in result:
+                raise ValueError("Duplicate sequence identity in upgrade snapshot")
+            result[name] = row
+        return result
+    original, current = indexed(before), indexed(after)
+    if any(name not in current or current[name] != row for name, row in original.items()):
+        raise ValueError("Existing sequence definition or state changed during upgrade")
+
+
 def state_fingerprints(root, project, images):
     # The profile-only Runner is invoked explicitly via one-shots in the journey.
     # Prepare its stopped service container for mount discovery; never start it.
@@ -270,8 +285,7 @@ def run(root, candidate_path, output, rehearsal_project):
         mark("upgrade.post.telemetry")
         assert_key_telemetry(telemetry_before, key_telemetry(root, project, diagnostic_key_id))
         mark("upgrade.post.sequences")
-        if sequences(root, project) != before_sequences:
-            raise ValueError("Existing sequence values changed during upgrade")
+        assert_sequences_retained(before_sequences, sequences(root, project))
         mark("upgrade.post.role")
         database_roles.verify(root, project, password)
         mark("upgrade.post.ca")

@@ -41,6 +41,30 @@ class CommunityUpgradeTests(unittest.TestCase):
         self.assertEqual(snapshot, [{"definition": metadata[0], "state": "4|t"}])
         self.assertIn('SELECT last_value,is_called FROM public."odd""sequence"', sql.call_args.args[1])
 
+    def test_sequence_preservation_allows_additive_sequence_and_order_changes(self):
+        original = {"definition": {"sequencename": "original_seq", "increment_by": 1, "last_value": 4}, "state": "4|t"}
+        added = {"definition": {"sequencename": "managed_clock_id_seq", "increment_by": 1, "last_value": None}, "state": "1|f"}
+        drill.assert_sequences_retained([original], [added, original])
+        drill.assert_sequences_retained([], [added])
+        # Reproduce the old assertion failure without PostgreSQL or private data.
+        self.assertNotEqual([original], [added, original])
+
+    def test_sequence_preservation_rejects_missing_changed_and_duplicate_old_state(self):
+        original = {"definition": {"sequencename": "original_seq", "increment_by": 1, "last_value": 4}, "state": "4|t"}
+        changed = [
+            [],
+            [{**original, "state": "5|t"}],
+            [{**original, "state": "4|f"}],
+            [{**original, "definition": {**original["definition"], "increment_by": 2}}],
+            [{**original, "definition": {**original["definition"], "last_value": 5}}],
+            [original, original],
+        ]
+        for after in changed:
+            with self.subTest(after=after), self.assertRaises(ValueError):
+                drill.assert_sequences_retained([original], after)
+        with self.assertRaises(ValueError):
+            drill.assert_sequences_retained([original, original], [original])
+
     def test_anonymous_readback_requires_authentication_denial(self):
         for status in (401, 403, 404, 500, 200):
             with (self.subTest(status=status),
@@ -137,7 +161,9 @@ class CommunityUpgradeTests(unittest.TestCase):
             stack.enter_context(patch.object(drill, "verify_anonymous_denied"))
             stack.enter_context(patch.object(drill, "columns", return_value={"users": ["id"]}))
             stack.enter_context(patch.object(drill, "projected_rows", return_value={"users": ["a" * 64]}))
-            stack.enter_context(patch.object(drill, "sequences", side_effect=["sequence|1", "sequence|2" if sequence_changed else "sequence|1"]))
+            original_sequence = {"definition": {"sequencename": "original_seq", "increment_by": 1}, "state": "1|t"}
+            post_sequence = {**original_sequence, "state": "2|t" if sequence_changed else "1|t"}
+            stack.enter_context(patch.object(drill, "sequences", side_effect=[[original_sequence], [post_sequence]]))
             stack.enter_context(patch.object(drill, "state_fingerprints", return_value={"runner-state": "synthetic"}))
             stack.enter_context(patch.object(drill.database_roles, "read_password", return_value="private-app-password"))
             stack.enter_context(patch.object(drill.database_roles, "verify"))

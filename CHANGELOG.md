@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve every pre-upgrade PostgreSQL sequence definition and state while
+  allowing additive migrations to create new sequences. Missing, altered or
+  ambiguous existing sequence snapshots still refuse upgrade acceptance.
+
 - Select exactly one canonical Compose service for recovery, excluding known
   retained one-shot containers and refusing unknown or ambiguous identity labels.
   Prepare the upgrade fixture's stopped Runner service before mount discovery;
