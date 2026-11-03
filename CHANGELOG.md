@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Allow lifecycle acceptance drills to select the exact installed schema 0038
+  explicitly, while retaining the schema-0031 default and exact-head assertions.
+  Record their synthetic migration scope; these fixtures do not establish the
+  real supported 0031-to-0038 upgrade path without a separate installed test.
+
 - Include the database-role recovery module in new version-4 portable snapshots,
   so a copied bundle and restored installation retain the restore command's module
   dependencies. Continue accepting the exact historical version-1, -2 and -3 file
