@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Refuse observed symlink/reparse paths in `.sources`, selected component caches
+  and their `.git` metadata before any Git call, for Full and Mapless preparation.
+  Refuse external-worktree `.git` files in the managed cache. Preserve linked
+  paths and outside data; no concurrent replacement guarantee is claimed.
+
 - Add `sources --mapless` to prepare only pinned Runner and Gate sources through
   the existing non-destructive source preparation. Default Full selection remains
   unchanged; other lifecycle actions reject the flag. This is source preparation,

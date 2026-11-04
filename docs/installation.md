@@ -1,5 +1,14 @@
 # Development Compose installation
 
+Managed source preparation refuses observed symlinks/reparse points at `.sources`,
+selected component directories and `.git`, and refuses `.git` files (including
+worktree metadata references). All selected paths are checked before the first Git call.
+Links and outside files are retained; use a fresh private cache rather than
+deleting or rewriting them. These are point-in-time checks, not a guarantee
+against concurrent ancestor/cache replacement. Keep the checkout exclusively
+under trusted operator control during preparation; native Windows junction and
+concurrent-race acceptance are not established by synthetic marker tests.
+
 ## Mapless source preparation (partial NM-3 increment)
 
 `python3 vardrsec.py sources --mapless` prepares only the existing exact Runner

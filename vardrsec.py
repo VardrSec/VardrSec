@@ -9,6 +9,7 @@ import re
 import secrets
 import shutil
 import ssl
+import stat
 import subprocess
 import sys
 
@@ -91,10 +92,31 @@ def configure():
     print("Created .env without displaying secrets. Keep it private and back it up.")
 
 
+def _refuse_source_link(path):
+    """Refuse observed links in the managed cache; not a concurrent-race guarantee."""
+    try:
+        info = path.lstat()
+    except (FileNotFoundError, NotADirectoryError):
+        return
+    if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+        raise ValueError("Linked source cache refused; preserve it and use a fresh source directory")
+
+
 def sources(*, mapless=False):
     require_command("git")
     manifest = json.loads((ROOT / "versions.json").read_text(encoding="utf-8"))
-    for name in (("runner", "gate") if mapless else ("map", "runner", "gate")):
+    names = ("runner", "gate") if mapless else ("map", "runner", "gate")
+    cache = ROOT / ".sources"
+    _refuse_source_link(cache)
+    # Inspect all selected paths before the first Git call, including .git files
+    # that redirect Git to an external worktree/metadata directory.
+    for name in names:
+        _refuse_source_link(cache / name)
+        metadata = cache / name / ".git"
+        _refuse_source_link(metadata)
+        if metadata.exists() and not metadata.is_dir():
+            raise ValueError("External Git metadata refused; preserve it and use a fresh source directory")
+    for name in names:
         item = manifest["components"][name]
         repo, revision = item["repository"], item["commit"]
         if (
