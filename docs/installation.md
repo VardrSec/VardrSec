@@ -2,6 +2,16 @@
 
 ## Quick start (source-built, not an official release)
 
+The fresh-install guard recognizes the default `<project>_database` and
+`<project>_runner-state` volume names, using `COMPOSE_PROJECT_NAME` from the process
+or `vardrsec` by default. Runner-only state is not an empty installation. Docker
+inventory failure/timeouts refuse before install steps; no volume contents are
+read or removed. This check does not discover custom volume mappings, project
+names stored only in other files, operator-selected evidence paths or unrelated
+native writers. It is not a Mapless-to-Full migration or backup/revocation
+reconciliation check. Preserve existing state and use a reviewed transition
+procedure rather than renaming/removing volumes to get past the guard.
+
 Tested on Ubuntu 24.04 amd64 with Docker, Compose, Python 3.10+ and Git already installed
 (`docker compose version` must work for your user). CI runs these steps on a clean hosted
 Ubuntu 24.04 machine; the unfamiliar-user, zero-prerequisite run has not been done.

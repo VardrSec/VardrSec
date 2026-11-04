@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Refuse fresh installation when the expected project Runner-state volume exists,
+  as already done for database state. Unavailable volume inventory now refuses
+  instead of being treated as empty. No volume contents, configuration or images
+  are changed by this check; custom state layouts and transition remain open.
+
 - Add bounded NM-1 hosted verification with explicit review-only companion SHAs,
   actual checkout/tree/dependency receipts, common issuance and guarded loopback
   execution, and existing Map/distribution regressions. Production source pins are

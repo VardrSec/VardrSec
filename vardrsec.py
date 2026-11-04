@@ -256,14 +256,21 @@ def runner_invocation(arguments):
 
 
 def has_installation_data():
-    """True once the database volume exists, i.e. the platform was started before."""
+    """Recognize default project data volumes; unknown inventory refuses installation."""
     project = os.environ.get("COMPOSE_PROJECT_NAME") or "vardrsec"
-    result = subprocess.run(
-        ["docker", "volume", "inspect", f"{project}_database"],
-        capture_output=True,
-        check=False,
-    )
-    return result.returncode == 0
+    try:
+        result = subprocess.run(
+            ["docker", "volume", "ls", "--format", "{{.Name}}"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise ValueError("Cannot inspect installation volumes; installation refused") from None
+    if result.returncode != 0:
+        raise ValueError("Cannot inspect installation volumes; installation refused")
+    return bool({f"{project}_database", f"{project}_runner-state"} & set(result.stdout.splitlines()))
 
 INSTALL_NEXT = """
 Installed. Remaining manual steps (they change your machine, so they are never automatic):
@@ -282,8 +289,8 @@ def dispatch(args, parser):
         # order, and refuses to run over an existing installation's credentials.
         # Safe to rerun after an interruption: an existing .env is kept (never
         # regenerated), source checkouts are resumed and never reset, and image builds
-        # reuse their cache. Once the database volume exists the platform has held
-        # data, so install refuses and start/update must be used instead.
+        # reuse their cache. A database or Runner-state volume may hold data;
+        # refuse installation rather than treat Runner-only state as empty.
         if has_installation_data():
             parser.error(
                 "This installation has been started before and may hold data. Use start, "
