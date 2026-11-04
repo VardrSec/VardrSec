@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add an unintegrated Mapless Compose model reusing the existing explicit Runner
+  toolkit and state layout without Map/PostgreSQL/secrets/trust dependencies.
+  Full files, component pins and lifecycle/recovery remain unchanged. This is
+  configuration preparation, not an accepted installer or installed transition.
+
 - Add bounded NM-1 hosted verification with explicit review-only companion SHAs,
   actual checkout/tree/dependency receipts, common issuance and guarded loopback
   execution, and existing Map/distribution regressions. Production source pins are

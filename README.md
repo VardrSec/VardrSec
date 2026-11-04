@@ -101,6 +101,10 @@ remain separate reviewed steps; this foundation publishes none of those artifact
 
 ## Development entry point
 
+An isolated [Mapless packaging model](docs/mapless-packaging.md) is available for
+read-only configuration review. It is not wired into the installer and does not
+establish a runnable Mapless release or verified state transition.
+
 `python vardrsec.py configure`, `sources`, `build`, `database-role`, `start`, `export-ca`,
 `bootstrap`, `doctor` and `stop` delegate lifecycle to Compose and diagnostics to
 Runner. `python vardrsec.py runner [--env NAME]... -- <command>` runs one Runner
