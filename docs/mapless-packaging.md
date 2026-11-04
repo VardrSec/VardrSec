@@ -64,3 +64,21 @@ recon/Gate/evidence journey with Map inaccessible, Full queue regression, Linux
 regression and installed transition without evidence loss. No new recon profile
 or discovered-target authorization is chosen here. Docker managed execution
 remains disabled/unsupported with its watchdog-hang failure intact.
+
+## Consolidated safeguard candidate
+
+The isolated consolidation includes source selection and Git-root/link checks
+through `047d1b2`, the fresh-install state guard `971844e`, and this dormant model
+`f8f5cc5`. Shared ancestors `8bae093` and `bd0827b` are retained once.
+
+Unit interactions verify that the model’s expected Runner-state volume name
+triggers refusal before install steps, source-only CLI dispatch prepares only
+the model’s Runner/Gate contexts, and Full Compose selection still uses
+`compose.yaml` plus the existing active-image override. Commands and volume
+inventory are mocked; these are not installed or Docker acceptance results.
+
+`--mapless` remains valid only for `sources`. This candidate changes no pins,
+recovery flow, launcher activation or execution support. Custom state mapping,
+concurrent-path safety, final cohort integration, native platform verification
+and installed transition remain open. Recon and the managed Docker worker remain
+disabled/unsupported; the failed watchdog security gate is unchanged.

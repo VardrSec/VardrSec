@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Consolidate existing source/Git-binding safeguards, fresh-install state refusal
+  and the dormant Mapless Compose model. Interaction tests preserve sources-only
+  Mapless dispatch and unchanged Full Compose/active-image selection. No installer
+  activation, component pin update or execution support is implied.
+
 - Refuse source repositories whose Git-resolved worktree, per-worktree metadata
   or common metadata root differs from the managed cache before fetch/checkout. Verify all existing
   selected caches before preparation and newly initialized bindings before fetch;
