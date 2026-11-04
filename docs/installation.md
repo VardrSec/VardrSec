@@ -1,5 +1,17 @@
 # Development Compose installation
 
+Source preparation also checks Git's read-only resolved worktree, absolute
+metadata directory and common metadata directory against each managed component
+directory and its `.git`. Shared `commondir` indirection outside it is refused.
+This refuses a plain `.git/config` with redirected `core.worktree`, not just
+filesystem links. Existing selected repositories are checked before preparation;
+newly initialized repositories are checked before fetch/checkout. Unavailable,
+malformed or mismatched binding observations refuse without rewriting config or
+touching outside files. Git/user configuration remains trusted operator input:
+this is not a sandbox for arbitrary hostile Git settings or concurrent mutation.
+The directory-query semantics are documented in
+[Git rev-parse](https://git-scm.com/docs/git-rev-parse).
+
 Managed source preparation refuses observed symlinks/reparse points at `.sources`,
 selected component directories and `.git`, and refuses `.git` files (including
 worktree metadata references). All selected paths are checked before the first Git call.

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Refuse source repositories whose Git-resolved worktree, per-worktree metadata
+  or common metadata root differs from the managed cache before fetch/checkout. Verify all existing
+  selected caches before preparation and newly initialized bindings before fetch;
+  preserve Git config and outside files. This does not sandbox arbitrary Git
+  configuration or provide concurrent replacement resistance.
+
 - Refuse observed symlink/reparse paths in `.sources`, selected component caches
   and their `.git` metadata before any Git call, for Full and Mapless preparation.
   Refuse external-worktree `.git` files in the managed cache. Preserve linked

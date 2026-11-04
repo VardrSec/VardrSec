@@ -42,6 +42,15 @@ class MaplessSourcesTests(unittest.TestCase):
             path, action = Path(args[2]), args[3]
             if action == "init":
                 (path / ".git").mkdir()
+            if action == "rev-parse" and "--show-toplevel" in args:
+                return subprocess.CompletedProcess(
+                    args,
+                    0,
+                    stdout=str(path.resolve())
+                    + "\n"
+                    + str((path / ".git").resolve())
+                    + "\n.git\n",
+                )
             return subprocess.CompletedProcess(args, 0, stdout="")
 
         with (
@@ -84,6 +93,14 @@ class MaplessSourcesTests(unittest.TestCase):
         (source / ".git").mkdir(parents=True)
         (source / "retained.txt").write_bytes(b"synthetic operator change")
         replies = [
+            subprocess.CompletedProcess(
+                [],
+                0,
+                stdout=str(source.resolve())
+                + "\n"
+                + str((source / ".git").resolve())
+                + "\n.git\n",
+            ),
             subprocess.CompletedProcess([], 0, stdout="a" * 40),
             subprocess.CompletedProcess([], 0, stdout=" M retained.txt"),
         ]
@@ -93,7 +110,7 @@ class MaplessSourcesTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "preserve it"):
                 vardrsec.sources(mapless=True)
-        self.assertEqual(command.call_count, 2)
+        self.assertEqual(command.call_count, 3)
         self.assertEqual(
             (source / "retained.txt").read_bytes(), b"synthetic operator change"
         )

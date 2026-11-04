@@ -69,13 +69,17 @@ class LifecycleTests(unittest.TestCase):
             (Path(directory) / "versions.json").write_text(json.dumps(manifest))
             (Path(directory) / ".sources" / "map").mkdir(parents=True)
             (Path(directory) / ".sources" / "map" / ".git").mkdir()
+            path = Path(directory) / ".sources" / "map"
             run.side_effect = [
+                subprocess.CompletedProcess(
+                    [], 0, stdout=str(path.resolve()) + "\n" + str((path / ".git").resolve()) + "\n.git\n"
+                ),
                 subprocess.CompletedProcess([], 0, stdout="a" * 40),
                 subprocess.CompletedProcess([], 0, stdout=" M work.py"),
             ]
             with self.assertRaisesRegex(ValueError, "preserve it"):
                 vardrsec.sources()
-            self.assertEqual(run.call_count, 2)
+            self.assertEqual(run.call_count, 3)
 
     def test_missing_git_fails_before_creating_an_incomplete_source_directory(self):
         with (
@@ -115,6 +119,10 @@ class LifecycleTests(unittest.TestCase):
                     failed = True
                     raise subprocess.CalledProcessError(128, args)
                 if action == "rev-parse":
+                    if "--show-toplevel" in args:
+                        return subprocess.CompletedProcess(
+                            args, 0, stdout=str(path.resolve()) + "\n" + str((path / ".git").resolve()) + "\n.git\n"
+                        )
                     return subprocess.CompletedProcess(args, 128, stdout="")
                 if action == "checkout":
                     checked_out.append(path.name)

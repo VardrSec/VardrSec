@@ -102,6 +102,24 @@ def _refuse_source_link(path):
         raise ValueError("Linked source cache refused; preserve it and use a fresh source directory")
 
 
+def _require_source_git_binding(path):
+    """Refuse observed Git worktree/metadata redirects without rewriting config."""
+    try:
+        result = run(
+            "git", "-C", str(path), "rev-parse", "--show-toplevel", "--absolute-git-dir", "--git-common-dir",
+            capture_output=True, text=True, check=False, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError("Cannot validate source Git binding; preserve the source directory") from None
+    reported = result.stdout.splitlines()
+    expected = (path.resolve(), (path / ".git").resolve())
+    if result.returncode != 0 or len(reported) != 3 or any(
+        not Path(value).is_absolute() or Path(value) != wanted
+        for value, wanted in zip(reported[:2], expected)
+    ) or Path(reported[2]) not in {Path(".git"), expected[1]}:
+        raise ValueError("Source Git binding differs from the managed cache; preserve the source directory")
+
+
 def sources(*, mapless=False):
     require_command("git")
     manifest = json.loads((ROOT / "versions.json").read_text(encoding="utf-8"))
@@ -116,6 +134,10 @@ def sources(*, mapless=False):
         _refuse_source_link(metadata)
         if metadata.exists() and not metadata.is_dir():
             raise ValueError("External Git metadata refused; preserve it and use a fresh source directory")
+    # Validate every existing repository before preparing any selected component.
+    for name in names:
+        if (cache / name / ".git").is_dir():
+            _require_source_git_binding(cache / name)
     for name in names:
         item = manifest["components"][name]
         repo, revision = item["repository"], item["commit"]
@@ -177,6 +199,7 @@ def sources(*, mapless=False):
                 )
             path.mkdir(parents=True, exist_ok=True)
             run("git", "-C", str(path), "init")
+            _require_source_git_binding(path)
         run(
             "git",
             "-C",
