@@ -106,6 +106,10 @@ to prepare only pinned Runner/Gate source caches. This is not yet a Mapless
 installer or verified installed transition; see [its limits](docs/installation.md#mapless-source-preparation-partial-nm-3-increment).
 Default Full preparation and lifecycle commands keep their existing behavior.
 
+An isolated [Mapless packaging model](docs/mapless-packaging.md) is available for
+read-only configuration review. It is not wired into the installer and does not
+establish a runnable Mapless release or verified state transition.
+
 `python vardrsec.py configure`, `sources`, `build`, `database-role`, `start`, `export-ca`,
 `bootstrap`, `doctor` and `stop` delegate lifecycle to Compose and diagnostics to
 Runner. `python vardrsec.py runner [--env NAME]... -- <command>` runs one Runner
