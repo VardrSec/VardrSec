@@ -1,5 +1,26 @@
 # Development Compose installation
 
+## Mapless source preparation (partial NM-3 increment)
+
+`python3 vardrsec.py sources --mapless` prepares only the existing exact Runner
+and Gate source pins. It needs Git and component-source access, but does not fetch
+Map, create `.env`, configure PostgreSQL, build/start containers or run tools.
+Existing different/dirty source caches are preserved and refused as before; an
+existing Map cache is not inspected or changed by this selection. Bare `sources`
+continues preparing Map, Runner and Gate for Full.
+
+The flag is currently valid only with `sources`; `install --mapless`, `build
+--mapless` and other lifecycle uses fail before acquiring the installation lock
+or changing files. Arguments after the `runner --` separator still belong to
+Runner and are not reinterpreted as distribution mode selection.
+
+This is not a runnable Mapless installation. Full/Mapless installer entrypoints,
+service/config selection, protected state binding, compatible reviewed component
+pins, backup/export and non-destructive installed transition remain open. Native
+Windows and Docker Desktop acceptance are separate; no unsupported execution
+fallback or background worker is introduced. Do not apply Full installation to
+an existing Mapless workspace and infer that its records or authority were migrated.
+
 ## Quick start (source-built, not an official release)
 
 Tested on Ubuntu 24.04 amd64 with Docker, Compose, Python 3.10+ and Git already installed

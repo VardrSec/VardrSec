@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add `sources --mapless` to prepare only pinned Runner and Gate sources through
+  the existing non-destructive source preparation. Default Full selection remains
+  unchanged; other lifecycle actions reject the flag. This is source preparation,
+  not a Mapless installer, execution path, image-pin update or installed transition.
+
 - Add bounded NM-1 hosted verification with explicit review-only companion SHAs,
   actual checkout/tree/dependency receipts, common issuance and guarded loopback
   execution, and existing Map/distribution regressions. Production source pins are

@@ -91,10 +91,10 @@ def configure():
     print("Created .env without displaying secrets. Keep it private and back it up.")
 
 
-def sources():
+def sources(*, mapless=False):
     require_command("git")
     manifest = json.loads((ROOT / "versions.json").read_text(encoding="utf-8"))
-    for name in ("map", "runner", "gate"):
+    for name in (("runner", "gate") if mapless else ("map", "runner", "gate")):
         item = manifest["components"][name]
         repo, revision = item["repository"], item["commit"]
         if (
@@ -203,6 +203,11 @@ def main():
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--recipient")
     parser.add_argument("--identity", type=Path)
+    parser.add_argument(
+        "--mapless",
+        action="store_true",
+        help="With sources only, prepare Runner and Gate without fetching Map (not a Mapless install)",
+    )
     args, extra = parser.parse_known_args()
     if args.action == "runner":
         # Everything after `--` belongs to Runner, so none of its options can be
@@ -217,6 +222,10 @@ def main():
         parser.error("unrecognized arguments: " + " ".join(extra))
     if args.generate_password and args.action != "bootstrap":
         parser.error("--generate-password is only valid with bootstrap")
+    if args.mapless and args.action != "sources":
+        parser.error(
+            "--mapless is currently only valid with sources; Mapless installation is not implemented"
+        )
     if args.action in ("update", "cancel-update"):
         return dispatch(args, parser)
     import updater
@@ -312,7 +321,7 @@ def dispatch(args, parser):
     elif args.action == "configure":
         configure()
     elif args.action == "sources":
-        sources()
+        sources(mapless=getattr(args, "mapless", False))
     elif args.action == "build":
         build_prerequisites()
         compose("--profile", "tools", "build")

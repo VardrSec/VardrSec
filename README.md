@@ -101,6 +101,11 @@ remain separate reviewed steps; this foundation publishes none of those artifact
 
 ## Development entry point
 
+The NM-3 source-selection increment adds `python3 vardrsec.py sources --mapless`
+to prepare only pinned Runner/Gate source caches. This is not yet a Mapless
+installer or verified installed transition; see [its limits](docs/installation.md#mapless-source-preparation-partial-nm-3-increment).
+Default Full preparation and lifecycle commands keep their existing behavior.
+
 `python vardrsec.py configure`, `sources`, `build`, `database-role`, `start`, `export-ca`,
 `bootstrap`, `doctor` and `stop` delegate lifecycle to Compose and diagnostics to
 Runner. `python vardrsec.py runner [--env NAME]... -- <command>` runs one Runner
