@@ -1,0 +1,62 @@
+name: NM-3 Full encrypted recovery verification
+# Isolated synthetic verification under the owner's CI-branch authorization.
+on:
+  push:
+    branches: [codex/nm3-encrypted-recovery-verification]
+permissions:
+  contents: read
+jobs:
+  full-fresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Verify and build official pinned age tooling
+        env:
+          GOBIN: ${{ runner.temp }}/age-bin
+          GOTOOLCHAIN: local
+          GODEBUG: http2client=0
+          GOPROXY: https://proxy.golang.org
+          GOSUMDB: sum.golang.org
+          GOPRIVATE: ''
+          GONOSUMDB: ''
+        run: |
+          set -euo pipefail
+          go mod download -json filippo.io/age@v1.3.2 > "$RUNNER_TEMP/age-module.json"
+          python - <<'PYVERIFY'
+          import json, os
+          from pathlib import Path
+          module = json.loads((Path(os.environ['RUNNER_TEMP']) / 'age-module.json').read_text())
+          assert module['Path'] == 'filippo.io/age' and module['Version'] == 'v1.3.2'
+          assert module['Sum'] == 'h1:r6RSZLFSMm6rzKepZ7ZAYkKCu14f3/Me8c7uKYh7C8c='
+          assert module['GoModSum'] == 'h1:TH/Yr2sSRhCKbaH4XPxpUV0Us8Gv6txYUpiZQWz8Evk='
+          assert module['Origin']['URL'] == 'https://github.com/FiloSottile/age'
+          assert module['Origin']['Hash'] == 'b74dce4cdbe35b5e5f66c06d9612b72f89028758'
+          PYVERIFY
+          mkdir -p "$GOBIN"
+          go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
+          test "$("$GOBIN/age" --version)" = 'v1.3.2'
+          echo "$GOBIN" >> "$GITHUB_PATH"
+      - name: Verify fresh install, retained backup/restore and restored-state install refusal
+        run: python tests/nm3_full_install_ci.py --preservation
+      - name: Retain only sanitized public receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: nm3-full-encrypted-receipt
+          path: ${{ runner.temp }}/nm3-full-fresh/public/receipt.json
+          if-no-files-found: warn
+          retention-days: 7
+      # Backup quiesces source apps; recovery helpers auto-remove temporary containers.
+      # No fixture down/prune, named-volume/data/CA deletion or private-output upload.
+      # The hosted platform disposes of the fresh VM after the job.

@@ -8,6 +8,7 @@ import sys
 import nm3_full_install_ci as ci
 sys.path.insert(0, str(ci.SOURCE))
 import recovery
+import backup_crypto
 
 RESTORE_PROJECT = 'vardrsec-restore-nm3-guard'
 FLAGS = {'backup_validated', 'restore_fingerprints_verified', 'restored_install_refused',
@@ -85,7 +86,63 @@ def bundled_restore(backup, restored):
     ci.require(recovery.validate(backup) == metadata)
 
 
-def exercise(root, private):
+
+ENCRYPTED_FLAGS = {'encrypted_roundtrip_verified', 'wrong_identity_refused',
+                   'truncated_ciphertext_refused', 'tampered_ciphertext_refused'}
+
+
+def encrypted_roundtrip(backup, private):
+    # All key material remains in the mode-0700 private VM directory. Commands
+    # capture stdout/stderr; neither keys nor recipients enter public receipts.
+    identity, wrong = private / 'identity.txt', private / 'wrong-identity.txt'
+    for path in (identity, wrong):
+        ci.require(not os.path.lexists(path))
+        result = subprocess.run(['age-keygen', '-o', str(path)], capture_output=True, timeout=30)
+        ci.require(result.returncode == 0)
+        path.chmod(0o600)
+    recipient = ci.capture(['age-keygen', '-y', str(identity)]).strip()
+    sealed = private / 'snapshot.age'
+    backup_crypto.seal(backup, sealed, recipient, announce=False)
+    ci.require(sealed.stat().st_mode & 0o777 == 0o600)
+    original_digest = recovery.digest(sealed)
+    # Retain the original ciphertext and create separate damaged synthetic copies.
+    import shutil
+    damaged = []
+    for label in ('truncated', 'tampered'):
+        target = private / (label + '.age')
+        with sealed.open('rb') as source, target.open('xb') as output:
+            target.chmod(0o600)
+            shutil.copyfileobj(source, output)
+        with target.open('r+b') as output:
+            if label == 'truncated':
+                output.truncate(target.stat().st_size - 32)
+            else:
+                output.seek(-1, 2)
+                last = output.read(1)
+                output.seek(-1, 2)
+                output.write(bytes([last[0] ^ 1]))
+        damaged.append(target)
+    for label, package, key in [('wrong-key', sealed, wrong),
+                                ('truncated', damaged[0], identity),
+                                ('tampered', damaged[1], identity)]:
+        destination = private / ('rejected-' + label)
+        ci.require(not os.path.lexists(destination))
+        try:
+            backup_crypto.unseal(package, destination, key)
+        except ValueError:
+            pass
+        else:
+            raise ValueError('Invalid encrypted package accepted')
+        ci.require(not os.path.lexists(destination))
+        ci.require(not list(private.glob('.vardrsec-unseal-*')))
+    unsealed = private / 'unsealed'
+    backup_crypto.unseal(sealed, unsealed, identity)
+    ci.require(recovery.validate(unsealed) == recovery.validate(backup))
+    ci.require(recovery.digest(sealed) == original_digest)
+    return unsealed
+
+
+def exercise(root, private, encrypted=False):
     backup, restored = private / 'backup', private / 'restored'
     ci.require(not any(os.path.lexists(path) for path in (backup, restored)))
     # Reuse NM-2's conservative image/copy capacity estimate, with no pruning.
@@ -93,7 +150,10 @@ def exercise(root, private):
                                     capture_output=True, text=True).stdout.strip())
                 for tag in ('vardrsec-db:development', 'vardrmap-api:development',
                             'vardrmap-web:development', 'vardrsec-proxy:development', 'vardrrunner:development'))
-    ci.require(ci.shutil.disk_usage(private).free >= 4 * total + 2 * 1024**3)
+    # Encryption retains the original, three ciphertexts and unsealed bundle;
+    # reserve additional space for private authentication staging and restore.
+    multiplier = 8 if encrypted else 4
+    ci.require(ci.shutil.disk_usage(private).free >= multiplier * total + 2 * 1024**3)
     # Add only explicit synthetic rows/sequence in the owned fixture database.
     recovery.sql(root, "CREATE TABLE nm3_guard_fixture(id bigserial PRIMARY KEY, note text NOT NULL); "
                        "INSERT INTO nm3_guard_fixture(note) VALUES ('synthetic-one'),('synthetic-two')")
@@ -102,7 +162,8 @@ def exercise(root, private):
     source_before = state(root, 'nm3-full-fixture')
     ci.require(source_before['database'] == snapshot['database'])
     ci.require(source_before['volumes'] == snapshot['volumes'])
-    bundled_restore(backup, restored)
+    recovered = encrypted_roundtrip(backup, private) if encrypted else backup
+    bundled_restore(recovered, restored)
     restored_before = state(restored, RESTORE_PROJECT)
     ci.require(restored_before['database'] == snapshot['database'])
     ci.require(restored_before['volumes'] == snapshot['volumes'])
@@ -121,7 +182,7 @@ def exercise(root, private):
     # The image override is separate from FILES and must also remain as restored.
     active = json.loads((restored / '.active-images.json').read_text())
     ci.require(active == {'services': {name: {'image': image} for name, image in snapshot['images'].items()}})
-    return {name: True for name in sorted(FLAGS)}
+    return {name: True for name in sorted(FLAGS | (ENCRYPTED_FLAGS if encrypted else set()))}
 
 
 def main():
@@ -136,7 +197,8 @@ def main():
     ci.host_guard({k: v for k, v in env.items() if k not in
                    {'DOCKER_HOST', 'DOCKER_CONFIG', 'COMPOSE_PROJECT_NAME'}}, preservation=True)
     ci.require(Path.cwd() == fixture)
-    result = exercise(fixture, private)
+    ci.require(sys.argv[1:] == ['--encrypted'])
+    result = exercise(fixture, private, encrypted=True)
     with (private / 'preservation.json').open('x') as output:
         json.dump(result, output); output.write('\n')
 
