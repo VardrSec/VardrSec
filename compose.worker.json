@@ -1,0 +1,44 @@
+{
+  "services": {
+    "managed-worker": {
+      "profiles": ["managed-worker"],
+      "image": "${VARDRSEC_WORKER_IMAGE:?Select the reviewed immutable worker image}",
+      "pull_policy": "never",
+      "user": "0:0",
+      "entrypoint": ["/usr/local/bin/vardr-worker-owner"],
+      "command": [],
+      "init": false,
+      "restart": "no",
+      "read_only": true,
+      "ipc": "private",
+      "cap_drop": ["ALL"],
+      "cap_add": ["SETUID", "SETGID", "SETPCAP"],
+      "security_opt": ["no-new-privileges:true"],
+      "pids_limit": 64,
+      "mem_limit": "512m",
+      "cpus": 1.0,
+      "labels": {"io.vardrsec.managed-worker": "1"},
+      "healthcheck": {"disable": true},
+      "environment": {
+        "VARDRMAP_URL": "https://vardrsec.localhost:${HTTPS_PORT:-8443}/backend",
+        "VARDRMAP_API_KEY": "${VARDRMAP_API_KEY:?Explicitly configure the enrolled Runner key}",
+        "REQUESTS_CA_BUNDLE": "/trust/root.crt",
+        "VARDRRUNNER_WORKER_DURATION_SECONDS": "${VARDRRUNNER_WORKER_DURATION_SECONDS:-30}",
+        "VARDRRUNNER_WORKER_WAIT_SECONDS": "${VARDRRUNNER_WORKER_WAIT_SECONDS:-30}",
+        "VARDRRUNNER_WORKER_ADMISSION_WAIT_SECONDS": "${VARDRRUNNER_WORKER_ADMISSION_WAIT_SECONDS:-60}",
+        "VARDRRUNNER_WORKER_CREDENTIAL_ENV": "${VARDRRUNNER_WORKER_CREDENTIAL_ENV:-}"
+      },
+      "env_file": ["${VARDRSEC_WORKER_CREDENTIAL_FILE:?Select an explicit private worker-only environment file}"],
+      "volumes": [
+        {"type": "volume", "source": "runner-state", "target": "/home/runner/.vardrmap"},
+        {"type": "bind", "source": "./trust", "target": "/trust", "read_only": true, "bind": {"create_host_path": false}},
+        {"type": "bind", "source": "${VARDRSEC_WORKER_PUBLIC_DIR:?Select the public admission directory}", "target": "/run/vardr-worker-admission", "read_only": true, "bind": {"create_host_path": false}}
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=67108864,uid=10001,gid=10001,mode=0700",
+        "/run/vardr-worker-ready:rw,noexec,nosuid,nodev,size=65536,uid=10000,gid=10000,mode=0700"
+      ],
+      "networks": ["runner"]
+    }
+  }
+}

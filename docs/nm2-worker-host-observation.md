@@ -4,6 +4,20 @@ Status: inactive library increment under the owner's bounded ADR 0043 developmen
 authorization. NM-2 acceptance remains open. Ordinary startup and the shipped Full
 and Mapless Compose definitions are unchanged.
 
+`compose.worker.json` is the separate inactive candidate overlay. It declares the
+reviewed worker-only bootstrap, finite resource bounds, retained no-restart state
+and exact writable paths. It requires an explicitly selected local image, enrolled
+key, public admission directory and private worker-only environment file. Existing
+API signing configuration, runtime admission, enable/stop/reconciliation commands
+and actual integrated acceptance must be completed before this is a usable worker
+deployment. The overlay is not loaded by ordinary distribution commands.
+
+The worker-only environment file supplies explicitly declared local credential
+references and existing profile limits. Never use the installation `.env` or
+export a host credential store there. The native bootstrap retains only its finite
+reviewed environment and declared credential names; this declaration creates no
+grant or approval. Keep raw STOP capability custody entirely separate.
+
 `worker_runtime.LocalDocker` selects an explicit **local** Docker context, verifies
 the daemon ID and full container/image/owner identity, the private PID namespace,
 approved bootstrap capabilities and retained no-restart configuration. It waits

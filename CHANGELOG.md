@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an inactive, explicitly selected worker Compose overlay with retained
+  no-restart state, finite resource limits and the reviewed writable paths. API
+  wiring, enable/stop/recovery commands and actual worker acceptance remain open;
+  normal Full/Mapless startup is unchanged.
 - Bind worker runtime observations to the fixed entrypoint, read-only image and
   exact reviewed data mounts; reject code/socket overrides and exec health checks.
   Derive fresh owner readiness through direct bounded Docker archive reads and

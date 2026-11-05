@@ -236,10 +236,10 @@ class LocalDocker:
                 == {"SETUID", "SETGID", "SETPCAP"}
                 and {v.upper().removeprefix("CAP_") for v in host["cap_drop"]}
                 == {"ALL"}
-                and any(
-                    v in {"no-new-privileges", "no-new-privileges:true"}
-                    for v in host["security"]
-                )
+                and type(host["security"]) is list
+                and len(host["security"]) == 1
+                and host["security"][0]
+                in {"no-new-privileges", "no-new-privileges:true"}
                 and state["StartedAt"] == identity.started_at
                 and type(state["Restarting"]) is bool
                 and type(state["Running"]) is bool
