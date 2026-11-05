@@ -26,7 +26,7 @@ class HostedGuardTests(unittest.TestCase):
              patch.object(Path, 'stat', return_value=SimpleNamespace(st_mode=stat.S_IFSOCK, st_uid=0)):
             ci.host_guard(self.environment())
             preservation_env = {**self.environment(), 'GITHUB_REF':
-                                'refs/heads/codex/nm3-bundled-recovery-verification'}
+                                'refs/heads/codex/nm3-full-update-verification'}
             ci.host_guard(preservation_env, preservation=True)
             with self.assertRaises(ValueError):
                 ci.host_guard(preservation_env)
@@ -100,8 +100,8 @@ class HostedGuardTests(unittest.TestCase):
                         self.assertEqual((destination / 'versions.json').read_bytes(), (source / 'versions.json').read_bytes())
 
     def test_workflow_is_branch_only_and_artifact_path_is_exact(self):
-        workflow = (ci.SOURCE / '.github/workflows/nm3-full-bundled-recovery.yml').read_text()
-        self.assertIn('branches: [codex/nm3-bundled-recovery-verification]', workflow)
+        workflow = (ci.SOURCE / '.github/workflows/nm3-full-update.yml').read_text()
+        self.assertIn('branches: [codex/nm3-full-update-verification]', workflow)
         self.assertNotIn('pull_request:', workflow)
         self.assertNotIn('workflow_dispatch:', workflow)
         self.assertIn('runs-on: ubuntu-24.04', workflow)
