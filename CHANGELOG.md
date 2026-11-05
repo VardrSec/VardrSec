@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add inactive host-only worker exit-observation and STOP-secret custody helpers.
+  Observe the exact local daemon/container incarnation through bounded wait and
+  repeated inspection; ambiguous exits remain held. Windows uses its existing
+  per-user Credential Manager, Linux exclusive owner-only files. No service,
+  worker startup, execution privilege or server release is enabled by these helpers.
 - Close the original NM-1 foundation/prototype and early Desktop-feasibility gate:
   retain exact-source conformance, the measured two-case Windows manual workflow
   and the Docker-preferred/native-compatible decision. VPN, managed-worker and
