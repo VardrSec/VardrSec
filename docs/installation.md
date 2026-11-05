@@ -45,9 +45,10 @@ an existing Mapless workspace and infer that its records or authority were migra
 ## Quick start (source-built, not an official release)
 
 The fresh-install guard asks the existing Compose frontend to resolve the selected
-Full model with all profiles and `--no-interpolate`. Compose determines the project
+Full model with all profiles and normal interpolation, as used by installation.
+Compose determines the project
 identity, including `.env` and process overrides; the guard does not parse `.env`
-or provide placeholder secrets. Trusted Compose may read configuration and service
+or provide placeholder secrets. Trusted Compose reads/interpolates configuration and service
 environment files internally. Its output and errors are captured, never printed or
 saved by the guard. Missing configuration, resolver failure, malformed output and
 unsupported mappings refuse before installation steps or volume inventory.
@@ -58,8 +59,11 @@ read-only trust/Caddyfile binds. Custom volume names, external/driver mappings,
 additional mounts/services and unresolved paths refuse. The dormant Mapless model
 is not activated. Existing `.env` files are preserved and an interrupted installation
 can still resume when the selected supported model resolves and no database or
-Runner-state volume is observed. If resolution fails before secrets exist, installation
-refuses; do not bypass this by supplying fabricated secrets.
+Runner-state volume is observed. A brand-new checkout without required secrets now refuses before `configure`: this
+candidate does not yet preserve the one-command fresh-install journey. An existing
+configuration missing required variables also refuses. Do not bypass these refusals
+by supplying fabricated secrets. Fresh-install configuration ordering is an open
+acceptance requirement; no configuration is created by this guard.
 
 The subsequent bounded Docker inventory checks the resolved database and Runner-state
 volume names without reading contents. Inventory failures refuse. Absence of those

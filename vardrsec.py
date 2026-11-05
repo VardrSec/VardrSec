@@ -310,7 +310,7 @@ def runner_invocation(arguments):
 
 
 def installation_volume_names():
-    """Resolve the existing Full layout without interpolating application secrets.
+    """Resolve the existing Full layout with installation interpolation semantics.
 
     Compose remains the trusted configuration reader. Never surface its output:
     env_file and literal configuration may still contain secrets. This validates
@@ -319,7 +319,7 @@ def installation_volume_names():
     error = "Cannot resolve supported installation state mappings; installation refused"
     try:
         result = compose(
-            "--profile", "*", "config", "--no-interpolate", "--format", "json",
+            "--profile", "*", "config", "--format", "json",
             capture_output=True, text=True, check=False, timeout=30,
         )
         if result.returncode != 0:

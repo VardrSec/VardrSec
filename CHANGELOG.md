@@ -3,10 +3,12 @@
 ## Unreleased
 
 - Resolve fresh-install project identity through the existing Compose frontend,
-  including `.env` project selection, without interpolating application secrets.
+  including `.env` project selection, using the same interpolation as installation.
   Refuse unresolved or unsupported state mappings before volume inventory and
   install steps; suppress resolver output/errors and preserve supported resume.
-  Synthetic checks only: no installed no-loss or concurrent-state guarantee.
+  Missing required secrets refuse before configuration; the one-command fresh-install
+  journey remains an acceptance gap. Synthetic checks only: no installed no-loss
+  or concurrent-state guarantee.
 
 - Consolidate existing source/Git-binding safeguards, fresh-install state refusal
   and the dormant Mapless Compose model. Interaction tests preserve sources-only
