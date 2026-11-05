@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Close the original NM-1 foundation/prototype and early Desktop-feasibility gate:
+  retain exact-source conformance, the measured two-case Windows manual workflow
+  and the Docker-preferred/native-compatible decision. VPN, managed-worker and
+  final Full/Mapless certification remain in their original later gates. Record
+  the separate owner-approved NM-2 development exception without enabling it.
 - Preserve the NM-3 baseline and move implementation priority to the original
   NM-1/NM-2 exits. Add explicit cross-origin permission-equivalence proof and a
   closeout control record. Owner-authorized managed-worker guidance does not

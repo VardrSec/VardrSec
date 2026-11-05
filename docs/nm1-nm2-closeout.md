@@ -2,7 +2,9 @@
 
 Owner instruction, 2026-11-05: close the original NM-1 and NM-2 gaps before
 continuing NM-3. This changes implementation priority, not the accepted roadmap
-or any safety gate. No phase is declared complete by this control record.
+or any safety gate. NM-1's original foundation/prototype and early-feasibility
+exit closed on 2026-11-05; [the reviewed evidence](nm1-closeout-evidence.md)
+records its exact scope. NM-2 remains open and NM-3 development remains paused.
 
 ## Preserved NM-3 baseline
 

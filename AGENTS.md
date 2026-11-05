@@ -27,6 +27,10 @@ roadmap into instruction files.
   least privilege, tested containment and an observable disable/stop lifecycle.
   Do not interpret this authorization as permission to waive a safety gate,
   introduce a replacement service or change the container privilege baseline.
+  The subsequent explicit owner decision (2026-11-05), recorded in Runner ADR 0043,
+  permits that worker-only temporary UID-0/SETUID/SETGID/SETPCAP bootstrap and
+  protected host stop-report implementation/testing. Steady-state capability sets
+  must be empty; ordinary Runner, default-off behavior and acceptance gates remain.
 - Never commit credentials, local environment files, private engagement data, tool
   output or machine-specific paths.
 - No force-push, history rewrite, release, tag, image publication, licensing change or
