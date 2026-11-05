@@ -5,7 +5,9 @@ GitHub-hosted Ubuntu 24.04/amd64 VM in
 [run 42103819846](https://github.com/VardrSec/VardrSec/actions/runs/42103819846)
 at workflow commit `2af5fd8300774434363d9701c321d7ba0c04096a`.
 This is development evidence for the exact cohort below, not Community release
-acceptance. Installed assessment and recovery verification are the next increment.
+acceptance. The installed lifecycle extension also passed in
+[run 42107206619](https://github.com/VardrSec/VardrSec/actions/runs/42107206619)
+at workflow commit `9176b8cde9c83bec5a6109c7b6d1f754a9a0bc08`.
 This reuses the branch-only Full harness from `ae19579f18f22da030a0abaa84938d4d44f1faa6`.
 It runs only on a fresh GitHub-hosted Ubuntu 24.04/amd64 VM for a push to
 `codex/nm3-community-full-verification`. Never invoke it against an operator daemon.
@@ -24,7 +26,9 @@ base pins, copies only the exact distribution candidate's tracked files, and
 changes component commits only in the private disposable fixture. It records
 the fixture manifest hash and checks every acquired component commit and tree.
 The candidate must be an ancestor of the workflow head; candidate source changes
-are refused. A changed changelog is replaced with the candidate's original text.
+are refused. Changed documentation and changelog files are replaced with the
+candidate's original text in the private fixture. Evidence-only pushes skip the
+expensive Full rebuild; runtime or test-harness changes do not.
 
 Before installation, the selected Gate correction passed 791 native Windows
 test/subtest checks across 21 packages, native vet/build, and 791 Linux race
@@ -73,15 +77,16 @@ The receipt confirms every check in this boundary and verifies the expected
 service set before and after diagnostics. No raw logs, credentials or private
 fixture files were uploaded.
 
-This does not establish an installed authorized assessment, UI workflow, recovery,
-upgrade/no-loss transition, Mapless installation, native Windows or Docker Desktop
-acceptance. Journal/snapshot safety and controlled Docker execution retain their
-separate gates. These requirements remain in the [acceptance ledger](new-moon-acceptance.md).
+That first run alone does not establish installed assessment or recovery; the
+extension below supplies its own evidence. Upgrade/no-loss transition, Mapless,
+complete Windows/Docker Desktop acceptance, journal/snapshot safety and controlled
+Docker execution retain their separate gates in the
+[acceptance ledger](new-moon-acceptance.md).
 No merge, release, publication or deployment is authorized by this verification.
 
 ## Installed lifecycle extension
 
-The next hosted run uses `--installed-lifecycle` on the same fresh-host guard and
+The extended hosted run uses `--installed-lifecycle` on the same fresh-host guard and
 source cohort. The existing browser journey owns first-account bootstrap and key
 creation; it is not run after the separate smoke bootstrap, which would change
 that first-run condition. The unchanged installed workflow exercises reviewed
@@ -99,4 +104,13 @@ The original source installation remains stopped and retained after backup.
 Browser output, assessment receipts, credentials, the age identity, encrypted
 package and restored data remain private on the disposable VM. Only whitelisted
 stage names, failure codes and completed-check booleans may enter the public
-receipt. This extension is prepared for execution; it has not yet passed.
+receipt. Run `42107206619` passed all 179 host-side tests without skips and the
+complete installed lifecycle chain. Its sanitized receipt confirms every listed
+check, successful installer exit and lifecycle completion. The source database,
+all three source state-volume fingerprints and original CA remained unchanged
+after restoring into the separate installation.
+
+The public receipts are retained in Git because the CI artifact retention is
+seven days: [installation](evidence/nm3-full-42103819846.json) and
+[installed lifecycle](evidence/nm3-full-42107206619.json). These are recorded
+development observations, not independent attestations or release approval.

@@ -108,12 +108,40 @@ steps, CA-validated HTTPS, local login, CSRF rejection without mutation, scoped
 Runner key issuance, database/migration readiness and authenticated diagnostics.
 Only database, API, web and proxy services ran before and after those checks.
 
-This establishes the installation/authorization boundary for that development
-cohort. It does not establish installed assessment, recovery, Mapless, Windows
-Docker Desktop or managed-worker acceptance. The next isolated extension reuses
-the browser/Gate/evidence workflow and encrypted recovery on that same cohort;
+The extended [run 42107206619](https://github.com/VardrSec/VardrSec/actions/runs/42107206619)
+also passed all 179 host-side tests without skips, the real browser login/scoped-key
+journey, six installed reviewed Gate cases, hashed evidence, write/readback and
+retest/report history, stop/start retention, encrypted backup, authenticated unseal
+and bundled restore into a separate project. Exact image IDs, schema
+`0038managedstops`, original database and three volume fingerprints, original CA,
+restored Runner state/evidence, password-reset session revocation and authenticated
+restored diagnostics passed. No background Runner service started.
+
+This establishes those Full installation/assessment/recovery boundaries for the
+exact development cohort on the tested hosted Linux platform. Mapless, complete
+Windows Docker Desktop, managed-worker, upgrade/no-loss transition and active
+authority-restoration acceptance remain open;
 see [the exact sources and acceptance boundary](nm3-community-full-verification.md).
 Production component pins remain unchanged.
+
+The same source cohort also passed a separately scoped actual Windows 11 Docker
+Desktop feasibility trial: all five toolkit-cohort images built under unique
+tags, trusted HTTPS/login/scoped-key diagnostics passed, and offline workspace
+metadata persisted across separate containers. Services stopped with state
+retained; original containers and image tags remained unchanged. This used a
+private image/resource override, not canonical `install`. Windows installer,
+Gate/recon, Mapless and recovery acceptance remain open; see
+[the measured boundary](nm3-windows-desktop-feasibility.md).
+Four real native Windows `age` file-crypto cases subsequently passed without
+skips. Installed Windows backup/recovery did not start: a retained-network
+invariant refused an unexplained engine inventory change. Its refusal receipt
+is separate from the earlier passing lifecycle result; no guard was waived.
+
+Standalone authoring still lacks an operator-facing context preparation step and
+fresh key/trust provisioning. The existing file CLI already signs approvals and
+issues contracts; the next usability increment should reuse those paths rather
+than add another signer or enrollment service. The execution consumer must stay
+separate from private issuance.
 
 ## Experimental work, not accepted capabilities
 
@@ -136,7 +164,7 @@ safety across supported platforms. No snapshot flag or product API was added.
 |---|---|---|
 | NM-1 | Substantial reusable groundwork; full exit not reaccepted by this ledger. | Shared contract/negative fixtures and deployment-feasibility decision tied to exact source. |
 | NM-2 | Bounded Community baseline retained; original exit remains open. | Safe operator-enabled Compose worker, cancellation, disconnect/restart, grants and budgets. |
-| NM-3 | Development implementation with fresh native evidence; incomplete. | Full and Mapless installation, authorized recon plus reviewed Gate, evidence/export, independent CLI, no-loss transition/recovery, Windows/Docker and Linux acceptance. |
+| NM-3 | Fresh Linux Full installed assessment/recovery and native/Windows feasibility evidence; incomplete. | Complete Full/Mapless installation, authorized recon plus reviewed Gate, independent operator CLI, no-loss transition, Windows/Docker and cross-platform acceptance. |
 | NM-4 | Sequenced after usable execution/distribution; still required. | Reviewed authorization coverage, assisted cases, structured provenance and bounded AI capabilities. |
 | NM-5 | Final integrated acceptance remains open. | Independent benchmarks, frozen-cohort install/network/recovery matrix, supply-chain review and owner release decision. |
 
@@ -153,9 +181,9 @@ gap in the existing components before implementation.
 ## Next acceptance sequence
 
 1. Close POSIX/container containment and consistent non-mutating snapshot gates.
-2. Extend the passing fresh Full install through installed assessment/evidence and
-   encrypted recovery; use an isolated host so image tags cannot affect retained
-   projects. Run a separately scoped actual Windows Docker Desktop feasibility trial.
+2. Build on the passing Linux Full installed assessment/recovery and actual Windows
+   Docker Desktop feasibility. Complete Windows recovery and canonical installation,
+   preserving retained images/state and the remaining controlled-execution gates.
 3. Advance distribution pins only with the reviewed installed-acceptance evidence.
 4. Demonstrate Mapless install → authorize → recon → reviewed Gate → export/restart
    with Map inaccessible, and Full installation → approved queue → cancel/recover.

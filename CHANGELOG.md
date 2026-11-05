@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Record passing fresh hosted Full browser, reviewed assessment, evidence/report,
+  restart and encrypted restore checks at the exact development cohort. All 179
+  host-side tests passed without skips; archive only the sanitized public receipts.
+  Full/Mapless platform, controlled execution and release gates remain explicit.
+
+- Record actual Windows 11 Docker Desktop toolkit build, trusted authentication,
+  scoped diagnostics and offline workspace metadata persistence under a private
+  image/resource override. Canonical Windows install, execution and recovery remain
+  open; retained engine state and production pins were preserved.
+  Record four passing native age file-crypto cases separately from the installed
+  recovery extension, which refused an unexplained network inventory change.
+
 - Extend isolated Full verification through the existing browser, explicit Gate,
   evidence/report, restart and encrypted recovery workflows. Check the selected
   schema and preserve source-state fingerprints; upload only fixed diagnostics.
