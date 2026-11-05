@@ -59,11 +59,31 @@ read-only trust/Caddyfile binds. Custom volume names, external/driver mappings,
 additional mounts/services and unresolved paths refuse. The dormant Mapless model
 is not activated. Existing `.env` files are preserved and an interrupted installation
 can still resume when the selected supported model resolves and no database or
-Runner-state volume is observed. A brand-new checkout without required secrets now refuses before `configure`: this
-candidate does not yet preserve the one-command fresh-install journey. An existing
-configuration missing required variables also refuses. Do not bypass these refusals
-by supplying fabricated secrets. Fresh-install configuration ordering is an open
-acceptance requirement; no configuration is created by this guard.
+Runner-state volume is observed.
+
+For a fresh checkout without `.env`, one-command Full installation is restricted to
+this revision's exact shipped `compose.yaml` (LF or CRLF) without an active-image
+override. Alternate `COMPOSE_*` settings are refused except `COMPOSE_PROJECT_NAME`.
+Custom layouts receive a refusal with recovery/clean-checkout instructions; do not
+remove configuration or volumes to bypass it. Configured recovery and update paths
+are unchanged.
+
+The installer generates the normal configuration once in memory. Preflight supplies
+these prospective defaults to trusted Compose while preserving process-variable
+precedence. It resolves and checks the standard state mappings and inventories the
+expected volumes before creating `.env` or `trust`. Only after a successful check
+does the existing exclusive writer persist those same generated values. The process
+environment is not changed. Observed layout/configuration changes refuse; exclusive
+creation never overwrites a newly appeared `.env`. This does not prevent arbitrary
+concurrent writers or prove absence of other/native/external state.
+
+The standard-layout fingerprint is a compatibility boundary, not a signature or
+hostile-file sandbox. Changes to the shipped model require coordinated review.
+Interrupted installs with complete existing configuration retain the normal resume
+path; incomplete required configuration still refuses rather than regenerating keys.
+Mapless one-command installation remains gated on compatible component pins and a
+supported standalone execution platform; the dormant Linux Compose model is not a
+substitute for the Windows-only controlled Gate path.
 
 The subsequent bounded Docker inventory checks the resolved database and Runner-state
 volume names without reading contents. Inventory failures refuse. Absence of those

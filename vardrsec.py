@@ -70,9 +70,46 @@ def compose(*args, **kwargs):
     return run("docker", "compose", *flags, *args, **kwargs)
 
 
-def configure():
+# Exact shipped Full model, normalized for checkout line endings. Updating the
+# model requires reviewing this fresh-install boundary alongside its tests.
+STANDARD_FULL_SHA256 = "b4c68355d7076b78f20db61dd6ee6d9231faaad62f325066bd8b49f682a5bbac"
+
+
+def require_standard_fresh_layout():
+    error = (
+        "Fresh install requires the shipped Full Compose layout and standard .env selection. "
+        "Preserve existing state; use the reviewed recovery procedure for an existing installation "
+        "or a separate clean standard checkout for a new installation."
+    )
+    try:
+        if os.path.lexists(ROOT / ".env") or os.path.lexists(ROOT / ".active-images.json"):
+            raise ValueError(error)
+        if any(key.startswith("COMPOSE_") and key != "COMPOSE_PROJECT_NAME" for key in os.environ):
+            raise ValueError(error)
+        path = ROOT / "compose.yaml"
+        if not stat.S_ISREG(path.lstat().st_mode):
+            raise ValueError(error)
+        if hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest() != STANDARD_FULL_SHA256:
+            raise ValueError(error)
+    except OSError:
+        raise ValueError(error) from None
+
+
+def configuration_values():
+    return {
+        "HTTPS_PORT": "8443",
+        **{name: secrets.token_hex(32) for name in (
+            "POSTGRES_PASSWORD", "POSTGRES_APP_PASSWORD", "BACKEND_JWT_SECRET", "AUTH_SECRET"
+        )},
+    }
+
+
+def configure(prepared=None):
+    if prepared is not None:
+        # Recheck immediately before exclusive publication; this is not a claim
+        # of protection from arbitrary concurrent filesystem/environment writers.
+        require_standard_fresh_layout()
     path = ROOT / ".env"
-    # Exclusive creation preserves existing database credentials and signing keys.
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
@@ -80,14 +117,8 @@ def configure():
             "Existing .env preserved. Skip configure for an existing installation; do not reset credentials to repair startup. See docs/installation.md."
         ) from None
     with os.fdopen(fd, "w", encoding="utf-8") as output:
-        output.write("HTTPS_PORT=8443\n")
-        for name in (
-            "POSTGRES_PASSWORD",
-            "POSTGRES_APP_PASSWORD",
-            "BACKEND_JWT_SECRET",
-            "AUTH_SECRET",
-        ):
-            output.write(f"{name}={secrets.token_hex(32)}\n")
+        for name, value in (configuration_values() if prepared is None else prepared).items():
+            output.write(f"{name}={value}\n")
     (ROOT / "trust").mkdir(exist_ok=True)
     print("Created .env without displaying secrets. Keep it private and back it up.")
 
@@ -309,7 +340,7 @@ def runner_invocation(arguments):
     return flags, rest
 
 
-def installation_volume_names():
+def installation_volume_names(environment=None):
     """Resolve the existing Full layout with installation interpolation semantics.
 
     Compose remains the trusted configuration reader. Never surface its output:
@@ -320,7 +351,7 @@ def installation_volume_names():
     try:
         result = compose(
             "--profile", "*", "config", "--format", "json",
-            capture_output=True, text=True, check=False, timeout=30,
+            capture_output=True, text=True, check=False, timeout=30, env=environment,
         )
         if result.returncode != 0:
             raise ValueError(error)
@@ -367,9 +398,12 @@ def installation_volume_names():
         raise ValueError(error) from None
 
 
-def has_installation_data():
+def has_installation_data(configuration=None):
     """Recognize selected Full state volumes; unresolved mappings/inventory refuse."""
-    names = installation_volume_names()
+    # Process values have the same precedence over the prospective .env as they
+    # will after exclusive creation. Never modify the process environment itself.
+    environment = None if configuration is None else {**configuration, **os.environ}
+    names = installation_volume_names(environment)
     try:
         result = subprocess.run(
             ["docker", "volume", "ls", "--format", "{{.Name}}"],
@@ -403,19 +437,32 @@ def dispatch(args, parser):
         # regenerated), source checkouts are resumed and never reset, and image builds
         # reuse their cache. A database or Runner-state volume may hold data;
         # refuse installation rather than treat Runner-only state as empty.
-        if has_installation_data():
+        prospective = None
+        if not os.path.lexists(ROOT / ".env"):
+            require_standard_fresh_layout()
+            prospective = configuration_values()
+        if has_installation_data(configuration=prospective):
             parser.error(
                 "This installation has been started before and may hold data. Use start, "
                 "stop or the controlled updater; install is only for a new or interrupted install."
             )
+        if prospective is not None:
+            # A newly appeared file was not the configuration used by preflight;
+            # never reinterpret this attempt as a resume with different secrets.
+            require_standard_fresh_layout()
+        elif not os.path.lexists(ROOT / ".env"):
+            raise ValueError("Configuration disappeared during preflight; installation refused; preserve existing state")
         steps = list(INSTALL_STEPS)
-        if (ROOT / ".env").exists():
+        if prospective is None:
             print("Resuming: the existing .env is kept and its secrets are not regenerated.")
             steps.remove("configure")
         for step in steps:
             print(f"== {step}", flush=True)
             try:
-                dispatch(argparse.Namespace(**{**vars(args), "action": step}), parser)
+                dispatch(argparse.Namespace(**{
+                    **vars(args), "action": step,
+                    "prepared_configuration": prospective if step == "configure" else None,
+                }), parser)
             except Exception as error:
                 print(
                     f"\nInstall stopped at '{step}': {error}\n"
@@ -429,7 +476,7 @@ def dispatch(args, parser):
                 raise
         print(INSTALL_NEXT)
     elif args.action == "configure":
-        configure()
+        configure(getattr(args, "prepared_configuration", None))
     elif args.action == "sources":
         sources(mapless=getattr(args, "mapless", False))
     elif args.action == "build":

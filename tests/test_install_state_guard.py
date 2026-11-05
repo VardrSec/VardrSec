@@ -16,7 +16,7 @@ import vardrsec
 class InstallStateGuardTests(unittest.TestCase):
     def setUp(self):
         # These existing tests isolate inventory handling; resolver cases live separately.
-        resolver = patch.object(vardrsec, "installation_volume_names", side_effect=lambda: {
+        resolver = patch.object(vardrsec, "installation_volume_names", side_effect=lambda _env=None: {
             f"{vardrsec.os.environ.get('COMPOSE_PROJECT_NAME') or 'vardrsec'}_database",
             f"{vardrsec.os.environ.get('COMPOSE_PROJECT_NAME') or 'vardrsec'}_runner-state",
         })

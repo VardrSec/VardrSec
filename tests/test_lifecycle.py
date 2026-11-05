@@ -188,6 +188,7 @@ class LifecycleTests(unittest.TestCase):
                 raise SystemExit(message)
 
         with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "compose.yaml").write_bytes((vardrsec.ROOT / "compose.yaml").read_bytes())
             if env_present:
                 (Path(directory) / ".env").write_text("POSTGRES_PASSWORD=keep")
             with (

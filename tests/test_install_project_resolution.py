@@ -65,7 +65,8 @@ class ProjectResolutionTests(unittest.TestCase):
                 self.assertEqual(run.call_args_list[0].kwargs["timeout"], 30)
         self.assertEqual(original, (self.root / ".env").read_bytes())
 
-    def test_fresh_missing_secrets_refuses_without_configure_or_inventory(self):
+    def test_existing_config_missing_secrets_refuses_without_configure_or_inventory(self):
+        (self.root / ".env").write_text("# incomplete synthetic configuration\n")
         with patch.object(vardrsec.subprocess, "run", return_value=
              subprocess.CompletedProcess([], 1, stdout="", stderr="POSTGRES_PASSWORD required")
         ) as run, patch.object(vardrsec, "configure") as configure:
@@ -73,9 +74,9 @@ class ProjectResolutionTests(unittest.TestCase):
                 vardrsec.dispatch(argparse.Namespace(action="install"), argparse.ArgumentParser())
             self.assertEqual(run.call_count, 1)
             configure.assert_not_called()
-            self.assertNotIn("env", run.call_args.kwargs)
+            self.assertIsNone(run.call_args.kwargs["env"])
             self.assertNotIn("--no-interpolate", run.call_args.args[0])
-        self.assertEqual(list(self.root.iterdir()), [])
+        self.assertEqual([p.name for p in self.root.iterdir()], [".env"])
 
     def test_shipped_port_expression_uses_normal_interpolation(self):
         # Protocol fixture from the reviewed Compose 2.17 source behavior, not a
@@ -135,6 +136,7 @@ class ProjectResolutionTests(unittest.TestCase):
                 self.assertEqual(run.call_count, 1)
 
     def test_errors_never_expose_output_or_enter_install_steps(self):
+        (self.root / ".env").write_text("# synthetic existing config\n")
         secret = "synthetic-private-value"
         for reply in (subprocess.CompletedProcess([], 1, stdout=secret, stderr=secret),
                       subprocess.CompletedProcess([], 0, stdout=secret),
