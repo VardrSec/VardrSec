@@ -393,7 +393,7 @@ def installation_volume_names(environment=None):
                 observed.append((mount["type"], mount["source"], mount["target"], mount.get("read_only", False)))
             if sorted(observed) != sorted(expected_mounts):
                 raise ValueError(error)
-        return {volumes[name]["name"] for name in ("database", "runner-state")}
+        return {definition["name"] for definition in volumes.values()}
     except (ValueError, TypeError, KeyError, AttributeError, OSError, subprocess.SubprocessError):
         raise ValueError(error) from None
 
@@ -435,8 +435,8 @@ def dispatch(args, parser):
         # order, and refuses to run over an existing installation's credentials.
         # Safe to rerun after an interruption: an existing .env is kept (never
         # regenerated), source checkouts are resumed and never reset, and image builds
-        # reuse their cache. A database or Runner-state volume may hold data;
-        # refuse installation rather than treat Runner-only state as empty.
+        # reuse their cache. Any state volume may hold data or a retained CA;
+        # refuse installation rather than treat partial state as empty.
         prospective = None
         if not os.path.lexists(ROOT / ".env"):
             require_standard_fresh_layout()

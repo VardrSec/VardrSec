@@ -58,8 +58,10 @@ volume names, the database and Runner state mounts, proxy state and the existing
 read-only trust/Caddyfile binds. Custom volume names, external/driver mappings,
 additional mounts/services and unresolved paths refuse. The dormant Mapless model
 is not activated. Existing `.env` files are preserved and an interrupted installation
-can still resume when the selected supported model resolves and no database or
-Runner-state volume is observed.
+can still resume when the selected supported model resolves and none of its four
+state volumes is observed. Retained proxy state also prevents fresh installation:
+its CA identity and configuration belong to the existing installation, even when
+the database and Runner-state volumes are absent. Preserve it and use recovery.
 
 For a fresh checkout without `.env`, one-command Full installation is restricted to
 this revision's exact shipped `compose.yaml` (LF or CRLF) without an active-image
@@ -85,8 +87,8 @@ Mapless one-command installation remains gated on compatible component pins and 
 supported standalone execution platform; the dormant Linux Compose model is not a
 substitute for the Windows-only controlled Gate path.
 
-The subsequent bounded Docker inventory checks the resolved database and Runner-state
-volume names without reading contents. Inventory failures refuse. Absence of those
+The subsequent bounded Docker inventory checks all four resolved state-volume
+names without reading contents. Inventory failures refuse. Absence of those
 names does not establish absence of native state, operator-selected evidence,
 other projects or external writers. Configuration and inventory are point-in-time
 observations, not protection from concurrent changes. Synthetic resolver tests do

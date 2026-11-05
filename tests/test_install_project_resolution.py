@@ -78,6 +78,27 @@ class ProjectResolutionTests(unittest.TestCase):
             self.assertNotIn("--no-interpolate", run.call_args.args[0])
         self.assertEqual([p.name for p in self.root.iterdir()], [".env"])
 
+    def test_retained_proxy_state_prevents_install_and_preserves_configuration(self):
+        original = b"COMPOSE_PROJECT_NAME=recovered\nPOSTGRES_PASSWORD=synthetic-secret\n"
+        (self.root / ".env").write_bytes(original)
+        dispatch = vardrsec.dispatch
+        for volume in ("proxy-data", "proxy-config"):
+            steps = []
+            def route(args, parser):
+                if args.action == "install":
+                    return dispatch(args, parser)
+                steps.append(args.action)
+            with self.subTest(volume=volume), patch.object(
+                vardrsec, "dispatch", side_effect=route
+            ), patch.object(vardrsec.subprocess, "run", side_effect=[
+                self.reply(model(self.root)),
+                subprocess.CompletedProcess([], 0, stdout=f"recovered_{volume}\n"),
+            ]), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    vardrsec.dispatch(argparse.Namespace(action="install"), argparse.ArgumentParser())
+            self.assertEqual(steps, [])
+            self.assertEqual((self.root / ".env").read_bytes(), original)
+
     def test_shipped_port_expression_uses_normal_interpolation(self):
         # Protocol fixture from the reviewed Compose 2.17 source behavior, not a
         # substitute Compose parser or a measured native compatibility test.

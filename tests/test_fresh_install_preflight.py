@@ -12,7 +12,7 @@ from unittest.mock import patch
 import vardrsec
 from test_install_project_resolution import model
 
-STANDARD = (vardrsec.ROOT / "compose.yaml").read_bytes()
+STANDARD = (vardrsec.ROOT / "compose.yaml").read_bytes().replace(b"\r\n", b"\n")
 
 
 class FreshInstallPreflightTests(unittest.TestCase):
@@ -89,7 +89,10 @@ class FreshInstallPreflightTests(unittest.TestCase):
         self.assertNotIn("synthetic-shell-value", written + output)
 
     def test_existing_state_or_unresolved_config_never_creates_configuration(self):
-        for inventory, fail in (("vardrsec_database\n", False), ("vardrsec_runner-state\n", False), ("", True)):
+        for inventory, fail in (
+            ("vardrsec_database\n", False), ("vardrsec_runner-state\n", False),
+            ("vardrsec_proxy-data\n", False), ("vardrsec_proxy-config\n", False), ("", True),
+        ):
             with self.subTest(inventory=inventory, failure=fail):
                 _, steps, output, error, _ = self.install(inventory=inventory, fail_config=fail)
                 self.assertIsNotNone(error)
