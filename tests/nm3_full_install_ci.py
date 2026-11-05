@@ -34,7 +34,7 @@ def host_guard(env, preservation=False):
             and env.get('RUNNER_ENVIRONMENT') == 'github-hosted'
             and env.get('GITHUB_REPOSITORY') == 'VardrSec/VardrSec'
             and env.get('GITHUB_REF') == (
-                'refs/heads/codex/nm3-bundled-recovery-verification' if preservation else BRANCH)
+                'refs/heads/codex/nm3-bundled-cli-verification' if preservation else BRANCH)
             and env.get('GITHUB_EVENT_NAME') == 'push'
             and platform.system() == 'Linux' and platform.machine() == 'x86_64'
             and release.get('ID') == 'ubuntu' and release.get('VERSION_ID') == '24.04')
@@ -110,7 +110,7 @@ def run(preservation=False):
            'DOCKER_CONFIG': str(docker_config), 'COMPOSE_PROJECT_NAME': 'nm3-full-fixture'}
     receipt = {'schema': 1, 'installer_commit': CANDIDATE, 'component_pins': PINS,
                'status': 'unproven', 'stage': 'isolation', 'raw_output_uploaded': False,
-               'scope': 'Bundled recovery API on Full current pins; not portable CLI/encryption/NM3 cohort/Mapless/Windows/upgrade/no-loss'}
+               'scope': 'Bundled restore CLI on Full current pins; not encryption/NM3 cohort/Mapless/Windows/upgrade/no-loss/snapshot non-mutation'}
     try:
         empty_daemon_guard(env)
         require(shutil.disk_usage(root).free >= 12 * 1024**3)
@@ -146,7 +146,7 @@ def run(preservation=False):
             verified = json.loads((private / 'preservation.json').read_text())
             expected = {'backup_validated', 'restore_fingerprints_verified', 'restored_install_refused',
                         'source_preserved_after_backup', 'restored_state_preserved_during_refusal',
-                        'bundled_recovery_api_verified'}
+                        'bundled_recovery_cli_verified'}
             require(set(verified) == expected and all(value is True for value in verified.values()))
             receipt['preservation'] = verified
         receipt['status'] = 'passed'

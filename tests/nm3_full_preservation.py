@@ -12,7 +12,7 @@ import recovery
 RESTORE_PROJECT = 'vardrsec-restore-nm3-guard'
 FLAGS = {'backup_validated', 'restore_fingerprints_verified', 'restored_install_refused',
          'source_preserved_after_backup', 'restored_state_preserved_during_refusal',
-         'bundled_recovery_api_verified'}
+         'bundled_recovery_cli_verified'}
 
 
 def state(root, project):
@@ -32,7 +32,7 @@ def state(root, project):
 # The parent validates data with the reviewed checkout before any bundled code
 # executes. This child has no application import path except the generated bundle.
 BUNDLED_RESTORE = r"""
-import pathlib, sys
+import pathlib, runpy, sys
 bundle = pathlib.Path.cwd().resolve()
 sys.path.insert(0, str(bundle))
 import recovery, database_roles, updater, backup_crypto
@@ -40,7 +40,19 @@ modules = (recovery, database_roles, updater, backup_crypto)
 for module in modules:
     if pathlib.Path(module.__file__).resolve().parent != bundle:
         raise SystemExit('Unexpected recovery module origin')
-recovery.restore(bundle, bundle, pathlib.Path(sys.argv[1]), sys.argv[2])
+destination, project = sys.argv[1:]
+sys.argv = [str(bundle / 'vardrsec.py'), 'restore', '--backup', str(bundle),
+            '--destination', destination, '--project', project]
+namespace = runpy.run_path(str(bundle / 'vardrsec.py'), run_name='__main__')
+if pathlib.Path(namespace['__file__']).resolve().parent != bundle:
+    raise SystemExit('Unexpected CLI origin')
+# The CLI creates and retains its own empty synthetic .update-lock. Reacquiring
+# the existing lock verifies the CLI released it without deleting the file.
+with updater.installation_lock(bundle):
+    pass
+lock = bundle / '.update-lock'
+if not lock.is_file() or lock.is_symlink() or lock.read_bytes() != b'':
+    raise SystemExit('Unexpected bundle lock state')
 for module in modules:
     if pathlib.Path(module.__file__).resolve().parent != bundle:
         raise SystemExit('Unexpected recovery module origin')
@@ -67,6 +79,10 @@ def bundled_restore(backup, restored):
                              str(restored), RESTORE_PROJECT], cwd=backup, env=env,
                             capture_output=True, text=True, timeout=1800)
     ci.require(result.returncode == 0)
+    ci.require({path.name for path in backup.iterdir()} == set(metadata['files']) | {'snapshot.json', '.update-lock'})
+    lock = backup / '.update-lock'
+    ci.require(lock.is_file() and not lock.is_symlink() and lock.read_bytes() == b'')
+    ci.require(recovery.validate(backup) == metadata)
 
 
 def exercise(root, private):

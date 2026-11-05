@@ -79,6 +79,7 @@ class PreservationTests(unittest.TestCase):
                      patch.dict(os.environ, {'COMPOSE_PROJECT_NAME': 'source'}, clear=True), \
                      patch.object(lane.subprocess, 'run', return_value=SimpleNamespace(returncode=1 if case == 'child-failed' else 0)) as child:
                     if case == 'ok':
+                        child.side_effect = lambda *args, **kwargs: ((bundle / '.update-lock').write_bytes(b'') or SimpleNamespace(returncode=0))
                         lane.bundled_restore(bundle, root / 'restored')
                         self.assertEqual(child.call_args.args[0][1:4], ['-I', '-B', '-c'])
                         self.assertEqual(child.call_args.kwargs['cwd'], bundle)
@@ -88,3 +89,35 @@ class PreservationTests(unittest.TestCase):
                             lane.bundled_restore(bundle, root / 'restored')
                     if case in ('modified-code', 'extra-code'):
                         child.assert_not_called()
+
+    def test_isolated_cli_dispatch_exit_status_and_retained_lock(self):
+        for fail in (False, True):
+            with self.subTest(fail=fail), tempfile.TemporaryDirectory() as folder:
+                bundle = Path(folder)
+                for name in lane.recovery.snapshot_files(4):
+                    if name.endswith('.py'):
+                        (bundle / name).write_bytes((lane.ci.SOURCE / name).read_bytes())
+                # Exercise the actual isolated bootstrap, parser and lock with only
+                # the Docker-facing restore operation replaced by a synthetic spy.
+                wrapper = '''
+import pathlib, sys
+from unittest.mock import patch
+bundle = pathlib.Path.cwd().resolve()
+sys.path.insert(0, str(bundle))
+import recovery
+def restore(root, backup, destination, project):
+    assert root == bundle and backup == bundle
+    assert destination == bundle / 'restored'
+    assert project == 'vardrsec-restore-cli-test'
+    if FAIL:
+        raise ValueError('Synthetic restore refusal')
+with patch.object(recovery, 'restore', side_effect=restore) as invoked:
+    exec(BOOTSTRAP)
+    invoked.assert_called_once()
+'''.replace('FAIL', repr(fail)).replace('BOOTSTRAP', repr(lane.BUNDLED_RESTORE))
+                result = subprocess.run([lane.sys.executable, '-I', '-B', '-c', wrapper,
+                                         str(bundle / 'restored'), 'vardrsec-restore-cli-test'],
+                                        cwd=bundle, capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, 1 if fail else 0, result.stderr)
+                self.assertEqual((bundle / '.update-lock').read_bytes(), b'')
+                self.assertFalse((bundle / '__pycache__').exists())
