@@ -44,15 +44,31 @@ an existing Mapless workspace and infer that its records or authority were migra
 
 ## Quick start (source-built, not an official release)
 
-The fresh-install guard recognizes the default `<project>_database` and
-`<project>_runner-state` volume names, using `COMPOSE_PROJECT_NAME` from the process
-or `vardrsec` by default. Runner-only state is not an empty installation. Docker
-inventory failure/timeouts refuse before install steps; no volume contents are
-read or removed. This check does not discover custom volume mappings, project
-names stored only in other files, operator-selected evidence paths or unrelated
-native writers. It is not a Mapless-to-Full migration or backup/revocation
-reconciliation check. Preserve existing state and use a reviewed transition
-procedure rather than renaming/removing volumes to get past the guard.
+The fresh-install guard asks the existing Compose frontend to resolve the selected
+Full model with all profiles and `--no-interpolate`. Compose determines the project
+identity, including `.env` and process overrides; the guard does not parse `.env`
+or provide placeholder secrets. Trusted Compose may read configuration and service
+environment files internally. Its output and errors are captured, never printed or
+saved by the guard. Missing configuration, resolver failure, malformed output and
+unsupported mappings refuse before installation steps or volume inventory.
+
+Only the shipped Full service/state layout is recognized: default project-scoped
+volume names, the database and Runner state mounts, proxy state and the existing
+read-only trust/Caddyfile binds. Custom volume names, external/driver mappings,
+additional mounts/services and unresolved paths refuse. The dormant Mapless model
+is not activated. Existing `.env` files are preserved and an interrupted installation
+can still resume when the selected supported model resolves and no database or
+Runner-state volume is observed. If resolution fails before secrets exist, installation
+refuses; do not bypass this by supplying fabricated secrets.
+
+The subsequent bounded Docker inventory checks the resolved database and Runner-state
+volume names without reading contents. Inventory failures refuse. Absence of those
+names does not establish absence of native state, operator-selected evidence,
+other projects or external writers. Configuration and inventory are point-in-time
+observations, not protection from concurrent changes. Synthetic resolver tests do
+not establish installed acceptance across Compose versions. This is not a migration,
+backup/revocation reconciliation or no-loss upgrade check; preserve existing state
+and use a reviewed transition procedure.
 
 Tested on Ubuntu 24.04 amd64 with Docker, Compose, Python 3.10+ and Git already installed
 (`docker compose version` must work for your user). CI runs these steps on a clean hosted

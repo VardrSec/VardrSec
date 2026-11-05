@@ -31,6 +31,7 @@ class MaplessSafeguardIntegrationTests(unittest.TestCase):
         before = {p.name: p.read_bytes() for p in root.iterdir()}
         with (
             patch.object(vardrsec, "ROOT", root),
+            patch.object(vardrsec, "installation_volume_names", return_value={volume}),
             patch.dict(vardrsec.os.environ, {"COMPOSE_PROJECT_NAME": model["name"]}),
             patch.object(
                 vardrsec.subprocess,

@@ -309,9 +309,67 @@ def runner_invocation(arguments):
     return flags, rest
 
 
+def installation_volume_names():
+    """Resolve the existing Full layout without interpolating application secrets.
+
+    Compose remains the trusted configuration reader. Never surface its output:
+    env_file and literal configuration may still contain secrets. This validates
+    only the selected Compose model, not unrelated native/external state or races.
+    """
+    error = "Cannot resolve supported installation state mappings; installation refused"
+    try:
+        result = compose(
+            "--profile", "*", "config", "--no-interpolate", "--format", "json",
+            capture_output=True, text=True, check=False, timeout=30,
+        )
+        if result.returncode != 0:
+            raise ValueError(error)
+        model = json.loads(result.stdout)
+        project = model["name"]
+        if not isinstance(project, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", project):
+            raise ValueError(error)
+        volumes = model["volumes"]
+        expected = {"database", "runner-state", "proxy-data", "proxy-config"}
+        if set(volumes) != expected:
+            raise ValueError(error)
+        for name, definition in volumes.items():
+            # Custom names, external volumes and driver mappings are unsupported.
+            if definition != {"name": f"{project}_{name}"}:
+                raise ValueError(error)
+        services = model["services"]
+        mounts = {
+            "db": [("volume", "database", "/var/lib/postgresql", False)],
+            "runner": [
+                ("volume", "runner-state", "/home/runner/.vardrmap", False),
+                ("bind", str(ROOT / "trust"), "/trust", True),
+            ],
+            "proxy": [
+                ("bind", str(ROOT / "Caddyfile"), "/etc/caddy/Caddyfile", True),
+                ("volume", "proxy-data", "/data", False),
+                ("volume", "proxy-config", "/config", False),
+            ],
+            "api": [], "web": [],
+        }
+        if set(services) != set(mounts):
+            raise ValueError(error)
+        for service, expected_mounts in mounts.items():
+            observed = []
+            for mount in services[service].get("volumes", []):
+                if set(mount) - {"type", "source", "target", "read_only", "bind", "volume"}:
+                    raise ValueError(error)
+                if mount.get("volume", {}) != {} or mount.get("bind", {}) not in ({}, {"create_host_path": True}):
+                    raise ValueError(error)
+                observed.append((mount["type"], mount["source"], mount["target"], mount.get("read_only", False)))
+            if sorted(observed) != sorted(expected_mounts):
+                raise ValueError(error)
+        return {volumes[name]["name"] for name in ("database", "runner-state")}
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, subprocess.SubprocessError):
+        raise ValueError(error) from None
+
+
 def has_installation_data():
-    """Recognize default project data volumes; unknown inventory refuses installation."""
-    project = os.environ.get("COMPOSE_PROJECT_NAME") or "vardrsec"
+    """Recognize selected Full state volumes; unresolved mappings/inventory refuse."""
+    names = installation_volume_names()
     try:
         result = subprocess.run(
             ["docker", "volume", "ls", "--format", "{{.Name}}"],
@@ -324,7 +382,7 @@ def has_installation_data():
         raise ValueError("Cannot inspect installation volumes; installation refused") from None
     if result.returncode != 0:
         raise ValueError("Cannot inspect installation volumes; installation refused")
-    return bool({f"{project}_database", f"{project}_runner-state"} & set(result.stdout.splitlines()))
+    return bool(names & set(result.stdout.splitlines()))
 
 INSTALL_NEXT = """
 Installed. Remaining manual steps (they change your machine, so they are never automatic):
