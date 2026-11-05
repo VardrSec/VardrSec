@@ -6,9 +6,12 @@ attestation and do not authorize execution or release any server reservation.
 
 from dataclasses import dataclass
 from datetime import datetime
+import io
 import json
+from pathlib import PurePosixPath, PureWindowsPath
 import re
 import subprocess
+import tarfile
 import threading
 import time
 
@@ -29,11 +32,15 @@ _PROOF = object()
 _INSPECT = (
     '{"id":{{json .Id}},"image":{{json .Image}},"state":{{json .State}},'
     '"user":{{json .Config.User}},"labels":{{json .Config.Labels}},'
+    '"entrypoint":{{json .Config.Entrypoint}},"command":{{json .Config.Cmd}},'
+    '"healthcheck":{{json .Config.Healthcheck}},'
     '"mounts":{{json .Mounts}},"host":{'
     '"pid":{{json .HostConfig.PidMode}},'
     '"privileged":{{json .HostConfig.Privileged}},'
     '"init":{{json .HostConfig.Init}},'
     '"auto_remove":{{json .HostConfig.AutoRemove}},'
+    '"readonly_root":{{json .HostConfig.ReadonlyRootfs}},'
+    '"ipc":{{json .HostConfig.IpcMode}},"tmpfs":{{json .HostConfig.Tmpfs}},'
     '"restart":{{json .HostConfig.RestartPolicy.Name}},'
     '"cap_add":{{json .HostConfig.CapAdd}},'
     '"cap_drop":{{json .HostConfig.CapDrop}},'
@@ -78,6 +85,34 @@ class RuntimeIdentity:
         )
 
 
+@dataclass(frozen=True)
+class WorkerLayout:
+    trust_source: str
+    admission_source: str
+    state_volume: str
+
+    def __post_init__(self):
+        for value in (self.trust_source, self.admission_source):
+            require(
+                type(value) is str
+                and 1 <= len(value) <= 4096
+                and not any(c in value for c in "\0\r\n")
+            )
+            path = (
+                PureWindowsPath(value)
+                if PureWindowsPath(value).is_absolute()
+                else PurePosixPath(value)
+            )
+            require(
+                path.is_absolute() and len(path.parts) > 1 and ".." not in path.parts
+            )
+        require(self.trust_source != self.admission_source)
+        require(
+            type(self.state_volume) is str
+            and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", self.state_volume)
+        )
+
+
 @dataclass(frozen=True, init=False)
 class ObservedExit:
     """Created only by the direct adapter, never loaded from caller JSON."""
@@ -96,33 +131,39 @@ class ObservedExit:
 class LocalDocker:
     """Bounded CLI access to one explicitly selected local Docker context."""
 
-    def __init__(self, context):
+    def __init__(self, context, layout):
         require(
             type(context) is str and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", context)
         )
         self.context = context
+        require(isinstance(layout, WorkerLayout))
+        self.layout = layout
         self._observation_lock = threading.Lock()
         self._deadline = None
 
-    def _command(self, *args, timeout=15):
+    def _command(self, *args, timeout=15, binary=False):
         try:
             if self._deadline is not None:
                 timeout = min(timeout, self._deadline - time.monotonic())
                 require(timeout > 0)
+            options = (
+                {}
+                if binary
+                else {"text": True, "encoding": "utf-8", "errors": "strict"}
+            )
             reply = subprocess.run(
                 ["docker", "--context", self.context, *args],
                 check=False,
                 capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="strict",
                 timeout=timeout,
+                **options,
             )
             require(
                 reply.returncode == 0
-                and len(reply.stdout.encode("utf-8")) <= 1024 * 1024
+                and len(reply.stdout if binary else reply.stdout.encode("utf-8"))
+                <= 1024 * 1024
             )
-            return reply.stdout.strip()
+            return reply.stdout if binary else reply.stdout.strip()
         except (OSError, UnicodeError, subprocess.SubprocessError):
             raise RuntimeRefused("worker_runtime_refused") from None
 
@@ -169,9 +210,17 @@ class LocalDocker:
         value = self.inspect(identity.container_id)
         try:
             host, state, labels = value["host"], value["state"], value["labels"]
+            self._mounts(value["mounts"])
+            self._tmpfs(host["tmpfs"])
             require(
                 value["image"] == identity.image_id
                 and value["user"] in {"0", "0:0", "root", "root:root"}
+                and value["entrypoint"] == ["/usr/local/bin/vardr-worker-owner"]
+                and value["command"] in (None, [])
+                and (
+                    value["healthcheck"] is None
+                    or value["healthcheck"] == {"Test": ["NONE"]}
+                )
                 and labels["com.docker.compose.project"] == identity.project
                 and labels["com.docker.compose.service"] == "managed-worker"
                 and labels["io.vardrsec.managed-worker"] == "1"
@@ -180,6 +229,8 @@ class LocalDocker:
                 and host["privileged"] is False
                 and (host["init"] is None or host["init"] is False)
                 and host["auto_remove"] is False
+                and host["readonly_root"] is True
+                and host["ipc"] == "private"
                 and host["restart"] in {"", "no"}
                 and {v.upper().removeprefix("CAP_") for v in host["cap_add"]}
                 == {"SETUID", "SETGID", "SETPCAP"}
@@ -199,6 +250,167 @@ class LocalDocker:
         except (KeyError, TypeError, AttributeError):
             raise RuntimeRefused("worker_runtime_refused") from None
         return value
+
+    def _mounts(self, mounts):
+        require(type(mounts) is list)
+        expected = {
+            "/home/runner/.vardrmap": ("volume", self.layout.state_volume, True),
+            "/trust": ("bind", self.layout.trust_source, False),
+            "/run/vardr-worker-admission": (
+                "bind",
+                self.layout.admission_source,
+                False,
+            ),
+        }
+        seen = set()
+        for mount in mounts:
+            require(type(mount) is dict)
+            destination = mount.get("Destination")
+            require(type(destination) is str and destination not in seen)
+            seen.add(destination)
+            if destination in {"/tmp", "/run/vardr-worker-ready"}:
+                require(mount.get("Type") == "tmpfs" and mount.get("RW") is True)
+                continue
+            require(destination in expected)
+            kind, source, writable = expected[destination]
+            require(
+                mount.get("Type") == kind
+                and mount.get("RW") is writable
+                and mount.get("Name" if kind == "volume" else "Source") == source
+            )
+        require(set(expected) <= seen)
+
+    def _tmpfs(self, definitions):
+        require(
+            type(definitions) is dict
+            and set(definitions) == {"/tmp", "/run/vardr-worker-ready"}
+        )
+        for path, uid, size in [
+            ("/tmp", "10001", "67108864"),
+            ("/run/vardr-worker-ready", "10000", "65536"),
+        ]:
+            options = definitions[path]
+            require(type(options) is str and len(options) <= 256)
+            parts = options.split(",")
+            require(len(parts) == len(set(parts)))
+            require(
+                set(parts)
+                == {
+                    "rw",
+                    "noexec",
+                    "nosuid",
+                    "nodev",
+                    "size=" + size,
+                    "uid=" + uid,
+                    "gid=" + uid,
+                    "mode=0700",
+                }
+            )
+
+    def _owner_nonce(self, container_id):
+        archive = self._command(
+            "container",
+            "cp",
+            container_id + ":/run/vardr-worker-ready/owner.json",
+            "-",
+            binary=True,
+        )
+        require(len(archive) <= 65536)
+        try:
+            with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as source:
+                members = source.getmembers()
+                require(len(members) == 1)
+                entry = members[0]
+                require(
+                    entry.isfile()
+                    and entry.name in {"owner.json", "./owner.json"}
+                    and 0 < entry.size <= 4096
+                    and entry.uid == 10000
+                    and entry.gid == 10000
+                    and entry.mode == 0o400
+                )
+                stream = source.extractfile(entry)
+                require(stream is not None)
+                raw = stream.read(4097)
+
+            def pairs(items):
+                value = {}
+                for key, item in items:
+                    require(key not in value)
+                    value[key] = item
+                return value
+
+            ready = json.loads(raw.decode("utf-8"), object_pairs_hook=pairs)
+            require(
+                type(ready) is dict
+                and set(ready)
+                == {
+                    "schema",
+                    "owner_nonce",
+                    "owner_pid",
+                    "owner_uid",
+                    "runner_uid",
+                    "capabilities",
+                    "no_new_privs",
+                }
+            )
+            require(
+                ready["schema"] == "vardr.worker-owner-ready/1"
+                and type(ready["owner_pid"]) is int
+                and ready["owner_pid"] == 1
+                and type(ready["owner_uid"]) is int
+                and ready["owner_uid"] == 10000
+                and type(ready["runner_uid"]) is int
+                and ready["runner_uid"] == 10001
+                and ready["no_new_privs"] is True
+                and ready["capabilities"]
+                == {
+                    name: "0" * 16
+                    for name in (
+                        "effective",
+                        "permitted",
+                        "inheritable",
+                        "ambient",
+                        "bounding",
+                    )
+                }
+                and type(ready["owner_nonce"]) is str
+                and re.fullmatch(r"[0-9a-f]{64}", ready["owner_nonce"])
+            )
+            return ready["owner_nonce"]
+        except (tarfile.TarError, ValueError, UnicodeError, KeyError, TypeError):
+            raise RuntimeRefused("worker_runtime_refused") from None
+
+    def capture_running(self, *, container_id, image_id, project):
+        """Derive a fresh nonce from the actual owner's file, never caller JSON."""
+        require(self._observation_lock.acquire(blocking=False))
+        try:
+            self._deadline = time.monotonic() + 30
+            daemon = self.daemon()
+            first = self.inspect(container_id)
+            identity = RuntimeIdentity(
+                daemon,
+                container_id,
+                image_id,
+                project,
+                first["state"]["StartedAt"],
+                "0" * 64,
+            )
+            before = self._bound(identity)
+            require(
+                before["state"]["Status"] == "running"
+                and before["state"]["Running"] is True
+            )
+            nonce = self._owner_nonce(container_id)
+            require(self._bound(identity) == before)
+            return RuntimeIdentity(
+                daemon, container_id, image_id, project, identity.started_at, nonce
+            )
+        except (KeyError, TypeError):
+            raise RuntimeRefused("worker_runtime_refused") from None
+        finally:
+            self._deadline = None
+            self._observation_lock.release()
 
     def observe_exit(self, identity):
         """Wait and inspect the exact retained incarnation; never stop/restart it."""

@@ -3,7 +3,9 @@
 import copy
 from dataclasses import FrozenInstanceError, replace
 import json
+import io
 import subprocess
+import tarfile
 import unittest
 from unittest.mock import patch
 
@@ -20,17 +22,42 @@ class WorkerRuntimeTests(unittest.TestCase):
             "2026-11-05T20:00:00.123456789Z",
             "c" * 64,
         )
+        self.layout = runtime.WorkerLayout(
+            "/owned/trust", "/owned/admission", "owned-fixture_runner-state"
+        )
         self.info = {
             "id": self.identity.container_id,
             "image": self.identity.image_id,
             "user": "0:0",
+            "entrypoint": ["/usr/local/bin/vardr-worker-owner"],
+            "command": [],
+            "healthcheck": None,
             "labels": {
                 "com.docker.compose.project": "owned-fixture",
                 "com.docker.compose.service": "managed-worker",
                 "com.docker.compose.oneoff": "False",
                 "io.vardrsec.managed-worker": "1",
             },
-            "mounts": [],
+            "mounts": [
+                {
+                    "Type": "volume",
+                    "Name": self.layout.state_volume,
+                    "Destination": "/home/runner/.vardrmap",
+                    "RW": True,
+                },
+                {
+                    "Type": "bind",
+                    "Source": self.layout.trust_source,
+                    "Destination": "/trust",
+                    "RW": False,
+                },
+                {
+                    "Type": "bind",
+                    "Source": self.layout.admission_source,
+                    "Destination": "/run/vardr-worker-admission",
+                    "RW": False,
+                },
+            ],
             "state": {
                 "Status": "exited",
                 "Running": False,
@@ -46,6 +73,12 @@ class WorkerRuntimeTests(unittest.TestCase):
                 "privileged": False,
                 "init": False,
                 "auto_remove": False,
+                "readonly_root": True,
+                "ipc": "private",
+                "tmpfs": {
+                    "/tmp": "rw,noexec,nosuid,nodev,size=67108864,uid=10001,gid=10001,mode=0700",
+                    "/run/vardr-worker-ready": "rw,noexec,nosuid,nodev,size=65536,uid=10000,gid=10000,mode=0700",
+                },
                 "restart": "no",
                 "cap_add": ["SETUID", "SETGID", "SETPCAP"],
                 "cap_drop": ["ALL"],
@@ -58,6 +91,26 @@ class WorkerRuntimeTests(unittest.TestCase):
         self.daemon = "daemon-id"
         self.wait = "137"
         self.change_final = False
+        self.ready = {
+            "schema": "vardr.worker-owner-ready/1",
+            "owner_nonce": "c" * 64,
+            "owner_pid": 1,
+            "owner_uid": 10000,
+            "runner_uid": 10001,
+            "no_new_privs": True,
+            "capabilities": {
+                name: "0" * 16
+                for name in (
+                    "effective",
+                    "permitted",
+                    "inheritable",
+                    "ambient",
+                    "bounding",
+                )
+            },
+        }
+        self.archive_uid, self.archive_mode = 10000, 0o400
+        self.archive_type = tarfile.REGTYPE
 
     def command(self, argv, **kwargs):
         self.calls.append((argv, kwargs))
@@ -68,6 +121,21 @@ class WorkerRuntimeTests(unittest.TestCase):
             value = json.dumps(self.daemon)
         elif args[:2] == ["container", "wait"]:
             value = self.wait
+        elif args[:2] == ["container", "cp"]:
+            raw = json.dumps(self.ready).encode()
+            archive = io.BytesIO()
+            with tarfile.open(fileobj=archive, mode="w:") as target:
+                entry = tarfile.TarInfo("owner.json")
+                entry.uid, entry.gid, entry.mode = (
+                    self.archive_uid,
+                    10000,
+                    self.archive_mode,
+                )
+                entry.type = self.archive_type
+                entry.size = len(raw) if entry.isfile() else 0
+                entry.linkname = "/untrusted" if entry.issym() else ""
+                target.addfile(entry, io.BytesIO(raw) if entry.isfile() else None)
+            value = archive.getvalue()
         elif args[:2] == ["container", "inspect"]:
             self.inspect_count += 1
             info = copy.deepcopy(self.info)
@@ -80,7 +148,9 @@ class WorkerRuntimeTests(unittest.TestCase):
 
     def observe(self):
         with patch.object(runtime.subprocess, "run", self.command):
-            return runtime.LocalDocker("desktop-linux").observe_exit(self.identity)
+            return runtime.LocalDocker("desktop-linux", self.layout).observe_exit(
+                self.identity
+            )
 
     def test_exact_retained_exit_is_observed_without_mutating_daemon(self):
         proof = self.observe()
@@ -104,7 +174,9 @@ class WorkerRuntimeTests(unittest.TestCase):
         with self.assertRaises(runtime.RuntimeRefused):
             runtime.ObservedExit(self.identity, self.info["state"]["FinishedAt"], 137)
         with self.assertRaises(runtime.RuntimeRefused):
-            runtime.LocalDocker("desktop-linux").observe_exit(dict(self.info))
+            runtime.LocalDocker("desktop-linux", self.layout).observe_exit(
+                dict(self.info)
+            )
 
     def test_remote_daemon_or_changed_selected_engine_is_refused(self):
         for endpoint, daemon in [
@@ -122,11 +194,16 @@ class WorkerRuntimeTests(unittest.TestCase):
             ("image", "sha256:" + "d" * 64),
             ("id", "d" * 64),
             ("user", "10001:10001"),
+            ("entrypoint", ["sh"]),
+            ("command", ["unreviewed"]),
+            ("healthcheck", {"Test": ["CMD", "python", "-c", "pass"]}),
             ("state.StartedAt", "2026-11-05T19:59:59Z"),
             ("host.pid", "host"),
             ("host.privileged", True),
             ("host.init", True),
             ("host.auto_remove", True),
+            ("host.readonly_root", False),
+            ("host.ipc", "host"),
             ("host.restart", "unless-stopped"),
             ("host.cap_add", ["SETUID", "SETGID", "SETPCAP", "KILL"]),
             ("host.cap_drop", []),
@@ -181,7 +258,9 @@ class WorkerRuntimeTests(unittest.TestCase):
                     with self.assertRaisesRegex(
                         runtime.RuntimeRefused, "^worker_runtime_refused$"
                     ):
-                        runtime.LocalDocker("desktop-linux").observe_exit(self.identity)
+                        runtime.LocalDocker("desktop-linux", self.layout).observe_exit(
+                            self.identity
+                        )
         for value in ["", "[]", "null", "not-json", "x" * (1024 * 1024 + 1)]:
             with self.subTest(length=len(value)):
                 with patch.object(
@@ -190,7 +269,9 @@ class WorkerRuntimeTests(unittest.TestCase):
                     return_value=subprocess.CompletedProcess([], 0, value, ""),
                 ):
                     with self.assertRaises(runtime.RuntimeRefused):
-                        runtime.LocalDocker("desktop-linux").observe_exit(self.identity)
+                        runtime.LocalDocker("desktop-linux", self.layout).observe_exit(
+                            self.identity
+                        )
 
     def test_identity_rejects_short_ids_invalid_timestamps_and_nonces(self):
         for change in [
@@ -201,6 +282,70 @@ class WorkerRuntimeTests(unittest.TestCase):
             with self.subTest(change=change):
                 with self.assertRaises(runtime.RuntimeRefused):
                     replace(self.identity, **change)
+
+    def capture(self):
+        with patch.object(runtime.subprocess, "run", self.command):
+            return runtime.LocalDocker("desktop-linux", self.layout).capture_running(
+                container_id=self.identity.container_id,
+                image_id=self.identity.image_id,
+                project=self.identity.project,
+            )
+
+    def test_runtime_admission_nonce_is_derived_from_actual_owner_archive(self):
+        self.info["state"].update(Status="running", Running=True)
+        self.assertEqual(self.capture(), self.identity)
+        self.assertEqual(self.inspect_count, 3)
+        self.assertTrue(any(argv[3:5] == ["container", "cp"] for argv, _ in self.calls))
+        self.assertFalse(any("exec" in argv for argv, _ in self.calls))
+
+    def test_unready_or_wrong_owner_file_never_produces_runtime_admission(self):
+        self.info["state"].update(Status="running", Running=True)
+        original = copy.deepcopy(self.ready)
+        for key, value in [
+            ("owner_uid", 10001),
+            ("owner_pid", 2),
+            ("no_new_privs", False),
+            ("owner_nonce", "short"),
+            ("extra", "untrusted"),
+            ("capabilities", {**original["capabilities"], "bounding": "1" * 16}),
+        ]:
+            with self.subTest(key=key):
+                self.ready = {**original, key: value}
+                with self.assertRaises(runtime.RuntimeRefused):
+                    self.capture()
+        self.ready = original
+        for uid, mode, kind in [
+            (10001, 0o400, tarfile.REGTYPE),
+            (10000, 0o600, tarfile.REGTYPE),
+            (10000, 0o400, tarfile.SYMTYPE),
+        ]:
+            with self.subTest(uid=uid, mode=mode, kind=kind):
+                self.archive_uid, self.archive_mode, self.archive_type = uid, mode, kind
+                with self.assertRaises(runtime.RuntimeRefused):
+                    self.capture()
+
+    def test_code_socket_or_extra_mounts_and_writable_admission_refuse(self):
+        original = copy.deepcopy(self.info["mounts"])
+        for destination in [
+            "/usr/local/bin/vardr-worker-owner",
+            "/var/run/docker.sock",
+            "/unreviewed",
+        ]:
+            with self.subTest(destination=destination):
+                self.info["mounts"] = original + [
+                    {
+                        "Type": "bind",
+                        "Source": "/untrusted",
+                        "Destination": destination,
+                        "RW": False,
+                    }
+                ]
+                with self.assertRaises(runtime.RuntimeRefused):
+                    self.observe()
+        self.info["mounts"] = copy.deepcopy(original)
+        self.info["mounts"][2]["RW"] = True
+        with self.assertRaises(runtime.RuntimeRefused):
+            self.observe()
 
 
 if __name__ == "__main__":

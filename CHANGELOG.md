@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bind worker runtime observations to the fixed entrypoint, read-only image and
+  exact reviewed data mounts; reject code/socket overrides and exec health checks.
+  Derive fresh owner readiness through direct bounded Docker archive reads and
+  consistent running-incarnation checks. The candidate remains inactive.
 - Compare canonical paths in the existing portable-recovery and Git-cache
   isolation tests so Windows short TEMP aliases preserve the same assertions.
   Recovery and source-binding behavior are unchanged.

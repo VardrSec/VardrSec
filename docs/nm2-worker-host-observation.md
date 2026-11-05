@@ -14,12 +14,25 @@ inspection precedes creation of the local typed observation. Observation is capp
 at thirty seconds overall, with at most fifteen seconds per command. The daemon
 and trusted host remain part of the trust boundary; this is not attestation.
 
+The caller supplies a protected `WorkerLayout` binding the exact public trust,
+public admission and state-volume sources. Only those data destinations and the
+two reviewed tmpfs destinations are allowed. Code/socket/extra mounts, writable
+admission, an alternate entrypoint/command, an exec health check, writable image
+root or shared IPC refuse admission and exit proof. Ordinary Compose is unchanged.
+
+`capture_running` derives the fresh startup nonce by reading the actual owner's
+bounded `0400`, UID/GID-10000 readiness file through a direct Docker tar stream.
+It never inserts an exec/health process. Strict readiness data must report the
+fixed owner identity, no-new-privileges and five empty capability sets; pre/post
+inspection must retain the same running incarnation. The reviewed image/code and
+private owner tmpfs establish the file's producer; caller JSON does not.
+
 An observation alone cannot register authority, release a reservation or report
 success. Future protocol composition must require the independently approved,
 exactly bound STOP capability and preserve durable unknown holds after lost replies.
 The helper does not deserialize a physical-proof assertion from caller JSON. It
-does not establish lifecycle-owner readiness; that separate admission must verify
-the reviewed image/entrypoint, fresh owner nonce and actual unprivileged state.
+does not establish the Runner's private control channel or subreaper readiness;
+the separate live lifecycle connection must verify those before claiming work.
 
 `worker_secrets` holds the raw STOP capability **on the host only**. Windows uses
 the current user's existing native Credential Manager with local-machine
