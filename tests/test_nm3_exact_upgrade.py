@@ -3,6 +3,7 @@ from contextlib import ExitStack
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -29,7 +30,7 @@ class ExactUpgradeTests(unittest.TestCase):
                         'candidate': candidate}))
                 def mock(obj, name, **kwargs):
                     return stack.enter_context(patch.object(obj, name, **kwargs))
-                mock(lane.recovery, 'sql', side_effect=['0031localauth', '',
+                mock(lane.recovery, 'sql', side_effect=['0031localauth',
                     '0031localauth' if scenario == 'wrong-revision' else '0038managedstops'])
                 mock(lane.recovery, 'digest', return_value='unchanged')
                 mock(lane.recovery, 'validate', return_value={'schema_version': 4})
@@ -41,6 +42,7 @@ class ExactUpgradeTests(unittest.TestCase):
                 updated = mock(lane.updater, 'update', side_effect=update)
                 mock(lane, 'authenticate', return_value={'id': 'synthetic', 'token': 'synthetic'})
                 initialized = mock(lane, 'initialize_baseline_runner')
+                seeded = mock(lane, 'seed_fixture')
                 for name in ('key_telemetry', 'columns', 'projected_rows', 'sequences', 'state_fingerprints'):
                     mock(lane.historical, name, return_value={})
                 retained = mock(lane.historical, 'assert_retained')
@@ -57,6 +59,7 @@ class ExactUpgradeTests(unittest.TestCase):
                     with self.assertRaises(ValueError): lane.exercise(root, private)
                     denied.assert_not_called()
                 initialized.assert_called_once_with(root, 'synthetic')
+                seeded.assert_called_once_with(root, 'synthetic')
                 updated.assert_called_once()
                 self.assertEqual(updated.call_args.args[-1], 'vardrsec-restore-nm3-final-upgrade')
 
@@ -82,3 +85,28 @@ class ExactUpgradeTests(unittest.TestCase):
                                  ('run', '--rm', '--no-deps', 'runner', 'doctor', '--platform', '--offline', '--json'))
                 self.assertNotIn('private-token', compose.call_args.args)
                 self.assertEqual(compose.call_args.kwargs['env']['VARDRMAP_API_KEY'], 'private-token')
+
+    def test_fixture_is_created_as_restricted_role_without_password_arguments(self):
+        with patch.object(lane.database_roles, 'psql') as psql:
+            lane.seed_fixture(Path('/synthetic'), 'private-password')
+            self.assertEqual(psql.call_args.kwargs['user'], lane.database_roles.APP)
+            self.assertEqual(psql.call_args.kwargs['host'], 'db')
+            self.assertEqual(psql.call_args.kwargs['password'], 'private-password')
+            self.assertNotIn('private-password', psql.call_args.args)
+            self.assertIn('ON_ERROR_STOP=1', psql.call_args.args)
+
+    def test_failed_exercise_records_only_static_category_not_exception_text(self):
+        for error, category in ((ValueError('private-secret'), 'validation'),
+                                (OSError('private-path'), 'filesystem'),
+                                (subprocess.TimeoutExpired('private-command', 1), 'timeout'),
+                                (subprocess.CalledProcessError(1, 'private-command'), 'subprocess'),
+                                (RuntimeError('private-error'), 'unexpected')):
+            with self.subTest(category=category), tempfile.TemporaryDirectory() as folder:
+                private = Path(folder)
+                path = private / 'upgrade-checkpoint.json'
+                path.write_text(json.dumps({'stage': 'baseline_roles'}))
+                with patch.object(lane, 'exercise', side_effect=error), self.assertRaises(type(error)):
+                    lane.run_exercise(private / 'fixture', private)
+                self.assertEqual(json.loads(path.read_text()),
+                                 {'stage': 'baseline_roles', 'failure_category': category})
+                self.assertNotIn('private-', path.read_text())

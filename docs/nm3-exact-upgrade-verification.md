@@ -32,7 +32,8 @@ Create a synthetic initial local operator and scoped diagnostic key using the
 existing TLS-verified localhost/CSRF flow, without account reset. Run the existing explicit baseline Runner platform/offline diagnostic with that
 key and require healthy success, initializing its normal identity/journal/runs
 state before measuring retention. No Gate or scan is executed. Seed a dedicated
-synthetic table/sequence. Record all original columns/row hashes, existing sequence
+synthetic table/sequence through the existing restricted application-role connection;
+do not create it as the administrative account. Record all original columns/row hashes, existing sequence
 definitions/state, restricted application role, Runner/proxy volume fingerprints
 and public CA. Normalize only last_used_at of the newly issued diagnostic key,
 with the historical separate bounded/nondecreasing telemetry assertion.
@@ -55,13 +56,15 @@ backups and CA remain retained; no explicit teardown, image prune, user environm
 external scan, production deployment, recon/managed worker or Mapless activation.
 
 Public output is only the fixed seven-day receipt: candidate/workflow identifiers,
-baseline and target pins, fixed status/stage/scope, and six allowlisted booleans.
+baseline and target pins, fixed status/stage/scope, and six allowlisted booleans, an allowlisted checkpoint and optional static failure
+category. Checkpoint parsing requires exact keys, bounded size and known literal
+values; raw exception messages never enter the receipt.
 Repository readers may see it. No raw logs, exception text, paths, config, keys,
 row data, fingerprints or archives are uploaded. Normal hosted VM disposal is not
 durable private backup retention. Artifact readback may remain blocked locally.
 
-Local checks: 30 focused tests (14 reused migration-helper tests, 7 reused builder
-checks, 6 hosted guard checks, 3 orchestration/diagnostic tests); AST/YAML/diff and exact-source
+Local checks: 33 focused tests (14 reused migration-helper tests, 7 reused builder
+checks, 7 hosted guard/checkpoint checks, 5 orchestration/diagnostic tests); AST/YAML/diff and exact-source
 checks. Independent source review precedes publication. Prior candidate full-suite
 results retain their original attribution and are not claimed rerun here.
 
@@ -70,3 +73,18 @@ It does not establish final NM-3 cohort selection, nonempty managed authorizatio
 state, Windows, Mapless-to-Full/no-loss, unrelated external/native data, hard-crash
 recovery, encrypted roundtrip or SQLite/journal safety. Failed watchdog-hang evidence
 remains failed; managed worker and recon execution remain disabled.
+
+## Preserved failed attempt and bounded diagnostic correction
+
+Run 41971477977 at 4d6b975a2c7eac66dd4e9457883b8a72be12f6af failed after
+fresh installation, within preservation. Its public receipt lacked a substage or
+category, and this executor cannot read artifact bytes through the supported route.
+The observed failure is not classified as product or infrastructure.
+
+Read-only source analysis found a definite fixture defect: recovery.sql creates
+the test table as administrator, while the later independent role check rejects
+foreign-owned application tables. The fixture now seeds through database_roles.psql
+as vardrmap_app, retaining the original strict ownership check. This is not proof
+that ownership was the sole cause of the recorded run failure. Static checkpoint/
+category reporting makes one subsequent authorized fresh run diagnostically useful.
+No product source, gate assertion, target pins or trust boundary was changed.

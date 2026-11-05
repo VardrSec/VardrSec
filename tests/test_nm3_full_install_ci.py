@@ -107,3 +107,13 @@ class HostedGuardTests(unittest.TestCase):
         self.assertIn('runs-on: ubuntu-24.04', workflow)
         self.assertIn('path: ${{ runner.temp }}/nm3-full-fresh/public/receipt.json', workflow)
         self.assertIn('contents: read', workflow)
+
+    def test_checkpoint_exports_only_fixed_allowlisted_stage(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'checkpoint.json'
+            self.assertIsNone(ci.read_upgrade_checkpoint(path))
+            path.write_text(json.dumps({'stage': 'baseline_roles'}))
+            self.assertEqual(ci.read_upgrade_checkpoint(path), {'stage': 'baseline_roles'})
+            for value in ({'stage': 'private-secret'}, {'stage': 'rows', 'secret': 'private'}, {'stage': []}, {'stage': 'rows', 'failure_category': 'private-error'}):
+                path.write_text(json.dumps(value))
+                with self.assertRaises(ValueError): ci.read_upgrade_checkpoint(path)

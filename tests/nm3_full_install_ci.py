@@ -28,6 +28,25 @@ UPGRADE_TARGET_PINS = {
     'gate': '7f82e499ec407eba072e129e3f3b94f1a4eabe94',
 }
 
+UPGRADE_FAILURES = frozenset({'validation', 'subprocess', 'timeout', 'filesystem', 'unexpected'})
+UPGRADE_CHECKPOINTS = frozenset({
+    'preflight', 'candidate_build', 'baseline_diagnostics', 'seed', 'snapshots',
+    'baseline_roles', 'update', 'migration', 'rows', 'sequences', 'roles',
+    'volumes', 'outcome', 'complete',
+})
+
+
+def read_upgrade_checkpoint(path):
+    if not path.exists():
+        return None
+    require(path.is_file() and not path.is_symlink() and path.stat().st_size <= 128)
+    value = json.loads(path.read_text())
+    require(isinstance(value, dict) and set(value) in ({'stage'}, {'stage', 'failure_category'}))
+    require(isinstance(value['stage'], str) and value['stage'] in UPGRADE_CHECKPOINTS)
+    if 'failure_category' in value:
+        require(isinstance(value['failure_category'], str) and value['failure_category'] in UPGRADE_FAILURES)
+    return value
+
 
 def require(condition):
     if not condition:
@@ -149,6 +168,11 @@ def run(preservation=False):
                     [sys.executable, str(SOURCE / 'tests/nm3_exact_upgrade.py')],
                     cwd=fixture, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=3600,
                 )
+            checkpoint = read_upgrade_checkpoint(private / 'upgrade-checkpoint.json')
+            if checkpoint is not None:
+                receipt['upgrade_checkpoint'] = checkpoint['stage']
+                if 'failure_category' in checkpoint:
+                    receipt['upgrade_failure_category'] = checkpoint['failure_category']
             require(result.returncode == 0)
             verified = json.loads((private / 'preservation.json').read_text())
             expected = {'actual_0031_to_0038_verified', 'original_rows_sequences_retained',

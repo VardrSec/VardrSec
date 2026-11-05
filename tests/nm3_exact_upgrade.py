@@ -32,7 +32,24 @@ def initialize_baseline_runner(root, token):
     ci.require(result.returncode == 0 and json.loads(result.stdout).get('healthy') is True)
 
 
+
+def seed_fixture(root, password):
+    # Create test objects through the actual restricted application role, so the
+    # independent ownership check remains meaningful and is never relaxed.
+    database_roles.psql(
+        root, PROJECT, '-v', 'ON_ERROR_STOP=1', '-c',
+        "CREATE TABLE nm3_final_upgrade_fixture(id bigserial PRIMARY KEY, note text NOT NULL); "
+        "INSERT INTO nm3_final_upgrade_fixture(note) VALUES ('synthetic-one'),('synthetic-two')",
+        user=database_roles.APP, host='db', password=password)
+
+
 def exercise(root, private):
+    checkpoint = private / 'upgrade-checkpoint.json'
+    ci.require(not os.path.lexists(checkpoint))
+    def mark(stage):
+        ci.require(stage in ci.UPGRADE_CHECKPOINTS)
+        checkpoint.write_text(json.dumps({'stage': stage}) + '\n')
+    mark('preflight')
     ci.require(historical.OLD == ci.PINS == historical_build.PINS['baseline'])
     ci.require(historical.CURRENT == historical_build.PINS['current'] == ci.UPGRADE_TARGET_PINS)
     ci.require(recovery.sql(root, 'SELECT version_num FROM alembic_version', PROJECT) == '0031localauth')
@@ -50,6 +67,7 @@ def exercise(root, private):
             completed = subprocess.run(arguments, cwd=cwd, stdout=log,
                                        stderr=subprocess.STDOUT, timeout=3600)
         ci.require(completed.returncode == 0)
+    mark('candidate_build')
     candidate_path = historical_build.build_candidate(root, candidate_root, stage)
     historical_build.source_receipt(candidate_root, 'current')
     historical_build.recovery_capacity(root, generations=2)
@@ -60,32 +78,42 @@ def exercise(root, private):
     ci.require(candidate['images']['db'] == baseline_images['db'])
     ci.require(candidate['images']['api'] != baseline_images['api'])
     updater.candidate_set(candidate_path, baseline_images, 'https://localhost:8443')
+    mark('baseline_diagnostics')
     key = authenticate(root, details=True)
     initialize_baseline_runner(root, key['token'])
-    recovery.sql(root, "CREATE TABLE nm3_final_upgrade_fixture(id bigserial PRIMARY KEY, note text NOT NULL); "
-                       "INSERT INTO nm3_final_upgrade_fixture(note) VALUES ('synthetic-one'),('synthetic-two')", PROJECT)
+    password = database_roles.read_password(root)
+    ci.require(password is not None)
+    mark('seed')
+    seed_fixture(root, password)
+    mark('snapshots')
     telemetry = historical.key_telemetry(root, PROJECT, key['id'])
     columns = historical.columns(root, PROJECT)
     rows = historical.projected_rows(root, PROJECT, columns, key['id'])
     sequences = historical.sequences(root, PROJECT)
     state = historical.state_fingerprints(root, PROJECT, baseline_images)
-    password = database_roles.read_password(root)
-    ci.require(password is not None)
+    mark('baseline_roles')
     database_roles.verify(root, PROJECT, password)
     ca = recovery.digest(root / 'trust/root.crt')
+    mark('update')
     with patch.dict(os.environ, {'VARDRMAP_API_KEY': key['token']}):
         updater.update(root, candidate_path, output / 'backup', output / 'rehearsal',
                        'vardrsec-restore-nm3-final-upgrade')
+    mark('migration')
     ci.require(recovery.sql(root, 'SELECT version_num FROM alembic_version', PROJECT) == '0038managedstops')
+    mark('rows')
     historical.assert_retained(rows, historical.projected_rows(root, PROJECT, columns, key['id']))
     historical.assert_key_telemetry(telemetry, historical.key_telemetry(root, PROJECT, key['id']))
+    mark('sequences')
     historical.assert_sequences_retained(sequences, historical.sequences(root, PROJECT))
+    mark('roles')
     database_roles.verify(root, PROJECT, password)
     ci.require(recovery.digest(root / 'trust/root.crt') == ca)
+    mark('volumes')
     ci.require(historical.state_fingerprints(root, PROJECT, candidate['images']) == state)
     ci.require(recovery.digest(root / 'versions.json') == pin_hash)
     historical_build.source_receipt(root, 'baseline')
     historical_build.source_receipt(candidate_root, 'current')
+    mark('outcome')
     ci.require(updater.image_set(root)[1] == candidate['images'])
     ci.require(not (root / updater.STATE).exists())
     record = json.loads((root / '.last-update.json').read_text())
@@ -93,7 +121,24 @@ def exercise(root, private):
                and record['candidate'] == candidate)
     ci.require(recovery.validate(output / 'backup')['schema_version'] == 4)
     historical.verify_anonymous_denied('https://localhost:8443', root / 'trust/root.crt')
+    mark('complete')
     return {name: True for name in sorted(FLAGS)}
+
+
+
+def run_exercise(root, private):
+    try:
+        return exercise(root, private)
+    except Exception as error:
+        path = private / 'upgrade-checkpoint.json'
+        checkpoint = ci.read_upgrade_checkpoint(path)
+        if checkpoint is not None:
+            category = ('timeout' if isinstance(error, subprocess.TimeoutExpired) else
+                        'subprocess' if isinstance(error, subprocess.SubprocessError) else
+                        'filesystem' if isinstance(error, OSError) else
+                        'validation' if isinstance(error, ValueError) else 'unexpected')
+            path.write_text(json.dumps({'stage': checkpoint['stage'], 'failure_category': category}) + '\n')
+        raise
 
 
 def main():
@@ -105,7 +150,7 @@ def main():
     ci.host_guard({k: v for k, v in env.items() if k not in
                    {'DOCKER_HOST', 'DOCKER_CONFIG', 'COMPOSE_PROJECT_NAME'}}, preservation=True)
     ci.require(Path.cwd() == private / 'fixture')
-    result = exercise(private / 'fixture', private)
+    result = run_exercise(private / 'fixture', private)
     with (private / 'preservation.json').open('x') as output:
         json.dump(result, output); output.write('\n')
 
