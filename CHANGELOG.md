@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Prepare a branch-only fresh GitHub-hosted Full installation check for the
+  reviewed Community cohort, reusing the existing isolated harness. Verify exact
+  source trees and private fixture pins without changing production versions;
+  retain only a sanitized receipt. Local guard tests do not claim installed
+  acceptance, Windows/Mapless support or a completed Community release.
+
 - Refuse fresh or interrupted Full installation when only selected proxy state
   remains, preserving its CA identity and configuration alongside database and
   Runner state. Check all four resolved state volumes before installation steps.
