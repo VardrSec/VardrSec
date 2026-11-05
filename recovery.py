@@ -355,13 +355,17 @@ def backup(root, destination):
     )
 
 
-def validate(backup_path):
-    metadata = json.loads((backup_path / "snapshot.json").read_text(encoding="utf-8"))
-    scripts = {1: LEGACY_FILES, 2: UPDATE_FILES, 3: CRYPTO_FILES, 4: FILES}.get(
-        metadata.get("schema_version")
-    )
+def snapshot_files(version):
+    """The exact installation files covered by a supported snapshot format."""
+    scripts = {1: LEGACY_FILES, 2: UPDATE_FILES, 3: CRYPTO_FILES, 4: FILES}.get(version)
     if scripts is None:
         raise ValueError("Unsupported snapshot version")
+    return scripts
+
+
+def validate(backup_path):
+    metadata = json.loads((backup_path / "snapshot.json").read_text(encoding="utf-8"))
+    scripts = snapshot_files(metadata.get("schema_version"))
     required = (
         set(scripts)
         | {"database.dump", "images.tar.gz"}

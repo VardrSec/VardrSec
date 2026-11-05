@@ -81,7 +81,19 @@ Successful updates clear the pending record and retain `.last-update.json` with
 the exact images, declared component commits and recovery locations. Later
 snapshots retain that audit record. `versions.json` remains the distribution's
 source-build recipe; `.active-images.json` controls the running installation.
-Version-one backups remain readable; new version-two backups include updater code.
+Snapshot versions 1–3 remain readable; new version-4 backups include the role
+helper and are rejected by older readers. Cancellation compares exactly the
+installation files covered by the validated snapshot version. It still refuses
+changed covered scripts, database/volume drift, or a changed recorded manifest;
+it does not rewrite old snapshots or infer hashes for files they never covered.
+
+There is no pending-update continuation command: another update and ordinary
+startup remain blocked. Pre-mutation cancellation resumes the pinned baseline;
+post-mutation failure requires restoration. Synthetic tests exercise versions
+1–4 through rehearsal cancellation, preparing cancellation and post-mutation
+refusal with mocked Docker. This does not certify installed upgrades, replace
+old tooling during a pending update safely, or establish seamless cross-version
+rollback. Retain matching recovery tooling and the original installation.
 
 The automated drill covers rejected rehearsal, verified cancellation, successful
 update, failure during original migration and recovery from the saved snapshot.

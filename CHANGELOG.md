@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Compare pending-update source files against the validated snapshot version's
+  file set, preserving legacy cancellation without expecting newer helper hashes.
+  Source drift, manifest integrity and post-mutation refusal remain enforced.
+
 - Include the existing database-role helper in version 4 recovery snapshots so
   generated bundles can restore without the original checkout. Continue accepting
   snapshot versions 1–3; older bundles are not retroactively made portable.
