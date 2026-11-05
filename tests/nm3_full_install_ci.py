@@ -28,12 +28,13 @@ def require(condition):
         raise ValueError('Hosted verification prerequisite failed; no acceptance claimed')
 
 
-def host_guard(env):
+def host_guard(env, preservation=False):
     release = platform.freedesktop_os_release()
     require(env.get('GITHUB_ACTIONS') == 'true'
             and env.get('RUNNER_ENVIRONMENT') == 'github-hosted'
             and env.get('GITHUB_REPOSITORY') == 'VardrSec/VardrSec'
-            and env.get('GITHUB_REF') == BRANCH
+            and env.get('GITHUB_REF') == (
+                'refs/heads/codex/nm3-full-preservation-verification' if preservation else BRANCH)
             and env.get('GITHUB_EVENT_NAME') == 'push'
             and platform.system() == 'Linux' and platform.machine() == 'x86_64'
             and release.get('ID') == 'ubuntu' and release.get('VERSION_ID') == '24.04')
@@ -95,8 +96,8 @@ def copy_candidate(destination, env):
     return head
 
 
-def run():
-    host_guard(os.environ)
+def run(preservation=False):
+    host_guard(os.environ, preservation=preservation)
     temporary = Path(os.environ['RUNNER_TEMP']).resolve()
     require(temporary.is_absolute() and temporary.is_dir())
     root = temporary / 'nm3-full-fresh'
@@ -133,6 +134,20 @@ def run():
         services = capture(['docker', 'compose', '-f', str(fixture / 'compose.yaml'),
                             'ps', '--status', 'running', '--services'], cwd=fixture, env=env)
         require(set(services.splitlines()) == {'db', 'api', 'web', 'proxy'})
+        if preservation:
+            receipt['stage'] = 'preservation'
+            with (private / 'preservation.log').open('x') as log:
+                os.chmod(log.name, 0o600)
+                result = subprocess.run(
+                    [sys.executable, str(SOURCE / 'tests/nm3_full_preservation.py')],
+                    cwd=fixture, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=3600,
+                )
+            require(result.returncode == 0)
+            verified = json.loads((private / 'preservation.json').read_text())
+            expected = {'backup_validated', 'restore_fingerprints_verified', 'restored_install_refused',
+                        'source_preserved_after_backup', 'restored_state_preserved_during_refusal'}
+            require(set(verified) == expected and all(value is True for value in verified.values()))
+            receipt['preservation'] = verified
         receipt['status'] = 'passed'
         receipt['stage'] = 'complete'
     except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError):
@@ -147,7 +162,8 @@ def run():
 if __name__ == '__main__':
     # Do not expose raw exceptions, subprocess output, paths or configuration.
     try:
-        raise SystemExit(run())
+        require(sys.argv[1:] in ([], ['--preservation']))
+        raise SystemExit(run(preservation=sys.argv[1:] == ['--preservation']))
     except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError):
         print('Full fresh verification refused; no acceptance claimed')
         raise SystemExit(1) from None

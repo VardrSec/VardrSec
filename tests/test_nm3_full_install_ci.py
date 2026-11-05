@@ -25,6 +25,13 @@ class HostedGuardTests(unittest.TestCase):
              patch.object(ci.platform, 'freedesktop_os_release', return_value={'ID': 'ubuntu', 'VERSION_ID': '24.04'}), \
              patch.object(Path, 'stat', return_value=SimpleNamespace(st_mode=stat.S_IFSOCK, st_uid=0)):
             ci.host_guard(self.environment())
+            preservation_env = {**self.environment(), 'GITHUB_REF':
+                                'refs/heads/codex/nm3-full-preservation-verification'}
+            ci.host_guard(preservation_env, preservation=True)
+            with self.assertRaises(ValueError):
+                ci.host_guard(preservation_env)
+            with self.assertRaises(ValueError):
+                ci.host_guard(self.environment(), preservation=True)
             for key in ('DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_CONFIG', 'DOCKER_TLS_VERIFY',
                         'COMPOSE_ENV_FILES', 'COMPOSE_FILE', 'MAP_SOURCE', 'POSTGRES_PASSWORD',
                         'VARDRMAP_API_KEY'):

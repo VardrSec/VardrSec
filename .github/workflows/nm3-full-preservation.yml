@@ -1,0 +1,32 @@
+name: NM-3 Full restored-state guard verification
+# Pushing this branch is external-execution authorization; not yet authorized.
+on:
+  push:
+    branches: [codex/nm3-full-preservation-verification]
+permissions:
+  contents: read
+jobs:
+  full-fresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Verify fresh install, retained backup/restore and restored-state install refusal
+        run: python tests/nm3_full_install_ci.py --preservation
+      - name: Retain only sanitized public receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: nm3-full-preservation-receipt
+          path: ${{ runner.temp }}/nm3-full-fresh/public/receipt.json
+          if-no-files-found: warn
+          retention-days: 7
+      # Backup quiesces source apps; recovery helpers auto-remove temporary containers.
+      # No fixture down/prune, named-volume/data/CA deletion or private-output upload.
+      # The hosted platform disposes of the fresh VM after the job.
