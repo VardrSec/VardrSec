@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Include the existing database-role helper in version 4 recovery snapshots so
+  generated bundles can restore without the original checkout. Continue accepting
+  snapshot versions 1–3; older bundles are not retroactively made portable.
+
 - Support standard-layout Full fresh-install preflight with once-generated prospective
   configuration, normal Compose/process precedence and exclusive publication of the
   same values after state checks. Refuse custom fresh layouts and alternate Compose

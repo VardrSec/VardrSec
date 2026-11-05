@@ -56,7 +56,7 @@ class RecoveryTests(unittest.TestCase):
                 info.size = 4
                 archive.addfile(info, io.BytesIO(b"test"))
         metadata = {
-            "schema_version": 3,
+            "schema_version": 4,
             "images": {s: "sha256:" + "a" * 64 for s in recovery.SERVICES},
             "volumes": {v: "fixture" for v in recovery.VOLUMES},
             "files": {p.name: recovery.digest(p) for p in root.iterdir()},
@@ -110,6 +110,7 @@ class RecoveryTests(unittest.TestCase):
             metadata["schema_version"] = 1
             metadata["files"].pop("updater.py")
             metadata["files"].pop("backup_crypto.py")
+            metadata["files"].pop("database_roles.py")
             (root / "snapshot.json").write_text(json.dumps(metadata))
             self.assertEqual(recovery.validate(root)["schema_version"], 1)
 
@@ -120,8 +121,32 @@ class RecoveryTests(unittest.TestCase):
             metadata = json.loads((root / "snapshot.json").read_text())
             metadata["schema_version"] = 2
             metadata["files"].pop("backup_crypto.py")
+            metadata["files"].pop("database_roles.py")
             (root / "snapshot.json").write_text(json.dumps(metadata))
             self.assertEqual(recovery.validate(root)["schema_version"], 2)
+
+    def test_version_three_snapshot_remains_supported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.snapshot(root)
+            metadata = json.loads((root / "snapshot.json").read_text())
+            metadata["schema_version"] = 3
+            metadata["files"].pop("database_roles.py")
+            (root / "snapshot.json").write_text(json.dumps(metadata))
+            self.assertEqual(recovery.validate(root)["schema_version"], 3)
+
+    def test_current_snapshot_requires_integrity_checked_role_helper(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.snapshot(root)
+            (root / "database_roles.py").write_bytes(b"changed")
+            with self.assertRaisesRegex(ValueError, "integrity"):
+                recovery.validate(root)
+            metadata = json.loads((root / "snapshot.json").read_text())
+            metadata["files"].pop("database_roles.py")
+            (root / "snapshot.json").write_text(json.dumps(metadata))
+            with self.assertRaisesRegex(ValueError, "incomplete"):
+                recovery.validate(root)
 
     def test_state_archives_reject_traversal_and_links(self):
         with tempfile.TemporaryDirectory() as directory:
