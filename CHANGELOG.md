@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reuse the verified canonical Compose service selection from `7a86b83`: ignore
+  classified retained one-off containers, and refuse missing, ambiguous or foreign
+  service metadata before selecting backup/restore images and persistent mounts.
+
 - Compare pending-update source files against the validated snapshot version's
   file set, preserving legacy cancellation without expecting newer helper hashes.
   Source drift, manifest integrity and post-mutation refusal remain enforced.
