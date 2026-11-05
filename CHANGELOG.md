@@ -1,5 +1,7 @@
 # Changelog
 
+- Branch-only verification: exercise the exact synthetic NM-3 development Full cohort in a disposable hosted fixture; production source pins remain unchanged.
+
 ## Unreleased
 
 - Reuse the verified canonical Compose service selection from `7a86b83`: ignore
