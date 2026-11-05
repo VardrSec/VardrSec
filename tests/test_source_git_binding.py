@@ -142,10 +142,13 @@ class SourceGitBindingTests(unittest.TestCase):
             text=True,
         )
         roots = result.stdout.splitlines()
+        # Git expands Windows TEMP's 8.3 alias. Compare the same canonical paths
+        # used by the boundary; the external common directory must still refuse.
         self.assertEqual(
-            [Path(value) for value in roots[:2]], [source, source / ".git"]
+            [Path(value).resolve() for value in roots[:2]],
+            [source.resolve(), (source / ".git").resolve()],
         )
-        self.assertEqual(Path(roots[2]), common / ".git")
+        self.assertEqual(Path(roots[2]).resolve(), (common / ".git").resolve())
         before = {
             str(p.relative_to(common)): p.read_bytes()
             for p in common.rglob("*")

@@ -85,7 +85,8 @@ with patch.object(recovery, 'command') as command, \
      patch.object(database_roles, 'apply') as apply:
     command.return_value.stdout = ''
     recovery.restore(bundle, bundle, restored, 'vardrsec-restore-portable')
-    apply.assert_called_once_with(restored, 'vardrsec-restore-portable', restoring=True)
+    # Windows TEMP may use its 8.3 alias; restore deliberately resolves its root.
+    apply.assert_called_once_with(restored.resolve(), 'vardrsec-restore-portable', restoring=True)
 assert (restored / 'database_roles.py').read_bytes() == (bundle / 'database_roles.py').read_bytes()
 assert json.loads((restored / 'restore-receipt.json').read_text())['database_verified'] is True
 assert recovery.validate(bundle) == metadata

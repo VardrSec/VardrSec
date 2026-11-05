@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Compare canonical paths in the existing portable-recovery and Git-cache
+  isolation tests so Windows short TEMP aliases preserve the same assertions.
+  Recovery and source-binding behavior are unchanged.
 - Add inactive host-only worker exit-observation and STOP-secret custody helpers.
   Observe the exact local daemon/container incarnation through bounded wait and
   repeated inspection; ambiguous exits remain held. Windows uses its existing
