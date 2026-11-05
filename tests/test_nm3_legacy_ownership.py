@@ -18,14 +18,14 @@ import nm3_legacy_ownership as lane
 class LegacyOwnershipTests(unittest.TestCase):
     def specimen(self):
         eid, jid, rid = [str(uuid.uuid4()) for _ in range(3)]
-        body = {'runner_id': rid, 'origin': lane.ORIGIN, 'token': 'synthetic-control'}
+        body = {'runner_id': rid, 'origin': lane.ORIGIN, 'token': 'synthetic-control', 'target_binding': lane.target_binding(lane.target_case())}
         key = 'vmap_synthetic'
         value = {'execution': {'job_id': jid, 'runner_id': rid, 'origin': lane.ORIGIN,
             'owner': 'synthetic-owner', 'principal_hash': hashlib.sha256(('Bearer ' + key).encode()).hexdigest(),
             'token_hash': hashlib.sha256(body['token'].encode()).hexdigest(), 'state': 'active',
-            'capacity_reserved': True, 'duration_seconds': 30, 'target_charge': 0},
+            'capacity_reserved': True, 'duration_seconds': 30, 'target_charge': 2, 'target_binding': body['target_binding']},
             'budget': {'id': eid, 'owner_github_id': 'synthetic-owner', 'duration_allocated': 30,
-            'duration_limit': 120, 'concurrency_limit': 1, 'target_limit': None, 'targets_spent': 0}}
+            'duration_limit': 120, 'concurrency_limit': 2, 'target_limit': 2, 'targets_spent': 2}}
         return value, eid, jid, body, key
 
     def test_hash_accounting_and_binding_changes_cannot_pass(self):
@@ -34,7 +34,8 @@ class LegacyOwnershipTests(unittest.TestCase):
         for group, field, changed in [('execution', 'principal_hash', '0' * 64),
                 ('execution', 'token_hash', '0' * 64), ('execution', 'owner', 'other'),
                 ('execution', 'capacity_reserved', False), ('execution', 'duration_seconds', 0),
-                ('budget', 'duration_allocated', 0), ('budget', 'target_limit', 10)]:
+                ('budget', 'duration_allocated', 0), ('budget', 'target_limit', 10), ('budget', 'targets_spent', 0),
+                ('execution', 'target_charge', 0), ('execution', 'target_binding', {})]:
             with self.subTest(field=field):
                 value = copy.deepcopy(args[0]); value[group][field] = changed
                 with self.assertRaises(ValueError): lane.verify_records(value, *args[1:])
@@ -73,24 +74,50 @@ class LegacyOwnershipTests(unittest.TestCase):
             with patch.object(lane.recovery, 'sql', side_effect=[json.dumps(executions), json.dumps(budgets)]), self.assertRaises(ValueError):
                 lane.records(Path('/synthetic'), 'synthetic')
 
-    def test_seed_uses_existing_api_contract_and_same_owner_distinct_principal(self):
-        eid, jid = str(uuid.uuid4()), str(uuid.uuid4())
-        calls = []
+    def test_seed_uses_existing_api_without_dispatch_or_trust_records(self):
+        eid, jid, pending, cid = [str(uuid.uuid4()) for _ in range(4)]
+        jobs = iter([jid, pending]); calls = []
         def request(path, data=None, **kwargs):
             calls.append((path, data, kwargs))
             if path == '/engagements': return {'id': eid}
-            if path.endswith('/jobs'): return {'id': jid}
+            if path.endswith('/test-cases'): return {'id': cid, 'spec': data['spec']}
+            if path.endswith('/jobs'): return {'id': next(jobs)}
             if path.endswith('/claim'):
                 return {'status': 'running', 'execution_control': {'capacity_reserved': True,
-                    'duration_budget': {'allocated_seconds': 30}, 'token': 'synthetic-control'}}
+                    'duration_budget': {'allocated_seconds': 30}, 'token': 'synthetic-control',
+                    'target_budget': {'binding': data['target_binding'], 'charged': 2, 'spent': 2, 'limit': 2}}}
         keys = [{'token': 'vmap_owner'}, {'token': 'vmap_other'}]
-        _, _, body = lane.seed(SimpleNamespace(request=request), keys)
+        _, _, got_pending, body = lane.seed(SimpleNamespace(request=request), keys)
+        self.assertEqual(got_pending, pending)
         self.assertEqual(calls[-1][2], {'key': 'vmap_other', 'expected': 404})
         self.assertEqual(calls[-2][2], {'key': 'vmap_owner'})
         self.assertEqual(body['duration_seconds'], 30)
         self.assertTrue(body['concurrency_budget'])
-        self.assertEqual(calls[3][1], {'tool_type': 'httpx', 'target_source': 'scope'})
-        self.assertEqual(len(calls), 6)
+        self.assertEqual(calls[2][1], {'limit': 2})
+        self.assertEqual(calls[3][1], {'limit': 2})
+        self.assertEqual(calls[5][1], {'tool_type': 'vardrgate_api_test', 'target_source': 'scope', 'config': {'test_case_id': cid}})
+        self.assertEqual(len(calls), 9)
+
+    def test_target_refusals_require_specific_reason_and_do_not_send_control_token(self):
+        calls = []
+        body = {**self.specimen()[3], 'concurrency_budget': True, 'duration_seconds': 30}
+        lane.target_refusals(SimpleNamespace(request=lambda *a, **kw: calls.append((a, kw))), 'pending', body, 'synthetic')
+        self.assertEqual([c[1]['detail'] for c in calls], ['target binding mismatch', 'engagement target allowance exhausted'])
+        for args, kwargs in calls:
+            self.assertEqual(kwargs['expected'], 409)
+            self.assertNotIn('token', args[1])
+        self.assertEqual(calls[1][0][1]['target_binding'], body['target_binding'])
+
+    def test_unrelated_409_cannot_pass_as_target_exhaustion(self):
+        api = lane.API.__new__(lane.API); api.csrf = None
+        for detail in ('engagement target allowance exhausted', 'engagement execution capacity exhausted'):
+            error = urllib.error.HTTPError(lane.ORIGIN, 409, 'private', {}, io.BytesIO(json.dumps({'detail': detail}).encode()))
+            api.client = SimpleNamespace(open=lambda *a, **kw: (_ for _ in ()).throw(error))
+            if detail == 'engagement target allowance exhausted':
+                self.assertIsNone(api.request('/jobs/pending/claim', {}, expected=409, detail=detail))
+            else:
+                with self.assertRaises(ValueError):
+                    api.request('/jobs/pending/claim', {}, expected=409, detail='engagement target allowance exhausted')
 
 
 if __name__ == '__main__': unittest.main()

@@ -58,7 +58,7 @@ def host_guard(env, preservation=False):
             and env.get('RUNNER_ENVIRONMENT') == 'github-hosted'
             and env.get('GITHUB_REPOSITORY') == 'VardrSec/VardrSec'
             and env.get('GITHUB_REF') == (
-                'refs/heads/codex/nm3-legacy-ownership-verification' if preservation else BRANCH)
+                'refs/heads/codex/nm3-target-budget-verification' if preservation else BRANCH)
             and env.get('GITHUB_EVENT_NAME') == 'push'
             and platform.system() == 'Linux' and platform.machine() == 'x86_64'
             and release.get('ID') == 'ubuntu' and release.get('VERSION_ID') == '24.04')
@@ -146,7 +146,7 @@ def run(preservation=False):
     receipt = {'schema': 1, 'installer_commit': CANDIDATE, 'component_pins': PINS,
                'fixture_component_pins': UPGRADE_TARGET_PINS,
                'status': 'unproven', 'stage': 'isolation', 'raw_output_uploaded': False,
-               'scope': 'Legacy controlled ownership and duration/concurrency retention on historical NM2 fixture pins; not managed grants/final NM3 cohort/target budgets/Mapless/Windows/SQLite safety'}
+               'scope': 'Legacy represented-target budget and ownership/duration/concurrency retention on historical NM2 fixture pins; not managed grants/final NM3 cohort/Mapless/Windows/SQLite safety'}
     try:
         empty_daemon_guard(env)
         require(shutil.disk_usage(root).free >= 12 * 1024**3)
@@ -188,7 +188,8 @@ def run(preservation=False):
             verified = json.loads((private / 'preservation.json').read_text())
             expected = {'ownership_hashes_preserved', 'duration_concurrency_preserved',
                         'wrong_principal_refused', 'expired_permission_not_renewed',
-                        'v4_bundle_restore_verified', 'source_snapshot_preserved'}
+                        'v4_bundle_restore_verified', 'source_snapshot_preserved',
+                        'represented_target_budget_preserved', 'target_refusals_preserved'}
             require(set(verified) == expected and all(value is True for value in verified.values()))
             receipt['preservation'] = verified
         receipt['status'] = 'passed'

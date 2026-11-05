@@ -22,7 +22,8 @@ PROJECT = 'nm3-full-fixture'
 ORIGIN = 'https://localhost:8443'
 FLAGS = {'ownership_hashes_preserved', 'duration_concurrency_preserved',
          'wrong_principal_refused', 'expired_permission_not_renewed',
-         'v4_bundle_restore_verified', 'source_snapshot_preserved'}
+         'v4_bundle_restore_verified', 'source_snapshot_preserved',
+         'represented_target_budget_preserved', 'target_refusals_preserved'}
 
 
 class API:
@@ -32,7 +33,7 @@ class API:
             urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=str(ca))))
         self.csrf = None
 
-    def request(self, path, data=None, *, method=None, key=None, expected=200):
+    def request(self, path, data=None, *, method=None, key=None, expected=200, detail=None):
         ci.require(path.startswith('/') and not path.startswith('//'))
         headers = {'Origin': ORIGIN, 'Content-Type': 'application/json'}
         if key:
@@ -48,6 +49,8 @@ class API:
         except urllib.error.HTTPError as error:
             # Never emit HTTP bodies/headers, credentials or arbitrary error strings.
             ci.require(error.code == expected and expected >= 400)
+            if detail is not None:
+                ci.require(json.load(error).get('detail') == detail)
             return None
 
 
@@ -66,24 +69,58 @@ def authenticate(root):
     return api, keys
 
 
+def target_case():
+    # Existing fixed Gate format, entirely anonymous descriptions. Never dispatched.
+    return {'id': 'synthetic-target-retention',
+            'identities': [{'id': 'anonymous', 'credential':
+                            {'type': 'static_header', 'header': '', 'value': ''}}],
+            'request': {'method': 'GET', 'url': 'https://api.example.test/item'},
+            'setup': [{'name': 'auxiliary', 'request':
+                       {'method': 'GET', 'url': 'https://setup.example.test/start'}}],
+            'expected_access': [{'identity_id': 'anonymous', 'decision': 'deny'}]}
+
+
+def target_binding(spec):
+    # This fixture is intentionally fixed, not another production case parser.
+    ci.require(spec == target_case())
+    return {'profile': 'gate-fixed-http/1',
+            'case_sha256': hashlib.sha256(json.dumps(spec, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
+            'origins': ['https://api.example.test:443', 'https://setup.example.test:443']}
+
+
+def target_refusals(api, pending, body, key):
+    claim = {k: v for k, v in body.items() if k != 'token'}
+    bad = {**claim, 'target_binding': {**claim['target_binding'], 'case_sha256': '0' * 64}}
+    api.request(f'/jobs/{pending}/claim', bad, key=key, expected=409, detail='target binding mismatch')
+    api.request(f'/jobs/{pending}/claim', claim, key=key, expected=409,
+                detail='engagement target allowance exhausted')
+
+
 def seed(api, keys):
-    engagement = api.request('/engagements', {'name': 'Synthetic legacy retention',
+    engagement = api.request('/engagements', {'name': 'Synthetic legacy target retention',
                                               'engagement_type': 'internal', 'engagement_status': 'active'})
     eid = str(uuid.UUID(engagement['id']))
     api.request(f'/engagements/{eid}/duration-policy', {'limit_seconds': 120}, method='PUT')
-    api.request(f'/engagements/{eid}/concurrency-policy', {'limit': 1}, method='PUT')
-    # An unmarked legacy metadata job with no scope/targets. No worker or HTTP tool runs.
-    job = api.request(f'/engagements/{eid}/jobs', {'tool_type': 'httpx', 'target_source': 'scope'})
-    jid = str(uuid.UUID(job['id']))
+    # Keep a spare slot so the target refusal cannot be masked by concurrency.
+    api.request(f'/engagements/{eid}/concurrency-policy', {'limit': 2}, method='PUT')
+    api.request(f'/engagements/{eid}/target-policy', {'limit': 2}, method='PUT')
+    case = api.request(f'/engagements/{eid}/test-cases',
+                       {'name': 'Synthetic represented targets', 'spec': target_case()}, expected=201)
+    case_id = str(uuid.UUID(case['id']))
+    job_body = {'tool_type': 'vardrgate_api_test', 'target_source': 'scope',
+                'config': {'test_case_id': case_id}}
+    jid, pending = [str(uuid.UUID(api.request(f'/engagements/{eid}/jobs', job_body)['id'])) for _ in range(2)]
     binding = {'runner_id': str(uuid.uuid4()), 'origin': ORIGIN,
-               'concurrency_budget': True, 'duration_seconds': 30}
+               'concurrency_budget': True, 'duration_seconds': 30,
+               'target_binding': target_binding(case['spec'])}
     claimed = api.request(f'/jobs/{jid}/claim', binding, key=keys[0]['token'])
     control = claimed['execution_control']
     ci.require(claimed['status'] == 'running' and control['capacity_reserved'] is True)
     ci.require(control['duration_budget']['allocated_seconds'] == 30)
+    ci.require(control['target_budget'] == {'binding': binding['target_binding'], 'charged': 2, 'spent': 2, 'limit': 2})
     body = {**binding, 'token': control['token']}
     api.request(f'/jobs/{jid}/control', body, key=keys[1]['token'], expected=404)
-    return eid, jid, body
+    return eid, jid, pending, body
 
 
 def records(root, project):
@@ -95,7 +132,10 @@ def records(root, project):
         '(SELECT id,owner_github_id,duration_limit,duration_allocated,concurrency_limit,'
         'target_limit,targets_spent FROM programs) p', project))
     ci.require(len(execution) == len(budgets) == 1)
-    return {'execution': execution[0], 'budget': budgets[0]}
+    jobs = json.loads(recovery.sql(root,
+        "SELECT json_agg(row_to_json(j) ORDER BY id) FROM (SELECT id,status,case_snapshot FROM scan_jobs) j", project))
+    ci.require(len(jobs) == 2 and sorted(j['status'] for j in jobs) == ['pending', 'running'])
+    return {'execution': execution[0], 'budget': budgets[0], 'jobs': jobs}
 
 
 def verify_records(value, eid, jid, body, key):
@@ -106,8 +146,9 @@ def verify_records(value, eid, jid, body, key):
     ci.require(row['token_hash'] == hashlib.sha256(body['token'].encode()).hexdigest())
     ci.require(row['state'] == 'active' and row['capacity_reserved'] is True and row['duration_seconds'] == 30)
     ci.require(budget['id'] == eid and budget['duration_allocated'] == 30
-               and budget['duration_limit'] == 120 and budget['concurrency_limit'] == 1)
-    ci.require(budget['target_limit'] is None and budget['targets_spent'] == row['target_charge'] == 0)
+               and budget['duration_limit'] == 120 and budget['concurrency_limit'] == 2)
+    ci.require(budget['target_limit'] == budget['targets_spent'] == row['target_charge'] == 2)
+    ci.require(row['target_binding'] == body['target_binding'] == target_binding(target_case()))
 
 
 def start_restored(restored):
@@ -134,10 +175,12 @@ def exercise(root, private):
     mark('authenticate')
     api, keys = authenticate(root)
     mark('seed')
-    eid, jid, body = seed(api, keys)
+    eid, jid, pending, body = seed(api, keys)
     mark('ownership')
     before = records(root, PROJECT)
     verify_records(before, eid, jid, body, keys[0]['token'])
+    target_refusals(api, pending, body, keys[0]['token'])
+    ci.require(records(root, PROJECT) == before)
     backup, restored = private / 'legacy-backup', private / 'legacy-restored'
     ci.require(not any(os.path.lexists(p) for p in (backup, restored)))
     mark('backup')
@@ -162,13 +205,15 @@ def exercise(root, private):
     mark('denial')
     restored_api.request(f'/jobs/{jid}/control', body, key=keys[1]['token'], expected=404)
     ci.require(records(restored, RESTORE_PROJECT) == before)
+    target_refusals(restored_api, pending, body, keys[0]['token'])
+    ci.require(records(restored, RESTORE_PROJECT) == before)
     mark('expiry')
     # Backup/restore has elapsed the 10s lease; fail rather than wait/renew/fake time.
     status = restored_api.request(f'/jobs/{jid}/execution', key=keys[0]['token'])
     ci.require(status['state'] == 'uncertain' and status['termination_confirmed'] is False)
     result = restored_api.request(f'/jobs/{jid}/control', body, key=keys[0]['token'])
     ci.require(result['action'] == 'cancel')
-    expected = {'execution': {**before['execution'], 'state': 'uncertain'}, 'budget': before['budget']}
+    expected = {**before, 'execution': {**before['execution'], 'state': 'uncertain'}}
     ci.require(records(restored, RESTORE_PROJECT) == expected)
     ci.require(state(root, PROJECT) == source and recovery.validate(backup) == snapshot)
     mark('complete')
