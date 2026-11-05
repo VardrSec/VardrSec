@@ -91,7 +91,26 @@ ENCRYPTED_FLAGS = {'encrypted_roundtrip_verified', 'wrong_identity_refused',
                    'truncated_ciphertext_refused', 'tampered_ciphertext_refused'}
 
 
-def encrypted_roundtrip(backup, private):
+DIRECT_FLAGS = {'direct_encrypted_backup_cli_verified', 'private_backup_staging_removed'}
+
+
+def direct_backup(root, private, sealed, recipient):
+    ci.require(not os.path.lexists(sealed))
+    ci.require(not list(private.glob('.vardrsec-backup-*')))
+    result = subprocess.run(
+        [sys.executable, 'vardrsec.py', 'backup', '--destination', str(sealed),
+         '--recipient', recipient], cwd=root, capture_output=True, text=True, timeout=1800)
+    ci.require(result.returncode == 0)
+    ci.require(not list(private.glob('.vardrsec-backup-*')))
+    ci.require(sealed.is_file() and not sealed.is_symlink())
+    # The CLI must release its existing installation lock as well as publishing
+    # the ciphertext; this check retains the lock file and all source state.
+    import updater
+    with updater.installation_lock(root):
+        pass
+
+
+def encrypted_roundtrip(backup, private, direct_root=None):
     # All key material remains in the mode-0700 private VM directory. Commands
     # capture stdout/stderr; neither keys nor recipients enter public receipts.
     identity, wrong = private / 'identity.txt', private / 'wrong-identity.txt'
@@ -102,7 +121,11 @@ def encrypted_roundtrip(backup, private):
         path.chmod(0o600)
     recipient = ci.capture(['age-keygen', '-y', str(identity)]).strip()
     sealed = private / 'snapshot.age'
-    backup_crypto.seal(backup, sealed, recipient, announce=False)
+    if direct_root is None:
+        backup_crypto.seal(backup, sealed, recipient, announce=False)
+    else:
+        ci.require(backup is None)
+        direct_backup(direct_root, private, sealed, recipient)
     ci.require(sealed.stat().st_mode & 0o777 == 0o600)
     original_digest = recovery.digest(sealed)
     # Retain the original ciphertext and create separate damaged synthetic copies.
@@ -137,12 +160,16 @@ def encrypted_roundtrip(backup, private):
         ci.require(not list(private.glob('.vardrsec-unseal-*')))
     unsealed = private / 'unsealed'
     backup_crypto.unseal(sealed, unsealed, identity)
-    ci.require(recovery.validate(unsealed) == recovery.validate(backup))
+    metadata = recovery.validate(unsealed)
+    ci.require(metadata['schema_version'] == 4)
+    if backup is not None:
+        ci.require(metadata == recovery.validate(backup))
     ci.require(recovery.digest(sealed) == original_digest)
     return unsealed
 
 
-def exercise(root, private, encrypted=False):
+def exercise(root, private, encrypted=False, direct=False):
+    ci.require(not direct or encrypted)
     backup, restored = private / 'backup', private / 'restored'
     ci.require(not any(os.path.lexists(path) for path in (backup, restored)))
     # Reuse NM-2's conservative image/copy capacity estimate, with no pruning.
@@ -157,12 +184,15 @@ def exercise(root, private, encrypted=False):
     # Add only explicit synthetic rows/sequence in the owned fixture database.
     recovery.sql(root, "CREATE TABLE nm3_guard_fixture(id bigserial PRIMARY KEY, note text NOT NULL); "
                        "INSERT INTO nm3_guard_fixture(note) VALUES ('synthetic-one'),('synthetic-two')")
-    recovery.backup(root, backup)
+    if direct:
+        backup = encrypted_roundtrip(None, private, direct_root=root)
+    else:
+        recovery.backup(root, backup)
     snapshot = recovery.validate(backup)
     source_before = state(root, 'nm3-full-fixture')
     ci.require(source_before['database'] == snapshot['database'])
     ci.require(source_before['volumes'] == snapshot['volumes'])
-    recovered = encrypted_roundtrip(backup, private) if encrypted else backup
+    recovered = encrypted_roundtrip(backup, private) if encrypted and not direct else backup
     bundled_restore(recovered, restored)
     restored_before = state(restored, RESTORE_PROJECT)
     ci.require(restored_before['database'] == snapshot['database'])
@@ -182,7 +212,8 @@ def exercise(root, private, encrypted=False):
     # The image override is separate from FILES and must also remain as restored.
     active = json.loads((restored / '.active-images.json').read_text())
     ci.require(active == {'services': {name: {'image': image} for name, image in snapshot['images'].items()}})
-    return {name: True for name in sorted(FLAGS | (ENCRYPTED_FLAGS if encrypted else set()))}
+    return {name: True for name in sorted(FLAGS | (ENCRYPTED_FLAGS if encrypted else set()) |
+                                           (DIRECT_FLAGS if direct else set()))}
 
 
 def main():
@@ -197,8 +228,8 @@ def main():
     ci.host_guard({k: v for k, v in env.items() if k not in
                    {'DOCKER_HOST', 'DOCKER_CONFIG', 'COMPOSE_PROJECT_NAME'}}, preservation=True)
     ci.require(Path.cwd() == fixture)
-    ci.require(sys.argv[1:] == ['--encrypted'])
-    result = exercise(fixture, private, encrypted=True)
+    ci.require(sys.argv[1:] == ['--direct-encrypted'])
+    result = exercise(fixture, private, encrypted=True, direct=True)
     with (private / 'preservation.json').open('x') as output:
         json.dump(result, output); output.write('\n')
 

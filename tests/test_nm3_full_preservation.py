@@ -12,7 +12,7 @@ import nm3_full_preservation as lane
 
 
 class PreservationTests(unittest.TestCase):
-    def scenario(self, returncode=2, mutate=False, capacity=True):
+    def scenario(self, returncode=2, mutate=False, capacity=True, direct=False):
         with tempfile.TemporaryDirectory() as folder:
             private = Path(folder); root = private / 'fixture'; root.mkdir()
             snapshot = {'database': {'fixture': 'synthetic-hash'}, 'volumes': {'fixture': 'synthetic-hash'},
@@ -27,22 +27,30 @@ class PreservationTests(unittest.TestCase):
                  patch.object(lane.recovery, 'sql') as sql, patch.object(lane.recovery, 'backup') as backup, \
                  patch.object(lane.recovery, 'validate', return_value=snapshot), \
                  patch.object(lane, 'bundled_restore', side_effect=restore), \
+                 patch.object(lane, 'encrypted_roundtrip', return_value=private / 'backup') as encrypted,  \
                  patch.object(lane, 'state', side_effect=[baseline, baseline, {} if mutate else baseline, baseline]), \
                  patch.object(lane.subprocess, 'run', return_value=subprocess.CompletedProcess(
                      [], returncode, stdout='', stderr='This installation has been started before')) as install:
                 if returncode != 2 or mutate or not capacity:
-                    with self.assertRaises(ValueError): lane.exercise(root, private)
+                    with self.assertRaises(ValueError): lane.exercise(root, private, encrypted=direct, direct=direct)
                 else:
-                    self.assertEqual(lane.exercise(root, private), {key: True for key in lane.FLAGS})
+                    self.assertEqual(lane.exercise(root, private, encrypted=direct, direct=direct), {key: True for key in lane.FLAGS | (lane.ENCRYPTED_FLAGS | lane.DIRECT_FLAGS if direct else set())})
                     self.assertNotIn('COMPOSE_PROJECT_NAME', install.call_args.kwargs['env'])
                     self.assertEqual(install.call_args.args[0][1:], ['vardrsec.py', 'install'])
                     self.assertEqual(install.call_args.kwargs['cwd'], private / 'restored')
-                    backup.assert_called_once_with(root, private / 'backup')
+                    if direct:
+                        backup.assert_not_called()
+                        encrypted.assert_called_once_with(None, private, direct_root=root)
+                    else:
+                        backup.assert_called_once_with(root, private / 'backup')
                 if not capacity:
                     sql.assert_not_called(); backup.assert_not_called(); install.assert_not_called()
 
     def test_restored_project_uses_dotenv_and_preserves_fingerprints(self):
         self.scenario()
+
+    def test_direct_cli_bundle_is_used_without_a_separate_plaintext_backup(self):
+        self.scenario(direct=True)
 
     def test_unexpected_install_success_or_state_mutation_cannot_pass(self):
         self.scenario(returncode=0)

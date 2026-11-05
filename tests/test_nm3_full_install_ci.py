@@ -26,7 +26,7 @@ class HostedGuardTests(unittest.TestCase):
              patch.object(Path, 'stat', return_value=SimpleNamespace(st_mode=stat.S_IFSOCK, st_uid=0)):
             ci.host_guard(self.environment())
             preservation_env = {**self.environment(), 'GITHUB_REF':
-                                'refs/heads/codex/nm3-encrypted-recovery-verification'}
+                                'refs/heads/codex/nm3-direct-encrypted-verification'}
             ci.host_guard(preservation_env, preservation=True)
             with self.assertRaises(ValueError):
                 ci.host_guard(preservation_env)
