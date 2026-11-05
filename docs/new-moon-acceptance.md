@@ -66,7 +66,7 @@ advanced.
 
 ## Current compatible source verification
 
-The final PostgreSQL checks use these exact Git-archived sources:
+The initial PostgreSQL cohort used these exact Git-archived sources:
 
 | Component | Commit |
 |---|---|
@@ -88,19 +88,47 @@ An extra offline `go mod verify` check lacked historical module metadata; that
 limitation is recorded separately from the successful race/vet results. Native
 Windows race-detector execution remains unavailable with the installed compiler.
 
-This cohort is verified at source/integration level. It has not passed fresh Full
-or Mapless installation/recovery as an installed distribution.
+That older Gate cohort is verified at source/integration level. It has no fresh
+Full or Mapless installation/recovery acceptance as an installed distribution.
 The existing [Gate duplicate-JSON guard correction](https://github.com/VardrSec/VardrGate/pull/29)
-at `54536ea` remains unmerged. Review and freshly validate it before selecting the
-installed cohort; the older baseline above is not acceptance of that known gap.
+at `54536ea1d900d0e35adf93b4e026962c4d45d34a` remains unmerged. Fresh verification
+now passes 791 native Windows test/subtest checks across 21 packages, native vet
+and build, 791 Linux race checks with vet, the fourteen-request standalone fixture
+and all 152 PostgreSQL integration checks with the exact Map/Runner sources above.
+The older baseline is not acceptance of the duplicate-key gap.
+
+## Fresh Full installation evidence
+
+The distribution at `befe929870107c5a27d291078088fbceaeb58512`, with Map `aad63c8`,
+Runner `440ebda` and corrected Gate `54536ea`, passed one-command Full installation
+on a fresh GitHub-hosted Ubuntu 24.04/amd64 VM in
+[run 42103819846](https://github.com/VardrSec/VardrSec/actions/runs/42103819846).
+The sanitized receipt verifies source commits/trees, successful standard install
+steps, CA-validated HTTPS, local login, CSRF rejection without mutation, scoped
+Runner key issuance, database/migration readiness and authenticated diagnostics.
+Only database, API, web and proxy services ran before and after those checks.
+
+This establishes the installation/authorization boundary for that development
+cohort. It does not establish installed assessment, recovery, Mapless, Windows
+Docker Desktop or managed-worker acceptance. The next isolated extension reuses
+the browser/Gate/evidence workflow and encrypted recovery on that same cohort;
+see [the exact sources and acceptance boundary](nm3-community-full-verification.md).
+Production component pins remain unchanged.
 
 ## Experimental work, not accepted capabilities
 
-A six-case disposable Docker experiment demonstrated kernel-deadline cleanup of
-a stopped owner and escaped descendants using existing Docker init. No product
-capability was enabled. Trusted-init/main-child binding, hostile tracing,
-suspend-aware expiry, lifecycle, authorization and evidence integration still need
-review and negative tests. Managed Docker execution remains gated.
+The initial disposable Docker deadline experiment was insufficient. Follow-up
+tests found owner/init binding and scheduling interference that could let fixture
+writes continue beyond the armed deadline. A scratch additive restriction narrowed
+the observed scheduling gap, but complete resource-control, real-tool, lifecycle,
+suspend/resume, authorization and evidence acceptance did not run. Further
+adversarial testing encountered a tool safety block. No product containment code
+or recon capability was enabled; managed Docker execution remains gated.
+
+Separate Windows and Linux scratch probes can copy closed, checkpointed SQLite
+journals while excluding new connections and refusing retained sidecars. They do
+not establish active-WAL capture, export freshness or private temporary-storage
+safety across supported platforms. No snapshot flag or product API was added.
 
 ## Accepted direction and remaining work
 
@@ -125,8 +153,9 @@ gap in the existing components before implementation.
 ## Next acceptance sequence
 
 1. Close POSIX/container containment and consistent non-mutating snapshot gates.
-2. Prepare fresh installed acceptance for the verified source cohort; use an isolated
-   host so development image tags cannot affect retained projects.
+2. Extend the passing fresh Full install through installed assessment/evidence and
+   encrypted recovery; use an isolated host so image tags cannot affect retained
+   projects. Run a separately scoped actual Windows Docker Desktop feasibility trial.
 3. Advance distribution pins only with the reviewed installed-acceptance evidence.
 4. Demonstrate Mapless install → authorize → recon → reviewed Gate → export/restart
    with Map inaccessible, and Full installation → approved queue → cancel/recover.

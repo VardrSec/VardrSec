@@ -3,6 +3,7 @@
 Never invoke locally against an operator daemon. Private logs/config stay on the
 job VM. Only the fixed public receipt is eligible for upload; no teardown.
 """
+import argparse
 import hashlib
 import http.cookiejar
 import ssl
@@ -100,14 +101,15 @@ def copy_candidate(destination, env):
         require(not Path(name).is_absolute() and '..' not in Path(name).parts)
         require(not (SOURCE / name).is_symlink())
         files.append(name)
-    require(subprocess.run(['git', 'diff', '--quiet', CANDIDATE, head, '--', *[name for name in files if name != 'CHANGELOG.md']],
+    notes = {name for name in files if name == 'CHANGELOG.md' or name.startswith('docs/')}
+    require(subprocess.run(['git', 'diff', '--quiet', CANDIDATE, head, '--', *[name for name in files if name not in notes]],
                            cwd=SOURCE, capture_output=True).returncode == 0)
     destination.mkdir(mode=0o700)
     for name in files:
         target = destination / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(SOURCE / name, target)
-        if name == 'CHANGELOG.md':
+        if name in notes:
             target.write_text(capture(['git', 'show', CANDIDATE + ':' + name]))
     require(not (destination / '.env').exists() and not (destination / '.sources').exists())
     pins = json.loads((destination / 'versions.json').read_text())
@@ -192,7 +194,35 @@ def observed_install_steps(path):
     return steps
 
 
-def run():
+def verify_installed_lifecycle(fixture, private, env, receipt):
+    from nm3_installed_lifecycle import CHECKS, STAGES, FAILURE_CODES
+    summary = private / 'lifecycle/summary.json'
+    with (private / 'lifecycle.log').open('x') as log:
+        os.chmod(log.name, 0o600)
+        result = subprocess.run([sys.executable, str(SOURCE / 'tests/nm3_installed_lifecycle.py'),
+            '--fixture', str(fixture), '--summary', str(summary)], cwd=private, env=env,
+            stdout=log, stderr=subprocess.STDOUT, timeout=1800)
+    observed = {}
+    try:
+        with summary.open('rb') as stream:
+            raw = stream.read(16 * 1024 + 1)
+        if len(raw) <= 16 * 1024:
+            observed = json.loads(raw)
+            require(isinstance(observed, dict))
+    except (OSError, ValueError, RecursionError):
+        observed = {}
+    receipt['lifecycle_stage'] = observed.get('stage') if observed.get('stage') in STAGES else 'unavailable'
+    code = observed.get('failure_code')
+    if code in FAILURE_CODES:
+        receipt['lifecycle_failure_code'] = code
+    require(result.returncode == 0)
+    require(observed.get('status') == 'passed' and observed.get('stage') == 'complete')
+    require(set(observed['checks']) == set(CHECKS)
+            and all(observed['checks'][name] is True for name in CHECKS))
+    return {name: True for name in CHECKS}
+
+
+def run(*, installed_lifecycle=False):
     host_guard(os.environ)
     temporary = Path(os.environ['RUNNER_TEMP']).resolve()
     require(temporary.is_absolute() and temporary.is_dir())
@@ -203,7 +233,8 @@ def run():
     public = root / 'public'; public.mkdir(mode=0o700)
     docker_config = private / 'docker-config'; docker_config.mkdir(mode=0o700)
     env = {**os.environ, 'DOCKER_HOST': 'unix:///var/run/docker.sock',
-           'DOCKER_CONFIG': str(docker_config), 'COMPOSE_PROJECT_NAME': 'nm3-full-fixture'}
+           'DOCKER_CONFIG': str(docker_config),
+           'COMPOSE_PROJECT_NAME': 'vardrsec-compose-review' if installed_lifecycle else 'nm3-full-fixture'}
     receipt = {'schema': 1, 'installer_commit': CANDIDATE, 'component_pins': PINS, 'source_trees': TREES,
                'status': 'unproven', 'stage': 'isolation', 'raw_output_uploaded': False,
                'scope': 'Exact synthetic development Full cohort only; not Windows/Mapless/snapshot/journal/grant/upgrade/no-loss acceptance'}
@@ -237,9 +268,14 @@ def run():
                             'ps', '--status', 'running', '--services'], cwd=fixture, env=env)
         require(set(services.splitlines()) == {'db', 'api', 'web', 'proxy'})
         receipt['stage'] = 'authorization'
-        receipt['checks'] = verify_authorization(fixture, env)
-        services = capture(['docker', 'compose', 'ps', '--status', 'running', '--services'], cwd=fixture, env=env)
-        require(set(services.splitlines()) == {'db', 'api', 'web', 'proxy'})
+        if installed_lifecycle:
+            receipt['stage'] = 'installed_lifecycle'
+            receipt['checks'] = verify_installed_lifecycle(fixture, private, env, receipt)
+            receipt['scope'] = 'Exact synthetic Full UI/explicit assessment/evidence and encrypted recovery cohort; not Windows/Mapless/managed-worker/snapshot acceptance'
+        else:
+            receipt['checks'] = verify_authorization(fixture, env)
+            services = capture(['docker', 'compose', 'ps', '--status', 'running', '--services'], cwd=fixture, env=env)
+            require(set(services.splitlines()) == {'db', 'api', 'web', 'proxy'})
         receipt['status'] = 'passed'
         receipt['stage'] = 'complete'
     except subprocess.TimeoutExpired:
@@ -259,7 +295,10 @@ def run():
 if __name__ == '__main__':
     # Do not expose raw exceptions, subprocess output, paths or configuration.
     try:
-        raise SystemExit(run())
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument('--installed-lifecycle', action='store_true')
+        args = parser.parse_args()
+        raise SystemExit(run(installed_lifecycle=args.installed_lifecycle))
     except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError):
         print('Full fresh verification refused; no acceptance claimed')
         raise SystemExit(1) from None

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Extend isolated Full verification through the existing browser, explicit Gate,
+  evidence/report, restart and encrypted recovery workflows. Check the selected
+  schema and preserve source-state fingerprints; upload only fixed diagnostics.
+  This is a test harness increment, with production pins and lifecycle unchanged.
+
+- Record passing fresh hosted Full installation, trusted login, scoped key and
+  authenticated diagnostics for the exact reviewed development cohort. Installed
+  assessment/recovery and Windows/Mapless acceptance remain separate requirements.
+
 - Prepare a branch-only fresh GitHub-hosted Full installation check for the
   reviewed Community cohort, reusing the existing isolated harness. Verify exact
   source trees and private fixture pins without changing production versions;

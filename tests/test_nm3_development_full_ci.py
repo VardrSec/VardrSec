@@ -110,11 +110,14 @@ class CandidateBindingTests(unittest.TestCase):
         (self.repo / 'versions.json').write_text(json.dumps(manifest))
         (self.repo / 'application.txt').write_text('candidate source\n')
         (self.repo / 'CHANGELOG.md').write_text('candidate notes\n')
+        (self.repo / 'docs').mkdir()
+        (self.repo / 'docs/acceptance.md').write_text('candidate acceptance notes\n')
         self.git('add', '.'); self.git('commit', '-m', 'candidate')
         candidate = self.git('rev-parse', 'HEAD')
         tree = self.git('rev-parse', 'HEAD^{tree}')
         (self.repo / 'verification-only.txt').write_text('workflow overlay\n')
         (self.repo / 'CHANGELOG.md').write_text('verification notes\n')
+        (self.repo / 'docs/acceptance.md').write_text('new accepted evidence notes\n')
         self.git('add', '.'); self.git('commit', '-m', 'verification overlay')
         return candidate, tree
 
@@ -145,6 +148,7 @@ class CandidateBindingTests(unittest.TestCase):
         })
         self.assertEqual((self.repo / 'versions.json').read_bytes(), original)
         self.assertEqual((destination / 'CHANGELOG.md').read_text(), 'candidate notes\n')
+        self.assertEqual((destination / 'docs/acceptance.md').read_text(), 'candidate acceptance notes\n')
         self.assertFalse((destination / 'verification-only.txt').exists())
 
     def test_wrong_workflow_ref_or_candidate_tree_refuses_before_copy(self):
