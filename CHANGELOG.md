@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserve the NM-3 baseline and move implementation priority to the original
+  NM-1/NM-2 exits. Add explicit cross-origin permission-equivalence proof and a
+  closeout control record. Owner-authorized managed-worker guidance does not
+  enable execution or waive containment/privilege review.
 - Record passing fresh hosted Full browser, reviewed assessment, evidence/report,
   restart and encrypted restore checks at the exact development cohort. All 179
   host-side tests passed without skips; archive only the sanitized public receipts.

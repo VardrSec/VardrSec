@@ -1,6 +1,12 @@
 name: NM-1 exact-source verification
 
 on:
+  workflow_dispatch:
+    inputs:
+      conformance_only:
+        description: Reuse separately recorded legacy CI; run exact-source conformance only
+        type: boolean
+        default: true
   push:
     branches: [codex/nm1-ci-verification]
     paths:
@@ -32,19 +38,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrMap
-          ref: 6c06315fd1ee4ad2649afdfeb0363b421b6e7c54
+          ref: 76b8d97b0d6c1e3869f11e1cfe834f894f04aa93
           path: .nm1/map
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrRunner
-          ref: ab5f23f87fa765038f70f3d91a16470bd05d73e2
+          ref: 2cbf3619c2db3682e5de7aa4ed70c8f1b07335c5
           path: .nm1/runner
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrGate
-          ref: e99714b8567d1bc415c8feeeef4c7454e13aa905
+          ref: 54536ea1d900d0e35adf93b4e026962c4d45d34a
           path: .nm1/gate
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -91,6 +97,7 @@ jobs:
 
   map-legacy:
     name: Map backend and integration (${{ matrix.database }})
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.conformance_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -121,19 +128,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrMap
-          ref: 6c06315fd1ee4ad2649afdfeb0363b421b6e7c54
+          ref: 76b8d97b0d6c1e3869f11e1cfe834f894f04aa93
           path: .nm1/map
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrRunner
-          ref: ab5f23f87fa765038f70f3d91a16470bd05d73e2
+          ref: 2cbf3619c2db3682e5de7aa4ed70c8f1b07335c5
           path: .nm1/runner
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrGate
-          ref: e99714b8567d1bc415c8feeeef4c7454e13aa905
+          ref: 54536ea1d900d0e35adf93b4e026962c4d45d34a
           path: .nm1/gate
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -185,9 +192,9 @@ jobs:
         run: >-
           python .nm1/map/scripts/integration/run.py --postgres --semantic-evidence --platform-readiness
           --runner .nm1/runner --gate .nm1/gate --runner-python "$(command -v python)"
-          --map-ref 6c06315fd1ee4ad2649afdfeb0363b421b6e7c54
-          --runner-ref ab5f23f87fa765038f70f3d91a16470bd05d73e2
-          --gate-ref e99714b8567d1bc415c8feeeef4c7454e13aa905
+          --map-ref 76b8d97b0d6c1e3869f11e1cfe834f894f04aa93
+          --runner-ref 2cbf3619c2db3682e5de7aa4ed70c8f1b07335c5
+          --gate-ref 54536ea1d900d0e35adf93b4e026962c4d45d34a
           --output "$RUNNER_TEMP"
       - name: Retain allowlisted integration verdict and source manifest
         if: always()
@@ -203,6 +210,7 @@ jobs:
           retention-days: 7
 
   distribution-unit:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.conformance_only != true }}
     strategy:
       fail-fast: false
       matrix:

@@ -43,7 +43,7 @@ def main():
         digest,
         encoded,
     )
-    from vardrrunner.authorization.contracts import ValidationContext, approve
+    from vardrrunner.authorization.contracts import ValidationContext, approve, approved, validate
     from vardrrunner.authorization.ledger import AuthorizationLedger
     from vardrrunner.authorization.plan import compile_gate_plan
     from vardrrunner.journal import Journal
@@ -151,6 +151,8 @@ def main():
         .public_bytes_raw()
     )
     results = []
+    semantics = {}
+    expected_permission = {key: value for key, value in request["context"].items() if key != "control"}
     with tempfile.TemporaryDirectory(prefix="nm1-cross-contract-") as directory:
         for kind in ("standalone", "map"):
             issuer = {"id": kind + "-issuer", "key_id": "test-only-key"}
@@ -174,7 +176,21 @@ def main():
                 "2026-11-01T17:59:00Z",
                 bytes(range(32)),
             )
-            ledger = AuthorizationLedger(Journal(Path(directory) / (kind + ".sqlite3")))
+            reviewed = approved(approval, (anchor,))
+            assert reviewed["issuer"] == issuer and reviewed["origin"] == kind
+            assert reviewed["context"]["control"] == permission["control"]
+            normalized_approval = {
+                key: copy.deepcopy(value)
+                for key, value in reviewed.items()
+                if key not in {"issuer", "origin"}
+            }
+            normalized_approval["context"].pop("control")
+            assert normalized_approval["context"] == expected_permission
+            normalized_contracts = []
+            # Compare permission semantics at the same synthetic issuance instant.
+            ledger = AuthorizationLedger(
+                Journal(Path(directory) / (kind + ".sqlite3")), monotonic=lambda: 0
+            )
             ledger.set_state(
                 issuer["id"], "eng-1", 1, False, permission["authority_sha256"]
             )
@@ -207,6 +223,13 @@ def main():
                     case,
                     execution,
                 )
+                validated = validate(contract, approval, plan, case, execution, (anchor,), current)
+                assert validated["issuer"] == issuer and validated["origin"] == kind
+                assert validated["approval_sha256"] == digest(encoded(approval))
+                normalized_contracts.append({
+                    key: value for key, value in validated.items()
+                    if key not in {"issuer", "origin", "approval_sha256"}
+                })
                 completed = ledger.consume(
                     contract, approval, plan, case, execution, (anchor,), current
                 )
@@ -237,6 +260,10 @@ def main():
                 pass
             else:
                 raise AssertionError("approval count exceeded")
+            semantics[kind] = {
+                "approval": normalized_approval,
+                "contracts": normalized_contracts,
+            }
             results.append(
                 {
                     "origin": kind,
@@ -245,11 +272,18 @@ def main():
                     "plan_sha256": digest(encoded(plan)),
                 }
             )
+    assert semantics["standalone"] == semantics["map"], "Map/standalone permission semantics differ"
     receipt = {
         "schema": "vardr.nm1-conformance-receipt/1",
         "results": results,
         "map_owner_snapshot_verified": True,
         "api_key_approval_denied": True,
+        "semantic_equivalence_verified": True,
+        "normalized_permission_sha256": digest(encoded(semantics["standalone"])),
+        "origin_specific_fields": {
+            "approval": ["issuer", "origin", "context.control"],
+            "contract": ["issuer", "origin", "approval_sha256"],
+        },
         "network_requests": 0,
         "managed_control": "injected fixture only; NOT implemented or certified",
     }
