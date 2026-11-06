@@ -21,6 +21,7 @@ import worker_runtime
 class AcceptanceGuards(unittest.TestCase):
     def sequence_fixture(self):
         fixture = object.__new__(acceptance.Fixture)
+        fixture.database_revision = "0040runtimesequence"
         fixture.issuer_origin, fixture.secrets = (
             "https://map.example/backend",
             ["private-token-canary"],
@@ -1087,6 +1088,24 @@ class AcceptanceGuards(unittest.TestCase):
             record.job_id = "different-job"
             with self.assertRaises(AssertionError):
                 fixture.local_metadata("run", "eng", "job")
+
+    def test_database_revision_must_match_the_explicit_candidate_exactly(self):
+        for revision in ("0040runtimesequence", "0041persistentruntime"):
+            with self.subTest(revision=revision):
+                data = self.sequence_fixture()
+                data.fixture.database_revision = revision
+                for inventory in data.inventories:
+                    inventory["schema_revision"] = revision
+                self.measure_sequence(data)
+                data.inventories[0]["schema_revision"] = "unexpected-head"
+                with self.assertRaisesRegex(
+                    acceptance.AcceptanceRefused, "normal_database_readiness_required"
+                ):
+                    self.measure_sequence(data)
+        with self.assertRaisesRegex(
+            acceptance.AcceptanceRefused, "fixture_database_revision_refused"
+        ):
+            acceptance.Fixture({}, database_revision="unexpected-head")
 
     def test_sequence_proof_refuses_changed_identity_reuse_wrong_markers_and_missing_release(
         self,

@@ -13,6 +13,12 @@ Its default command validates source inputs without contacting Docker. Missing
 local grant, cancellation, failures and the remaining matrix stay explicitly
 `not_run`; this slice cannot close NM-2 alone.
 
+The fixture requires one exact reviewed database revision. The legacy default is
+`0040runtimesequence`; a cohort built from the additive v3 migration must explicitly
+select `--database-revision 0041persistentruntime`. This selects an assertion,
+not a migration or worker protocol. Unexpected revisions remain refused; choosing
+the new schema does not establish persistent-worker acceptance.
+
 ## Fixture and component boundaries
 
 Use a new `vardrsec-nm2-<random-id>` installation/project, exact reviewed image IDs

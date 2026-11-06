@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Require an explicit expected database revision when exercising the additive
+  worker migration; preserve the legacy fixture default and reject other heads.
+
 - Preserve the fixed worker-capture checkpoint in sanitized hosted evidence, so a
   refused enablement identifies its failed check without exporting raw output.
 

@@ -494,9 +494,16 @@ def unchanged_inventory(before, after, project, *, admit_bridge=False):
 
 
 class Fixture:
-    def __init__(self, selection, *, scenario="healthy"):
+    def __init__(
+        self, selection, *, scenario="healthy", database_revision="0040runtimesequence"
+    ):
         require(scenario in SCENARIOS, "fixture_scenario_refused")
+        require(
+            database_revision in {"0040runtimesequence", "0041persistentruntime"},
+            "fixture_database_revision_refused",
+        )
         self.scenario = scenario
+        self.database_revision = database_revision
         self.max_attempts = 2 if scenario == "healthy" else 1
         self.m = selection
         self.source = Path(selection["sources"]["distribution"]["path"])
@@ -534,6 +541,7 @@ class Fixture:
             "cases": {name: {"status": "not_run"} for name in INITIAL_CASES},
             "status": "prepared",
             "retained": True,
+            "expected_database_revision": database_revision,
         }
         if scenario != "healthy":
             self.receipt.update(
@@ -1287,7 +1295,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
     ):
         require(
             inventory["schema"] == "vardr.nm2-fixture-inventory/2"
-            and inventory["schema_revision"] == "0040runtimesequence"
+            and inventory["schema_revision"] == self.database_revision
             and inventory["database_user"] == "vardrmap_app",
             "normal_database_readiness_required",
         )
@@ -1882,7 +1890,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             not traffic
             and grants == {"grants": [], "policy_reason": "grant_missing_or_replaced"}
             and inventory["schema"] == "vardr.nm2-fixture-inventory/2"
-            and inventory["schema_revision"] == "0040runtimesequence"
+            and inventory["schema_revision"] == self.database_revision
             and inventory["database_user"] == "vardrmap_app"
             and inventory["job_id"] == job
             and inventory["job_status"] == "pending"
@@ -2264,7 +2272,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
         )
         require(
             inventory["schema"] == "vardr.nm2-fixture-inventory/2"
-            and inventory["schema_revision"] == "0040runtimesequence"
+            and inventory["schema_revision"] == self.database_revision
             and inventory["database_user"] == "vardrmap_app",
             "normal_database_readiness_required",
         )
@@ -3002,6 +3010,12 @@ def main(argv=None):
     parser.add_argument("--cohort", required=True, type=Path)
     parser.add_argument("--scenario", choices=SCENARIOS, default="healthy")
     parser.add_argument(
+        "--database-revision",
+        choices=("0040runtimesequence", "0041persistentruntime"),
+        default="0040runtimesequence",
+        help="Require this exact reviewed Map schema; no automatic upgrade or acceptance",
+    )
+    parser.add_argument(
         "--execute",
         action="store_true",
         help="Run the reviewed explicit fixture; creates and retains owned Docker resources",
@@ -3017,6 +3031,7 @@ def main(argv=None):
             "images": selection["images"],
             "initial_cases": INITIAL_CASES,
             "docker_calls": 0,
+            "expected_database_revision": args.database_revision,
         }
         if args.scenario != "healthy":
             receipt["scenario"] = args.scenario
@@ -3027,7 +3042,9 @@ def main(argv=None):
             )
         )
         return 0
-    fixture = Fixture(selection, scenario=args.scenario)
+    fixture = Fixture(
+        selection, scenario=args.scenario, database_revision=args.database_revision
+    )
     try:
         fixture.run()
     except Exception:
