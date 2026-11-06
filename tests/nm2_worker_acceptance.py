@@ -970,7 +970,10 @@ print(json.dumps({'files':hashes,'executables':executables}))
             {
                 "tool_type": "vardrgate_api_test",
                 "target_source": "scope",
-                "config": {"test_case_id": stored["id"], "execution": EXECUTION},
+                "config": {
+                    "test_case_id": stored["id"],
+                    "timeout": EXECUTION["timeout_seconds"],
+                },
                 "authorization_contract_required": True,
             },
         )["id"]
