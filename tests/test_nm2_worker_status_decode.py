@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import nm2_worker_acceptance as fixture
 import worker_cli
@@ -137,6 +137,131 @@ class WorkerStatusDecode(unittest.TestCase):
                 self.assertEqual(
                     self.decode(value=value, code=1 if state == "held" else 0), value
                 )
+
+    def test_actual_product_lookup_failure_is_a_pollable_hold_without_readiness(self):
+        import test_worker_host_persistent as product_fixtures
+        import worker_host as host
+        import worker_host_persistent as product
+
+        producer = product_fixtures.PersistentHostTests()
+        producer.setUp()
+        self.addCleanup(producer.doCleanups)
+        self.admission = producer.register()
+        f = producer.f
+        running = {
+            **f.observer._bound(f.identity),
+            "state": {"Status": "running", "Running": True},
+        }
+        with (
+            patch.object(f.observer, "_bound", return_value=running),
+            patch.object(f.client, "receipt", side_effect=host.HostRefused(PRIVATE)),
+            patch.object(f.records, "write", side_effect=AssertionError("read only")),
+        ):
+            value = product.status(
+                f.records, f.runtime_id, f.observer, f.identity, client=f.client
+            )
+        self.assertEqual(self.decode(value=value), value)
+        self.assertEqual(
+            (value["state"], value["reason"]), ("held", "availability_unconfirmed")
+        )
+        for key in ("cursor", "availability", "new_work_disabled", "reporting_revoked"):
+            self.assertIsNone(value[key])
+        self.assertNotIn(PRIVATE, json.dumps(value))
+        with self.assertRaises(fixture.AcceptanceRefused):
+            self.decode(value=value, code=0)
+
+    def test_unconfirmed_lookup_cannot_hide_partial_metadata_or_physical_failure(self):
+        value = {
+            **self.value,
+            "reason": "availability_unconfirmed",
+            "cursor": None,
+            "availability": None,
+            "new_work_disabled": None,
+            "reporting_revoked": None,
+        }
+        self.assertEqual(self.decode(value=value), value)
+        changes = [
+            (key, self.value[key])
+            for key in (
+                "cursor",
+                "availability",
+                "new_work_disabled",
+                "reporting_revoked",
+            )
+        ]
+        changes += [
+            ("reason", "physical_unconfirmed"),
+            ("reason", "availability_stale"),
+            ("state", "idle-ready"),
+            ("container_state", "exited"),
+            ("disable_state", "unknown"),
+            ("stop_state", "prepared"),
+        ]
+        for key, changed in changes:
+            with self.subTest(field=key), self.assertRaises(fixture.AcceptanceRefused):
+                self.decode(value={**value, key: changed})
+
+    def test_unconfirmed_poll_keeps_existing_deadline_and_requires_later_readiness(
+        self,
+    ):
+        selected = object.__new__(fixture.Fixture)
+        held = {
+            **self.value,
+            "state": "held",
+            "reason": "availability_unconfirmed",
+            "cursor": None,
+            "availability": None,
+            "new_work_disabled": None,
+            "reporting_revoked": None,
+        }
+        ready = self.fresh("idle-ready")
+        selected.worker_action = Mock(side_effect=[held, ready])
+        with (
+            patch.object(
+                fixture.time, "monotonic", side_effect=[100, 100.1, 100.2, 100.3]
+            ),
+            patch.object(fixture.time, "sleep"),
+        ):
+            self.assertEqual(selected.persistent_idle(self.admission, 0), ready)
+        self.assertEqual(
+            [call.args[0] for call in selected.worker_action.call_args_list],
+            ["status", "status"],
+        )
+        selected.worker_action = Mock(return_value=held)
+        with (
+            patch.object(fixture.time, "monotonic", side_effect=[100, 100.1, 145]),
+            self.assertRaisesRegex(
+                fixture.AcceptanceRefused, "persistent_idle_not_observed"
+            ),
+        ):
+            selected.persistent_idle(self.admission, 0)
+
+    def test_refusal_checkpoint_contains_only_fixed_categories(self):
+        for checkpoint in fixture.STATUS_CHECKPOINTS:
+            error = fixture.WorkerStatusRefused(checkpoint)
+            self.assertEqual(str(error), "persistent_status_refused")
+            self.assertEqual(error.public, {"checkpoint": checkpoint})
+        for unknown in (PRIVATE, [], {}, None, True):
+            self.assertEqual(
+                fixture.WorkerStatusRefused(unknown).public,
+                {"checkpoint": "unclassified"},
+            )
+        with self.assertRaises(fixture.WorkerStatusRefused) as error:
+            self.decode(raw=PRIVATE.encode())
+        self.assertEqual(error.exception.public, {"checkpoint": "output"})
+        with patch.object(fixture.subprocess, "run", side_effect=OSError(PRIVATE)):
+            with self.assertRaises(fixture.WorkerStatusRefused) as error:
+                fixture.worker_status_command(
+                    [],
+                    cwd=Path.cwd(),
+                    env={},
+                    timeout=3,
+                    expected_admission=self.admission,
+                )
+        self.assertEqual(error.exception.public, {"checkpoint": "subprocess"})
+        self.assertNotIn(
+            PRIVATE, str(error.exception) + json.dumps(error.exception.public)
+        )
 
     def test_producer_presence_can_age_during_final_inspect_or_cli_transport(self):
         for state in ("idle-ready", "active", "held"):

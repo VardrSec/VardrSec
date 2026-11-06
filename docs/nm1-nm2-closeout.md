@@ -62,6 +62,9 @@ The inactive v3 candidate now has additive Map/Runner/Host protocol code,
 original-key recovery tests and [compiler-only evidence](evidence/nm2-persistent-compiler-2026-11-06.json).
 The host receipt strictness fix and Windows/Ubuntu compatibility checks passed.
 The owner approved the explicit persistent STOP-report lifetime for isolated
-testing on 2026-11-06, retaining its disclosed trusted-host risk. Known
-preclaim-denial availability, full current-source component gates and the complete physical failure matrix
-remain open. No component pass closes NM-2 or resumes NM-3.
+testing on 2026-11-06, retaining its disclosed trusted-host risk. Current Runner,
+Map and Gate component CI gates passed, including Map's PostgreSQL and coupled
+Map/Runner/Gate integration. Persistent availability and the complete physical
+failure matrix remain open. The first Desktop availability attempt held on a
+fixture status refusal; its stopped resources and original evidence are retained.
+No component pass closes NM-2 or resumes NM-3.

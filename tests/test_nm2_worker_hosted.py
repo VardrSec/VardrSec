@@ -498,6 +498,66 @@ class HostedGuards(unittest.TestCase):
             {"stage": "unclassified", "reason": "unclassified_refusal"},
         )
 
+    def test_status_refusal_checkpoint_is_whitelisted_without_raw_diagnostics(self):
+        options = {
+            "NM2_SCENARIO": "persistent-availability",
+            "NM2_DATABASE_REVISION": "0041persistentruntime",
+        }
+        for checkpoint in (
+            "admission",
+            "subprocess",
+            "output",
+            "identity",
+            "lookup",
+            "cursor",
+            "presence",
+            "freshness",
+            "advisory",
+            "readiness",
+            "unclassified",
+        ):
+            with self.subTest(checkpoint=checkpoint):
+                public = self.failed_harness(
+                    options=options,
+                    mutate=lambda raw: raw.update(
+                        stage="persistent_job_release",
+                        reason="persistent_status_refused",
+                        status_failure={"checkpoint": checkpoint},
+                        stdout="private-canary",
+                        stderr="private-canary",
+                        proof={"secret": "private-canary"},
+                    ),
+                )
+                self.assertEqual(
+                    public["harness_failure"]["status_failure"],
+                    {"checkpoint": checkpoint},
+                )
+                self.assertNotIn("private-canary", json.dumps(public))
+        for bad in (
+            None,
+            [],
+            "private-canary",
+            {},
+            {"checkpoint": []},
+            {"checkpoint": "private-canary"},
+            {"checkpoint": "cursor", "body": "private-canary"},
+        ):
+            with self.subTest(bad=bad):
+                public = self.failed_harness(
+                    options=options,
+                    mutate=lambda raw: raw.update(
+                        stage="persistent_job_release",
+                        reason="persistent_status_refused",
+                        status_failure=bad,
+                    ),
+                )
+                self.assertNotIn("status_failure", public["harness_failure"])
+        public = self.failed_harness(
+            options=options,
+            mutate=lambda raw: raw.update(status_failure={"checkpoint": "cursor"}),
+        )
+        self.assertNotIn("status_failure", public["harness_failure"])
+
     def test_mismatched_persistent_failure_policy_remains_unobserved(self):
         public = self.failed_harness(
             options={

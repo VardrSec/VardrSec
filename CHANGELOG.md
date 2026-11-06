@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Keep an unconfirmed Map availability lookup as a bounded read-only fixture
+  hold, requiring fresh idle readiness before the next job. Retain fixed refusal
+  checkpoints without exporting payloads. Preserve both original held Desktop
+  and Ubuntu persistent attempts as failures; no acceptance gate is waived.
+
 - Keep Windows Docker Desktop evidence separate from the Linux-hosted guard.
   Recheck bound before/after inventories, unchanged existing resources and six
   stopped owned services while sharing the same strict persistent proof checks.

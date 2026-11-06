@@ -7,6 +7,37 @@ and [closeout control record](nm1-nm2-closeout.md) retain the remaining gates.
 
 ## Persistent candidate: component evidence only
 
+The [first persistent Desktop attempt](evidence/nm2-desktop-persistent-held-2026-11-06.json)
+held at `persistent_job_release` with `persistent_status_refused`. Default-disabled
+and Strict out-of-scope checks passed, but the 35-job availability slice did not
+complete. All six owned containers stopped and were retained; the independently
+rechecked inventories show existing resources unchanged with no admitted diffs.
+The original failed status payload was not retained, so its exact cause remains
+unknown. A separately reproduced read-only status-shape mismatch is not evidence
+of that run's cause. No held result is promoted or replayed.
+
+The matching [Ubuntu attempt](evidence/nm2-linux-persistent-held-2026-11-06.json)
+also held, separately, at `enable_registration / host_refused` in
+[run 42185842051](https://github.com/VardrSec/VardrSec/actions/runs/42185842051).
+Its public receipt confirms the four exact sources, matching persistent images
+and schema selection, but does not establish registration or availability.
+Both compatibility jobs passed. No discarded VM logs are used to infer a cause.
+
+A pure producer-to-reader regression separately reproduced the product's valid
+`running / held / availability_unconfirmed` response with all four remote lookup
+fields null. The fixture now permits only that exact shape to keep polling within
+its existing 45-second deadline. It cannot count as readiness or approve another
+job. Partial-null metadata, physical failures and unsafe local control states
+remain refusals; fixed refusal checkpoints contain no raw output or exception text.
+
+Map `52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c` passed all seven
+[CI jobs](https://github.com/VardrSec/VardrMap/actions/runs/42184978261): its ordinary
+backend run passed 1,900 tests with 156 explicit skips; its PostgreSQL backend
+passed 2,034 tests with 22 explicit skips after 120 specialized checks passed.
+The actual Map/Runner/Gate integration and retained verdict/source artifact also
+passed. Earlier failed and cancelled runs remain historical failures; the prior
+masked transport failure did not recur and its cause is not established.
+
 Runner `89f92b50145c06411574f7ba2c32002591f6b915` passed its complete native
 Windows suite: 2,913 passed, 67 explicit skips, 95.7998% statement coverage,
 with the existing 95% gate unchanged and 215 source files unchanged. Ruff, format,

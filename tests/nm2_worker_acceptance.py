@@ -73,6 +73,33 @@ class AcceptanceRefused(ValueError):
     pass
 
 
+STATUS_CHECKPOINTS = frozenset(
+    {
+        "admission",
+        "subprocess",
+        "output",
+        "identity",
+        "lookup",
+        "cursor",
+        "presence",
+        "freshness",
+        "advisory",
+        "readiness",
+        "unclassified",
+    }
+)
+
+
+class WorkerStatusRefused(AcceptanceRefused):
+    def __init__(self, checkpoint):
+        super().__init__("persistent_status_refused")
+        self.public = {
+            "checkpoint": checkpoint
+            if type(checkpoint) is str and checkpoint in STATUS_CHECKPOINTS
+            else "unclassified"
+        }
+
+
 class WorkerCLIRefused(AcceptanceRefused):
     def __init__(self, phase, code):
         super().__init__("fixture_command_failed")
@@ -233,6 +260,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
     import worker_runtime
 
     reason = "persistent_status_refused"
+    checkpoint = "admission"
     try:
         require(
             expected_admission["schema"] == "vardr.worker-admission/3"
@@ -254,6 +282,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
             reason,
         )
         worker_runtime.RuntimeIdentity(**expected_admission["identity"])
+        checkpoint = "subprocess"
         result = subprocess.run(
             arguments,
             cwd=cwd,
@@ -262,6 +291,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
             timeout=timeout,
             check=False,
         )
+        checkpoint = "output"
         require(
             type(result.returncode) is int
             and result.returncode in {0, 1}
@@ -271,6 +301,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
             reason,
         )
         value = worker_host._json(result.stdout)
+        checkpoint = "identity"
         require(
             set(value)
             == {
@@ -304,13 +335,36 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
             and value["disable_state"]
             == value["stop_state"]
             == value["revocation_state"]
-            == "none"
-            and value["new_work_disabled"] is False
-            and value["reporting_revoked"] is False,
+            == "none",
             reason,
         )
+        checkpoint = "lookup"
+        if all(
+            value[key] is None
+            for key in (
+                "cursor",
+                "availability",
+                "new_work_disabled",
+                "reporting_revoked",
+            )
+        ):
+            # Product status could not read Map availability. This is only an
+            # advisory hold; persistent_idle still requires fresh idle-ready.
+            require(
+                result.returncode == 1
+                and value["state"] == "held"
+                and value["reason"] == "availability_unconfirmed",
+                reason,
+            )
+            return result.stdout
+        require(
+            value["new_work_disabled"] is False and value["reporting_revoked"] is False,
+            reason,
+        )
+        checkpoint = "cursor"
         _, phase = worker_host_persistent.cursor_key(value["cursor"])
         presence = value["availability"]
+        checkpoint = "presence"
         require(
             type(presence) is dict
             and set(presence) == {"state", "observed_at", "fresh_until", "cursor"}
@@ -319,6 +373,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
         )
         expected_state = "active" if phase == 0 else "idle-ready"
         fresh = False
+        checkpoint = "freshness"
         if presence["observed_at"] is None:
             require(presence["fresh_until"] is None, reason)
         else:
@@ -332,6 +387,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
             )
             fresh = instant < ending
         if result.returncode == 1:
+            checkpoint = "advisory"
             require(
                 value["state"] == "held"
                 and type(value["reason"]) is str
@@ -350,6 +406,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
                 reason,
             )
         else:
+            checkpoint = "readiness"
             require(
                 value["state"] == presence["state"] == expected_state
                 and value["reason"] is None
@@ -365,7 +422,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
         TypeError,
         AttributeError,
     ):
-        raise AcceptanceRefused(reason) from None
+        raise WorkerStatusRefused(checkpoint) from None
 
 
 def manifest(path):
@@ -3764,6 +3821,8 @@ print(json.dumps(result))
                 }
             if isinstance(error, WorkerCLIRefused):
                 self.receipt["command_failure"] = dict(error.public)
+            if isinstance(error, WorkerStatusRefused):
+                self.receipt["status_failure"] = dict(error.public)
             raise
         finally:
             # Preserve stopped/failed fixtures and custody; never down/prune or

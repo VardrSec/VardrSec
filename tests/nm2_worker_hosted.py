@@ -790,6 +790,28 @@ def failure_projection(raw, selection):
         and command_failure["failure_code"] in _CLI_FAILURE_CODES
     ):
         value["command_failure"] = dict(command_failure)
+    status_failure = raw.get("status_failure")
+    if (
+        value["reason"] == "persistent_status_refused"
+        and type(status_failure) is dict
+        and set(status_failure) == {"checkpoint"}
+        and type(status_failure["checkpoint"]) is str
+        and status_failure["checkpoint"]
+        in {
+            "admission",
+            "subprocess",
+            "output",
+            "identity",
+            "lookup",
+            "cursor",
+            "presence",
+            "freshness",
+            "advisory",
+            "readiness",
+            "unclassified",
+        }
+    ):
+        value["status_failure"] = dict(status_failure)
     failure = raw.get("http_failure")
     if (
         type(failure) is dict

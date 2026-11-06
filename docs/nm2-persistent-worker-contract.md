@@ -1,7 +1,9 @@
 # NM-2 persistent worker implementation contract
 
 Status: implementation contract, with persistent STOP reporting approved for
-isolated testing on 2026-11-06. No persistent runtime has been enabled or accepted.
+isolated testing on 2026-11-06. The first isolated Desktop runtime was enabled;
+its availability trial held and its six fixture containers stopped and were
+retained. No persistent deployment has been accepted.
 NM-2 remains open and NM-3 remains paused.
 
 The owner clarified the required behavior: an explicitly enabled background
