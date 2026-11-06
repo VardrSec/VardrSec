@@ -41,6 +41,20 @@ INITIAL_CASES = (
     "happy_fixed",
     "missing_local_grant",
 )
+_CONFIGURATION_ENV = {
+    "HTTPS_PORT",
+    "PROXY_IP",
+    "APPLICATION_SUBNET",
+    "APPLICATION_IP_RANGE",
+    "POSTGRES_PASSWORD",
+    "POSTGRES_APP_PASSWORD",
+    "BACKEND_JWT_SECRET",
+    "AUTH_SECRET",
+    "MAP_SOURCE",
+    "RUNNER_SOURCE",
+    "GATE_SOURCE",
+    "PGPASSWORD",
+}
 
 
 class AcceptanceRefused(ValueError):
@@ -372,7 +386,8 @@ class Fixture:
         self.environment = {
             k: v
             for k, v in os.environ.items()
-            if not k.startswith(("COMPOSE_", "DOCKER_", "VARDR"))
+            if not k.upper().startswith(("COMPOSE_", "DOCKER_", "VARDR"))
+            and k.upper() not in _CONFIGURATION_ENV
         }
         self.environment.update(
             DOCKER_CONTEXT=selection["docker_context"],
@@ -635,6 +650,9 @@ print(json.dumps({'files':hashes,'executables':executables}))
             )
         ]
         self.lifecycle.configure(values)
+        # Shell values take precedence over .env in Compose. Pin this fixture's
+        # fresh configuration before any role setup or container creation.
+        self.environment.update(values)
         self.overlay = {
             "services": {
                 name: {"image": self.images[name], "pull_policy": "never"}

@@ -5,6 +5,7 @@ import copy
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -16,6 +17,60 @@ import worker_runtime
 
 
 class AcceptanceGuards(unittest.TestCase):
+    def test_constructor_isolates_compose_inputs_and_preserves_os_path(self):
+        controls = (
+            "HTTPS_PORT",
+            "PROXY_IP",
+            "APPLICATION_SUBNET",
+            "APPLICATION_IP_RANGE",
+            "POSTGRES_PASSWORD",
+            "POSTGRES_APP_PASSWORD",
+            "BACKEND_JWT_SECRET",
+            "AUTH_SECRET",
+            "MAP_SOURCE",
+            "RUNNER_SOURCE",
+            "GATE_SOURCE",
+            "PGPASSWORD",
+        )
+        inherited_path = os.environ.get("PATH")
+        with tempfile.TemporaryDirectory() as temporary:
+            selection = self.selection(Path(temporary))
+            inherited = {
+                name: "public-synthetic-inherited-control" for name in controls
+            }
+            inherited.update(
+                COMPOSE_PROJECT_NAME="unrelated-project",
+                DOCKER_CONTEXT="unrelated-context",
+                DOCKER_HOST="tcp://unrelated.invalid:2375",
+                VARDRMAP_API_KEY="public-synthetic-key",
+            )
+            with (
+                patch.dict(os.environ, inherited),
+                patch.object(
+                    acceptance,
+                    "command",
+                    side_effect=AssertionError("constructor must not invoke Docker"),
+                ) as command,
+            ):
+                fixture = acceptance.Fixture(selection)
+            self.assertTrue(
+                all(name not in fixture.environment for name in controls),
+                "inherited Compose controls must not enter the fixture",
+            )
+            self.assertTrue(
+                fixture.environment.get("PATH") == inherited_path,
+                "OS command lookup must remain unchanged",
+            )
+            self.assertEqual(
+                fixture.environment["COMPOSE_PROJECT_NAME"], selection["project"]
+            )
+            self.assertEqual(
+                fixture.environment["DOCKER_CONTEXT"], selection["docker_context"]
+            )
+            self.assertTrue("DOCKER_HOST" not in fixture.environment)
+            self.assertTrue("VARDRMAP_API_KEY" not in fixture.environment)
+            command.assert_not_called()
+
     def stop_fixture(self):
         fixture = object.__new__(acceptance.Fixture)
         fixture.project = "vardrsec-nm2-12345678"
