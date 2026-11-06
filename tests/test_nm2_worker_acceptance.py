@@ -388,6 +388,18 @@ class AcceptanceGuards(unittest.TestCase):
             values
         )
         binding = retirement["binding"]
+        identities = ["owner", "peer", "anonymous"]
+        case["spec"]["identities"] = [
+            {
+                "id": name,
+                **(
+                    {"preflight": {"url": acceptance.ORIGIN + "/session"}}
+                    if name != "anonymous"
+                    else {}
+                ),
+            }
+            for name in identities
+        ]
         case_sha = acceptance.digest(acceptance.canonical(case["spec"]))
         artifact_sha = "f" * 64
         local.update(
@@ -398,11 +410,15 @@ class AcceptanceGuards(unittest.TestCase):
             partial_result={
                 "error": "execution_cancelled",
                 "case_sha256": case_sha,
-                "execution_count": 1,
+                "execution_count": len(identities),
                 "preflight_count": 2,
                 "finding_count": 0,
-                "cancelled_execution_count": 1,
+                "cancelled_execution_count": len(identities),
                 "passed_preflight_count": 2,
+                "execution_identity_ids": list(identities),
+                "cancelled_identity_ids": list(identities),
+                "passed_preflight_identity_ids": ["owner", "peer"],
+                "response_identity_ids": [],
             },
             partial_files=[
                 {"name": "vardrgate_result.json", "size": 123, "sha256": "a" * 64},
@@ -431,7 +447,7 @@ class AcceptanceGuards(unittest.TestCase):
                     "artifact_sha256": artifact_sha,
                     "receipt_sha256": result_sha,
                     "outcome": "failed",
-                    "evidence_created": 3,
+                    "evidence_created": 5,
                     "scan_items_created": 0,
                 }
             ],
@@ -456,9 +472,12 @@ class AcceptanceGuards(unittest.TestCase):
         reconciled["state"] = "terminal_failed"
         evidence = []
         for detail in (
-            {"phase": "identity_preflight", "status": "passed"},
-            {"phase": "identity_preflight", "status": "passed"},
-            {"error": "execution_cancelled"},
+            {"phase": "identity_preflight", "identity_id": "owner", "status": "passed"},
+            {"phase": "identity_preflight", "identity_id": "peer", "status": "passed"},
+            *(
+                {"error": "execution_cancelled", "identity_id": name, "status_code": 0}
+                for name in identities
+            ),
         ):
             body = json.dumps(detail)
             evidence.append(
@@ -491,7 +510,8 @@ class AcceptanceGuards(unittest.TestCase):
     ):
         fixture, values, _ = self.failed_partial_fixture()
         proof = fixture.verify_cancellation(*values)
-        self.assertEqual(proof["failed_completion"]["evidence_count"], 3)
+        self.assertEqual(proof["failed_completion"]["evidence_count"], 5)
+        self.assertEqual(proof["target_request_count"], 3)
         self.assertEqual(
             proof["failed_completion"]["assessment_status"], "inconclusive"
         )
@@ -507,6 +527,12 @@ class AcceptanceGuards(unittest.TestCase):
             "conclusive",
             "evidence_hash",
             "evidence_canary",
+            "duplicate_execution_identity",
+            "wrong_cancelled_identity",
+            "fake_response",
+            "duplicate_preflight_identity",
+            "duplicate_evidence_identity",
+            "fictitious_evidence_response",
         ):
             with self.subTest(mutation=mutation):
                 fixture, values, responses = self.failed_partial_fixture()
@@ -530,6 +556,32 @@ class AcceptanceGuards(unittest.TestCase):
                     responses[base + "/evidence?job_id=" + values[1]]["evidence"][0][
                         "content_hash"
                     ] = "b" * 64
+                elif mutation == "duplicate_execution_identity":
+                    local["partial_result"]["execution_identity_ids"][2] = "owner"
+                elif mutation == "wrong_cancelled_identity":
+                    local["partial_result"]["cancelled_identity_ids"][2] = "unreviewed"
+                elif mutation == "fake_response":
+                    local["partial_result"]["response_identity_ids"] = ["peer"]
+                elif mutation == "duplicate_preflight_identity":
+                    local["partial_result"]["passed_preflight_identity_ids"] = [
+                        "owner",
+                        "owner",
+                    ]
+                elif mutation in {
+                    "duplicate_evidence_identity",
+                    "fictitious_evidence_response",
+                }:
+                    row = responses[base + "/evidence?job_id=" + values[1]]["evidence"][
+                        -1
+                    ]
+                    detail = json.loads(row["body"])
+                    detail.update(
+                        {"identity_id": "owner"}
+                        if mutation == "duplicate_evidence_identity"
+                        else {"status_code": 200}
+                    )
+                    row["body"] = json.dumps(detail)
+                    row["content_hash"] = acceptance.digest(row["body"].encode())
                 else:
                     row = responses[base + "/evidence?job_id=" + values[1]]["evidence"][
                         0
@@ -1013,11 +1065,15 @@ class AcceptanceGuards(unittest.TestCase):
                 "case_hash": "a" * 64,
                 "executions": [
                     {
+                        "identity_id": "owner",
                         "error": "execution_cancelled",
                         "private_body": "private-stopped-canary",
                     }
                 ],
-                "preflight": [{"status": "passed"}, {"status": "passed"}],
+                "preflight": [
+                    {"identity_id": "owner", "status": "passed"},
+                    {"identity_id": "peer", "status": "passed"},
+                ],
                 "findings": [],
             }
             (directory / "vardrgate_stopped_result.json").write_bytes(

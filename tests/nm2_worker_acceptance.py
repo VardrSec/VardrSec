@@ -1691,7 +1691,10 @@ if record.run_dir is not None:
                 data=json.loads(raw)
                 assert data['error']=='execution_cancelled' and re.fullmatch('[0-9a-f]{64}',data['case_hash'])
                 assert all(type(data.get(key)) is list for key in ('executions','preflight','findings'))
-                partial={'error':'execution_cancelled','case_sha256':data['case_hash'],'execution_count':len(data['executions']),'preflight_count':len(data['preflight']),'finding_count':len(data['findings']),'cancelled_execution_count':sum(row.get('error')=='execution_cancelled' for row in data['executions']),'passed_preflight_count':sum(row.get('status')=='passed' for row in data['preflight'])}
+                identities=[row.get('identity_id') for row in data['executions']]
+                preflights=[row.get('identity_id') for row in data['preflight'] if row.get('status')=='passed']
+                assert all(type(value) is str and value in {'owner','peer','anonymous'} for value in identities+preflights)
+                partial={'error':'execution_cancelled','case_sha256':data['case_hash'],'execution_count':len(data['executions']),'preflight_count':len(data['preflight']),'finding_count':len(data['findings']),'cancelled_execution_count':sum(row.get('error')=='execution_cancelled' for row in data['executions']),'passed_preflight_count':len(preflights),'execution_identity_ids':identities,'cancelled_identity_ids':[row['identity_id'] for row in data['executions'] if row.get('error')=='execution_cancelled'],'passed_preflight_identity_ids':preflights,'response_identity_ids':[row['identity_id'] for row in data['executions'] if row.get('status_code',0)]}
 reason=getattr(record,'failure_reason',None)
 assert reason in {None,'local_emergency_stop','remote_stop_requested','control_lease_expired','authorization_deadline','tool_timeout','descendants_after_tool_exit','control_cap_unavailable'}
 event=getattr(record,'last_event',None)
@@ -2099,16 +2102,33 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
         result = inventory["results"][0]
         summary = local.get("partial_result")
         case_sha = digest(canonical(case["spec"]))
+        identities = [row["id"] for row in case["spec"]["identities"]]
+        preflights = [
+            row["id"]
+            for row in case["spec"]["identities"]
+            if row.get("preflight") is not None
+        ]
+        require(
+            len(identities) == len(set(identities)) and len(preflights) == 2,
+            "cancelled_partial_identity_binding_invalid",
+        )
+        # Logical cancelled records include identities refused before networking.
+        # The independent target count proves actual dispatch, not this count.
+        evidence_count = len(identities) + len(preflights)
         require(
             summary
             == {
                 "error": "execution_cancelled",
                 "case_sha256": case_sha,
-                "execution_count": 1,
-                "preflight_count": 2,
+                "execution_count": len(identities),
+                "preflight_count": len(preflights),
                 "finding_count": 0,
-                "cancelled_execution_count": 1,
-                "passed_preflight_count": 2,
+                "cancelled_execution_count": len(identities),
+                "passed_preflight_count": len(preflights),
+                "execution_identity_ids": identities,
+                "cancelled_identity_ids": identities,
+                "passed_preflight_identity_ids": preflights,
+                "response_identity_ids": [],
             }
             and local["phase"] == local["status"] == "failed"
             and local["last_event"] == "managed_completion_receipt",
@@ -2137,7 +2157,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 "artifact_sha256": artifact_sha,
                 "receipt_sha256": receipt_sha,
                 "outcome": "failed",
-                "evidence_created": 3,
+                "evidence_created": evidence_count,
                 "scan_items_created": 0,
             }
             and canonical(terminal)
@@ -2164,7 +2184,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             and assessment["case_hash"] == case_sha
             and assessment["preflight"]["status"] == "passed"
             and assessment["candidate_findings"] == 0
-            and len(evidence) == 3
+            and len(evidence) == evidence_count
             and self.api.request(base + "/scans?job_id=" + job)["scans"] == [],
             "cancelled_partial_assessment_mismatch",
         )
@@ -2179,21 +2199,27 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 "cancelled_partial_evidence_mismatch",
             )
             details.append(json.loads(row["body"]))
+        observed_preflights = [
+            row.get("identity_id")
+            for row in details
+            if row.get("phase") == "identity_preflight"
+            and row.get("status") == "passed"
+        ]
+        cancelled = [
+            row for row in details if row.get("error") == "execution_cancelled"
+        ]
         require(
-            sum(
-                row.get("phase") == "identity_preflight"
-                and row.get("status") == "passed"
-                for row in details
-            )
-            == 2
-            and sum(row.get("error") == "execution_cancelled" for row in details) == 1,
+            sorted(observed_preflights) == sorted(preflights)
+            and sorted(row.get("identity_id") for row in cancelled)
+            == sorted(identities)
+            and all(not row.get("status_code") for row in cancelled),
             "cancelled_partial_evidence_mismatch",
         )
         return {
             "artifact_sha256": artifact_sha,
             "result_receipt_sha256": receipt_sha,
             "terminal_receipt_sha256": digest(canonical(terminal)),
-            "evidence_count": 3,
+            "evidence_count": evidence_count,
             "evidence_sha256": digest(canonical(evidence)),
             "assessment_status": "inconclusive",
         }
@@ -2553,6 +2579,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             "retirement": retirement,
             "local": local,
             "reconciled": reconciled,
+            "target_request_count": len(after["requests"]),
         }
         if grant_before is not None:
             self.receipt["observed_failure"]["grant_transition"] = {
