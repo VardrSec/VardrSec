@@ -1399,14 +1399,24 @@ print(json.dumps({'files':hashes,'executables':executables}))
             self.receipt["stage"] = "happy_verification"
             inventory = self.inventory(engagement, job)
             requests = self.traffic()[len(traffic) :]
+            # Retain selected measured state even when a later acceptance check
+            # refuses. This is diagnostic evidence, never a passed-case marker.
+            self.receipt["observed_attempt"] = {
+                "physical": physical,
+                "inventory": inventory,
+                "target_request_count": len(requests),
+            }
             require(
                 inventory["schema_revision"] == "0039managedruntime"
                 and inventory["database_user"] == "vardrmap_app",
                 "normal_database_readiness_required",
             )
             require(
-                physical["exit_code"] == 0
-                and inventory["job_status"] == "done"
+                physical["exit_code"] == 0,
+                "happy_worker_exit_not_clean",
+            )
+            require(
+                inventory["job_status"] == "done"
                 and len(inventory["contracts"]) == len(inventory["results"]) == 1
                 and not inventory["stops"],
                 "happy_terminal_receipt_missing",
