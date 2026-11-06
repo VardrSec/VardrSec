@@ -603,6 +603,73 @@ class HostTests(unittest.TestCase):
 
 
 class TransportTests(unittest.TestCase):
+    def test_selected_attempt_receipt_uses_real_bounded_decoder_and_returns_payload(
+        self,
+    ):
+        client = object.__new__(host.HostClient)
+        client.host, client.port, client.prefix = "localhost", 8443, "/backend"
+        runtime_id = str(uuid.uuid4())
+        expected = {
+            "schema": "vardr.worker-attempt-observation/1",
+            "runtime_id": runtime_id,
+            "runtime_sha256": "a" * 64,
+            "runtime_sequence": 2,
+            "binding": {
+                "origin": "https://localhost:8443/backend",
+                "runner_id": str(uuid.uuid4()),
+                "job_id": "owned-job",
+                "contract_id": str(uuid.uuid4()),
+                "attempt_id": str(uuid.uuid4()),
+                "fence": 1,
+                "contract_sha256": "c" * 64,
+            },
+            "receipt": None,
+            "release": None,
+        }
+        body = host.canonical(expected)
+        secure, plain, connection = Mock(), Mock(), Mock()
+        client._tls = Mock()
+        client._tls.wrap_socket.return_value = secure
+        response = Mock(status=200)
+        headers = {
+            "Content-Type": "application/json",
+            "Content-Encoding": "identity",
+            "Content-Length": str(len(body)),
+        }
+        response.getheader.side_effect = lambda key, default=None: headers.get(
+            key, default
+        )
+        response.getheaders.return_value = [("X-Transport-Only", "public-canary")]
+        response.read1.side_effect = [body, b""]
+        connection.getresponse.return_value = response
+        with (
+            patch.object(
+                host, "_addresses", return_value=[(2, 1, 6, "", ("127.0.0.1", 8443))]
+            ),
+            patch.object(host.socket, "socket", return_value=plain),
+            patch.object(host.http.client, "HTTPConnection", return_value=connection),
+        ):
+            actual = client.attempt_receipt(runtime_id, 2, "a" * 64, "b" * 64)
+        self.assertIsInstance(actual, dict)
+        self.assertEqual(actual, expected)
+        connection.request.assert_called_once()
+        request = connection.request.call_args
+        self.assertEqual(
+            request.args,
+            ("POST", f"/backend/managed/runtimes/{runtime_id}/attempts/2/receipt"),
+        )
+        self.assertEqual(
+            json.loads(request.kwargs["body"]), {"runtime_sha256": "a" * 64}
+        )
+        self.assertEqual(
+            request.kwargs["headers"]["Authorization"], "VardrStop " + "b" * 64
+        )
+        self.assertNotIn("?", request.args[1])
+        client._tls.wrap_socket.assert_called_once_with(
+            plain, server_hostname="localhost"
+        )
+        connection.close.assert_called_once()
+
     def test_managed_source_fallback_is_only_permission_or_windows_vm(self):
         source = PurePosixPath("/var/lib/docker/volumes/owned/_data")
         with patch.object(Path, "resolve", side_effect=PermissionError):

@@ -379,7 +379,7 @@ class HostClient:
             f"/managed/runtimes/{_uuid(runtime_id)}/attempts/{runtime_sequence}/receipt",
             {"runtime_sha256": _hash(runtime_sha256)},
             {"Authorization": "VardrStop " + _hash(secret)},
-        )
+        )[0]
 
 
 class OwnerSession:
