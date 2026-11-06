@@ -37,6 +37,7 @@ _BINDING = {
     "fence",
     "contract_sha256",
 }
+_UNBOUND_INTENT = {"runtime_sha256", "finished_at", "exit_code", "observation_sha256"}
 _COOKIE = "__Host-vardrmap.session"
 _CAPABILITY = b"VardrSec.WorkerStop.v1\0"
 _MAC = b"VardrSec.WorkerHostRecord.v1\0"
@@ -363,6 +364,14 @@ class HostClient:
             {"Authorization": "VardrStop " + _hash(secret)},
         )[0]
 
+    def observed_unbound_exit(self, runtime_id, body, secret):
+        return self._request(
+            "POST",
+            f"/managed/runtimes/{_uuid(runtime_id)}/observed-unbound-exit",
+            body,
+            {"Authorization": "VardrStop " + _hash(secret)},
+        )[0]
+
 
 class OwnerSession:
     def __init__(self, client, cookie, csrf):
@@ -656,6 +665,67 @@ def _terminal(binding, value):
     return value
 
 
+def _intent_kind(record):
+    intent = record["stop_intent"]
+    if intent is None:
+        return None
+    require(type(intent) is dict)
+    if set(intent) == _UNBOUND_INTENT:
+        return "unbound"
+    require(set(intent) == _UNBOUND_INTENT | _BINDING)
+    return "bound"
+
+
+def _unbound_terminal(record, value):
+    require(
+        type(value) is dict
+        and set(value)
+        == {
+            "schema",
+            "runtime_id",
+            "runtime_sha256",
+            "origin",
+            "runner_id",
+            "enrollment_id",
+            "report_sha256",
+            "bound",
+            "retired",
+            "receipt_sha256",
+        }
+    )
+    registration = record["registration"]
+    require(
+        value["schema"] == "vardr.worker-unbound-retirement/1"
+        and value["runtime_id"] == record["runtime_id"]
+        and value["runtime_sha256"] == digest(registration["identity"])
+        and all(
+            value[key] == registration[key]
+            for key in ("origin", "runner_id", "enrollment_id")
+        )
+        and value["bound"] is False
+        and value["retired"] is True
+    )
+    _hash(value["report_sha256"])
+    require(
+        _hash(value["receipt_sha256"])
+        == digest({key: item for key, item in value.items() if key != "receipt_sha256"})
+    )
+    kind = _intent_kind(record)
+    require(kind != "bound")
+    if kind == "unbound":
+        require(
+            value["report_sha256"]
+            == digest(
+                {
+                    "schema": "vardr.worker-unbound-exit-report/1",
+                    "runtime_id": record["runtime_id"],
+                    **record["stop_intent"],
+                }
+            )
+        )
+    return value
+
+
 def _lookup(record, reply):
     require(
         type(reply) is dict
@@ -668,14 +738,17 @@ def _lookup(record, reply):
         and reply["runtime_sha256"] == digest(record["registration"]["identity"])
     )
     binding = reply["binding"]
-    require(record["stop_intent"] is None or binding is not None)
+    kind = _intent_kind(record)
+    require(kind != "bound" or binding is not None)
     if binding is not None:
         _binding(record, binding)
-        if record["stop_intent"] is not None:
+        if kind == "bound":
             require(all(record["stop_intent"][key] == binding[key] for key in _BINDING))
     if reply["receipt"] is not None:
-        require(binding is not None)
-        _terminal(binding, reply["receipt"])
+        if binding is None:
+            _unbound_terminal(record, reply["receipt"])
+        else:
+            _terminal(binding, reply["receipt"])
     require(record["receipt"] is None or reply["receipt"] == record["receipt"])
     return reply
 
@@ -833,7 +906,7 @@ def report_observed_exit(client, records, runtime_id, proof, observer):
             records.write(record)
             return reply
         require(record["stop_state"] == "none" and record["stop_intent"] is None)
-        require(reply["binding"] is not None)
+        binding = reply["binding"]
         observation = {
             "identity": asdict(proof.identity),
             "finished_at": proof.finished_at,
@@ -841,7 +914,7 @@ def report_observed_exit(client, records, runtime_id, proof, observer):
         }
         intent = {
             "runtime_sha256": sha,
-            **reply["binding"],
+            **(binding or {}),
             "finished_at": proof.finished_at,
             "exit_code": proof.exit_code,
             "observation_sha256": digest(observation),
@@ -852,7 +925,11 @@ def report_observed_exit(client, records, runtime_id, proof, observer):
         record.update(stop_intent=intent, stop_state="prepared")
         records.write(record)
         try:
-            ack = client.observed_exit(runtime_id, intent, secret)
+            ack = (
+                client.observed_unbound_exit
+                if binding is None
+                else client.observed_exit
+            )(runtime_id, intent, secret)
             require(
                 type(ack) is dict
                 and set(ack) == {"schema", "runtime_id", "runtime_sha256", "receipt"}
@@ -862,14 +939,17 @@ def report_observed_exit(client, records, runtime_id, proof, observer):
                 and ack["runtime_id"] == runtime_id
                 and ack["runtime_sha256"] == sha
             )
-            terminal = _terminal(reply["binding"], ack["receipt"])
-            require(
-                terminal["outcome"] == "failed"
-                and (
-                    terminal["schema"] == "vardr.managed-completion/1"
-                    or terminal.get("cause") == "observed_exit"
+            if binding is None:
+                terminal = _unbound_terminal(record, ack["receipt"])
+            else:
+                terminal = _terminal(binding, ack["receipt"])
+                require(
+                    terminal["outcome"] == "failed"
+                    and (
+                        terminal["schema"] == "vardr.managed-completion/1"
+                        or terminal.get("cause") == "observed_exit"
+                    )
                 )
-            )
             record.update(receipt=terminal, stop_state="observed")
             records.write(record)
             return ack

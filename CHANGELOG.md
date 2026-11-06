@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Add host-only retirement for an authenticated, physically exited runtime with
+  no associated claim. Persist a distinct one-send intent, validate the canonical
+  unbound receipt and reconcile lost replies read-only; association races stay
+  held. No job tuple, success, refund or automatic bound-report fallback is added.
+- Add explicit prepared-worker admission/status/stop/report/reconciliation controls
+  over native host custody and exact-incarnation observation. Drive coupled fixture
+  preparation through that CLI, retain exact owned stopped resources, and record
+  the separate native Windows development baseline. Default startup stays inert;
+  installed worker/platform acceptance remains open.
+
 - Replace the candidate's unreadable tmpfs readiness path with a fresh, explicit
   per-incarnation default-local metadata volume. Pin all four data mounts and
   validate daemon volume metadata without requiring host-root traversal. Keep

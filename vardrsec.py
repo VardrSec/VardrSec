@@ -244,6 +244,15 @@ def sources(*, mapless=False):
 
 
 def main():
+    if sys.argv[1:2] == ["worker"]:
+        # Host primitives own the installation lock. The ordinary outer guard
+        # must not acquire it again, and no normal startup enters this branch.
+        import worker_cli
+
+        result = worker_cli.main(sys.argv[2:], installation=ROOT)
+        if result:
+            raise SystemExit(result)
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
@@ -265,6 +274,7 @@ def main():
             "seal-backup",
             "unseal-backup",
             "runner",
+            "worker",
         ),
     )
     parser.add_argument("--username", default="operator")

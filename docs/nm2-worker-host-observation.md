@@ -1,6 +1,6 @@
 # NM-2 host observation candidate
 
-Status: inactive library increment under the owner's bounded ADR 0043 development
+Status: default-disabled candidate under the owner's bounded ADR 0043 development
 authorization. NM-2 acceptance remains open. Ordinary startup and the shipped Full
 and Mapless Compose definitions are unchanged.
 
@@ -9,9 +9,10 @@ reviewed worker-only bootstrap, finite resource bounds, retained no-restart stat
 and exact writable paths. It requires an explicitly selected local image, enrolled
 key, public admission directory, private worker-only environment file and a fresh
 per-incarnation `VARDRSEC_WORKER_READY_VOLUME` name. Existing
-API signing configuration, runtime admission, enable/stop/reconciliation commands
-and actual integrated acceptance must be completed before this is a usable worker
-deployment. The overlay is not loaded by ordinary distribution commands.
+Map signing configuration and enrollment remain explicit prerequisites. The
+[prepared-worker controls](nm2-worker-operator.md) expose admission, status, exact
+stop and receipt reconciliation; actual integrated acceptance remains open. The
+overlay is not loaded by ordinary distribution commands.
 
 The worker-only environment file supplies explicitly declared local credential
 references and existing profile limits. Never use the installation `.env` or
@@ -65,11 +66,28 @@ Desktop drive mappings are explicit; arbitrary POSIX bind sources are never
 silently treated as VM volumes.
 
 An observation alone cannot register authority, release a reservation or report
-success. Future protocol composition must require the independently approved,
-exactly bound STOP capability and preserve durable unknown holds after lost replies.
+success. Host protocol composition requires the independently approved, exactly
+bound STOP capability and preserves durable unknown holds after lost replies.
 The helper does not deserialize a physical-proof assertion from caller JSON. It
 does not establish the Runner's private control channel or subreaper readiness;
 the separate live lifecycle connection must verify those before claiming work.
+
+`worker_host` pins its HTTPS endpoint, loaded CA hash, selected context, layout and
+installation/storage roots in MAC-authenticated public metadata. Owner sessions
+remain ephemeral; separate STOP authentication is limited to report/receipt
+routes. Each report reads the exact server association, repeats direct physical
+confirmation and persists its one-send intent before its sole mutation request.
+Unknown replies never cause an automatic resend.
+
+When the authenticated lookup has no association, the same typed physical proof
+can select `observed-unbound-exit`. Its distinct intent and canonical
+`vardr.worker-unbound-retirement/1` receipt retire only that runtime and fence a
+late tagged claim; no job, success, refund or capacity release is manufactured.
+A lost reply is reconciled by immutable receipt lookup, including after grant
+expiry/revocation. Null association without a receipt remains held. If a claim
+wins the race, this invocation never falls back to a bound report; an unknown
+intent remains held for explicit recovery. This branch requires the matching Map
+runtime endpoint and does not change ordinary/manual/Mapless execution.
 
 `worker_secrets` holds the raw STOP capability **on the host only**. Windows uses
 the current user's existing native Credential Manager with local-machine

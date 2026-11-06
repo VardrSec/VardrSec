@@ -1,0 +1,507 @@
+"""Explicit admission and stop controls for an already prepared managed worker.
+
+No account/key/enrollment/approval generation, Compose start, daemon or replay.
+The API's strict managed configuration and immutable worker must already exist.
+"""
+
+import argparse
+from contextlib import contextmanager
+from dataclasses import asdict
+import getpass
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import sys
+import time
+import uuid
+import warnings
+
+import updater
+import worker_host as host
+import worker_runtime as runtime
+
+
+class CLIRefused(ValueError):
+    pass
+
+
+def require(condition):
+    if not condition:
+        raise CLIRefused("worker_cli_refused")
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        # A mistaken argument may contain a pasted password or STOP capability.
+        raise CLIRefused("worker_cli_arguments_refused")
+
+
+def runtime_id(value):
+    try:
+        require(type(value) is str and str(uuid.UUID(value)) == value)
+        return value
+    except (ValueError, TypeError, AttributeError):
+        raise CLIRefused("worker_cli_arguments_refused") from None
+
+
+def parser():
+    result = Parser(description=__doc__)
+    actions = result.add_subparsers(dest="action", required=True, parser_class=Parser)
+    enable = actions.add_parser(
+        "enable",
+        aliases=["register"],
+        help="Admit an exact already running worker; never start one",
+    )
+    for name in (
+        "api-url",
+        "ca",
+        "private-root",
+        "context",
+        "container-id",
+        "image-id",
+        "project",
+        "trust-source",
+        "admission-source",
+        "state-volume",
+        "readiness-volume",
+        "enrollment-id",
+        "runner-id",
+        "origin",
+        "public-trust",
+    ):
+        enable.add_argument("--" + name, required=True)
+    enable.add_argument("--runtime-id", type=runtime_id)
+    enable.add_argument(
+        "--expires-in",
+        type=int,
+        default=900,
+        help="Admission seconds, 60..604800; the worker reserves its existing reporting runway",
+    )
+    enable.add_argument("--username", default="operator")
+    enable.add_argument(
+        "--password-stdin",
+        action="store_true",
+        help="Explicitly read one bounded password line from stdin instead of hidden TTY input",
+    )
+    for name in ("status", "stop", "report-exit", "reconcile", "revoke"):
+        action = actions.add_parser(name)
+        action.add_argument("--runtime-id", required=True, type=runtime_id)
+        action.add_argument("--private-root", required=True)
+        if name == "stop":
+            action.add_argument(
+                "--report",
+                action="store_true",
+                help="After actual exit, separately invoke the existing one-shot host reporter",
+            )
+        if name == "revoke":
+            action.add_argument("--username", default="operator")
+            action.add_argument("--password-stdin", action="store_true")
+    return result
+
+
+def password(use_stdin):
+    if use_stdin:
+        require(not sys.stdin.isatty())
+        raw = sys.stdin.buffer.readline(515)
+        require(len(raw) <= 514 and raw.endswith(b"\n"))
+        try:
+            value = raw.removesuffix(b"\n").removesuffix(b"\r").decode("utf-8")
+        except UnicodeError:
+            raise CLIRefused("worker_cli_credentials_refused") from None
+    else:
+        require(sys.stdin.isatty())
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", getpass.GetPassWarning)
+            value = getpass.getpass("Existing local owner password (hidden): ")
+    require(
+        type(value) is str
+        and 1 <= len(value) <= 128
+        and "\n" not in value
+        and "\r" not in value
+        and "\0" not in value
+    )
+    return value
+
+
+@contextmanager
+def owner(client, args):
+    value = password(args.password_stdin)
+    try:
+        with client.owner_session(args.username, value) as session:
+            yield session
+    finally:
+        value = None
+
+
+def public_trust(path):
+    path = Path(path)
+    require(path.is_absolute())
+    descriptor = os.open(
+        path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    )
+    with os.fdopen(descriptor, "rb") as source:
+        info = os.fstat(source.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1)
+        raw = source.read(32769)
+    require(0 < len(raw) <= 32768)
+
+    def unique(items):
+        result = {}
+        for key, value in items:
+            require(key not in result)
+            result[key] = value
+        return result
+
+    anchors = json.loads(raw, object_pairs_hook=unique)
+    require(type(anchors) is list and 1 <= len(anchors) <= 100)
+    seen = set()
+    purposes = set()
+    for anchor in anchors:
+        require(
+            type(anchor) is dict
+            and set(anchor)
+            == {"issuer_id", "key_id", "public_key", "purposes", "origins", "revoked"}
+        )
+        for name in ("issuer_id", "key_id"):
+            host._identifier(anchor[name])
+        require(
+            type(anchor["public_key"]) is str
+            and re.fullmatch(r"[A-Za-z0-9_-]{43}", anchor["public_key"])
+        )
+        # Exact 32-byte canonical base64url, matching Runner's public wire form.
+        import base64
+
+        decoded = base64.urlsafe_b64decode(anchor["public_key"] + "=")
+        require(
+            len(decoded) == 32
+            and base64.urlsafe_b64encode(decoded).rstrip(b"=").decode()
+            == anchor["public_key"]
+        )
+        require(
+            type(anchor["revoked"]) is bool
+            and type(anchor["purposes"]) is list
+            and anchor["purposes"]
+            and set(anchor["purposes"]) <= {"approval", "contract"}
+            and len(anchor["purposes"]) == len(set(anchor["purposes"]))
+            and type(anchor["origins"]) is list
+            and anchor["origins"]
+            and set(anchor["origins"]) <= {"map", "standalone"}
+            and len(anchor["origins"]) == len(set(anchor["origins"]))
+        )
+        key = (anchor["issuer_id"], anchor["key_id"])
+        require(key not in seen)
+        seen.add(key)
+        if not anchor["revoked"] and "map" in anchor["origins"]:
+            purposes.update(anchor["purposes"])
+    require(purposes == {"approval", "contract"})
+    return host.canonical(anchors)
+
+
+def publish_public(path, data):
+    """Atomic exclusive public publication; no overwrite or implicit replay."""
+    require(path.parent.is_dir() and not path.exists() and not path.is_symlink())
+    temporary = path.with_name("." + path.name + "." + uuid.uuid4().hex + ".prepared")
+    descriptor = os.open(
+        temporary,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+        0o644,
+    )
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(data)
+            output.flush()
+            os.fsync(output.fileno())
+        if os.name == "nt":
+            # Windows rename refuses an existing destination. It also avoids
+            # requiring hard-link permission in a restricted desktop process.
+            os.rename(temporary, path)
+        else:
+            # POSIX rename would replace existing permission; link refuses it.
+            os.link(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    if os.name != "nt":
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
+
+def records_for(installation, private_root, *, existing=False):
+    root = Path(private_root)
+    require(root.is_absolute() and root.is_dir())
+    if existing:
+        require((root / "worker-host").is_dir())
+    return host.HostRecords(installation, root)
+
+
+def load(records, selected_id):
+    with records.locked():
+        record = records.read(selected_id)
+    return record
+
+
+def components(record, *, client=True):
+    observer = runtime.LocalDocker(
+        record["context"], runtime.WorkerLayout(**record["layout"])
+    )
+    identity = runtime.RuntimeIdentity(**record["registration"]["identity"])
+    api = (
+        host.HostClient(record["client"]["base_url"], record["client"]["ca_file"])
+        if client
+        else None
+    )
+    if api is not None:
+        host._client(record, api)
+    host._observer(record, observer)
+    return api, observer, identity
+
+
+def enable(installation, args):
+    require(60 <= args.expires_in <= 604800)
+    require(
+        re.fullmatch(r"[0-9a-f]{64}", args.container_id or "")
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", args.image_id or "")
+        and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", args.project or "")
+    )
+    runtime_id(args.runner_id)
+    trust = public_trust(args.public_trust)
+    public = Path(args.admission_source)
+    require(
+        public.is_absolute()
+        and public.is_dir()
+        and not (public / "admission.json").exists()
+    )
+    if (public / "trust.json").exists():
+        require(public_trust(public / "trust.json") == trust)
+    observer = runtime.LocalDocker(
+        args.context,
+        runtime.WorkerLayout(
+            args.trust_source,
+            args.admission_source,
+            args.state_volume,
+            args.readiness_volume,
+        ),
+    )
+    client = host.HostClient(args.api_url, args.ca)
+    records = records_for(installation, args.private_root)
+    with records.locked():
+        require(not (installation / updater.STATE).exists())
+        require(not (public / "admission.json").exists())
+    with owner(client, args) as session:
+        identity = observer.capture_running(
+            container_id=args.container_id, image_id=args.image_id, project=args.project
+        )
+        admission = host.register_runtime(
+            client,
+            records,
+            session,
+            issuer_origin=args.origin,
+            enrollment_id=args.enrollment_id,
+            runner_id=args.runner_id,
+            identity=identity,
+            observer=observer,
+            expires_in_seconds=args.expires_in,
+            runtime_id=args.runtime_id,
+        )
+    # The host receipt exists before public permission can enter the container.
+    with records.locked():
+        require(not (installation / updater.STATE).exists())
+        record = records.read(args.runtime_id)
+        host._client(record, client)
+        host._observer(record, observer)
+        require(
+            record["registration_state"] == "acknowledged"
+            and record["admission"] == admission
+        )
+        require(
+            observer.capture_running(
+                container_id=args.container_id,
+                image_id=args.image_id,
+                project=args.project,
+            )
+            == identity
+        )
+        records.outside_mounts(observer, identity)
+        if not (public / "trust.json").exists():
+            publish_public(public / "trust.json", trust)
+        else:
+            require(public_trust(public / "trust.json") == trust)
+        publish_public(public / "admission.json", host.canonical(admission))
+    return {
+        "schema": "vardr.worker-cli/1",
+        "state": "enabled",
+        "runtime_id": args.runtime_id,
+        "runtime_sha256": admission["runtime_sha256"],
+        "identity": asdict(identity),
+        "local_runner_reconciliation": "required_after_terminal_exit",
+    }
+
+
+def stop(records, selected_id):
+    with records.locked():
+        record = records.read(selected_id)
+        _, observer, identity = components(record, client=False)
+        require(observer._observation_lock.acquire(blocking=False))
+        try:
+            observer._deadline = time.monotonic() + 30
+            value = observer._bound(identity)
+            if value["state"]["Status"] != "exited":
+                require(
+                    value["state"]["Status"] == "running"
+                    and value["state"]["Running"] is True
+                )
+                signal = json.loads(
+                    observer._command(
+                        "container",
+                        "inspect",
+                        "--format",
+                        "{{json .Config.StopSignal}}",
+                        identity.container_id,
+                    )
+                )
+                require(signal in (None, "", "SIGTERM"))
+                # One aggregate pre-stop/stop deadline. The existing adapter
+                # clips every subprocess timeout to its remaining duration.
+                observer._bound(identity)
+                observer._command(
+                    "container", "stop", "-t", "10", identity.container_id, timeout=25
+                )
+        finally:
+            observer._deadline = None
+            observer._observation_lock.release()
+        # Exit proof owns its separate bounded observation lock and deadline.
+        proof = observer.observe_exit(identity)
+        require(isinstance(proof, runtime.ObservedExit))
+        return record, observer, proof
+
+
+def dispatch(installation, args):
+    if args.action in {"enable", "register"}:
+        return enable(installation, args)
+    records = records_for(installation, args.private_root, existing=True)
+    if args.action == "stop":
+        record, observer, proof = stop(records, args.runtime_id)
+        if args.report:
+            client, _, _ = components(record)
+            receipt = host.report_observed_exit(
+                client, records, args.runtime_id, proof, observer
+            )
+            return {
+                "schema": "vardr.worker-cli/1",
+                "state": "terminal_observed",
+                "runtime_id": args.runtime_id,
+                "receipt": receipt,
+                "local_runner_reconciliation": "required",
+            }
+        return {
+            "schema": "vardr.worker-cli/1",
+            "state": "stopped_observed",
+            "runtime_id": args.runtime_id,
+            "identity": asdict(proof.identity),
+            "exit_code": proof.exit_code,
+            "finished_at": proof.finished_at,
+            "local_runner_reconciliation": "required",
+        }
+    record = load(records, args.runtime_id)
+    if args.action == "status":
+        _, observer, identity = components(record, client=False)
+        with records.locked():
+            require(records.read(args.runtime_id) == record)
+            actual = observer._bound(identity)
+        return {
+            "schema": "vardr.worker-cli/1",
+            "state": "observed",
+            "runtime_id": args.runtime_id,
+            "identity": asdict(identity),
+            "container_state": actual["state"]["Status"],
+            **{
+                key: record[key]
+                for key in ("registration_state", "stop_state", "revocation_state")
+            },
+            "receipt": record["receipt"],
+        }
+    client, observer, identity = components(record)
+    if args.action == "reconcile":
+        reply = host.reconcile_exit(client, records, args.runtime_id)
+        return {
+            "schema": "vardr.worker-cli/1",
+            "state": "terminal_observed"
+            if reply["receipt"] is not None
+            else "held_no_terminal_receipt",
+            "runtime_id": args.runtime_id,
+            "receipt": reply,
+            "local_runner_reconciliation": "required",
+        }
+    if args.action == "report-exit":
+        proof = observer.observe_exit(identity)
+        require(isinstance(proof, runtime.ObservedExit))
+        reply = host.report_observed_exit(
+            client, records, args.runtime_id, proof, observer
+        )
+        return {
+            "schema": "vardr.worker-cli/1",
+            "state": "terminal_observed",
+            "runtime_id": args.runtime_id,
+            "receipt": reply,
+            "local_runner_reconciliation": "required",
+        }
+    require(args.action == "revoke")
+    with owner(client, args) as session:
+        reply = host.revoke_runtime(client, records, session, args.runtime_id)
+    return {
+        "schema": "vardr.worker-cli/1",
+        "state": "revoked",
+        "runtime_id": args.runtime_id,
+        "receipt": reply,
+        "local_runner_reconciliation": "required_if_attempt_exists",
+    }
+
+
+def main(argv=None, *, installation=None):
+    selected_id = None
+    try:
+        args = parser().parse_args(argv)
+        installation = (
+            Path(__file__).resolve().parent
+            if installation is None
+            else Path(installation)
+        )
+        require(installation.is_absolute() and installation.is_dir())
+        if args.action in {"enable", "register"} and args.runtime_id is None:
+            args.runtime_id = str(uuid.uuid4())
+        selected_id = args.runtime_id
+        reply = dispatch(installation, args)
+        print(json.dumps(reply, sort_keys=True))
+        return 1 if reply["state"].startswith("held_") else 0
+    except SystemExit as result:
+        return result.code
+    except KeyboardInterrupt:
+        print(
+            json.dumps(
+                {
+                    "schema": "vardr.worker-cli/1",
+                    "state": "held_interrupted",
+                    "runtime_id": selected_id,
+                }
+            )
+        )
+        return 130
+    except Exception:
+        print(
+            json.dumps(
+                {
+                    "schema": "vardr.worker-cli/1",
+                    "state": "held",
+                    "runtime_id": selected_id,
+                }
+            )
+        )
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

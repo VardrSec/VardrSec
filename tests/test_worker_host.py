@@ -241,6 +241,26 @@ class HostTests(unittest.TestCase):
             "capacity_reserved": False,
         }
 
+    def unbound_terminal(self, intent):
+        value = {
+            "schema": "vardr.worker-unbound-retirement/1",
+            "runtime_id": self.runtime_id,
+            "runtime_sha256": host.digest(asdict(self.identity)),
+            "origin": self.binding["origin"],
+            "runner_id": self.runner_id,
+            "enrollment_id": "enrolled-1",
+            "bound": False,
+            "retired": True,
+            "report_sha256": host.digest(
+                {
+                    "schema": "vardr.worker-unbound-exit-report/1",
+                    "runtime_id": self.runtime_id,
+                    **intent,
+                }
+            ),
+        }
+        return {**value, "receipt_sha256": host.digest(value)}
+
     def test_registration_is_exact_mac_authenticated_and_contains_no_secret(self):
         admission = self.register()
         record = self.records.read(self.runtime_id)
@@ -436,16 +456,125 @@ class HostTests(unittest.TestCase):
             )
         self.client.observed_exit.assert_not_called()
 
-    def test_raw_json_is_not_exit_proof_and_unbound_runtime_remains_held(self):
+    def test_raw_json_or_boolean_is_never_physical_exit_proof(self):
         self.register()
         self.client.receipt = Mock(return_value=self.lookup(binding=False))
         self.client.observed_exit = Mock()
-        for proof in (asdict(self.proof), self.proof):
+        self.client.observed_unbound_exit = Mock()
+        for proof in (asdict(self.proof), True, None):
             with self.assertRaises(host.HostRefused):
                 host.report_observed_exit(
                     self.client, self.records, self.runtime_id, proof, self.observer
                 )
         self.client.observed_exit.assert_not_called()
+        self.client.observed_unbound_exit.assert_not_called()
+
+    def test_exact_unbound_exit_retires_only_runtime_without_job_tuple(self):
+        self.register()
+        self.client.receipt = Mock(return_value=self.lookup(binding=False))
+        self.client.observed_exit = Mock()
+
+        def retire(runtime_id, intent, secret):
+            self.assertEqual(set(intent), host._UNBOUND_INTENT)
+            self.assertEqual(self.records.read(runtime_id)["stop_intent"], intent)
+            self.assertEqual(self.records.read(runtime_id)["stop_state"], "prepared")
+            return {
+                "schema": "vardr.worker-host-stop/1",
+                "runtime_id": runtime_id,
+                "runtime_sha256": host.digest(asdict(self.identity)),
+                "receipt": self.unbound_terminal(intent),
+            }
+
+        self.client.observed_unbound_exit = Mock(side_effect=retire)
+        reply = host.report_observed_exit(
+            self.client, self.records, self.runtime_id, self.proof, self.observer
+        )
+        self.assertFalse(reply["receipt"]["bound"])
+        self.assertTrue(reply["receipt"]["retired"])
+        self.assertNotIn("outcome", reply["receipt"])
+        self.assertNotIn("capacity_reserved", reply["receipt"])
+        self.client.observed_unbound_exit.assert_called_once()
+        self.client.observed_exit.assert_not_called()
+
+    def test_lost_unbound_reply_only_reconciles_canonical_retirement(self):
+        self.register()
+        self.client.receipt = Mock(return_value=self.lookup(binding=False))
+        self.client.observed_unbound_exit = Mock(
+            side_effect=host.HostRefused("worker_host_refused")
+        )
+        self.client.observed_exit = Mock()
+        with self.assertRaises(host.HostRefused):
+            host.report_observed_exit(
+                self.client, self.records, self.runtime_id, self.proof, self.observer
+            )
+        intent = self.records.read(self.runtime_id)["stop_intent"]
+        with self.assertRaises(host.HostRefused):
+            host.report_observed_exit(
+                self.client, self.records, self.runtime_id, self.proof, self.observer
+            )
+        self.client.observed_unbound_exit.assert_called_once()
+        self.client.receipt.return_value = self.lookup(
+            self.unbound_terminal(intent), binding=False
+        )
+        self.assertTrue(
+            host.reconcile_exit(self.client, self.records, self.runtime_id)["receipt"][
+                "retired"
+            ]
+        )
+        self.client.observed_unbound_exit.assert_called_once()
+        self.client.observed_exit.assert_not_called()
+
+    def test_unbound_race_with_association_holds_without_bound_fallback(self):
+        self.register()
+        self.client.receipt = Mock(return_value=self.lookup(binding=False))
+        self.client.observed_unbound_exit = Mock(
+            side_effect=host.HostRefused("worker_host_refused")
+        )
+        self.client.observed_exit = Mock()
+        with self.assertRaises(host.HostRefused):
+            host.report_observed_exit(
+                self.client, self.records, self.runtime_id, self.proof, self.observer
+            )
+        self.client.receipt.return_value = self.lookup()
+        observed = host.reconcile_exit(self.client, self.records, self.runtime_id)
+        self.assertEqual(observed["binding"], self.binding)
+        self.assertEqual(self.records.read(self.runtime_id)["stop_state"], "unknown")
+        with self.assertRaises(host.HostRefused):
+            host.report_observed_exit(
+                self.client, self.records, self.runtime_id, self.proof, self.observer
+            )
+        self.client.observed_unbound_exit.assert_called_once()
+        self.client.observed_exit.assert_not_called()
+
+    def test_unbound_receipt_rejects_foreign_binding_fields_and_bad_hashes(self):
+        self.register()
+        record = self.records.read(self.runtime_id)
+        intent = {
+            "runtime_sha256": host.digest(asdict(self.identity)),
+            "finished_at": self.proof.finished_at,
+            "exit_code": self.proof.exit_code,
+            "observation_sha256": "d" * 64,
+        }
+        record["stop_intent"] = intent
+        base = self.unbound_terminal(intent)
+        for change in (
+            {"runtime_id": str(uuid.uuid4())},
+            {"bound": 0},
+            {"retired": 1},
+            {"job_id": "fabricated"},
+            {"report_sha256": "e" * 64},
+        ):
+            with self.subTest(change=tuple(change)):
+                value = {**base, **change}
+                value["receipt_sha256"] = host.digest(
+                    {
+                        key: item
+                        for key, item in value.items()
+                        if key != "receipt_sha256"
+                    }
+                )
+                with self.assertRaises(host.HostRefused):
+                    host._unbound_terminal(record, value)
 
     def test_storage_under_actual_worker_source_refuses_registration(self):
         self.layout = runtime.WorkerLayout(
@@ -619,7 +748,7 @@ class TransportTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(host.HostRefused):
                 host._url(value, external=True)
 
-    def test_stop_scheme_only_reaches_the_two_fixed_routes(self):
+    def test_stop_scheme_only_reaches_the_fixed_stop_only_routes(self):
         client = object.__new__(host.HostClient)
         client._request = Mock(return_value=({}, []))
         runtime_id = str(uuid.uuid4())
@@ -635,6 +764,15 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(
             client._request.call_args.args[1],
             f"/managed/runtimes/{runtime_id}/observed-exit",
+        )
+        client.observed_unbound_exit(runtime_id, {}, "b" * 64)
+        self.assertEqual(
+            client._request.call_args.args[1],
+            f"/managed/runtimes/{runtime_id}/observed-unbound-exit",
+        )
+        self.assertEqual(
+            client._request.call_args.args[3],
+            {"Authorization": "VardrStop " + "b" * 64},
         )
 
     def test_owner_cookie_and_csrf_are_ephemeral_and_never_stop_credentials(self):

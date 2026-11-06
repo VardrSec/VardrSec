@@ -38,3 +38,10 @@ a passing happy path or an approval to develop is not acceptance. A necessary
 privilege/deployment deviation must have a concrete threat model and explicit
 authorization before it is enabled. Previously blocked adversarial experiments
 remain stopped; no alternate worker or environment is used to bypass that block.
+
+The [native Windows development baseline](evidence/nm2-native-windows-development-baseline-2026-11-05.json)
+records 20 passing real Gate/TLS fallback checks, including 14 detailed timing and
+traffic receipts. It used development working trees; final frozen-cohort CI and
+platform acceptance remain separate. A [prepared-worker operator command](nm2-worker-operator.md)
+and the [coupled test plan](nm2-worker-acceptance-plan.md) are now implemented
+candidates, not accepted deployments.
