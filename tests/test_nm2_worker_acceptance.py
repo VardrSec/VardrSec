@@ -444,7 +444,12 @@ class AcceptanceGuards(unittest.TestCase):
     def test_each_scenario_source_validation_is_explicit_and_never_contacts_docker(
         self,
     ):
-        for scenario in ("local-emergency-stop", "stop-work"):
+        for scenario in (
+            "local-emergency-stop",
+            "stop-work",
+            "missing-local-grant",
+            "active-target-grant-revoked",
+        ):
             with (
                 self.subTest(scenario=scenario),
                 tempfile.TemporaryDirectory() as temporary,
@@ -478,11 +483,20 @@ class AcceptanceGuards(unittest.TestCase):
                     fixture.receipt["schema"], "vardr.nm2-worker-acceptance/2"
                 )
                 self.assertEqual(
-                    fixture.receipt["cases"][scenario], {"status": "not_run"}
+                    fixture.receipt["cases"][
+                        "missing_local_grant"
+                        if scenario == "missing-local-grant"
+                        else scenario
+                    ],
+                    {"status": "not_run"},
                 )
 
     def test_cancellation_actions_use_only_original_run_marker_or_owner_stop_work(self):
-        for scenario in ("local-emergency-stop", "stop-work"):
+        for scenario in (
+            "local-emergency-stop",
+            "stop-work",
+            "active-target-grant-revoked",
+        ):
             with self.subTest(scenario=scenario):
                 fixture, values = self.cancellation_fixture(scenario)
                 engagement, job, case = values[:3]
@@ -512,12 +526,29 @@ class AcceptanceGuards(unittest.TestCase):
                         fixture.helper.call_args_list[1].args, ("jobs", "stop", run_id)
                     )
                     fixture.api.request.assert_not_called()
-                else:
+                elif scenario == "stop-work":
                     self.assertEqual(fixture.helper.call_count, 1)
                     fixture.api.request.assert_called_once_with(
                         f"/engagements/{engagement}/stop-work",
                         {"reason": "NM2 controlled HTTP fixture"},
                     )
+                else:
+                    self.assertEqual(
+                        fixture.helper.call_args_list[1].args,
+                        (
+                            "credentials",
+                            "revoke",
+                            "--engagement",
+                            engagement,
+                            "--origin",
+                            acceptance.ORIGIN,
+                            "--env",
+                            "FIXTURE_OWNER_TOKEN",
+                            "--issuer",
+                            fixture.issuer_origin,
+                        ),
+                    )
+                    fixture.api.request.assert_not_called()
                 self.assertNotIn("pid", str(fixture.helper.call_args_list).lower())
                 fixture.timed_traffic.return_value["requests"].append(
                     copy.deepcopy(values[6]["requests"][-1])
@@ -530,6 +561,197 @@ class AcceptanceGuards(unittest.TestCase):
                     fixture.cancellation_action(engagement, job, case)
                 fixture.helper.assert_not_called()
                 fixture.api.request.assert_not_called()
+
+    def grant_catalogs(self, fixture, engagement):
+        before = {
+            "policy_reason": "granted",
+            "grants": [
+                {
+                    "issuer": fixture.issuer_origin,
+                    "engagement_id": engagement,
+                    "origin": acceptance.ORIGIN,
+                    "source": "env",
+                    "name": "FIXTURE_" + who + "_TOKEN",
+                    "id": str(number) * 8 + "-0000-4000-8000-" + str(number) * 12,
+                    "issued_at": "2026-11-06T02:00:00.000000+00:00",
+                    "expires_at": "2026-11-06T02:10:00.000000+00:00",
+                    "status": "active",
+                }
+                for number, who in enumerate(("OWNER", "PEER"), 1)
+            ],
+        }
+        after = copy.deepcopy(before)
+        after["policy_reason"] = "grant_expired_or_revoked"
+        after["grants"][0]["status"] = "revoked"
+        return before, after
+
+    def test_active_grant_revocation_requires_same_public_grant_and_original_peer(self):
+        fixture, values = self.cancellation_fixture("active-target-grant-revoked")
+        before, after = self.grant_catalogs(fixture, values[0])
+        values[5].update(grant_before=before, grant_after=after)
+        proof = fixture.verify_cancellation(*values)
+        self.assertEqual(
+            proof["grant_revocation"]["grant_id"], before["grants"][0]["id"]
+        )
+        self.assertEqual(
+            proof["grant_revocation"]["policy_reason"], "grant_expired_or_revoked"
+        )
+        self.assertFalse(proof["local_stop_requested"])
+        for mutation in ("replacement", "peer", "scope", "policy", "raw_secret"):
+            with self.subTest(mutation=mutation):
+                changed = copy.deepcopy(after)
+                if mutation == "replacement":
+                    changed["grants"][0]["id"] = "f" * 36
+                elif mutation == "peer":
+                    changed["grants"][1]["status"] = "revoked"
+                elif mutation == "scope":
+                    changed["grants"][0]["origin"] = "http://other.test"
+                elif mutation == "policy":
+                    changed["policy_reason"] = "granted"
+                else:
+                    changed["grants"][0]["raw_secret"] = "private-catalog-canary"
+                with self.assertRaises(acceptance.AcceptanceRefused):
+                    fixture.verify_grant_revocation(values[0], before, changed)
+
+    def missing_grant_fixture(self):
+        data = self.sequence_fixture()
+        fixture, physical = data.fixture, data.physical
+        physical["exit_code"] = 125
+        inventory = data.inventories[0]
+        inventory.update(
+            job_id="job-1",
+            job_status="pending",
+            execution=None,
+            targets_spent=0,
+            duration_allocated=0,
+            approvals=[{"id": "approved", "issued": 0, "revoked": False}],
+            contracts=[],
+            results=[],
+            stops=[],
+            runtimes=[],
+        )
+        expected = {
+            "schema": "vardr.worker-retirement/2",
+            "runtime_id": physical["runtime_id"],
+            "runtime_sha256": physical["runtime_sha256"],
+            "origin": fixture.issuer_origin,
+            "runner_id": data.runner_id,
+            "enrollment_id": "enrolled",
+            "runtime_sequence": None,
+            "last_sequence": 0,
+            "binding": None,
+            "attempt_receipt": None,
+            "report_sha256": "d" * 64,
+            "retired": True,
+        }
+        retirement = {
+            **expected,
+            "receipt_sha256": acceptance.digest(acceptance.canonical(expected)),
+        }
+        local = dict.fromkeys(
+            (
+                "runs",
+                "claims",
+                "contracts",
+                "fences",
+                "attempts",
+                "remaining_local_holds",
+            ),
+            0,
+        )
+        local["incarnation"] = {
+            "runtime_id": physical["runtime_id"],
+            "runtime_sha256": physical["runtime_sha256"],
+            "max_attempts": 1,
+            "last_sequence": 0,
+            "active_sequence": None,
+            "state": "idle",
+            "retirement": None,
+        }
+        return fixture, [
+            "job-1",
+            data.runner_id,
+            "enrolled",
+            physical,
+            inventory,
+            retirement,
+            local,
+            {"grants": [], "policy_reason": "grant_missing_or_replaced"},
+            [],
+        ]
+
+    def test_missing_grant_proves_zero_claim_without_creating_a_journal_record(self):
+        fixture, values = self.missing_grant_fixture()
+        proof = fixture.verify_missing_grant(*values)
+        self.assertEqual(proof["journal_run_count"], 0)
+        self.assertEqual(proof["local_reconciliation"], "not_required_no_run")
+        self.assertEqual(proof["runtime_last_sequence"], 0)
+        for mutation in (
+            "traffic",
+            "issued",
+            "contract",
+            "history",
+            "local_record",
+            "grant_present",
+            "hold",
+        ):
+            with self.subTest(mutation=mutation):
+                fixture, changed = self.missing_grant_fixture()
+                if mutation == "traffic":
+                    changed[-1].append({"identity": "owner"})
+                elif mutation == "issued":
+                    changed[4]["approvals"][0]["issued"] = 1
+                elif mutation == "contract":
+                    changed[4]["contracts"] = [{"id": "issued"}]
+                elif mutation == "history":
+                    changed[5]["last_sequence"] = 1
+                elif mutation == "local_record":
+                    changed[6]["runs"] = 1
+                elif mutation == "grant_present":
+                    changed[7]["policy_reason"] = "granted"
+                else:
+                    changed[6]["remaining_local_holds"] = 1
+                with self.assertRaises(acceptance.AcceptanceRefused):
+                    fixture.verify_missing_grant(*changed)
+
+    def test_missing_grant_flow_observes_without_fabricating_run_or_reconciliation(
+        self,
+    ):
+        fixture, values = self.missing_grant_fixture()
+        (
+            job,
+            runner,
+            enrollment,
+            physical,
+            inventory,
+            retirement,
+            local,
+            grants,
+            traffic,
+        ) = values
+        fixture.scenario = "missing-local-grant"
+        fixture.receipt = {"cases": {"missing_local_grant": {"status": "not_run"}}}
+        fixture.new_job = Mock(return_value=("eng", "authorization", job, {"spec": {}}))
+        fixture.approve = Mock(return_value=(runner, enrollment))
+        fixture.grant_snapshot = Mock(return_value=grants)
+        fixture.helper = Mock(return_value=b"authenticated public identity")
+        fixture.traffic = Mock(return_value=traffic)
+        fixture.worker = Mock(return_value=physical)
+        fixture.report_exit = Mock(return_value=retirement)
+        fixture.inventory = Mock(return_value=inventory)
+        fixture.unclaimed_metadata = Mock(return_value=local)
+        fixture.missing_grant()
+        self.assertEqual(
+            fixture.receipt["cases"]["missing_local_grant"]["status"], "passed"
+        )
+        self.assertEqual(
+            [call.args for call in fixture.helper.call_args_list],
+            [("whoami",), ("whoami",)],
+        )
+        self.assertFalse(fixture.approve.call_args.kwargs["local_grants"])
+        fixture.worker.assert_called_once_with(runner, enrollment)
+        fixture.unclaimed_metadata.assert_called_once_with("eng", job, physical)
+        self.assertEqual(fixture.receipt["observed_failure"]["local"]["runs"], 0)
 
     def test_cancellation_run_id_requires_actual_journal_hex_format_before_stop(self):
         for run_id in ("00000000-0000-4000-8000-000000000099", "a" * 31, "A" * 32):

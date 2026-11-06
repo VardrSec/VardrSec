@@ -44,7 +44,13 @@ INITIAL_CASES = (
     "healthy_sequence",
     "missing_local_grant",
 )
-SCENARIOS = ("healthy", "local-emergency-stop", "stop-work")
+SCENARIOS = (
+    "healthy",
+    "local-emergency-stop",
+    "stop-work",
+    "missing-local-grant",
+    "active-target-grant-revoked",
+)
 _CONFIGURATION_ENV = {
     "HTTPS_PORT",
     "PROXY_IP",
@@ -442,10 +448,18 @@ class Fixture:
             self.receipt.update(
                 schema="vardr.nm2-worker-failure-acceptance/1",
                 scenario=scenario,
-                acceptance_scope="ordinary_http_cancellation_only",
+                acceptance_scope=(
+                    "credential_grant_failure_only"
+                    if scenario
+                    in {"missing-local-grant", "active-target-grant-revoked"}
+                    else "ordinary_http_cancellation_only"
+                ),
                 nm2_exit_status="incomplete",
             )
-            self.receipt["cases"][scenario] = {"status": "not_run"}
+            key = (
+                "missing_local_grant" if scenario == "missing-local-grant" else scenario
+            )
+            self.receipt["cases"][key] = {"status": "not_run"}
         self.secrets = []
 
     def docker(self, *args, env=None, **kwargs):
@@ -1595,6 +1609,325 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
             )
         )
 
+    def grant_snapshot(self, engagement):
+        # Existing grant validator, public references only; never resolve a value.
+        source = """
+import json,sys
+from vardrrunner import credential_grants
+selection=json.load(sys.stdin)
+policy=credential_grants.Policy(selection['issuer'])
+grants=[row for row in policy.store.entries() if row['issuer']==selection['issuer'] and row['engagement_id']==selection['engagement_id'] and row['origin']==selection['origin'] and row['source']=='env' and row['name'] in {'FIXTURE_OWNER_TOKEN','FIXTURE_PEER_TOKEN'}]
+try:
+    policy.check(selection['engagement_id'],[selection['origin']],[('owner','env','FIXTURE_OWNER_TOKEN'),('peer','env','FIXTURE_PEER_TOKEN')])
+    reason='granted'
+except credential_grants.GrantError as error:
+    reason=str(error)
+assert reason in {'granted','grant_missing_or_replaced','grant_expired_or_revoked'}
+print(json.dumps({'grants':grants,'policy_reason':reason}))
+"""
+        return json.loads(
+            self.helper(
+                "-I",
+                "-c",
+                source,
+                python=True,
+                stdin=canonical(
+                    {
+                        "issuer": self.issuer_origin,
+                        "engagement_id": engagement,
+                        "origin": ORIGIN,
+                    }
+                ),
+            )
+        )
+
+    def verify_grant_revocation(self, engagement, before, after):
+        require(
+            set(before) == set(after) == {"grants", "policy_reason"}
+            and before["policy_reason"] == "granted"
+            and after["policy_reason"] == "grant_expired_or_revoked"
+            and len(before["grants"]) == len(after["grants"]) == 2,
+            "target_grant_revocation_not_proven",
+        )
+        previous = {row["name"]: row for row in before["grants"]}
+        current = {row["name"]: row for row in after["grants"]}
+        require(
+            set(previous)
+            == set(current)
+            == {"FIXTURE_OWNER_TOKEN", "FIXTURE_PEER_TOKEN"},
+            "target_grant_identity_changed",
+        )
+        require(
+            previous["FIXTURE_OWNER_TOKEN"]["id"]
+            != previous["FIXTURE_PEER_TOKEN"]["id"],
+            "target_grant_identity_changed",
+        )
+        for name, row in previous.items():
+            require(
+                set(row)
+                == {
+                    "issuer",
+                    "engagement_id",
+                    "origin",
+                    "source",
+                    "name",
+                    "id",
+                    "issued_at",
+                    "expires_at",
+                    "status",
+                }
+                and row["issuer"] == self.issuer_origin
+                and row["engagement_id"] == engagement
+                and row["origin"] == ORIGIN
+                and row["source"] == "env"
+                and row["status"] == "active"
+                and re.fullmatch(r"[0-9a-f-]{36}", row["id"]) is not None
+                and current[name]
+                == {
+                    **row,
+                    "status": "revoked" if name == "FIXTURE_OWNER_TOKEN" else "active",
+                },
+                "target_grant_identity_changed",
+            )
+        return {
+            "grant_id": previous["FIXTURE_OWNER_TOKEN"]["id"],
+            "peer_grant_id": previous["FIXTURE_PEER_TOKEN"]["id"],
+            "before_status": "active",
+            "after_status": "revoked",
+            "policy_reason": after["policy_reason"],
+            "catalog_before_sha256": digest(canonical(before)),
+            "catalog_after_sha256": digest(canonical(after)),
+        }
+
+    def report_exit(self, physical):
+        reported = json.loads(
+            command(
+                [
+                    sys.executable,
+                    str(self.install / "vardrsec.py"),
+                    "worker",
+                    "report-exit",
+                    "--runtime-id",
+                    physical["runtime_id"],
+                    "--private-root",
+                    str(self.private),
+                ],
+                cwd=self.install,
+                env=self.environment,
+                timeout=120,
+            )
+        )
+        require(
+            reported["schema"] == "vardr.worker-cli/1"
+            and reported["state"] == "terminal_observed"
+            and reported["runtime_id"] == physical["runtime_id"],
+            "cancellation_host_report_not_bound",
+        )
+        return reported["receipt"]["receipt"]
+
+    def unclaimed_metadata(self, engagement, job, physical):
+        source = """
+import json,sys
+from vardrrunner import config
+from vardrrunner.journal import Journal
+from vardrrunner.authorization.reconciliation import local_holds
+selection=json.load(sys.stdin)
+journal=Journal(config.journal_file())
+queries={
+ 'claims':('managed_claim_intents','SELECT count(*) FROM managed_claim_intents WHERE backend=? AND job=?',(selection['origin'],selection['job_id'])),
+ 'contracts':('authorization_contracts','SELECT count(*) FROM authorization_contracts WHERE job=?',(selection['job_id'],)),
+ 'fences':('authorization_fences','SELECT count(*) FROM authorization_fences WHERE job=?',(selection['job_id'],)),
+ 'attempts':('managed_worker_attempts','SELECT count(*) FROM managed_worker_attempts WHERE runtime_id=?',(selection['runtime_id'],)),
+}
+with journal._connection() as con:
+    counts={name:(con.execute(query,args).fetchone()[0] if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(table,)).fetchone() else 0) for name,(table,query,args) in queries.items()}
+    row=con.execute('SELECT runtime_id,runtime_sha256,max_attempts,last_sequence,active_sequence,state,retirement FROM managed_worker_incarnations WHERE runtime_id=?',(selection['runtime_id'],)).fetchone()
+assert row is not None
+print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selection['engagement_id']) if row.job_id==selection['job_id']]),**counts,'incarnation':dict(row),'remaining_local_holds':local_holds(journal)}))
+"""
+        return json.loads(
+            self.helper(
+                "-I",
+                "-c",
+                source,
+                python=True,
+                stdin=canonical(
+                    {
+                        "origin": self.issuer_origin,
+                        "engagement_id": engagement,
+                        "job_id": job,
+                        "runtime_id": physical["runtime_id"],
+                    }
+                ),
+            )
+        )
+
+    def verify_missing_grant(
+        self,
+        job,
+        runner_id,
+        enrollment_id,
+        physical,
+        inventory,
+        retirement,
+        local,
+        grants,
+        traffic,
+    ):
+        require(
+            not traffic
+            and grants == {"grants": [], "policy_reason": "grant_missing_or_replaced"}
+            and inventory["schema"] == "vardr.nm2-fixture-inventory/2"
+            and inventory["schema_revision"] == "0040runtimesequence"
+            and inventory["database_user"] == "vardrmap_app"
+            and inventory["job_id"] == job
+            and inventory["job_status"] == "pending"
+            and inventory["execution"] is None
+            and inventory["targets_spent"] == inventory["duration_allocated"] == 0
+            and not any(
+                inventory[key] for key in ("contracts", "results", "stops", "runtimes")
+            )
+            and len(inventory["approvals"]) == 1
+            and inventory["approvals"][0]["issued"] == 0
+            and inventory["approvals"][0]["revoked"] is False,
+            "missing_grant_not_zero_rpc",
+        )
+        require(
+            set(physical)
+            == {
+                "identity",
+                "runtime_id",
+                "runtime_sha256",
+                "exit_code",
+                "finished_at",
+                "operator_enable_state",
+            }
+            and type(physical["exit_code"]) is int
+            and physical["exit_code"] != 0
+            and physical["operator_enable_state"] == "enabled"
+            and physical["runtime_sha256"] == digest(canonical(physical["identity"])),
+            "missing_grant_physical_exit_not_proven",
+        )
+        expected = {
+            "schema": "vardr.worker-retirement/2",
+            "runtime_id": physical["runtime_id"],
+            "runtime_sha256": physical["runtime_sha256"],
+            "origin": self.issuer_origin,
+            "runner_id": runner_id,
+            "enrollment_id": enrollment_id,
+            "runtime_sequence": None,
+            "last_sequence": 0,
+            "binding": None,
+            "attempt_receipt": None,
+            "report_sha256": retirement["report_sha256"],
+            "retired": True,
+        }
+        require(
+            re.fullmatch(r"[0-9a-f]{64}", retirement["report_sha256"]) is not None
+            and canonical(retirement)
+            == canonical({**expected, "receipt_sha256": digest(canonical(expected))}),
+            "missing_grant_runtime_not_unissued",
+        )
+        require(
+            set(local)
+            == {
+                "runs",
+                "claims",
+                "contracts",
+                "fences",
+                "attempts",
+                "incarnation",
+                "remaining_local_holds",
+            }
+            and all(
+                type(local[key]) is int and local[key] == 0
+                for key in (
+                    "runs",
+                    "claims",
+                    "contracts",
+                    "fences",
+                    "attempts",
+                    "remaining_local_holds",
+                )
+            )
+            and canonical(local["incarnation"])
+            == canonical(
+                {
+                    "runtime_id": physical["runtime_id"],
+                    "runtime_sha256": physical["runtime_sha256"],
+                    "max_attempts": 1,
+                    "last_sequence": 0,
+                    "active_sequence": None,
+                    "state": "idle",
+                    "retirement": None,
+                }
+            ),
+            "missing_grant_local_claim_or_hold_exists",
+        )
+        return {
+            "status": "passed",
+            "physical": physical,
+            "job_id": job,
+            "target_request_count": 0,
+            "targets_spent": 0,
+            "duration_allocated": 0,
+            "policy_reason": grants["policy_reason"],
+            "journal_run_count": 0,
+            "claim_intent_count": 0,
+            "runtime_last_sequence": 0,
+            "retirement_receipt_sha256": retirement["receipt_sha256"],
+            "local_reconciliation": "not_required_no_run",
+            "remaining_local_holds": 0,
+            "original_runner_auth": "verified",
+        }
+
+    def missing_grant(self):
+        self.receipt["stage"] = "missing_grant_setup"
+        engagement, authorization, job, case = self.new_job(self.scenario, marker=True)
+        runner_id, enrollment_id = self.approve(
+            self.scenario, engagement, authorization, job, case, local_grants=False
+        )
+        grants = self.grant_snapshot(engagement)
+        require(
+            grants == {"grants": [], "policy_reason": "grant_missing_or_replaced"},
+            "missing_grant_precondition_failed",
+        )
+        self.helper("whoami")  # Original enrolled API credential, no replacement key.
+        require(not self.traffic(), "missing_grant_target_traffic")
+        self.receipt["stage"] = "missing_grant_worker"
+        physical = self.worker(runner_id, enrollment_id)
+        self.receipt["stage"] = "missing_grant_host_reconciliation"
+        retirement = self.report_exit(physical)
+        self.helper("whoami")
+        inventory = self.inventory(engagement, job)
+        local = self.unclaimed_metadata(engagement, job, physical)
+        after = self.grant_snapshot(engagement)
+        require(after == grants, "missing_grant_catalog_changed")
+        traffic = self.traffic()
+        self.receipt["observed_failure"] = {
+            "physical": physical,
+            "inventory": inventory,
+            "retirement": retirement,
+            "local": local,
+            "grants": after,
+        }
+        self.receipt["stage"] = "missing_grant_verification"
+        self.receipt["cases"]["missing_local_grant"] = self.verify_missing_grant(
+            job,
+            runner_id,
+            enrollment_id,
+            physical,
+            inventory,
+            retirement,
+            local,
+            after,
+            traffic,
+        )
+        self.receipt["status"], self.receipt["stage"] = (
+            "selected_failure_slice_passed",
+            "selected_failure_complete",
+        )
+
     def cancellation_action(self, engagement, job, case):
         until = time.monotonic() + 25
         marker = parse_qs(urlsplit(case["spec"]["request"]["url"]).query)["nm2_case"]
@@ -1635,6 +1968,19 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
         self.receipt["stage"] = "cancellation_request"
         if self.scenario == "local-emergency-stop":
             self.helper("jobs", "stop", run_id)
+        elif self.scenario == "active-target-grant-revoked":
+            self.helper(
+                "credentials",
+                "revoke",
+                "--engagement",
+                engagement,
+                "--origin",
+                ORIGIN,
+                "--env",
+                "FIXTURE_OWNER_TOKEN",
+                "--issuer",
+                self.issuer_origin,
+            )
         else:
             require(self.scenario == "stop-work", "fixture_scenario_refused")
             stopped = self.api.request(
@@ -1878,7 +2224,7 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
             ),
             "cancellation_partial_projection_invalid",
         )
-        return {
+        proof = {
             "status": "passed",
             "physical": physical,
             "job_id": job,
@@ -1912,6 +2258,12 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
             "remaining_local_holds": 0,
             "forced_uncooperative_child_test": "not_run",
         }
+        if self.scenario == "active-target-grant-revoked":
+            proof["grant_revocation"] = self.verify_grant_revocation(
+                engagement, action["grant_before"], action["grant_after"]
+            )
+            proof["grant_revocation"]["original_runner_auth"] = "verified"
+        return proof
 
     def cancelled_http(self):
         self.receipt["stage"] = "cancellation_setup"
@@ -1919,6 +2271,13 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
         runner_id, enrollment_id = self.approve(
             self.scenario, engagement, authorization, job, case
         )
+        grant_before = None
+        if self.scenario == "active-target-grant-revoked":
+            grant_before = self.grant_snapshot(engagement)
+            require(
+                grant_before["policy_reason"] == "granted",
+                "target_grant_not_initially_active",
+            )
         before = self.inventory(engagement, job)
         require(
             not self.traffic()
@@ -1937,30 +2296,11 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
         physical = self.worker(runner_id, enrollment_id, on_running=on_running)
         after = self.timed_traffic()
         self.receipt["stage"] = "cancellation_host_reconciliation"
-        reported = json.loads(
-            command(
-                [
-                    sys.executable,
-                    str(self.install / "vardrsec.py"),
-                    "worker",
-                    "report-exit",
-                    "--runtime-id",
-                    physical["runtime_id"],
-                    "--private-root",
-                    str(self.private),
-                ],
-                cwd=self.install,
-                env=self.environment,
-                timeout=120,
+        retirement = self.report_exit(physical)
+        if grant_before is not None:
+            action.update(
+                grant_before=grant_before, grant_after=self.grant_snapshot(engagement)
             )
-        )
-        require(
-            reported["schema"] == "vardr.worker-cli/1"
-            and reported["state"] == "terminal_observed"
-            and reported["runtime_id"] == physical["runtime_id"],
-            "cancellation_host_report_not_bound",
-        )
-        retirement = reported["receipt"]["receipt"]
         local = self.local_metadata(action["run_id"], engagement, job)
         reconciled = json.loads(
             self.helper("audit", "reconcile-managed", action["run_id"])
@@ -1989,6 +2329,11 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
             "local": local,
             "reconciled": reconciled,
         }
+        if grant_before is not None:
+            self.receipt["observed_failure"]["grant_transition"] = {
+                "before": grant_before,
+                "after": action["grant_after"],
+            }
         require(self.traffic() == after["requests"], "cancellation_dispatch_after_stop")
         self.receipt["stage"] = "cancellation_verification"
         self.receipt["cases"][self.scenario] = self.verify_cancellation(
@@ -2260,6 +2605,9 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
                 "inventory": inventory,
                 "traffic_delta": 0,
             }
+            if self.scenario == "missing-local-grant":
+                self.missing_grant()
+                return
             if self.scenario != "healthy":
                 self.cancelled_http()
                 return
