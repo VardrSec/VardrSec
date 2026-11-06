@@ -65,6 +65,32 @@ STAGES = {
     "harness",
     "complete",
 }
+_CLI_FAILURE_PHASES = {
+    "arguments",
+    "installation",
+    "dispatch",
+    "enable_inputs",
+    "enable_observer_setup",
+    "enable_api_setup",
+    "enable_custody",
+    "enable_owner_auth",
+    "enable_capture",
+    "enable_registration",
+    "enable_publication_checks",
+    "enable_recapture",
+    "enable_mount_custody",
+    "enable_publish_trust",
+    "enable_publish_admission",
+}
+_CLI_FAILURE_CODES = {
+    "validation_refused",
+    "runtime_refused",
+    "host_refused",
+    "secret_custody_refused",
+    "local_io_failed",
+    "operation_failed",
+    "interrupted",
+}
 _BINDING = {
     "origin",
     "job_id",
@@ -634,6 +660,17 @@ def failure_projection(raw, selection):
         if raw.get("reason") in reasons
         else "unclassified_refusal",
     }
+    command_failure = raw.get("command_failure")
+    if (
+        value["reason"] == "fixture_command_failed"
+        and type(command_failure) is dict
+        and set(command_failure) == {"failure_phase", "failure_code"}
+        and type(command_failure["failure_phase"]) is str
+        and command_failure["failure_phase"] in _CLI_FAILURE_PHASES
+        and type(command_failure["failure_code"]) is str
+        and command_failure["failure_code"] in _CLI_FAILURE_CODES
+    ):
+        value["command_failure"] = dict(command_failure)
     failure = raw.get("http_failure")
     if (
         type(failure) is dict

@@ -430,6 +430,50 @@ class HostedGuards(unittest.TestCase):
             {"stage": "managed_setup", "reason": "fixture_command_failed"},
         )
 
+    def test_worker_cli_diagnostic_exports_only_fixed_phase_and_code(self):
+        diagnostic = {
+            "failure_phase": "enable_custody",
+            "failure_code": "secret_custody_refused",
+        }
+        public = self.failed_harness(
+            mutate=lambda raw: raw.update(
+                stage="operator_worker_enable",
+                reason="fixture_command_failed",
+                command_failure=diagnostic,
+                stdout="private-stdout-canary",
+                stderr="private-stderr-canary",
+            )
+        )
+        self.assertEqual(public["harness_failure"]["command_failure"], diagnostic)
+
+    def test_worker_cli_diagnostic_rejects_unknown_or_unstructured_values(self):
+        valid = {"failure_phase": "enable_capture", "failure_code": "runtime_refused"}
+        bad_values = [
+            None,
+            [],
+            "private-canary",
+            {},
+            {**valid, "body": "private-canary"},
+        ]
+        for field in valid:
+            bad_values.extend(
+                {**valid, field: bad} for bad in (None, True, [], {}, "private-canary")
+            )
+        for bad in bad_values:
+            with self.subTest(bad=bad):
+                public = self.failed_harness(
+                    mutate=lambda raw: raw.update(
+                        stage="operator_worker_enable",
+                        reason="fixture_command_failed",
+                        command_failure=bad,
+                    )
+                )
+                self.assertNotIn("command_failure", public["harness_failure"])
+        public = self.failed_harness(
+            mutate=lambda raw: raw.update(command_failure=valid)
+        )
+        self.assertNotIn("command_failure", public["harness_failure"])
+
     def test_v2_fixed_failure_reason_and_legacy_held_receipt_remain_redacted(self):
         public = self.failed_harness(
             mutate=lambda raw: raw.update(
