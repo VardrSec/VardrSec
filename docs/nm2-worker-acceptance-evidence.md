@@ -7,6 +7,25 @@ and [closeout control record](nm1-nm2-closeout.md) retain the remaining gates.
 
 ## Persistent candidate: component evidence only
 
+The [second Ubuntu attempt](evidence/nm2-linux-persistent-unobserved-2026-11-06.json)
+remained held with unavailable/invalid inner evidence in
+[run 42189571582](https://github.com/VardrSec/VardrSec/actions/runs/42189571582).
+A separately reproduced hosted entry-point import gap prevented the new failure
+diagnostic and success projector from loading root helpers when launched from
+`tests/`; unit discovery had supplied that path implicitly. The fix selects the
+exact reviewed root. Both real projections now pass isolated subprocess tests
+from an external directory, with network and subprocess execution denied inside
+the projector. The complete check passed 409 tests with 18 explicit skips and
+173 unchanged source files. The underlying registration refusal is not proven.
+
+The [second Desktop attempt](evidence/nm2-desktop-persistent-unobserved-2026-11-06.json)
+has no final receipt and remains unobserved. Its four core services resumed when
+Docker Desktop was restored; a separate exact-ID controller cleanup stopped all
+six owned containers and retained their data, with unrelated resources unchanged.
+No existing runtime was resumed or replayed. A manual read-only status probe was
+recorded separately because it takes the fixture polling lock; no further manual
+status probes are used during acceptance. The interruption cause is unknown.
+
 The [first persistent Desktop attempt](evidence/nm2-desktop-persistent-held-2026-11-06.json)
 held at `persistent_job_release` with `persistent_status_refused`. Default-disabled
 and Strict out-of-scope checks passed, but the 35-job availability slice did not

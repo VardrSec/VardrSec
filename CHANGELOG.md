@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Resolve hosted proof helpers from the exact reviewed source root when launched
+  as a script. Verify both failure diagnostics and successful persistent projection
+  in isolated subprocesses outside the repository. Preserve unobserved trials.
+
 - Carry bounded registration failure checkpoints, request stages and HTTP status
   through the host command and acceptance receipts. Preserve unknown mutation
   state and the existing single-send registration behavior.

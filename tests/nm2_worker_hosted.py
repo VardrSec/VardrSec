@@ -22,6 +22,9 @@ from urllib.parse import parse_qs, urlsplit
 import uuid
 
 SOURCE = Path(__file__).resolve().parents[1]
+# Direct script execution (including -I) puts only tests/ on the import path.
+# Root helpers must come from this exact source tree, never the caller's cwd.
+sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
 REPOSITORIES = {
     name: "VardrSec/" + repo
