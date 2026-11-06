@@ -474,6 +474,52 @@ class HostedGuards(unittest.TestCase):
         )
         self.assertNotIn("command_failure", public["harness_failure"])
 
+    def test_capture_checkpoints_survive_projection_without_raw_diagnostics(self):
+        checkpoints = (
+            "daemon",
+            "inspect",
+            "identity",
+            "mounts",
+            "tmpfs",
+            "profile",
+            "volume_metadata",
+            "running_state",
+            "readiness_copy",
+            "readiness_archive",
+            "readiness_schema",
+            "incarnation_recheck",
+        )
+        for checkpoint in checkpoints:
+            diagnostic = {
+                "failure_phase": "enable_capture_" + checkpoint,
+                "failure_code": "runtime_refused",
+            }
+            with self.subTest(checkpoint=checkpoint):
+                public = self.failed_harness(
+                    mutate=lambda raw: raw.update(
+                        stage="operator_worker_enable",
+                        reason="fixture_command_failed",
+                        command_failure=diagnostic,
+                        stdout="private-stdout-canary",
+                        stderr="private-stderr-canary",
+                    )
+                )
+                self.assertEqual(
+                    public["harness_failure"]["command_failure"], diagnostic
+                )
+                self.assertNotIn("private-", json.dumps(public))
+        public = self.failed_harness(
+            mutate=lambda raw: raw.update(
+                stage="operator_worker_enable",
+                reason="fixture_command_failed",
+                command_failure={
+                    "failure_phase": "enable_capture_private-canary",
+                    "failure_code": "runtime_refused",
+                },
+            )
+        )
+        self.assertNotIn("command_failure", public["harness_failure"])
+
     def test_v2_fixed_failure_reason_and_legacy_held_receipt_remain_redacted(self):
         public = self.failed_harness(
             mutate=lambda raw: raw.update(

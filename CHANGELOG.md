@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve the fixed worker-capture checkpoint in sanitized hosted evidence, so a
+  refused enablement identifies its failed check without exporting raw output.
+
 - Return fixed whitelisted phase/reason diagnostics when the prepared-worker CLI
   holds an operation. Never print exception text, credentials or raw subprocess
   output; successful replies, custody checks and no-retry behavior are unchanged.

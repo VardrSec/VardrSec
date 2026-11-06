@@ -1581,6 +1581,52 @@ class AcceptanceGuards(unittest.TestCase):
             )
         run.assert_called_once()
 
+    def test_capture_checkpoint_failures_keep_only_the_fixed_diagnostic_once(self):
+        checkpoints = (
+            "daemon",
+            "inspect",
+            "identity",
+            "mounts",
+            "tmpfs",
+            "profile",
+            "volume_metadata",
+            "running_state",
+            "readiness_copy",
+            "readiness_archive",
+            "readiness_schema",
+            "incarnation_recheck",
+        )
+        for checkpoint in checkpoints:
+            phase = "enable_capture_" + checkpoint
+            payload = {
+                "schema": "vardr.worker-cli/1",
+                "state": "held",
+                "runtime_id": None,
+                "failure_phase": phase,
+                "failure_code": "runtime_refused",
+            }
+            with (
+                self.subTest(checkpoint=checkpoint),
+                patch.object(
+                    acceptance.subprocess,
+                    "run",
+                    return_value=SimpleNamespace(
+                        returncode=1,
+                        stdout=acceptance.canonical(payload),
+                        stderr=b"private-stderr-canary",
+                    ),
+                ) as run,
+                self.assertRaises(acceptance.WorkerCLIRefused) as refused,
+            ):
+                acceptance.worker_cli_command(
+                    ["python", "vardrsec.py", "worker", "enable"]
+                )
+            self.assertEqual(
+                refused.exception.public,
+                {"failure_phase": phase, "failure_code": "runtime_refused"},
+            )
+            run.assert_called_once()
+
     def test_worker_cli_unknown_raw_or_malformed_failures_remain_generic(self):
         valid = {
             "schema": "vardr.worker-cli/1",
