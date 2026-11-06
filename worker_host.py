@@ -765,7 +765,7 @@ def _terminal(binding, value):
     require(set(value) == base | ({"cause"} if stop else set()))
     require(stop or value["schema"] == "vardr.managed-completion/1")
     require(
-        all(value[k] == binding[k] for k in _BINDING)
+        canonical({key: value[key] for key in _BINDING}) == canonical(binding)
         and value["capacity_reserved"] is False
     )
     require(value["outcome"] in {"completed", "failed", "cancelled"})

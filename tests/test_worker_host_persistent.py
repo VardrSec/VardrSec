@@ -640,6 +640,82 @@ class PersistentHostTests(unittest.TestCase):
         with self.assertRaises(host.HostRefused):
             client.attempt_receipt(f.runtime_id, 33, "a" * 64, "b" * 64)
 
+    def test_history_rejects_nested_boolean_or_float_fence_even_with_rehashed_release(
+        self,
+    ):
+        f = self.f
+        f.binding["fence"] = 1
+        self.register()
+        record = f.records.read(f.runtime_id)
+        value = self.history("1")
+        f.client.attempt_receipt = Mock(return_value=value)
+        self.assertEqual(
+            persistent.history(f.client, record, "1", f.records.secret(f.runtime_id)),
+            value,
+        )
+        for malformed in (True, 1.0):
+            with self.subTest(kind=type(malformed).__name__):
+                changed = copy.deepcopy(value)
+                changed["receipt"]["fence"] = malformed
+                release = changed["release"]
+                release["terminal_receipt_sha256"] = host.digest(changed["receipt"])
+                release["receipt_sha256"] = host.digest(
+                    {
+                        key: item
+                        for key, item in release.items()
+                        if key != "receipt_sha256"
+                    }
+                )
+                f.client.attempt_receipt.return_value = changed
+                with self.assertRaises(host.HostRefused):
+                    persistent.history(
+                        f.client, record, "1", f.records.secret(f.runtime_id)
+                    )
+
+    def test_retirement_rejects_nested_boolean_or_float_fence_even_with_rehashed_receipt(
+        self,
+    ):
+        f = self.f
+        f.binding["fence"] = 1
+        self.register()
+        record = f.records.read(f.runtime_id)
+        admitted = persistent.expected_admission(record)
+        value = {
+            "schema": "vardr.worker-retirement/3",
+            **{
+                key: admitted[key]
+                for key in (
+                    "runtime_id",
+                    "runtime_sha256",
+                    "admission_sha256",
+                    "origin",
+                    "runner_id",
+                    "enrollment_id",
+                )
+            },
+            "runtime_sequence": "1",
+            "last_sequence": "1",
+            "binding": f.binding,
+            "attempt_receipt": self.history("1")["receipt"],
+            "report_sha256": "e" * 64,
+            "retired": True,
+        }
+        value["receipt_sha256"] = host.digest(value)
+        self.assertEqual(persistent.retirement(record, value), value)
+        for malformed in (True, 1.0):
+            with self.subTest(kind=type(malformed).__name__):
+                changed = copy.deepcopy(value)
+                changed["attempt_receipt"]["fence"] = malformed
+                changed["receipt_sha256"] = host.digest(
+                    {
+                        key: item
+                        for key, item in changed.items()
+                        if key != "receipt_sha256"
+                    }
+                )
+                with self.assertRaises(host.HostRefused):
+                    persistent.retirement(record, changed)
+
     def test_v3_runtime_requires_actual_ready3_and_never_downgrades(self):
         data = runtime_fixtures.WorkerRuntimeTests()
         data.setUp()
