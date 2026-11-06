@@ -95,7 +95,7 @@ class IdleStatusProducer(unittest.TestCase):
         cases = (
             (OSError("synthetic-private-canary"), None, "subprocess"),
             (None, subprocess.CompletedProcess([], 0, b"", b""), "output"),
-            (None, subprocess.CompletedProcess([], code, host.canonical(malformed), b""), "lookup"),
+            (None, subprocess.CompletedProcess([], code, host.canonical(malformed), b""), "advisory"),
         )
         for error, result, checkpoint in cases:
             with self.subTest(checkpoint=checkpoint), patch.object(fixture.subprocess,

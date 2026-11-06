@@ -38,11 +38,15 @@ container, never exec into the worker's PID namespace. Inventory `/3` refuses
 fixture history beyond 35 rather than truncating it; finite `/2` keeps its
 32-record bound. These are fixture bounds, not persistent service limits.
 
-Read-only status polling accepts only fixed, validated advisory holds and never
-counts them as readiness. Physical guard failures, malformed output and uncertain
-mutations remain refusals. A passing selected slice uses a distinct persistent
-receipt and still records NM-2 incomplete. Its pure protocol/oracle tests are
-not measured uptime or platform/containment acceptance.
+Read-only status polling never counts a held response as readiness or exit
+proof. In the dedicated post-job idle-control poll, only the product's closed
+physical-unconfirmed response families may consume the existing 75-second window.
+They remain held; later stopped124, a separate direct physical observation,
+unchanged work and exact retirement are still mandatory. Known incompatible
+physical states, malformed/scope-changing data and uncertain mutations refuse.
+Other scenarios keep their existing decoders. A selected slice uses its own
+receipt and leaves NM-2 incomplete. Pure protocol/oracle checks establish neither
+measured uptime nor platform/containment acceptance.
 
 The manual Ubuntu workflow uses the same fixture with explicit
 `nm2_scenario=persistent-availability` and

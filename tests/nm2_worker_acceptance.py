@@ -509,67 +509,94 @@ def idle_status_value(value, code, admission):
     import worker_host_persistent as persistent
 
     reason = "idle_status_refused"
-    record = {"runtime_id": admission["runtime_id"],
-              "registration": {k: admission[k] for k in persistent.REGISTRATION}}
-    persistent.admission(record, admission)
-    require(admission["limits"] == persistent_limits(IDLE_SCENARIO), reason)
-    terminal = type(value) is dict and value.get("state") == "stopped"
-    require(type(code) is int and code in {0, 1} and type(value) is dict
-            and set(value) == IDLE_STATUS_FIELDS | (
-                {"exit_code", "finished_at"} if terminal else set()), reason)
-    require(value["schema"] == "vardr.worker-status/1"
-            and value["protocol"] == "persistent-v3" and value["mode"] == "persistent"
-            and value["runtime_id"] == admission["runtime_id"]
-            and canonical(value["identity"]) == canonical(admission["identity"])
-            and canonical(value["limits"]) == canonical(admission["limits"])
-            and value["registration_state"] == "acknowledged"
-            and value["disable_state"] == value["stop_state"]
-            == value["revocation_state"] == "none", reason)
-    if terminal:
-        require(code == 0 and value["container_state"] == "exited"
-                and value["reason"] is None and type(value["exit_code"]) is int
-                and value["exit_code"] == 124
-                and all(value[k] is None for k in (
-                    "cursor", "availability", "new_work_disabled", "reporting_revoked")), reason)
-        # Docker physical timestamps permit nanoseconds; no normalization loss.
-        from nm2_worker_persistent_projection import stamp
-        stamp(value["finished_at"], physical=True)
+    checkpoint = "admission"
+    try:
+        record = {"runtime_id": admission["runtime_id"],
+                  "registration": {k: admission[k] for k in persistent.REGISTRATION}}
+        persistent.admission(record, admission)
+        require(admission["limits"] == persistent_limits(IDLE_SCENARIO), reason)
+        checkpoint = "output"
+        require(type(code) is int and code in {0, 1} and type(value) is dict, reason)
+        terminal = value.get("state") == "stopped"
+        container_missing = "container_state" not in value
+        fields = IDLE_STATUS_FIELDS - {"container_state"} if container_missing else IDLE_STATUS_FIELDS
+        require(set(value) == fields | ({"exit_code", "finished_at"} if terminal else set())
+                and (not container_missing or value.get("state") == "held"
+                     and value.get("reason") == "physical_unconfirmed"), reason)
+        checkpoint = "identity"
+        require(value["schema"] == "vardr.worker-status/1"
+                and value["protocol"] == "persistent-v3" and value["mode"] == "persistent"
+                and value["runtime_id"] == admission["runtime_id"]
+                and canonical(value["identity"]) == canonical(admission["identity"])
+                and canonical(value["limits"]) == canonical(admission["limits"])
+                and value["registration_state"] == "acknowledged"
+                and value["disable_state"] == value["stop_state"]
+                == value["revocation_state"] == "none", reason)
+        if terminal:
+            checkpoint = "readiness"
+            require(code == 0 and value.get("container_state") == "exited"
+                    and value["reason"] is None and type(value["exit_code"]) is int
+                    and value["exit_code"] == 124
+                    and all(value[k] is None for k in (
+                        "cursor", "availability", "new_work_disabled", "reporting_revoked")), reason)
+            # Docker physical timestamps permit nanoseconds; no normalization loss.
+            from nm2_worker_persistent_projection import stamp
+            stamp(value["finished_at"], physical=True)
+            return value
+        physical_unknown = value["state"] == "held" and value["reason"] == "physical_unconfirmed"
+        checkpoint = "advisory"
+        if physical_unknown:
+            require(code == 1 and (container_missing or value["container_state"] == "exited"), reason)
+        if all(value[k] is None for k in (
+            "cursor", "availability", "new_work_disabled", "reporting_revoked"
+        )):
+            # Neither advisory family supplies initial readiness or physical proof.
+            require(physical_unknown or code == 1 and value["state"] == "held"
+                    and value["reason"] == "availability_unconfirmed"
+                    and value.get("container_state") == "running", reason)
+            return value
+        # A complete Map DTO survives only the producer's final-inspection failure,
+        # before container_state is assigned. Other cross-products are not valid.
+        require((container_missing if physical_unknown else value.get("container_state") == "running")
+                and value["new_work_disabled"] is False
+                and value["reporting_revoked"] is False, reason)
+        checkpoint = "cursor"
+        persistent.cursor_key(value["cursor"])
+        require(value["cursor"] == {"last_sequence": "1", "phase": "idle"}, reason)
+        presence = value["availability"]
+        checkpoint = "presence"
+        require(type(presence) is dict and set(presence) == {
+                    "state", "observed_at", "fresh_until", "cursor"}
+                and presence["cursor"] == value["cursor"]
+                and type(presence["state"]) is str
+                and presence["state"] in {"held", "idle-ready"}, reason)
+        fresh = False
+        checkpoint = "freshness"
+        if presence["observed_at"] is None:
+            require(presence["fresh_until"] is None and presence["state"] == "held", reason)
+        else:
+            observed, ending = persistent._stamp(presence["observed_at"]), persistent._stamp(presence["fresh_until"])
+            instant = datetime.now(timezone.utc)
+            require(observed <= instant and timedelta(0) < ending-observed <= timedelta(seconds=15), reason)
+            fresh = instant < ending
+        if physical_unknown:
+            return value  # Remains held; only a later independent exit can finish.
+        if code == 0:
+            checkpoint = "readiness"
+            require(value["state"] == presence["state"] == "idle-ready"
+                    and value["reason"] is None and fresh, reason)
+        else:
+            checkpoint = "advisory"
+            require(value["state"] == "held" and (
+                value["reason"] == "availability_stale" and not fresh
+                and presence["state"] in {"held", "idle-ready"}
+                or value["reason"] == "availability_unconfirmed"
+                and presence["state"] == "held" and presence["observed_at"] is not None), reason)
         return value
-    if all(value[k] is None for k in (
-        "cursor", "availability", "new_work_disabled", "reporting_revoked"
-    )):
-        # A bound running container may have no readable Map availability.
-        # This advisory poll is neither initial readiness nor physical exit.
-        require(code == 1 and value["state"] == "held"
-                and value["reason"] == "availability_unconfirmed"
-                and value["container_state"] == "running", reason)
-        return value
-    require(value["container_state"] == "running"
-            and value["cursor"] == {"last_sequence": "1", "phase": "idle"}
-            and value["new_work_disabled"] is False
-            and value["reporting_revoked"] is False, reason)
-    presence = value["availability"]
-    require(type(presence) is dict and set(presence) == {
-                "state", "observed_at", "fresh_until", "cursor"}
-            and presence["cursor"] == value["cursor"], reason)
-    fresh = False
-    if presence["observed_at"] is None:
-        require(presence["fresh_until"] is None, reason)
-    else:
-        observed, ending = persistent._stamp(presence["observed_at"]), persistent._stamp(presence["fresh_until"])
-        instant = datetime.now(timezone.utc)
-        require(observed <= instant and timedelta(0) < ending-observed <= timedelta(seconds=15), reason)
-        fresh = instant < ending
-    if code == 0:
-        require(value["state"] == presence["state"] == "idle-ready"
-                and value["reason"] is None and fresh, reason)
-    else:
-        require(value["state"] == "held" and (
-            value["reason"] == "availability_stale" and not fresh
-            and presence["state"] in {"held", "idle-ready"}
-            or value["reason"] == "availability_unconfirmed"
-            and presence["state"] == "held" and presence["observed_at"] is not None), reason)
-    return value
+    except IdleStatusRefused:
+        raise
+    except (ValueError, KeyError, TypeError, AttributeError):
+        raise IdleStatusRefused(checkpoint) from None
 
 
 def worker_idle_status_command(arguments, *, cwd, env, timeout, expected_admission):
@@ -582,9 +609,12 @@ def worker_idle_status_command(arguments, *, cwd, env, timeout, expected_admissi
         checkpoint = "output"
         require(type(result.stdout) is bytes and 0 < len(result.stdout) <= 4096
                 and result.stderr == b"", "idle_status_refused")
+        value = worker_host._json(result.stdout)
         checkpoint = "lookup"
-        idle_status_value(worker_host._json(result.stdout), result.returncode, expected_admission)
+        idle_status_value(value, result.returncode, expected_admission)
         return result.stdout
+    except IdleStatusRefused:
+        raise
     except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AttributeError):
         raise IdleStatusRefused(checkpoint) from None
 

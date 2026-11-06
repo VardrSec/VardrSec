@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Keep the optional idle fixture's existing post-job poll open for only the
+  product's closed physical-unconfirmed response families. They remain held and
+  supply neither initial readiness nor terminal proof. Preserve the 75-second
+  bound, native124, separate physical observation and unchanged-work checks;
+  retain fixed per-predicate checkpoints without exporting status bodies.
+  Pure 40-branch regressions do not identify either held Desktop trial's cause.
+
 - Reconcile the NM-1/NM-2 closeout ledger with verified platform evidence. Keep
   zero-job/re-enable, idle, failure and containment gates open in NM-2; clarify
   exact original-run selection and offline WAL inspection without advancing pins.
