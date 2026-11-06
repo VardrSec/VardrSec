@@ -7,10 +7,10 @@ Runner commands retain their behavior. This command does not build, start or
 automatically restart a container.
 
 The normal CLI protocol now selects `persistent-v3`, whose source and component
-tests are inactive candidates. Its proposed STOP reporting authority lasts until
-revocation or physical retirement. That broader lifetime still needs the owner
-disposition required by [the implementation contract](nm2-persistent-worker-contract.md)
-before any live v3 admission. No persistent deployment or NM-2 closeout is claimed.
+tests are development candidates. The owner approved STOP reporting until
+revocation or physical retirement for isolated testing on 2026-11-06; see
+[the implementation contract](nm2-persistent-worker-contract.md).
+No persistent deployment or NM-2 closeout is claimed.
 Every job retains fresh finite authorization, grant, budget, lease and result
 checks; persistent idle availability grants no execution permission.
 

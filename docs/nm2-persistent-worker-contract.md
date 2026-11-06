@@ -1,7 +1,8 @@
 # NM-2 persistent worker implementation contract
 
-Status: proposed implementation contract, 2026-11-05. No persistent runtime has
-been enabled or accepted. NM-2 remains open and NM-3 remains paused.
+Status: implementation contract, with persistent STOP reporting approved for
+isolated testing on 2026-11-06. No persistent runtime has been enabled or accepted.
+NM-2 remains open and NM-3 remains paused.
 
 The owner clarified the required behavior: an explicitly enabled background
 Runner stays available until explicitly stopped. The current 60-second idle and
@@ -24,18 +25,18 @@ same six-field physical identity/hash remains; a separate canonical admission
 snapshot/hash binds protocol, mode and optional limits. No existing incarnation
 is upgraded or rebound in place.
 
-The proposed smallest reporting policy is a purpose-limited STOP capability that
+The owner-approved isolated-testing policy is a purpose-limited STOP capability that
 lasts until explicit revocation or physical retirement of that incarnation. It
 cannot claim, consume, renew permission, publish success, authorize new targets or
 refund budgets. The existing trusted-host risk remains: a compromised host or
 secret holder could falsely report exit and release capacity prematurely. The
-longer reporting lifetime must be explicit in the final reviewed decision. It
-must not be presented as merely an identity TTL change.
+longer reporting lifetime is an explicit authority decision; it must not be
+presented as merely an identity TTL change.
 
-Implementation and component tests may prepare this inactive policy. Before any
-live persistent admission uses the longer STOP lifetime, obtain a concrete owner
-disposition of this departure from ADR 0043's bounded reporting lifetime. That
-decision does not waive independent review or platform acceptance. An alternative
+After reviewing this concrete departure from ADR0043's finite reporting lifetime,
+the owner selected "Approve persistent STOP reporting for isolated testing" on
+2026-11-06. Default startup remains disabled. This decision waives no independent
+review or platform acceptance and authorizes no release. An alternative
 finite reporting grant would require explicit owner-authenticated renewal,
 reporting epochs, retained old-grant lookup and late-send fences; no automatic
 renewal is implied or implemented by choosing persistent availability.

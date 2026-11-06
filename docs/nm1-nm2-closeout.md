@@ -61,6 +61,7 @@ candidate is retained as regression evidence; it is not an accepted substitute.
 The inactive v3 candidate now has additive Map/Runner/Host protocol code,
 original-key recovery tests and [compiler-only evidence](evidence/nm2-persistent-compiler-2026-11-06.json).
 The host receipt strictness fix and Windows/Ubuntu compatibility checks passed.
-Known preclaim-denial availability, the explicit STOP-report lifetime decision,
-full current-source component gates and the complete physical failure matrix
+The owner approved the explicit persistent STOP-report lifetime for isolated
+testing on 2026-11-06, retaining its disclosed trusted-host risk. Known
+preclaim-denial availability, full current-source component gates and the complete physical failure matrix
 remain open. No component pass closes NM-2 or resumes NM-3.
