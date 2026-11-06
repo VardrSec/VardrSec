@@ -146,8 +146,12 @@ def vector():
         for i, row in enumerate(measured["requests"]):
             row.update(
                 method="GET",
-                path=("/session" if i < 2 else "/fixed/records/42")
-                + f"?nm2_case=persistent-{n:02d}",
+                path=(
+                    "/session?"
+                    if i < 2
+                    else "/fixed/records/42?view=full&include=owner&"
+                )
+                + f"nm2_case=persistent-{n:02d}",
             )
         metadata = measured["local"]
         metadata.update(

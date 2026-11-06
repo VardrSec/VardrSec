@@ -442,10 +442,46 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
         raise WorkerStatusRefused(checkpoint) from None
 
 
+def fixture_subnets(value):
+    if "fixture_subnets" not in value:
+        return {}
+    selected = value["fixture_subnets"]
+    reason = "fixture_subnet_selection_refused"
+    require(type(selected) is dict and set(selected) == {"database", "runner"}, reason)
+    blocks = [
+        ipaddress.ip_network(cidr)
+        for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+    ]
+    networks = []
+    for raw in (value["application_subnet"], selected["database"], selected["runner"]):
+        require(type(raw) is str, reason)
+        try:
+            network = ipaddress.ip_network(raw, strict=True)
+        except ValueError:
+            raise AcceptanceRefused(reason) from None
+        require(
+            network.version == 4
+            and network.prefixlen == 24
+            and str(network) == raw
+            and any(network.subnet_of(block) for block in blocks),
+            reason,
+        )
+        networks.append(network)
+    require(
+        all(
+            not left.overlaps(right)
+            for index, left in enumerate(networks)
+            for right in networks[index + 1 :]
+        ),
+        reason,
+    )
+    return dict(selected)
+
+
 def manifest(path):
     value = json.loads(Path(path).read_bytes())
     require(
-        set(value)
+        set(value) - {"fixture_subnets"}
         == {
             "schema",
             "sources",
@@ -488,6 +524,7 @@ def manifest(path):
         type(value["allow_empty_builtin_bridge_id_change"]) is bool,
         "bridge_admission_required",
     )
+    fixture_subnets(value)
     network = ipaddress.ip_network(value["application_subnet"])
     require(
         network.version == 4 and network.is_private and network.prefixlen == 24,
@@ -1158,6 +1195,10 @@ print(json.dumps({'files':hashes,'executables':executables}))
         )
 
     def write_overlay(self):
+        for name, subnet in fixture_subnets(self.m).items():
+            self.overlay.setdefault("networks", {}).setdefault(name, {}).setdefault(
+                "ipam", {}
+            )["config"] = [{"subnet": subnet}]
         (self.install / "fixture.compose.json").write_bytes(canonical(self.overlay))
 
     def helper(self, *args, python=False, stdin=None):
@@ -3611,6 +3652,8 @@ print(json.dumps(result))
             on_running(admission)
         # Direct host observation of exact incarnation exit, never an exec or
         # a caller-generated JSON object passed off as physical proof.
+        if self.protocol == "persistent-v3":
+            self.receipt["stage"] = "persistent_exit_observation"
         proof = observer.observe_exit(identity)
         value = {
             "identity": asdict(identity),
@@ -3621,6 +3664,7 @@ print(json.dumps(result))
             "operator_enable_state": enabled["state"],
         }
         if self.protocol == "persistent-v3":
+            self.receipt["stage"] = "persistent_exit_binding"
             require(
                 self.operator_stop["identity"] == asdict(identity)
                 and self.operator_stop["exit_code"] == proof.exit_code

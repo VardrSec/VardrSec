@@ -682,6 +682,8 @@ def failure_projection(raw, selection):
         "persistent_job_approval",
         "persistent_job_release",
         "persistent_operator_stop",
+        "persistent_exit_observation",
+        "persistent_exit_binding",
         "persistent_receipt_reconciliation",
         "persistent_availability_verification",
         "selected_availability_complete",

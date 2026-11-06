@@ -158,13 +158,18 @@ NM-2 failure matrix on Linux and Docker Desktop with exact cohorts. Component
 tests, a healthy slice or the behavior clarification cannot close those gates.
 
 The optional count-limit proof must observe normal exit 0 only after the final
-durable DONE/release, with another eligible job left unissued. The optional idle
-control still has an open classification/proof gap: adapter and native idle
-deadlines can precede the discovery timer and produce generic held/exit 125.
-That code plus timing is not a trusted idle-expiry reason and cannot pass the
-idle-control gate. A zero-job runtime has no run to reconcile; no synthetic run
-or completion/stop receipt may be substituted. Normal unlimited availability
-does not inherit either finite control.
+durable DONE/release, with another eligible job left unissued. Map job completion
+alone does not establish local DONE/release acknowledgement.
+
+Runner `e8cdec333af0ed721504f3857369a76c8a8a4e06` adds an optional-idle native
+exit 124 classification and a sticky, nonspawning, no-RPC adapter wait. Its checked
+post-ACK idle bound includes a fixed five-second shutdown-only reserve; claim
+cutoffs, native/job deadlines, leases and EOF cleanup remain unchanged. The
+[component checks](evidence/nm2-persistent-idle-component-2026-11-06.json) passed,
+but actual exact-incarnation exit 124 remains unobserved and the idle-control gate
+stays open. Generic held/exit 125 plus timing cannot satisfy it. A zero-job runtime
+has no run to reconcile; no synthetic run or completion/stop receipt may be
+substituted. Normal unlimited availability does not inherit either finite control.
 
 Previously stopped adversarial experiments remain stopped. Owner loss,
 channel/credential isolation, pressure and supported-host clock proof remain open

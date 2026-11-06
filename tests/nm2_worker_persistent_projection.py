@@ -213,14 +213,17 @@ def requests(value, number):
         require(type(row["path"]) is str and len(row["path"]) <= 2048)
         parsed = urlsplit(row["path"])
         require(not parsed.scheme and not parsed.netloc and not parsed.fragment)
+        expected_query = {"nm2_case": [f"persistent-{number:02d}"]}
+        if parsed.path == "/fixed/records/42":
+            expected_query.update(view=["full"], include=["owner"])
         require(
             parse_qs(
                 parsed.query,
                 keep_blank_values=True,
                 strict_parsing=True,
-                max_num_fields=1,
+                max_num_fields=3,
             )
-            == {"nm2_case": [f"persistent-{number:02d}"]}
+            == expected_query
         )
         observed.append((parsed.path, row["identity"]))
         require(

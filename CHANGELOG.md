@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Match persistent proof traffic to the reviewed resource query and exact case
+  marker. Retain fixed independent-exit observation/binding checkpoints and
+  real producer-to-reader regressions; preserve all 70-second/35-job gates.
+- Record the held third Linux availability trial, successful one-job Desktop
+  stop diagnostic and tested optional-idle component correction separately.
+  Full availability, finite controls and containment acceptance remain open.
+
+- Allow an optional exact database/runner subnet pair in the controlled NM-2
+  fixture cohort. Require canonical RFC1918 IPv4 /24s and three-way separation;
+  preserve omitted-option allocation, production Compose networking and retained
+  resources. Runtime address/route/port preflight and acceptance remain required.
+
 - Resolve hosted proof helpers from the exact reviewed source root when launched
   as a script. Verify both failure diagnostics and successful persistent projection
   in isolated subprocesses outside the repository. Preserve unobserved trials.

@@ -7,6 +7,14 @@ and [closeout control record](nm1-nm2-closeout.md) retain the remaining gates.
 
 ## Persistent candidate: component evidence only
 
+The integrated fixture corrections passed the [complete guarded Distribution unit suite](evidence/nm2-distribution-guarded-units-2026-11-06.json): 447 tests run, zero failures/errors and 18 skip entries, with 181 sources, staged index, HEAD and operator files unchanged. All five helper interpreters retained guards and no prohibited operation was attempted. The earlier controller hold remains separate; no physical acceptance is inferred.
+
+The [third Ubuntu availability attempt](evidence/nm2-linux-persistent-stop-held-2026-11-06.json) remained held in [run 42255272157](https://github.com/VardrSec/VardrSec/actions/runs/42255272157), with `persistent_operator_stop / fixture_stage_failed`. That stage also covered the following independent exit observation, so the exact failure is unknown. Both compatibility jobs passed. No completed 35-job proof was exported and no acceptance credit is assigned. Separate fixed stages now distinguish the independent observer and its exit-binding comparison.
+
+A fresh [one-job Docker Desktop diagnostic](evidence/nm2-desktop-one-job-stop-diagnostic-2026-11-06.json) completed ordinary durable release, five target requests, zero local holds, explicit stop/disable acknowledgement and independent exact-incarnation exit observation. All six owned containers stopped and were retained. Operator files stayed unchanged; the resource guard admitted only an equivalent empty built-in bridge identity change. It used three explicitly selected private subnets after default Docker allocation refused, retaining all older fixtures. This diagnostic establishes neither the prior failure cause nor the 70-second/35-job, finite-control or containment gates.
+
+The [optional-idle component correction](evidence/nm2-persistent-idle-component-2026-11-06.json) at Runner `e8cdec333af0ed721504f3857369a76c8a8a4e06` passed 2,928 native tests with 67 unchanged skips and 95.8048% exact coverage. All nine [cross-platform CI jobs](https://github.com/VardrSec/VardrRunner/actions/runs/42270140956) passed. Same-source compiler checks and the frozen image build passed; actual native exit 124 and the finite-control platform gates remain unverified.
+
 The [second Ubuntu attempt](evidence/nm2-linux-persistent-unobserved-2026-11-06.json)
 remained held with unavailable/invalid inner evidence in
 [run 42189571582](https://github.com/VardrSec/VardrSec/actions/runs/42189571582).

@@ -1,0 +1,32 @@
+{
+  "base_commit": "d94952658653db7b6e779db689e712a7741cc839",
+  "blocked_attempts": 0,
+  "guarded_interpreter_starts": 6,
+  "nm2_closed": false,
+  "nm3_resumed": false,
+  "nonwriting_imports_before_targets": true,
+  "operator_hashes_unchanged": true,
+  "prior_controller_result": {
+    "blocked_helper_write_attempts": 4,
+    "exact_write_targets_and_cause": "not_established",
+    "receipt_sha256": "415593f58251c85b5917263fb5f626ffa1949f72883ffb985f4fb56be8f2ef42",
+    "status": "held"
+  },
+  "python_helpers_guarded": 5,
+  "receipt_sha256": "2c94ebba1fc379121842a89bb378838ffd63a9232c84956610e40c56fde888f5",
+  "schema": "vardr.nm2-distribution-guarded-unit-evidence/1",
+  "scope": "Normal units only; no Docker, Runner, network, SQLite or credential-provider operations",
+  "source_count": 181,
+  "source_index_head_unchanged": true,
+  "source_manifest_sha256": "3b3b1da87ac618865731835d761c70308b73f06bacc356c9b8dbc26dfdb4d3d6",
+  "status": "passed",
+  "test_counts": {
+    "collected": 447,
+    "errors": 0,
+    "expected_failures": 0,
+    "failures": 0,
+    "skipped": 18,
+    "tests_run": 447,
+    "unexpected_successes": 0
+  }
+}

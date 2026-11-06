@@ -251,7 +251,7 @@ without claiming that a Desktop receipt establishes Linux acceptance or vice ver
 ## Reviewable invocation and Docker commands
 
 Prepare one private JSON cohort file with schema `vardr.nm2-worker-cohort/1` and
-these exact keys:
+these required keys and the one optional fixture subnet selection below:
 
 - `sources`: `distribution`, `map`, `runner`, `gate`, each containing an absolute
   `path` and exact clean 40-hex `commit`. The new public fixture helpers must be
@@ -268,6 +268,19 @@ these exact keys:
 - `allow_empty_builtin_bridge_id_change`: explicit boolean. `true` admits only
   an ID-only change with both bridge memberships empty and other recorded
   semantic fields equal; the before/after IDs remain in the receipt.
+
+The optional `fixture_subnets` object contains exactly `database` and `runner`,
+each a canonical RFC1918 IPv4 `/24` string. When supplied, `application_subnet`
+must also be canonical RFC1918 IPv4 `/24`, and all three must be nonoverlapping.
+For example: `"fixture_subnets": {"database": "10.230.1.0/24", "runner": "10.230.2.0/24"}`.
+Missing one member, extra keys or unsafe selections refuse; there is no fallback.
+Omitting the object preserves the existing Compose allocation behavior. The
+fixture overlay adds only the two IPAM subnet configurations; production Compose
+network flags, application IPAM, services and profiles remain unchanged.
+Before execution, separately review all three ranges against current Docker IPAM
+and nondefault IPv4 host routes, and verify the selected loopback port is unused.
+Validation does not prove availability. Retain old resources; no daemon pool
+change, prune or additional network service is required or performed.
 
 Run `python tests/nm2_worker_acceptance.py --cohort <private-cohort.json>` for source
 validation only. Add `--execute` only after reviewing this command surface and
