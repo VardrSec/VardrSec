@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Carry bounded registration failure checkpoints, request stages and HTTP status
+  through the host command and acceptance receipts. Preserve unknown mutation
+  state and the existing single-send registration behavior.
+
 - Keep an unconfirmed Map availability lookup as a bounded read-only fixture
   hold, requiring fresh idle readiness before the next job. Retain fixed refusal
   checkpoints without exporting payloads. Preserve both original held Desktop

@@ -101,9 +101,11 @@ class WorkerStatusRefused(AcceptanceRefused):
 
 
 class WorkerCLIRefused(AcceptanceRefused):
-    def __init__(self, phase, code):
+    def __init__(self, phase, code, registration_failure=None):
         super().__init__("fixture_command_failed")
         self.public = {"failure_phase": phase, "failure_code": code}
+        if registration_failure is not None:
+            self.public["registration_failure"] = registration_failure
 
 
 class HTTPStatusRefused(AcceptanceRefused):
@@ -215,13 +217,17 @@ def worker_cli_command(arguments, *, cwd=None, env=None, stdin=None, timeout=30)
             object_pairs_hook=unique,
             parse_constant=invalid_constant,
         )
-        if type(value) is not dict or set(value) != {
+        expected = {
             "schema",
             "state",
             "runtime_id",
             "failure_phase",
             "failure_code",
-        }:
+        }
+        if type(value) is not dict or set(value) not in (
+            expected,
+            expected | {"registration_failure"},
+        ):
             raise ValueError()
         if (
             value["schema"] != "vardr.worker-cli/1"
@@ -246,11 +252,22 @@ def worker_cli_command(arguments, *, cwd=None, env=None, stdin=None, timeout=30)
             type(selected) is not str or str(uuid.UUID(selected)) != selected
         ):
             raise ValueError()
+        detail = None
+        if "registration_failure" in value:
+            from worker_host import registration_detail
+
+            detail = registration_detail(value["registration_failure"])
+            if (
+                phase != "enable_registration"
+                or code != "host_refused"
+                or detail is None
+            ):
+                raise ValueError()
     except (ValueError, UnicodeError, TypeError, KeyError):
         raise AcceptanceRefused("fixture_command_failed") from None
     # Runtime IDs are checked but deliberately not exported: admission may be
     # ambiguous after a lost reply. No hashes of raw output or secret values.
-    raise WorkerCLIRefused(phase, code)
+    raise WorkerCLIRefused(phase, code, detail)
 
 
 def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):

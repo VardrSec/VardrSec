@@ -157,6 +157,15 @@ approval/credential/budget/lease/result evidence. Repeat the original complete
 NM-2 failure matrix on Linux and Docker Desktop with exact cohorts. Component
 tests, a healthy slice or the behavior clarification cannot close those gates.
 
+The optional count-limit proof must observe normal exit 0 only after the final
+durable DONE/release, with another eligible job left unissued. The optional idle
+control still has an open classification/proof gap: adapter and native idle
+deadlines can precede the discovery timer and produce generic held/exit 125.
+That code plus timing is not a trusted idle-expiry reason and cannot pass the
+idle-control gate. A zero-job runtime has no run to reconcile; no synthetic run
+or completion/stop receipt may be substituted. Normal unlimited availability
+does not inherit either finite control.
+
 Previously stopped adversarial experiments remain stopped. Owner loss,
 channel/credential isolation, pressure and supported-host clock proof remain open
 where unverified. No risk is silently accepted or moved to NM-5, and no NM-3 work

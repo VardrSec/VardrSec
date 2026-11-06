@@ -783,13 +783,31 @@ def failure_projection(raw, selection):
     if (
         value["reason"] == "fixture_command_failed"
         and type(command_failure) is dict
-        and set(command_failure) == {"failure_phase", "failure_code"}
+        and set(command_failure)
+        in (
+            {"failure_phase", "failure_code"},
+            {"failure_phase", "failure_code", "registration_failure"},
+        )
         and type(command_failure["failure_phase"]) is str
         and command_failure["failure_phase"] in _CLI_FAILURE_PHASES
         and type(command_failure["failure_code"]) is str
         and command_failure["failure_code"] in _CLI_FAILURE_CODES
     ):
-        value["command_failure"] = dict(command_failure)
+        diagnostic = dict(command_failure)
+        if "registration_failure" in diagnostic:
+            from worker_host import registration_detail
+
+            detail = registration_detail(diagnostic["registration_failure"])
+            if (
+                diagnostic["failure_phase"] != "enable_registration"
+                or diagnostic["failure_code"] != "host_refused"
+                or detail is None
+            ):
+                diagnostic = None
+            else:
+                diagnostic["registration_failure"] = detail
+        if diagnostic is not None:
+            value["command_failure"] = diagnostic
     status_failure = raw.get("status_failure")
     if (
         value["reason"] == "persistent_status_refused"

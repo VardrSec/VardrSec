@@ -42,10 +42,84 @@ _COOKIE = "__Host-vardrmap.session"
 _CAPABILITY = b"VardrSec.WorkerStop.v1\0"
 _MAC = b"VardrSec.WorkerHostRecord.v1\0"
 _DNS = threading.Lock()
+REGISTRATION_CHECKPOINTS = frozenset(
+    {
+        "inputs",
+        "local_capture",
+        "mount_custody",
+        "secret_store",
+        "initial_store",
+        "request",
+        "ack",
+        "final_store",
+        "unknown_store",
+    }
+)
+REGISTRATION_REQUEST_STAGES = frozenset(
+    {"connect", "tls", "send", "status", "headers", "body", "json"}
+)
 
 
 class HostRefused(ValueError):
     """Fixed value-free failure; unknown writes remain held."""
+
+    def __init__(self, message="worker_host_refused", *, registration_failure=None):
+        super().__init__(message)
+        self.registration_failure = registration_detail(registration_failure)
+
+
+def registration_detail(value):
+    """Copy only the fixed registration diagnostic, never exception text."""
+    if not (
+        type(value) is dict
+        and set(value) == {"checkpoint", "request_stage", "http_status"}
+        and type(value["checkpoint"]) is str
+        and value["checkpoint"] in REGISTRATION_CHECKPOINTS
+        and (
+            value["request_stage"] is None
+            or (
+                type(value["request_stage"]) is str
+                and value["request_stage"] in REGISTRATION_REQUEST_STAGES
+            )
+        )
+        and (
+            value["http_status"] is None
+            or (
+                type(value["http_status"]) is int and 100 <= value["http_status"] <= 599
+            )
+        )
+    ):
+        return None
+    if value["checkpoint"] != "request" and (
+        value["request_stage"] is not None or value["http_status"] is not None
+    ):
+        return None
+    if value["http_status"] is not None and value["request_stage"] not in {
+        "status",
+        "headers",
+        "body",
+        "json",
+    }:
+        return None
+    return dict(value)
+
+
+def registration_diagnostic(error):
+    if not isinstance(error, HostRefused):
+        return None
+    return registration_detail(error.__dict__.get("registration_failure"))
+
+
+@contextmanager
+def registration_step(checkpoint):
+    """Annotate one existing boundary without changing sends or recovery."""
+    try:
+        yield
+    except Exception as error:
+        detail = registration_diagnostic(error) or registration_detail(
+            {"checkpoint": checkpoint, "request_stage": None, "http_status": None}
+        )
+        raise HostRefused(registration_failure=detail) from None
 
 
 def require(value):
@@ -230,16 +304,19 @@ class HostClient:
         require(raw is None or len(raw) <= 8192)
         deadline = time.monotonic() + 10
         connection, secure, timer = None, None, None
+        request_stage, http_status = "connect", None
         try:
             for family, kind, protocol, _, address in _addresses(
                 self.host, self.port, deadline
             ):
+                request_stage = "connect"
                 plain = socket.socket(family, kind, protocol)
                 try:
                     plain.settimeout(max(0.001, deadline - time.monotonic()))
                     plain.connect(address)
                     require(time.monotonic() < deadline)
                     plain.settimeout(deadline - time.monotonic())
+                    request_stage = "tls"
                     secure = self._tls.wrap_socket(plain, server_hostname=self.host)
                     break
                 except OSError:
@@ -266,9 +343,14 @@ class HostClient:
             if raw is not None:
                 selected["Content-Type"] = "application/json"
             selected.update(headers or {})
+            request_stage = "send"
             connection.request(method, self.prefix + path, body=raw, headers=selected)
+            request_stage = "status"
             response = connection.getresponse()
+            if type(response.status) is int and 100 <= response.status <= 599:
+                http_status = response.status
             require(response.status == 200)
+            request_stage = "headers"
             require(response.getheader("Content-Encoding", "identity") == "identity")
             require(
                 response.getheader("Content-Type", "").split(";", 1)[0].strip().lower()
@@ -276,6 +358,7 @@ class HostClient:
             )
             length = response.getheader("Content-Length")
             require(length is None or (length.isdecimal() and int(length) <= 16384))
+            request_stage = "body"
             chunks, size = [], 0
             while True:
                 require(time.monotonic() < deadline)
@@ -286,9 +369,16 @@ class HostClient:
                 size += len(block)
                 require(size <= 16384)
             require(length is None or size == int(length))
+            request_stage = "json"
             return _json(b"".join(chunks)), response.getheaders()
         except (OSError, ValueError, http.client.HTTPException, UnicodeError):
-            raise HostRefused("worker_host_refused") from None
+            raise HostRefused(
+                registration_failure={
+                    "checkpoint": "request",
+                    "request_stage": request_stage,
+                    "http_status": http_status,
+                }
+            ) from None
         finally:
             if timer is not None:
                 timer.cancel()
@@ -489,8 +579,10 @@ class HostRecords:
             with updater.installation_lock(self.installation):
                 self._directory()
                 yield
-        except (OSError, ValueError):
-            raise HostRefused("worker_host_refused") from None
+        except (OSError, ValueError) as error:
+            raise HostRefused(
+                registration_failure=registration_diagnostic(error)
+            ) from None
 
     def _path(self, runtime_id):
         return self.directory / (_uuid(runtime_id) + ".json")

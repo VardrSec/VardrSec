@@ -101,7 +101,12 @@ def failure_diagnostic(args, error):
         if isinstance(error, kind):
             code = known
             break
-    return {"failure_phase": phase, "failure_code": code}
+    result = {"failure_phase": phase, "failure_code": code}
+    if phase == "enable_registration" and code == "host_refused":
+        detail = host.registration_diagnostic(error)
+        if detail is not None:
+            result["registration_failure"] = detail
+    return result
 
 
 def require(condition):

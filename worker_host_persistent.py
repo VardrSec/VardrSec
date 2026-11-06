@@ -276,79 +276,91 @@ def register_runtime(
     runtime_id,
     selected_limits,
 ):
-    host.require(
-        isinstance(client, host.HostClient)
-        and isinstance(session, host.OwnerSession)
-        and session.client is client
-    )
-    host.require(
-        isinstance(identity, runtime.RuntimeIdentity)
-        and isinstance(observer, runtime.LocalDocker)
-        and observer.protocol == "persistent-v3"
-    )
-    selected_limits = limits(selected_limits)
-    runtime_id = str(uuid.uuid4()) if runtime_id is None else host._uuid(runtime_id)
-    with records.locked():
+    with host.registration_step("inputs"):
         host.require(
-            not records._path(runtime_id).exists()
-            and records.backend.read(runtime_id) is None
+            isinstance(client, host.HostClient)
+            and isinstance(session, host.OwnerSession)
+            and session.client is client
         )
         host.require(
-            observer.capture_running(
-                container_id=identity.container_id,
-                image_id=identity.image_id,
-                project=identity.project,
+            isinstance(identity, runtime.RuntimeIdentity)
+            and isinstance(observer, runtime.LocalDocker)
+            and observer.protocol == "persistent-v3"
+        )
+        selected_limits = limits(selected_limits)
+        runtime_id = str(uuid.uuid4()) if runtime_id is None else host._uuid(runtime_id)
+    with host.registration_step("inputs"), records.locked():
+        with host.registration_step("secret_store"):
+            host.require(
+                not records._path(runtime_id).exists()
+                and records.backend.read(runtime_id) is None
             )
-            == identity
-        )
-        records.outside_mounts(observer, identity)
+        with host.registration_step("local_capture"):
+            host.require(
+                observer.capture_running(
+                    container_id=identity.container_id,
+                    image_id=identity.image_id,
+                    project=identity.project,
+                )
+                == identity
+            )
+        with host.registration_step("mount_custody"):
+            records.outside_mounts(observer, identity)
         secret = secrets.token_hex(32)
-        selected = registration(
-            {
-                "enrollment_id": enrollment_id,
-                "runner_id": runner_id,
-                "origin": issuer_origin,
-                "identity": asdict(identity),
-                "capability_sha256": hashlib.sha256(
-                    host._CAPABILITY + secret.encode("ascii")
-                ).hexdigest(),
-                "mode": "persistent",
-                "limits": selected_limits,
-                "reporting_authority": dict(REPORTING_AUTHORITY),
-            }
-        )
-        records.backend.create(runtime_id, secret)
-        record = {
-            "runtime_id": runtime_id,
-            "installation": str(records.installation.resolve(strict=True)),
-            "storage_root": str(records.private_root.resolve(strict=True)),
-            "client": client.pin(),
-            "context": observer.context,
-            "layout": asdict(observer.layout),
-            "registration": selected,
-            "registration_state": "prepared",
-            "admission": None,
-            "stop_intent": None,
-            "stop_state": "none",
-            "receipt": None,
-            "revocation_state": "none",
-            "report_cursors": [],
-            "disable_state": "none",
-            "disable_intent": None,
-            "disable_receipt": None,
-        }
-        records.write(record, create=True)
-        try:
-            record["admission"] = admission(
-                record, session.register(runtime_id, selected)
+        with host.registration_step("inputs"):
+            selected = registration(
+                {
+                    "enrollment_id": enrollment_id,
+                    "runner_id": runner_id,
+                    "origin": issuer_origin,
+                    "identity": asdict(identity),
+                    "capability_sha256": hashlib.sha256(
+                        host._CAPABILITY + secret.encode("ascii")
+                    ).hexdigest(),
+                    "mode": "persistent",
+                    "limits": selected_limits,
+                    "reporting_authority": dict(REPORTING_AUTHORITY),
+                }
             )
+        with host.registration_step("secret_store"):
+            records.backend.create(runtime_id, secret)
+        with host.registration_step("initial_store"):
+            record = {
+                "runtime_id": runtime_id,
+                "installation": str(records.installation.resolve(strict=True)),
+                "storage_root": str(records.private_root.resolve(strict=True)),
+                "client": client.pin(),
+                "context": observer.context,
+                "layout": asdict(observer.layout),
+                "registration": selected,
+                "registration_state": "prepared",
+                "admission": None,
+                "stop_intent": None,
+                "stop_state": "none",
+                "receipt": None,
+                "revocation_state": "none",
+                "report_cursors": [],
+                "disable_state": "none",
+                "disable_intent": None,
+                "disable_receipt": None,
+            }
+            records.write(record, create=True)
+        try:
+            with host.registration_step("request"):
+                reply = session.register(runtime_id, selected)
+            with host.registration_step("ack"):
+                record["admission"] = admission(record, reply)
             record["registration_state"] = "acknowledged"
-            records.write(record)
+            with host.registration_step("final_store"):
+                records.write(record)
             return record["admission"]
-        except Exception:
+        except Exception as error:
             record["registration_state"] = "unknown"
-            records.write(record)
-            raise host.HostRefused("worker_host_refused") from None
+            with host.registration_step("unknown_store"):
+                records.write(record)
+            raise host.HostRefused(
+                registration_failure=host.registration_diagnostic(error)
+            ) from None
 
 
 def _receipt(client, record, secret):
