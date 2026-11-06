@@ -26,6 +26,7 @@ import time
 import urllib.error
 import urllib.request
 from urllib.parse import parse_qs, urlsplit
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_NAMES = {"distribution", "map", "runner", "gate"}
@@ -69,6 +70,12 @@ _CONFIGURATION_ENV = {
 
 class AcceptanceRefused(ValueError):
     pass
+
+
+class WorkerCLIRefused(AcceptanceRefused):
+    def __init__(self, phase, code):
+        super().__init__("fixture_command_failed")
+        self.public = {"failure_phase": phase, "failure_code": code}
 
 
 class HTTPStatusRefused(AcceptanceRefused):
@@ -124,6 +131,89 @@ def command(arguments, *, cwd=None, env=None, stdin=None, timeout=30):
         return result.stdout
     except (OSError, subprocess.SubprocessError):
         raise AcceptanceRefused("fixture_command_failed") from None
+
+
+def worker_cli_command(arguments, *, cwd=None, env=None, stdin=None, timeout=30):
+    """Only known worker commands: project fixed held diagnostics, never raw output."""
+    if isinstance(stdin, str):
+        stdin = stdin.encode()
+    try:
+        result = subprocess.run(
+            arguments,
+            cwd=cwd,
+            env=env,
+            input=stdin,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise AcceptanceRefused("fixture_command_failed") from None
+    if result.returncode == 0:
+        require(
+            type(result.stdout) is bytes and len(result.stdout) <= 4 * 1024 * 1024,
+            "fixture_output_bound",
+        )
+        return result.stdout
+
+    def unique(items):
+        value = {}
+        for key, item in items:
+            if key in value:
+                raise ValueError()
+            value[key] = item
+        return value
+
+    def invalid_constant(value):
+        raise ValueError()
+
+    try:
+        from worker_cli import FAILURE_CODES, FAILURE_PHASES
+
+        raw = result.stdout
+        if type(raw) is not bytes or len(raw) > 4096:
+            raise ValueError()
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=unique,
+            parse_constant=invalid_constant,
+        )
+        if type(value) is not dict or set(value) != {
+            "schema",
+            "state",
+            "runtime_id",
+            "failure_phase",
+            "failure_code",
+        }:
+            raise ValueError()
+        if (
+            value["schema"] != "vardr.worker-cli/1"
+            or type(value["state"]) is not str
+            or value["state"] not in {"held", "held_interrupted"}
+        ):
+            raise ValueError()
+        phase, code = value["failure_phase"], value["failure_code"]
+        if (
+            type(phase) is not str
+            or phase not in FAILURE_PHASES
+            or type(code) is not str
+            or code not in FAILURE_CODES
+        ):
+            raise ValueError()
+        if (value["state"] == "held_interrupted") != (code == "interrupted") or (
+            code == "interrupted" and result.returncode != 130
+        ):
+            raise ValueError()
+        selected = value["runtime_id"]
+        if selected is not None and (
+            type(selected) is not str or str(uuid.UUID(selected)) != selected
+        ):
+            raise ValueError()
+    except (ValueError, UnicodeError, TypeError, KeyError):
+        raise AcceptanceRefused("fixture_command_failed") from None
+    # Runtime IDs are checked but deliberately not exported: admission may be
+    # ambiguous after a lost reply. No hashes of raw output or secret values.
+    raise WorkerCLIRefused(phase, code)
 
 
 def manifest(path):
@@ -1711,7 +1801,7 @@ print(json.dumps({'grants':grants,'policy_reason':reason}))
 
     def report_exit(self, physical):
         reported = json.loads(
-            command(
+            worker_cli_command(
                 [
                     sys.executable,
                     str(self.install / "vardrsec.py"),
@@ -2553,7 +2643,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 time.sleep(0.2)
         self.receipt["stage"] = "operator_worker_enable"
         enabled = json.loads(
-            command(
+            worker_cli_command(
                 [
                     sys.executable,
                     str(self.install / "vardrsec.py"),
@@ -2831,6 +2921,8 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                     **error.public,
                     "stage": self.receipt.get("stage", "unknown"),
                 }
+            if isinstance(error, WorkerCLIRefused):
+                self.receipt["command_failure"] = dict(error.public)
             raise
         finally:
             # Preserve stopped/failed fixtures and custody; never down/prune or

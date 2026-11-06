@@ -1142,7 +1142,9 @@ class AcceptanceGuards(unittest.TestCase):
                 patch.object(
                     worker_runtime, "LocalDocker", return_value=observer
                 ) as constructor,
-                patch.object(acceptance, "command", side_effect=command) as cli,
+                patch.object(
+                    acceptance, "worker_cli_command", side_effect=command
+                ) as cli,
             ):
                 result = fixture.worker(
                     "runner",
@@ -1471,6 +1473,137 @@ class AcceptanceGuards(unittest.TestCase):
         )
         self.assertNotIn("private-", json.dumps(refused.exception.public))
         response.read.assert_not_called()
+
+    def test_worker_cli_failure_projects_only_fixed_phase_and_code_once(self):
+        for state, code, exit_code in (
+            ("held", "runtime_refused", 1),
+            ("held_interrupted", "interrupted", 130),
+        ):
+            with self.subTest(state=state):
+                payload = {
+                    "schema": "vardr.worker-cli/1",
+                    "state": state,
+                    "runtime_id": "00000000-0000-4000-8000-000000000099",
+                    "failure_phase": "enable_capture",
+                    "failure_code": code,
+                }
+                result = SimpleNamespace(
+                    returncode=exit_code,
+                    stdout=acceptance.canonical(payload),
+                    stderr=b"private-stderr-canary",
+                )
+                with patch.object(
+                    acceptance.subprocess, "run", return_value=result
+                ) as run:
+                    with self.assertRaises(acceptance.WorkerCLIRefused) as refused:
+                        acceptance.worker_cli_command(
+                            ["python", "vardrsec.py", "worker", "enable"],
+                            stdin="private-password-canary\n",
+                        )
+                run.assert_called_once()
+                self.assertEqual(str(refused.exception), "fixture_command_failed")
+                self.assertEqual(
+                    refused.exception.public,
+                    {"failure_phase": "enable_capture", "failure_code": code},
+                )
+                self.assertNotIn("runtime_id", refused.exception.public)
+                self.assertNotIn("private-", json.dumps(refused.exception.public))
+        success = b'{"schema":"vardr.worker-cli/1","state":"enabled"}\n'
+        with patch.object(
+            acceptance.subprocess,
+            "run",
+            return_value=SimpleNamespace(returncode=0, stdout=success, stderr=b""),
+        ) as run:
+            self.assertEqual(
+                acceptance.worker_cli_command(
+                    ["python", "vardrsec.py", "worker", "enable"]
+                ),
+                success,
+            )
+        run.assert_called_once()
+
+    def test_worker_cli_unknown_raw_or_malformed_failures_remain_generic(self):
+        valid = {
+            "schema": "vardr.worker-cli/1",
+            "state": "held",
+            "runtime_id": None,
+            "failure_phase": "enable_capture",
+            "failure_code": "runtime_refused",
+        }
+        raw = acceptance.canonical(valid)
+        invalid = [
+            b"x" * 4097,
+            b"\xff",
+            b"[]",
+            raw + b"{}",
+            raw[:-1] + b',"failure_code":"host_refused"}',
+            b'{"schema":NaN}',
+        ]
+        for key, value in (
+            ("schema", "private-schema-canary"),
+            ("state", "enabled"),
+            ("state", {}),
+            ("failure_phase", {}),
+            ("failure_phase", "private-phase-canary"),
+            ("failure_code", []),
+            ("failure_code", "private-code-canary"),
+            ("runtime_id", {}),
+            ("runtime_id", "private-runtime-canary"),
+            ("extra", ["private-extra-canary"]),
+            ("failure_code", "interrupted"),
+        ):
+            invalid.append(acceptance.canonical({**valid, key: value}))
+        for index, value in enumerate(invalid):
+            with (
+                self.subTest(index=index),
+                patch.object(
+                    acceptance.subprocess,
+                    "run",
+                    return_value=SimpleNamespace(
+                        returncode=1, stdout=value, stderr=b"private-stderr-canary"
+                    ),
+                ) as run,
+            ):
+                with self.assertRaises(acceptance.AcceptanceRefused) as refused:
+                    acceptance.worker_cli_command(
+                        ["python", "vardrsec.py", "worker", "report-exit"]
+                    )
+                self.assertNotIsInstance(refused.exception, acceptance.WorkerCLIRefused)
+                self.assertEqual(str(refused.exception), "fixture_command_failed")
+                self.assertFalse(hasattr(refused.exception, "public"))
+                run.assert_called_once()
+
+    def test_worker_cli_fixed_failure_is_retained_without_raw_output(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = acceptance.Fixture(self.selection(Path(temporary)))
+            inventory = {
+                "containers": {},
+                "networks": {},
+                "volumes": {},
+                "images": {fixture.images["worker"]: {"tags": []}},
+            }
+            fixture.snapshot = Mock(return_value=inventory)
+            fixture.docker = Mock(side_effect=[b'"linux"', b'"amd64"'])
+            fixture.image_sources = Mock(
+                side_effect=acceptance.WorkerCLIRefused(
+                    "enable_capture", "runtime_refused"
+                )
+            )
+            fixture.stop_owned = Mock()
+            observer = Mock()
+            observer.daemon.return_value = "owned-daemon"
+            with (
+                patch("sys.path", list(sys.path)),
+                patch.object(worker_runtime, "LocalDocker", return_value=observer),
+                self.assertRaises(acceptance.WorkerCLIRefused),
+            ):
+                fixture.run()
+            self.assertEqual(fixture.receipt["status"], "held")
+            self.assertEqual(fixture.receipt["reason"], "fixture_command_failed")
+            self.assertEqual(
+                fixture.receipt["command_failure"],
+                {"failure_phase": "enable_capture", "failure_code": "runtime_refused"},
+            )
 
     def test_constructor_isolates_compose_inputs_and_preserves_os_path(self):
         controls = (
