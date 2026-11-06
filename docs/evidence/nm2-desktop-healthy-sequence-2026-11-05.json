@@ -1,0 +1,132 @@
+{
+  "admitted_inventory_diffs": [
+    {
+      "after": "671425a8e3f9c5083f568905501532fc67ed2a7bc65881569e0aba406169c56c",
+      "before": "eb539046c2a99c905a02e0f7c4a3f12c6ce1c58e90a33c9e0317cb9b6df3ab7e",
+      "kind": "empty_builtin_bridge_id"
+    }
+  ],
+  "after_inventory_sha256": "04945b83495e9403a167432c66b97c78be86fd949f5e93f583fe276c0a6e9d8c",
+  "before_inventory_sha256": "f0897985cf26b31c83839376ec2e8ccf813392692766557860da8060543bf0d7",
+  "cases": {
+    "default_disabled": "passed",
+    "happy_fixed": "passed",
+    "healthy_sequence": "passed",
+    "missing_local_grant": "not_run",
+    "strict_out_of_scope": "passed"
+  },
+  "executables": {
+    "/usr/local/bin/vardr-worker-owner": "1e29c54a8915a369c8b04e272c83fbe094909ce4ac9a0bb6b15bbd331909c396",
+    "/usr/local/bin/vardrgate": "9822f13ba83ef9b8ba6c73d746e1e16ab025e9879d15fc971199ad19441f236c"
+  },
+  "frozen_image_builds": {
+    "map": {
+      "image": "sha256:c2d412e8acd67ca6a2df30bfde9d67cf883de1e245ba2177a6a8085fb9b963f6",
+      "raw_receipt_sha256": "23c6b6ca63f84d60954d4b76339fc6a973826af545a1b68bc05de8208ccfa8dc",
+      "source_commit": "16c695ad8f28429584ad608a6fce9696eb23ad29",
+      "source_manifest_sha256": "8f6b18fe36686bb03f80785b3cece11eb2e980d9def3531eddea0b581be847c4",
+      "source_tree": "2d429b3b7b5e9aa39cd4c8affa196deb71c25340",
+      "status": "passed_frozen_api_build_and_source_inventory"
+    },
+    "runner": {
+      "image": "sha256:9fa79a38f5c2b38ca4f261c91b7c39c5140bf58087c139b4de484ded81b653fe",
+      "raw_receipt_sha256": "2a073f8be2df5ff1544a153aab4a2a96b4612af9d1fb8187c9f47bcc60a66f44",
+      "source_commit": "ac129530dfd4965a42de04c0ebf0f46c64979734",
+      "source_manifest_sha256": "42ebb3f2cafe11e6e61c97b1c91bb753ec2272d91b8eb60587e57b86c1330f00",
+      "source_tree": "a9e991cd3350fe20e154f08a439455b502589ee3",
+      "status": "passed_frozen_build_dependency_probe"
+    }
+  },
+  "host": "actual Windows Docker Desktop, Linux containers",
+  "images": {
+    "api": "sha256:c2d412e8acd67ca6a2df30bfde9d67cf883de1e245ba2177a6a8085fb9b963f6",
+    "db": "sha256:4d943403fc617af4852851d6821a2941879d338c168b6efb6379851d97726f63",
+    "proxy": "sha256:d6ea309aa38ea0d5e1731ba027463c2071cdc3eb356f8552b28a2739035d7a30",
+    "web": "sha256:e9c4dda3dc477d5fc6861992ee40255c122cd9c145bc6d41cbcbb2482451fd26",
+    "worker": "sha256:9fa79a38f5c2b38ca4f261c91b7c39c5140bf58087c139b4de484ded81b653fe"
+  },
+  "limits": [
+    "Two approved fixed HTTP jobs only; not complete NM-2 acceptance.",
+    "No release, component pin change, image publication or NM-3 continuation.",
+    "Empty built-in bridge identity-only churn explicitly classified; cause unknown.",
+    "Linux same-cohort run 42160265308 is separate; no Linux verdict inferred.",
+    "Executable hashes correlate reviewed frozen builds; image readback alone is not independent compilation attestation."
+  ],
+  "measurements": {
+    "active_sequence": null,
+    "attempts": [
+      {
+        "artifact_sha256": "a92e68c442afe774e79fe3bcfae0a22a504a60995189efad73d6bef9fb761aaf",
+        "case_sha256": "a059f6c97276c0003831fe43cf264092b9e688116ce9ef72d4b51c048c079991",
+        "evidence_count": 5,
+        "evidence_sha256": "3dbee93f793626bb95c3ed526b9f84f8810fc4594d460d050b8d9ccdf5d1648f",
+        "native_done_sha256": "f7bdb1c4dcd0b3a7a6c34f45c89b41a3439d9db4aebf4c2d111f4fdaab2b1d0f",
+        "release_receipt_sha256": "d394229aaa78236f218e9cbb8e697f4c78924425e4b32de2a142ac794dd210a4",
+        "result_receipt_sha256": "bcd4c575e1b0020e731844b99e51d21b5d175b57e80ac6811849a74104e3cd6f",
+        "runtime_sequence": 1,
+        "target_request_count": 5,
+        "terminal_receipt_sha256": "926d9289013c3e37c9e26fff8dd338b3ced31aa1ef426f35acf7bf371b2cf6d8"
+      },
+      {
+        "artifact_sha256": "b9526293641797fdf3b3be37d07ffb61eba008f729cbaa189048c84c26e7599f",
+        "case_sha256": "933903f604ce7d863798be785329b3753bad7482f5860804fa6a31029353ed36",
+        "evidence_count": 5,
+        "evidence_sha256": "255dbbbbebf7fe139100ab08e247365bc9d118466ea6560edc5a1a25c7f4eb6d",
+        "native_done_sha256": "cedbe60631e8ca9e81985802621238ae0f5c94273a3bf3a9f4ddaee6491ff8cd",
+        "release_receipt_sha256": "5a2f19515d3460a203b08cacc35688f0a7ac41ddf376d3f0f1fede31b2dc98e1",
+        "result_receipt_sha256": "dac465ec0a510fbb018abcf3f5e0fb8a1e9270be20115b2c32c491644279c31f",
+        "runtime_sequence": 2,
+        "target_request_count": 5,
+        "terminal_receipt_sha256": "f460201911b3b50997867463598e58e0b1e06d277411b44d51946205a9b119cf"
+      }
+    ],
+    "duration_allocated": 60,
+    "evidence_count": 10,
+    "last_sequence": 2,
+    "max_attempts": 2,
+    "runtime_sha256": "fdcf455a69c0b2c7e191845262efda27524fa9047bd006337f0d883f89731417",
+    "stopped_owned_container_count": 6,
+    "target_request_count": 10,
+    "targets_spent": 2
+  },
+  "nm2_closed": false,
+  "physical_worker_exit_code": 0,
+  "preserved_resource_counts": {
+    "containers": 68,
+    "images": 68,
+    "networks": 29,
+    "volumes": 52
+  },
+  "raw_receipt_sha256": "2e7c96fda5d80936b401f4eeb1673ef112235f8b557ce6939bc51c3ced322a88",
+  "remaining_required_cases": {
+    "budget_exhaustion": "not_run",
+    "engagement_stop_work": "not_run",
+    "local_emergency_stop": "not_run",
+    "lost_claim_consume_bind_reply": "not_run",
+    "lost_terminal_reply": "not_run",
+    "map_disconnect": "not_run",
+    "missing_local_grant": "not_run",
+    "restart_duplicate_claim": "not_run",
+    "strict_other_denials": "not_run",
+    "target_grant_expiry_revocation": "not_run",
+    "worker_crash_stop": "not_run"
+  },
+  "schema": "vardr.nm2-desktop-healthy-sequence-evidence/1",
+  "source_inventories": {
+    "map": {
+      "python_file_count": 122,
+      "python_inventory_sha256": "d0beacf47edaf9d856e5bc6c54118b60dfe565f4aad6820d483677065d6232b7"
+    },
+    "runner": {
+      "python_file_count": 74,
+      "python_inventory_sha256": "55e11ad27a4ae44b2a2ddb5bf65ba792eebacaa23a67b9de7027520c9ea55990"
+    }
+  },
+  "sources": {
+    "distribution": "3fd573cedd540490318b8aaf3c90c11f1357f597",
+    "gate": "54536ea1d900d0e35adf93b4e026962c4d45d34a",
+    "map": "16c695ad8f28429584ad608a6fce9696eb23ad29",
+    "runner": "ac129530dfd4965a42de04c0ebf0f46c64979734"
+  },
+  "status": "initial_stages_passed"
+}

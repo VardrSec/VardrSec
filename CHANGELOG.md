@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Record the frozen two-job Docker Desktop worker slice with exact receipts,
+  source/image custody and retained-resource checks; keep the failure matrix and
+  NM-2 closeout open. Preserve nanosecond Docker timestamp ordering on Python
+  3.10 by validating calendar fields separately in the hosted evidence helper.
+
 - Add explicit bounded v2 worker admission and owner-readiness matching while
   preserving omitted-option v1 behavior. Separate attempt completion from physical
   retirement; retain bounded per-cursor MAC intents and permit only explicit,

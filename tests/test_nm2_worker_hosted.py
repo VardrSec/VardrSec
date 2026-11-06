@@ -306,6 +306,33 @@ def raw_receipt(selection):
 
 
 class HostedGuards(unittest.TestCase):
+    def test_physical_timestamps_preserve_nanoseconds_and_validate_calendar(self):
+        whole = "2026-11-06T04:03:08"
+        keys = [
+            hosted._physical_time(whole + suffix)
+            for suffix in (
+                "Z",
+                ".1Z",
+                ".123Z",
+                ".123456Z",
+                ".123456001Z",
+                ".123456002Z",
+            )
+        ]
+        self.assertEqual(keys[0], whole + ".000000000Z")
+        self.assertEqual(keys[1], whole + ".100000000Z")
+        self.assertEqual(keys, sorted(set(keys)))
+        self.assertLess(keys[-2], keys[-1])
+        for value in (
+            "2026-02-30T04:03:08.123456789Z",
+            "2026-11-06T24:03:08.123456789Z",
+            whole + ".1234567890Z",
+            whole + ".Z",
+            whole + ".123456789+00:00",
+        ):
+            with self.subTest(value=value), self.assertRaises(hosted.HostedRefused):
+                hosted._physical_time(value)
+
     def failed_harness(self, *, mutate=None, raw_content=None, publish=True):
         """Exercise the real failure/read/projection/finally path with inert commands."""
         with (

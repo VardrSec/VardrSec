@@ -165,7 +165,10 @@ def _physical_time(value):
     match = re.fullmatch(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?Z", value)
     require(match is not None)
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        # Python 3.10 accepts only three/six fractional digits. Validate the
+        # calendar at whole-second precision, then retain all Docker nanoseconds
+        # in the fixed-width ordering key below.
+        datetime.fromisoformat(match[1] + "+00:00")
     except ValueError:
         raise HostedRefused("nm2_hosted_prerequisite_refused") from None
     return match[1] + "." + (match[2] or "").ljust(9, "0") + "Z"

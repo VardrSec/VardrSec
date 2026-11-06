@@ -45,3 +45,9 @@ traffic receipts. It used development working trees; final frozen-cohort CI and
 platform acceptance remain separate. A [prepared-worker operator command](nm2-worker-operator.md)
 and the [coupled test plan](nm2-worker-acceptance-plan.md) are now implemented
 candidates, not accepted deployments.
+
+The [frozen two-job Desktop slice](nm2-worker-acceptance-evidence.md) has now
+passed through one explicitly admitted worker, including exact completion/release
+history and preserved-resource checks. Its Linux counterpart and the integrated
+failure matrix remain separate gates. Healthy continuation alone does not close
+NM-2 or authorize NM-3 to resume.

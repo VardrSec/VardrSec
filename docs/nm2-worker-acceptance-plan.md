@@ -1,10 +1,10 @@
 # Coupled NM-2 worker acceptance plan
 
-Status: the earlier one-attempt Windows Docker Desktop slice passed in its frozen
-cohort. This revision prepares two healthy jobs in one explicitly admitted
-container; it records no physical two-job result. Windows Docker Desktop and
-native Linux require their own receipts. The existing NM-3 evidence and component
-pins remain unchanged.
+Status: both the earlier one-attempt slice and the frozen two-job Windows Docker
+Desktop slice passed. The [two-job evidence](nm2-worker-acceptance-evidence.md)
+records its exact scope and preserved-resource guard. Native Linux is being
+verified separately; no Desktop result establishes its acceptance. The existing
+NM-3 evidence and component pins remain unchanged.
 
 `tests/nm2_worker_acceptance.py` now prepares the first coupled slice: default
 disabled, owner/CSRF transport denial, Strict out-of-scope approval refusal, and
