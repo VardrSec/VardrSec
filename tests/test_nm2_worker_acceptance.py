@@ -382,6 +382,163 @@ class AcceptanceGuards(unittest.TestCase):
                 self.assertNotIn("private-", json.dumps(proof))
                 self.assertTrue(all("path" not in row for row in proof["requests"]))
 
+    def failed_partial_fixture(self):
+        fixture, values = self.cancellation_fixture()
+        engagement, job, case, _, inventory, _, _, retirement, local, reconciled = (
+            values
+        )
+        binding = retirement["binding"]
+        case_sha = acceptance.digest(acceptance.canonical(case["spec"]))
+        artifact_sha = "f" * 64
+        local.update(
+            phase="failed",
+            status="failed",
+            last_event="managed_completion_receipt",
+            failure_reason="local_emergency_stop",
+            partial_result={
+                "error": "execution_cancelled",
+                "case_sha256": case_sha,
+                "execution_count": 1,
+                "preflight_count": 2,
+                "finding_count": 0,
+                "cancelled_execution_count": 1,
+                "passed_preflight_count": 2,
+            },
+            partial_files=[
+                {"name": "vardrgate_result.json", "size": 123, "sha256": "a" * 64},
+                {
+                    "name": "vardrgate_stopped_result.json",
+                    "size": 234,
+                    "sha256": artifact_sha,
+                },
+            ],
+        )
+        result_sha = acceptance.digest(
+            acceptance.canonical(
+                {
+                    "schema": "vardr.managed-result/1",
+                    **binding,
+                    "artifact_sha256": artifact_sha,
+                    "case_sha256": case_sha,
+                }
+            )
+        )
+        inventory.update(
+            stops=[],
+            results=[
+                {
+                    "contract_id": binding["contract_id"],
+                    "artifact_sha256": artifact_sha,
+                    "receipt_sha256": result_sha,
+                    "outcome": "failed",
+                    "evidence_created": 3,
+                    "scan_items_created": 0,
+                }
+            ],
+        )
+        inventory["execution"]["state"] = "failed"
+        retirement["attempt_receipt"] = {
+            "schema": "vardr.managed-completion/1",
+            **binding,
+            "receipt_sha256": result_sha,
+            "outcome": "failed",
+            "capacity_reserved": False,
+        }
+        retirement["receipt_sha256"] = acceptance.digest(
+            acceptance.canonical(
+                {
+                    key: item
+                    for key, item in retirement.items()
+                    if key != "receipt_sha256"
+                }
+            )
+        )
+        reconciled["state"] = "terminal_failed"
+        evidence = []
+        for detail in (
+            {"phase": "identity_preflight", "status": "passed"},
+            {"phase": "identity_preflight", "status": "passed"},
+            {"error": "execution_cancelled"},
+        ):
+            body = json.dumps(detail)
+            evidence.append(
+                {"body": body, "content_hash": acceptance.digest(body.encode())}
+            )
+        responses = {
+            f"/engagements/{engagement}/jobs": {
+                "jobs": [
+                    {
+                        "id": job,
+                        "assessment": {
+                            "status": "inconclusive",
+                            "baseline_valid": False,
+                            "case_snapshot_verified": True,
+                            "case_hash": case_sha,
+                            "preflight": {"status": "passed"},
+                            "candidate_findings": 0,
+                        },
+                    }
+                ]
+            },
+            f"/engagements/{engagement}/evidence?job_id={job}": {"evidence": evidence},
+            f"/engagements/{engagement}/scans?job_id={job}": {"scans": []},
+        }
+        fixture.api.request.side_effect = lambda route: responses[route]
+        return fixture, values, responses
+
+    def test_failed_partial_is_case_bound_inconclusive_evidence_without_stop_or_release(
+        self,
+    ):
+        fixture, values, _ = self.failed_partial_fixture()
+        proof = fixture.verify_cancellation(*values)
+        self.assertEqual(proof["failed_completion"]["evidence_count"], 3)
+        self.assertEqual(
+            proof["failed_completion"]["assessment_status"], "inconclusive"
+        )
+        self.assertIsNone(proof["stop_receipt_sha256"])
+        self.assertFalse(proof["native_stop_receipt"])
+        self.assertEqual(proof["partial_result_state"], "retained")
+        for mutation in (
+            "success",
+            "wrong_artifact",
+            "wrong_case",
+            "not_cancelled",
+            "missing_original",
+            "conclusive",
+            "evidence_hash",
+            "evidence_canary",
+        ):
+            with self.subTest(mutation=mutation):
+                fixture, values, responses = self.failed_partial_fixture()
+                inventory, retirement, local = values[4], values[7], values[8]
+                base = "/engagements/" + values[0]
+                if mutation == "success":
+                    retirement["attempt_receipt"]["outcome"] = "completed"
+                elif mutation == "wrong_artifact":
+                    inventory["results"][0]["artifact_sha256"] = "b" * 64
+                elif mutation == "wrong_case":
+                    local["partial_result"]["case_sha256"] = "b" * 64
+                elif mutation == "not_cancelled":
+                    local["partial_result"]["cancelled_execution_count"] = 0
+                elif mutation == "missing_original":
+                    local["partial_files"] = local["partial_files"][1:]
+                elif mutation == "conclusive":
+                    responses[base + "/jobs"]["jobs"][0]["assessment"]["status"] = (
+                        "conclusive"
+                    )
+                elif mutation == "evidence_hash":
+                    responses[base + "/evidence?job_id=" + values[1]]["evidence"][0][
+                        "content_hash"
+                    ] = "b" * 64
+                else:
+                    row = responses[base + "/evidence?job_id=" + values[1]]["evidence"][
+                        0
+                    ]
+                    row["body"] = json.dumps({"secret": fixture.secrets[0]})
+                    row["content_hash"] = acceptance.digest(row["body"].encode())
+                with self.assertRaises(acceptance.AcceptanceRefused):
+                    fixture.verify_cancellation(*values)
+
     def test_cancellation_refuses_timeout_unrelated_failure_reuse_missing_proof_and_raw_fields(
         self,
     ):
@@ -851,6 +1008,26 @@ class AcceptanceGuards(unittest.TestCase):
             self.assertEqual(metadata["consumption_acknowledged"], 1)
             self.assertNotIn("private-", json.dumps(metadata))
             self.assertNotIn(str(directory), json.dumps(metadata))
+            stopped = {
+                "error": "execution_cancelled",
+                "case_hash": "a" * 64,
+                "executions": [
+                    {
+                        "error": "execution_cancelled",
+                        "private_body": "private-stopped-canary",
+                    }
+                ],
+                "preflight": [{"status": "passed"}, {"status": "passed"}],
+                "findings": [],
+            }
+            (directory / "vardrgate_stopped_result.json").write_bytes(
+                acceptance.canonical(stopped)
+            )
+            metadata = fixture.local_metadata("run", "eng", "job")
+            self.assertEqual(len(metadata["partial_files"]), 2)
+            self.assertEqual(metadata["partial_result"]["cancelled_execution_count"], 1)
+            self.assertEqual(metadata["partial_result"]["passed_preflight_count"], 2)
+            self.assertNotIn("private-", json.dumps(metadata))
             record.job_id = "different-job"
             with self.assertRaises(AssertionError):
                 fixture.local_metadata("run", "eng", "job")

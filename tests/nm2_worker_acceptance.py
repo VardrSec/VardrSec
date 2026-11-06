@@ -1570,7 +1570,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
         # Read only exact original association and retained known output metadata.
         # No PID lookup/signal, capability reconstruction or raw file export.
         source = """
-import hashlib,json,os,stat,sys
+import hashlib,json,os,re,stat,sys
 from pathlib import Path
 from vardrrunner import config
 from vardrrunner.journal import Journal
@@ -1582,20 +1582,30 @@ with journal._connection() as con:
     claim=con.execute('SELECT state,consumption_sent,consumption_acknowledged FROM managed_claim_intents WHERE run_id=?',(record.run_id,)).fetchone()
 assert claim is not None
 files=[]
+partial=None
 if record.run_dir is not None:
     directory=Path(record.run_dir)
     assert directory.parent==config.runs_dir() and directory.is_dir() and all(not item.is_symlink() for item in (directory,*directory.parents))
-    path=directory/'vardrgate_result.json'
-    if path.exists() or path.is_symlink():
-        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
-        with os.fdopen(fd,'rb') as stream:
-            before=os.fstat(stream.fileno())
-            assert stat.S_ISREG(before.st_mode) and before.st_nlink==1 and 0<before.st_size<=1024*1024
-            raw=stream.read(1024*1024+1)
-            after=os.fstat(stream.fileno())
-            assert len(raw)==before.st_size and (before.st_ino,before.st_size,before.st_mtime_ns)==(after.st_ino,after.st_size,after.st_mtime_ns)
-        files.append({'name':'vardrgate_result.json','size':len(raw),'sha256':hashlib.sha256(raw).hexdigest()})
-print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':record.engagement_id,'phase':record.phase.value,'status':record.status,'local_stop_requested':journal.stop_requested(record.run_id),'claim_state':claim['state'],'consumption_sent':claim['consumption_sent'],'consumption_acknowledged':claim['consumption_acknowledged'],'partial_files':files}))
+    for name in ('vardrgate_result.json','vardrgate_stopped_result.json'):
+        path=directory/name
+        if path.exists() or path.is_symlink():
+            fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+            with os.fdopen(fd,'rb') as stream:
+                before=os.fstat(stream.fileno())
+                assert stat.S_ISREG(before.st_mode) and before.st_nlink==1 and 0<before.st_size<=1024*1024
+                raw=stream.read(1024*1024+1)
+                after=os.fstat(stream.fileno())
+                assert len(raw)==before.st_size and (before.st_ino,before.st_size,before.st_mtime_ns)==(after.st_ino,after.st_size,after.st_mtime_ns)
+            files.append({'name':name,'size':len(raw),'sha256':hashlib.sha256(raw).hexdigest()})
+            if name=='vardrgate_stopped_result.json':
+                data=json.loads(raw)
+                assert data['error']=='execution_cancelled' and re.fullmatch('[0-9a-f]{64}',data['case_hash'])
+                assert all(type(data.get(key)) is list for key in ('executions','preflight','findings'))
+                partial={'error':'execution_cancelled','case_sha256':data['case_hash'],'execution_count':len(data['executions']),'preflight_count':len(data['preflight']),'finding_count':len(data['findings']),'cancelled_execution_count':sum(row.get('error')=='execution_cancelled' for row in data['executions']),'passed_preflight_count':sum(row.get('status')=='passed' for row in data['preflight'])}
+reason=getattr(record,'failure_reason',None)
+assert reason in {None,'local_emergency_stop','remote_stop_requested','control_lease_expired','authorization_deadline','tool_timeout','descendants_after_tool_exit','control_cap_unavailable'}
+event=getattr(record,'last_event',None)
+print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':record.engagement_id,'phase':record.phase.value,'status':record.status,'failure_reason':reason,'last_event':event if event=='managed_completion_receipt' else 'other','local_stop_requested':journal.stop_requested(record.run_id),'claim_state':claim['state'],'consumption_sent':claim['consumption_sent'],'consumption_acknowledged':claim['consumption_acknowledged'],'partial_files':files,'partial_result':partial}))
 """
         return json.loads(
             self.helper(
@@ -1993,6 +2003,111 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             )
         return {"run_id": run_id, "requests": requests}
 
+    def verify_failed_partial(
+        self, engagement, job, case, binding, terminal, inventory, local
+    ):
+        result = inventory["results"][0]
+        summary = local.get("partial_result")
+        case_sha = digest(canonical(case["spec"]))
+        require(
+            summary
+            == {
+                "error": "execution_cancelled",
+                "case_sha256": case_sha,
+                "execution_count": 1,
+                "preflight_count": 2,
+                "finding_count": 0,
+                "cancelled_execution_count": 1,
+                "passed_preflight_count": 2,
+            }
+            and local["phase"] == local["status"] == "failed"
+            and local["last_event"] == "managed_completion_receipt",
+            "cancelled_partial_result_not_proven",
+        )
+        files = {row["name"]: row for row in local["partial_files"]}
+        require(
+            set(files) == {"vardrgate_result.json", "vardrgate_stopped_result.json"},
+            "cancelled_partial_files_missing",
+        )
+        artifact_sha = files["vardrgate_stopped_result.json"]["sha256"]
+        receipt_sha = digest(
+            canonical(
+                {
+                    "schema": "vardr.managed-result/1",
+                    **binding,
+                    "artifact_sha256": artifact_sha,
+                    "case_sha256": case_sha,
+                }
+            )
+        )
+        require(
+            result
+            == {
+                "contract_id": binding["contract_id"],
+                "artifact_sha256": artifact_sha,
+                "receipt_sha256": receipt_sha,
+                "outcome": "failed",
+                "evidence_created": 3,
+                "scan_items_created": 0,
+            }
+            and canonical(terminal)
+            == canonical(
+                {
+                    "schema": "vardr.managed-completion/1",
+                    **binding,
+                    "receipt_sha256": receipt_sha,
+                    "outcome": "failed",
+                    "capacity_reserved": False,
+                }
+            ),
+            "cancelled_partial_receipt_mismatch",
+        )
+        base = "/engagements/" + engagement
+        assessment = next(
+            row for row in self.api.request(base + "/jobs")["jobs"] if row["id"] == job
+        )["assessment"]
+        evidence = self.api.request(base + "/evidence?job_id=" + job)["evidence"]
+        require(
+            assessment["status"] == "inconclusive"
+            and assessment["baseline_valid"] is False
+            and assessment["case_snapshot_verified"] is True
+            and assessment["case_hash"] == case_sha
+            and assessment["preflight"]["status"] == "passed"
+            and assessment["candidate_findings"] == 0
+            and len(evidence) == 3
+            and self.api.request(base + "/scans?job_id=" + job)["scans"] == [],
+            "cancelled_partial_assessment_mismatch",
+        )
+        details = []
+        for row in evidence:
+            require(
+                type(row["body"]) is str
+                and row["content_hash"] == digest(row["body"].encode())
+                and not any(
+                    secret.encode() in canonical(row) for secret in self.secrets
+                ),
+                "cancelled_partial_evidence_mismatch",
+            )
+            details.append(json.loads(row["body"]))
+        require(
+            sum(
+                row.get("phase") == "identity_preflight"
+                and row.get("status") == "passed"
+                for row in details
+            )
+            == 2
+            and sum(row.get("error") == "execution_cancelled" for row in details) == 1,
+            "cancelled_partial_evidence_mismatch",
+        )
+        return {
+            "artifact_sha256": artifact_sha,
+            "result_receipt_sha256": receipt_sha,
+            "terminal_receipt_sha256": digest(canonical(terminal)),
+            "evidence_count": 3,
+            "evidence_sha256": digest(canonical(evidence)),
+            "assessment_status": "inconclusive",
+        }
+
     def verify_cancellation(
         self,
         engagement,
@@ -2062,18 +2177,18 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
         )
         require(
             inventory["job_status"] == "failed"
-            and not inventory["results"]
-            and len(inventory["contracts"])
-            == len(inventory["stops"])
-            == len(inventory["runtimes"])
-            == 1
+            and len(inventory["contracts"]) == len(inventory["runtimes"]) == 1
+            and (
+                (len(inventory["stops"]) == 1 and not inventory["results"])
+                or (len(inventory["results"]) == 1 and not inventory["stops"])
+            )
             and inventory["targets_spent"] == 1
             and inventory["duration_allocated"] == 30,
             "cancellation_terminal_inventory_mismatch",
         )
         contract, stop, runtime = (
             inventory["contracts"][0],
-            inventory["stops"][0],
+            inventory["stops"][0] if inventory["stops"] else None,
             inventory["runtimes"][0],
         )
         require(
@@ -2120,7 +2235,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             "cancellation_attempt_reused_or_unconfirmed",
         )
         terminal = retirement["attempt_receipt"]
-        cause = stop["cause"]
+        cause = stop["cause"] if stop is not None else local.get("failure_reason")
         require(
             cause
             in {
@@ -2132,40 +2247,56 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             "cancellation_unrelated_stop_cause",
         )
         outcome = (
-            "cancelled"
-            if cause in {"local_emergency_stop", "remote_stop_requested"}
-            else "failed"
-        )
-        stop_sha = digest(
-            canonical(
-                {
-                    "schema": "vardr.managed-stop/1",
-                    **binding,
-                    "outcome": outcome,
-                    "cause": cause,
-                    "termination_confirmed": True,
-                }
+            "failed"
+            if stop is None
+            else (
+                "cancelled"
+                if cause in {"local_emergency_stop", "remote_stop_requested"}
+                else "failed"
             )
         )
+        partial = None
+        stop_sha = None
+        if stop is None:
+            partial = self.verify_failed_partial(
+                engagement, job, case, binding, terminal, inventory, local
+            )
+        else:
+            stop_sha = digest(
+                canonical(
+                    {
+                        "schema": "vardr.managed-stop/1",
+                        **binding,
+                        "outcome": outcome,
+                        "cause": cause,
+                        "termination_confirmed": True,
+                    }
+                )
+            )
         require(
-            canonical(terminal)
-            == canonical(
-                {
-                    "schema": "vardr.managed-stop-receipt/1",
-                    **binding,
-                    "outcome": outcome,
-                    "cause": cause,
-                    "receipt_sha256": stop_sha,
-                    "capacity_reserved": False,
-                }
+            (
+                stop is None
+                or (
+                    canonical(terminal)
+                    == canonical(
+                        {
+                            "schema": "vardr.managed-stop-receipt/1",
+                            **binding,
+                            "outcome": outcome,
+                            "cause": cause,
+                            "receipt_sha256": stop_sha,
+                            "capacity_reserved": False,
+                        }
+                    )
+                    and stop
+                    == {
+                        "contract_id": binding["contract_id"],
+                        "receipt_sha256": stop_sha,
+                        "outcome": outcome,
+                        "cause": cause,
+                    }
+                )
             )
-            and stop
-            == {
-                "contract_id": binding["contract_id"],
-                "receipt_sha256": stop_sha,
-                "outcome": outcome,
-                "cause": cause,
-            }
             and inventory["execution"]
             == {
                 "state": outcome,
@@ -2213,10 +2344,11 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
         )
         files = local["partial_files"]
         require(
-            len(files) <= 1
+            len(files) <= 2
             and all(
                 set(row) == {"name", "size", "sha256"}
-                and row["name"] == "vardrgate_result.json"
+                and row["name"]
+                in {"vardrgate_result.json", "vardrgate_stopped_result.json"}
                 and type(row["size"]) is int
                 and 0 < row["size"] <= 1024 * 1024
                 and re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
@@ -2245,7 +2377,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             )
             / 1e9,
             "stop_cause": cause,
-            "native_stop_receipt": cause != "observed_exit",
+            "native_stop_receipt": stop is not None and cause != "observed_exit",
             "stop_receipt_sha256": stop_sha,
             "retirement_receipt_sha256": retirement["receipt_sha256"],
             "targets_spent": 1,
@@ -2263,6 +2395,8 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 engagement, action["grant_before"], action["grant_after"]
             )
             proof["grant_revocation"]["original_runner_auth"] = "verified"
+        if partial is not None:
+            proof["failed_completion"] = partial
         return proof
 
     def cancelled_http(self):
@@ -2317,6 +2451,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                     "consumption_acknowledged",
                     "local_stop_requested",
                     "partial_files",
+                    "partial_result",
                 )
             ),
             "cancellation_original_metadata_changed",
