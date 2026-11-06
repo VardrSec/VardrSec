@@ -27,6 +27,58 @@ class CLIRefused(ValueError):
     pass
 
 
+FAILURE_PHASES = frozenset(
+    {
+        "arguments",
+        "installation",
+        "dispatch",
+        "enable_inputs",
+        "enable_observer_setup",
+        "enable_api_setup",
+        "enable_custody",
+        "enable_owner_auth",
+        "enable_capture",
+        "enable_registration",
+        "enable_publication_checks",
+        "enable_recapture",
+        "enable_mount_custody",
+        "enable_publish_trust",
+        "enable_publish_admission",
+    }
+)
+FAILURE_CODES = frozenset(
+    {
+        "validation_refused",
+        "runtime_refused",
+        "host_refused",
+        "secret_custody_refused",
+        "local_io_failed",
+        "operation_failed",
+        "interrupted",
+    }
+)
+
+
+def failure_diagnostic(args, error):
+    """Fixed operator diagnostics; never stringify an exception or input value."""
+    phase = getattr(args, "_failure_phase", "arguments")
+    if type(phase) is not str or phase not in FAILURE_PHASES:
+        phase = "dispatch"
+    code = "operation_failed"
+    for kind, known in (
+        (KeyboardInterrupt, "interrupted"),
+        (CLIRefused, "validation_refused"),
+        (runtime.RuntimeRefused, "runtime_refused"),
+        (host.HostRefused, "host_refused"),
+        (host.custody.SecretRefused, "secret_custody_refused"),
+        (OSError, "local_io_failed"),
+    ):
+        if isinstance(error, kind):
+            code = known
+            break
+    return {"failure_phase": phase, "failure_code": code}
+
+
 def require(condition):
     if not condition:
         raise CLIRefused("worker_cli_refused")
@@ -278,6 +330,7 @@ def components(record, *, client=True):
 
 
 def enable(installation, args):
+    args._failure_phase = "enable_inputs"
     require(60 <= args.expires_in <= 604800)
     maximum = getattr(args, "max_attempts", None)
     require(maximum is None or (type(maximum) is int and 1 <= maximum <= 32))
@@ -296,6 +349,7 @@ def enable(installation, args):
     )
     if (public / "trust.json").exists():
         require(public_trust(public / "trust.json") == trust)
+    args._failure_phase = "enable_observer_setup"
     observer = runtime.LocalDocker(
         args.context,
         runtime.WorkerLayout(
@@ -306,15 +360,20 @@ def enable(installation, args):
         ),
         **({"max_attempts": maximum} if maximum is not None else {}),
     )
+    args._failure_phase = "enable_api_setup"
     client = host.HostClient(args.api_url, args.ca)
+    args._failure_phase = "enable_custody"
     records = records_for(installation, args.private_root)
     with records.locked():
         require(not (installation / updater.STATE).exists())
         require(not (public / "admission.json").exists())
+    args._failure_phase = "enable_owner_auth"
     with owner(client, args) as session:
+        args._failure_phase = "enable_capture"
         identity = observer.capture_running(
             container_id=args.container_id, image_id=args.image_id, project=args.project
         )
+        args._failure_phase = "enable_registration"
         admission = host.register_runtime(
             client,
             records,
@@ -329,6 +388,7 @@ def enable(installation, args):
             **({"max_attempts": maximum} if maximum is not None else {}),
         )
     # The host receipt exists before public permission can enter the container.
+    args._failure_phase = "enable_publication_checks"
     with records.locked():
         require(not (installation / updater.STATE).exists())
         record = records.read(args.runtime_id)
@@ -338,6 +398,7 @@ def enable(installation, args):
             record["registration_state"] == "acknowledged"
             and record["admission"] == admission
         )
+        args._failure_phase = "enable_recapture"
         require(
             observer.capture_running(
                 container_id=args.container_id,
@@ -346,11 +407,14 @@ def enable(installation, args):
             )
             == identity
         )
+        args._failure_phase = "enable_mount_custody"
         records.outside_mounts(observer, identity)
+        args._failure_phase = "enable_publish_trust"
         if not (public / "trust.json").exists():
             publish_public(public / "trust.json", trust)
         else:
             require(public_trust(public / "trust.json") == trust)
+        args._failure_phase = "enable_publish_admission"
         publish_public(public / "admission.json", host.canonical(admission))
     return {
         "schema": "vardr.worker-cli/1",
@@ -503,8 +567,10 @@ def dispatch(installation, args):
 
 def main(argv=None, *, installation=None):
     selected_id = None
+    args = None
     try:
         args = parser().parse_args(argv)
+        args._failure_phase = "installation"
         installation = (
             Path(__file__).resolve().parent
             if installation is None
@@ -514,29 +580,32 @@ def main(argv=None, *, installation=None):
         if args.action in {"enable", "register"} and args.runtime_id is None:
             args.runtime_id = str(uuid.uuid4())
         selected_id = args.runtime_id
+        args._failure_phase = "dispatch"
         reply = dispatch(installation, args)
         print(json.dumps(reply, sort_keys=True))
         return 1 if reply["state"].startswith("held_") else 0
     except SystemExit as result:
         return result.code
-    except KeyboardInterrupt:
+    except KeyboardInterrupt as error:
         print(
             json.dumps(
                 {
                     "schema": "vardr.worker-cli/1",
                     "state": "held_interrupted",
                     "runtime_id": selected_id,
+                    **failure_diagnostic(args, error),
                 }
             )
         )
         return 130
-    except Exception:
+    except Exception as error:
         print(
             json.dumps(
                 {
                     "schema": "vardr.worker-cli/1",
                     "state": "held",
                     "runtime_id": selected_id,
+                    **failure_diagnostic(args, error),
                 }
             )
         )

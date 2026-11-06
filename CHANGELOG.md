@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Return fixed whitelisted phase/reason diagnostics when the prepared-worker CLI
+  holds an operation. Never print exception text, credentials or raw subprocess
+  output; successful replies, custody checks and no-retry behavior are unchanged.
+
 - Add explicitly selected ordinary HTTP stop fixtures and two target-free
   bootstrap configuration checks. Correct the fixture's Run ID validation and
   optional Docker configuration-field lookup from actual preflight refusals;
