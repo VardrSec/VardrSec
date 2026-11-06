@@ -253,3 +253,45 @@ These are separate selected-slice records. The count result does not establish t
 cause of earlier Linux refusals. Other availability, idle, zero-issued-job,
 stop/re-enable and containment evidence remains subject to its own acceptance
 record. NM-2 remains incomplete; NM-3 is not resumed by this evidence update.
+
+### Linux availability and later held Desktop idle, 2026-11-06
+
+[Linux availability run42303336342](https://github.com/VardrSec/VardrSec/actions/runs/42303336342)
+passed on Distribution `b516366e574eaeb1057e88301634e861f761fe0f`,
+Runner `1e05c5bc12369e6b6b953d80527ac3fcd906f53c`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c` and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`, at database revision
+`0041persistentruntime`. Both Ubuntu and Windows compatibility jobs passed.
+The independently checked [sanitized availability receipt](evidence/nm2-linux-persistent-availability-verified-2026-11-06.json)
+records 70.000108429 seconds of idle with zero target requests, 35 individually
+authorized jobs, 175 target requests and evidence records, zero local holds,
+explicit stop/reconciliation and six owned stopped containers. Both optional
+worker limits were unset. The artifact ZIP digest, receipt digest and all four
+immutable source commits/trees were checked; the receipt SHA-256 is
+`11b0714b129175aeed475d11230ddec049df5ce28665cb61b6b71d2ae2257a90`.
+
+The later [Desktop idle lookup receipt](evidence/nm2-desktop-idle-limit-lookup-held-2026-11-06.json)
+belongs to the separate `a55a8a3039e24830` fixture cohort using Distribution
+`751be0f33507ac7d4a845cfd9377e7a2d60345a8` and Runner
+`09008e5d9c3edf619e55eeacdfd9ea1db31aba89`. It remains held at
+`idle_control_observation` / `idle_status_refused`, with fixed status checkpoint
+`lookup` and no acceptance credit. Its SHA-256 is
+`af1ccf7b278e2691e4f25d9caf62738ffb1c70466c483d94e5bebebb36348e0a`.
+Retained cleanup reported six stopped containers, a checked inventory, one
+permitted empty built-in bridge identity change, worker exit124 and no fixture
+stop request. These are cleanup-only observations: they establish neither the
+worker state at the failure instant nor a verified native-idle outcome. Cause
+remains unknown. The earlier
+[792719349f4c4923 held receipt](evidence/nm2-desktop-idle-limit-held-2026-11-06.json)
+is preserved separately.
+
+[Runner facade CI42303800208](https://github.com/VardrSec/VardrRunner/actions/runs/42303800208)
+passed all nine jobs on `09008e5d9c3edf619e55eeacdfd9ea1db31aba89`, including
+Ubuntu Python3.10–3.14, Windows/macOS Python3.14, lint/types and dependency audit.
+This component validation is separate from the earlier Linux availability cohort
+and from actual next-enable integration or idle lifecycle acceptance.
+
+These selected records leave optional idle, zero-issued-job, stop/re-enable and
+the remaining containment matrix open. The Linux pass does not identify earlier
+Linux refusal causes. NM-2 remains incomplete; NM-3 is not resumed, and no release
+or deployment is authorized by this evidence update.

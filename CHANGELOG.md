@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Record verified Linux persistent availability on the exact G/R1e05 cohort and
+  the later held Desktop idle lookup on its separate 751be0f/R09008 cohort.
+  Preserve the earlier held receipt; cleanup-only worker124/no-stop metadata
+  supplies no idle acceptance. Record the facade's nine passing CI jobs without
+  closing NM-2 or resuming NM-3.
+
 - Add a distinct direct Created-worker observation with no fabricated start
   identity or nonce. Share existing static profile guards with bound observation;
   preserve current running/exit, mount, volume, readiness and deadline behavior.
