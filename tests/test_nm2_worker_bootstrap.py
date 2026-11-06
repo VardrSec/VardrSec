@@ -360,6 +360,28 @@ class BootstrapTests(unittest.TestCase):
         ):
             bootstrap.owner_binary(archive(ready=False), "f" * 64)
 
+    def test_optional_image_keys_are_projected_as_null_without_allowing_payloads(self):
+        # Docker29 omits unset Config map keys; direct field selectors error
+        # before JSON is emitted. Keep nullable fields nullable in the projection.
+        for template, names in (
+            (bootstrap.IMAGE_FORMAT, ("Cmd", "Volumes")),
+            (bootstrap.CONTAINER_FORMAT, ("Cmd", "Healthcheck")),
+        ):
+            for name in names:
+                self.assertNotIn(".Config." + name, template)
+                self.assertIn('index .Config "' + name + '"', template)
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture, engine = self.fixture(Path(temporary))
+            engine.image["cmd"] = None
+            self.assertEqual(
+                self.run_fixture(fixture)["status"], "passed_configuration_refusals"
+            )
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture, engine = self.fixture(Path(temporary))
+            engine.image["cmd"] = ["unapproved-payload"]
+            self.assertEqual(self.run_fixture(fixture)["status"], "held")
+            self.assertFalse(engine.containers)
+
     def test_preflight_refuses_remote_name_collision_or_changed_image_before_create(
         self,
     ):
