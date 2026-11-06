@@ -247,3 +247,23 @@ reviewed cancellation/disconnect cases; it is not currently exercised by the
 initial stages. The web image is a reviewed core dependency here; this harness
 does not claim a browser UI journey or frontend URL compatibility at the selected
 port.
+
+## Explicit hosted Linux counterpart
+
+The existing `compose.yml` workflow has a default-false `nm2_coupled` manual input.
+Set it only after the same reviewed Distribution commit passes the Desktop initial
+stages. Supply all four exact `nm2_*_sha` values; Distribution must equal the selected
+workflow commit. Keep `unit_only=true` to skip unrelated installer/update jobs.
+
+`tests/nm2_worker_hosted.py --execute` refuses other repositories, branches, events,
+hosts or dirty/mismatched source cohorts. It uses a fresh GitHub-hosted Ubuntu24.04
+Docker daemon, existing component Dockerfiles, the toolkit's named Gate context and
+the separate worker overlay. Private clones, signer dependencies, custody and raw
+outputs remain under isolated temporary paths. It runs this same coupled harness;
+the remaining matrix stays `not_run`. No image is published and no service is added.
+
+Only a whitelisted public receipt is uploaded: exact source/tree/image IDs, case
+statuses, validated request/evidence counts, case/artifact/receipt/CA hashes,
+executable/source inventories and the retained stopped-container count. A failed
+stage remains `held`; raw logs, snapshots, sessions, keys, paths and custody are
+excluded. Hosted success does not establish Desktop/native Windows acceptance.

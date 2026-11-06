@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a default-off manual Ubuntu counterpart for the same coupled NM-2 fixture,
+  requiring four exact source commits and fresh-host checks. Reuse existing
+  Dockerfiles and publish only validated status/count/hash evidence; remaining
+  scenarios and platform acceptance stay open.
+
 - Add host-only retirement for an authenticated, physically exited runtime with
   no associated claim. Persist a distinct one-send intent, validate the canonical
   unbound receipt and reconcile lost replies read-only; association races stay

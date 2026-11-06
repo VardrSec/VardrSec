@@ -9,9 +9,59 @@ on:
         description: Run the existing cross-platform Python compatibility jobs only
         type: boolean
         default: true
+      nm2_coupled:
+        description: Explicitly run the reviewed initial NM-2 harness on a fresh Ubuntu VM
+        type: boolean
+        default: false
+      nm2_distribution_sha:
+        description: Exact reviewed distribution SHA, must equal the selected workflow commit
+        type: string
+        default: ''
+      nm2_map_sha:
+        description: Exact reviewed Map SHA
+        type: string
+        default: ''
+      nm2_runner_sha:
+        description: Exact reviewed Runner SHA
+        type: string
+        default: ''
+      nm2_gate_sha:
+        description: Exact reviewed Gate SHA
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
+  nm2-coupled:
+    if: github.event_name == 'workflow_dispatch' && inputs.nm2_coupled == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Verify hosted refusal and public receipt guards without Docker
+        run: python -m unittest discover -s tests -p test_nm2_worker_hosted.py
+      - name: Run the exact explicitly selected coupled cohort
+        env:
+          NM2_COUPLED: ${{ inputs.nm2_coupled }}
+          NM2_DISTRIBUTION_SHA: ${{ inputs.nm2_distribution_sha }}
+          NM2_MAP_SHA: ${{ inputs.nm2_map_sha }}
+          NM2_RUNNER_SHA: ${{ inputs.nm2_runner_sha }}
+          NM2_GATE_SHA: ${{ inputs.nm2_gate_sha }}
+        run: python tests/nm2_worker_hosted.py --execute
+      - name: Retain only the sanitized public NM-2 receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: nm2-coupled-public-receipt
+          path: ${{ runner.temp }}/nm2-hosted-public/receipt.json
+          if-no-files-found: warn
+          retention-days: 7
+      # No image publication, cleanup/prune or upload of private fixture output.
   certificate-renewal:
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-latest

@@ -266,13 +266,13 @@ class OwnerAPI:
         self.url, self.ca = url, ca
         self.ca_sha256 = digest(ca.read_bytes())
         self.jar = http.cookiejar.CookieJar()
+        context = ssl.create_default_context(cafile=str(ca))
+        context.keylog_filename = None
         self.opener = urllib.request.build_opener(
             urllib.request.ProxyHandler({}),
             NoRedirect(),
             urllib.request.HTTPCookieProcessor(self.jar),
-            urllib.request.HTTPSHandler(
-                context=ssl.create_default_context(cafile=str(ca))
-            ),
+            urllib.request.HTTPSHandler(context=context),
         )
         self.csrf = None
 
@@ -1411,6 +1411,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 "before_worker": before_worker,
                 "inventory": inventory,
                 "requests": requests,
+                "case_sha256": assessment["case_hash"],
                 "evidence_count": len(evidence),
                 "evidence_sha256": digest(retained),
             }
