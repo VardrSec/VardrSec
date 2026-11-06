@@ -319,6 +319,7 @@ def manifest(path):
         "database_roles.py",
         "worker_host.py",
         "worker_host_sequence.py",
+        "worker_host_persistent.py",
         "worker_runtime.py",
         "worker_secrets.py",
         "worker_volumes.py",
@@ -2652,6 +2653,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 self.ready_volume,
             ),
             max_attempts=self.max_attempts,
+            protocol="finite-v2",
         )
         entered = time.monotonic()
         while True:
@@ -2710,6 +2712,8 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                     "900",
                     "--max-attempts",
                     str(self.max_attempts),
+                    "--protocol",
+                    "finite-v2",
                     "--username",
                     "operator",
                     "--password-stdin",
@@ -2764,6 +2768,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 self.ready_volume,
             ),
             max_attempts=self.max_attempts,
+            protocol="finite-v2",
         )
         self.receipt["daemon_id"] = observer.daemon()
         require(

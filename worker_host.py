@@ -348,11 +348,18 @@ class HostClient:
             if owner is not None:
                 owner._cookie, owner._csrf = None, None
 
-    def receipt(self, runtime_id, runtime_sha256, secret):
+    def receipt(self, runtime_id, runtime_sha256, secret, *, admission_sha256=None):
         return self._request(
             "POST",
             f"/managed/runtimes/{_uuid(runtime_id)}/receipt",
-            {"runtime_sha256": _hash(runtime_sha256)},
+            {
+                "runtime_sha256": _hash(runtime_sha256),
+                **(
+                    {"admission_sha256": _hash(admission_sha256)}
+                    if admission_sha256 is not None
+                    else {}
+                ),
+            },
             {"Authorization": "VardrStop " + _hash(secret)},
         )[0]
 
@@ -372,12 +379,43 @@ class HostClient:
             {"Authorization": "VardrStop " + _hash(secret)},
         )[0]
 
-    def attempt_receipt(self, runtime_id, runtime_sequence, runtime_sha256, secret):
-        require(type(runtime_sequence) is int and 1 <= runtime_sequence <= 32)
+    def attempt_receipt(
+        self,
+        runtime_id,
+        runtime_sequence,
+        runtime_sha256,
+        secret,
+        *,
+        admission_sha256=None,
+    ):
+        if admission_sha256 is None:
+            require(type(runtime_sequence) is int and 1 <= runtime_sequence <= 32)
+        else:
+            import worker_host_persistent
+
+            worker_host_persistent.decimal(runtime_sequence, minimum=1)
         return self._request(
             "POST",
             f"/managed/runtimes/{_uuid(runtime_id)}/attempts/{runtime_sequence}/receipt",
-            {"runtime_sha256": _hash(runtime_sha256)},
+            {
+                "runtime_sha256": _hash(runtime_sha256),
+                **(
+                    {"admission_sha256": _hash(admission_sha256)}
+                    if admission_sha256 is not None
+                    else {}
+                ),
+            },
+            {"Authorization": "VardrStop " + _hash(secret)},
+        )[0]
+
+    def disable(self, runtime_id, runtime_sha256, admission_sha256, secret):
+        return self._request(
+            "POST",
+            f"/managed/runtimes/{_uuid(runtime_id)}/disable",
+            {
+                "runtime_sha256": _hash(runtime_sha256),
+                "admission_sha256": _hash(admission_sha256),
+            },
             {"Authorization": "VardrStop " + _hash(secret)},
         )[0]
 
@@ -482,12 +520,21 @@ class HostRecords:
         require(
             set(wrapped) == {"schema", "payload", "mac"}
             and wrapped["schema"]
-            in {"vardr.worker-host-record/1", "vardr.worker-host-record/2"}
+            in {
+                "vardr.worker-host-record/1",
+                "vardr.worker-host-record/2",
+                "vardr.worker-host-record/3",
+            }
         )
         payload = wrapped["payload"]
         require(type(payload) is dict and payload.get("runtime_id") == runtime_id)
         registration = payload.get("registration")
         require(type(registration) is dict)
+        persistent = "mode" in registration
+        if persistent:
+            import worker_host_persistent
+
+            worker_host_persistent.registration(registration)
         sequenced = "max_attempts" in registration
         if sequenced:
             require(
@@ -497,12 +544,20 @@ class HostRecords:
         require(
             wrapped["schema"]
             == (
-                "vardr.worker-host-record/2"
+                "vardr.worker-host-record/3"
+                if persistent
+                else "vardr.worker-host-record/2"
                 if sequenced
                 else "vardr.worker-host-record/1"
             )
         )
-        prefix = b"vardr.worker-host-record/2\x00" if sequenced else _MAC
+        prefix = (
+            b"vardr.worker-host-record/3\x00"
+            if persistent
+            else b"vardr.worker-host-record/2\x00"
+            if sequenced
+            else _MAC
+        )
         expected = hmac.new(
             bytes.fromhex(self.secret(runtime_id)),
             prefix + canonical(payload),
@@ -511,6 +566,8 @@ class HostRecords:
         require(hmac.compare_digest(_hash(wrapped["mac"]), expected))
         require(payload["installation"] == str(self.installation.resolve(strict=True)))
         require(payload["storage_root"] == str(self.private_root.resolve(strict=True)))
+        if persistent:
+            worker_host_persistent.record_state(payload)
         return payload
 
     def write(self, payload, *, create=False):
@@ -521,14 +578,28 @@ class HostRecords:
         else:
             self.read(payload["runtime_id"])
         secret = self.secret(payload["runtime_id"])
+        persistent = "mode" in payload["registration"]
+        if persistent:
+            import worker_host_persistent
+
+            worker_host_persistent.registration(payload["registration"])
+            worker_host_persistent.record_state(payload)
         sequenced = payload["registration"].get("max_attempts") is not None
-        prefix = b"vardr.worker-host-record/2\x00" if sequenced else _MAC
+        prefix = (
+            b"vardr.worker-host-record/3\x00"
+            if persistent
+            else b"vardr.worker-host-record/2\x00"
+            if sequenced
+            else _MAC
+        )
         mac = hmac.new(
             bytes.fromhex(secret), prefix + canonical(payload), hashlib.sha256
         ).hexdigest()
         raw = canonical(
             {
-                "schema": "vardr.worker-host-record/2"
+                "schema": "vardr.worker-host-record/3"
+                if persistent
+                else "vardr.worker-host-record/2"
                 if sequenced
                 else "vardr.worker-host-record/1",
                 "payload": payload,
@@ -600,6 +671,14 @@ def _client(record, client):
 
 def _observer(record, observer):
     require(isinstance(observer, runtime.LocalDocker))
+    if "mode" in record["registration"]:
+        require(
+            record["context"] == observer.context
+            and record["layout"] == asdict(observer.layout)
+            and getattr(observer, "protocol", None) == "persistent-v3"
+            and getattr(observer, "max_attempts", None) is None
+        )
+        return
     require(
         record["context"] == observer.context
         and record["layout"] == asdict(observer.layout)
@@ -609,6 +688,10 @@ def _observer(record, observer):
 
 
 def _admission(record, reply):
+    if "mode" in record["registration"]:
+        import worker_host_persistent
+
+        return worker_host_persistent.admission(record, reply)
     maximum = record["registration"].get("max_attempts")
     require(
         type(reply) is dict
@@ -814,11 +897,41 @@ def register_runtime(
     runner_id,
     identity,
     observer,
-    expires_in_seconds,
+    expires_in_seconds=None,
     runtime_id=None,
     max_attempts=None,
+    protocol=None,
+    limits=None,
 ):
     """Persist exact grant/custody before POST; unknown replies never recreate it."""
+    if protocol == "persistent-v3":
+        import worker_host_persistent
+
+        require(expires_in_seconds is None and max_attempts is None)
+        return worker_host_persistent.register_runtime(
+            client,
+            records,
+            session,
+            issuer_origin=issuer_origin,
+            enrollment_id=enrollment_id,
+            runner_id=runner_id,
+            identity=identity,
+            observer=observer,
+            runtime_id=runtime_id,
+            selected_limits=limits,
+        )
+    require(
+        protocol is None
+        or (type(protocol) is str and protocol in {"legacy-v1", "finite-v2"})
+    )
+    require(
+        protocol is None
+        or (protocol == "finite-v2" and max_attempts is not None)
+        or (protocol == "legacy-v1" and max_attempts is None)
+    )
+    if protocol is not None:
+        require(getattr(observer, "protocol", None) == protocol)
+    require(limits is None)
     require(
         isinstance(client, HostClient)
         and isinstance(session, OwnerSession)
@@ -933,9 +1046,14 @@ def revoke_runtime(client, records, session, runtime_id):
 def reconcile_exit(client, records, runtime_id):
     """Read-only POST lookup; never resend an unknown observed-exit mutation."""
     with records.locked():
+        persistent = "mode" in records.read(runtime_id)["registration"]
         sequenced = (
             records.read(runtime_id)["registration"].get("max_attempts") is not None
         )
+    if persistent:
+        import worker_host_persistent
+
+        return worker_host_persistent.reconcile(client, records, runtime_id)
     if sequenced:
         import worker_host_sequence
 
@@ -960,8 +1078,15 @@ def reconcile_exit(client, records, runtime_id):
 def report_observed_exit(client, records, runtime_id, proof, observer):
     """Fresh server binding, final direct reinspection, durable intent, one POST."""
     with records.locked():
+        persistent = "mode" in records.read(runtime_id)["registration"]
         sequenced = (
             records.read(runtime_id)["registration"].get("max_attempts") is not None
+        )
+    if persistent:
+        import worker_host_persistent
+
+        return worker_host_persistent.report(
+            client, records, runtime_id, proof, observer
         )
     if sequenced:
         import worker_host_sequence
@@ -1037,6 +1162,14 @@ def report_observed_exit(client, records, runtime_id, proof, observer):
 
 def continue_observed_exit(client, records, runtime_id, proof, observer):
     """Explicit continuation; no caller tuple and no retry of the previous body."""
+    with records.locked():
+        persistent = "mode" in records.read(runtime_id)["registration"]
+    if persistent:
+        import worker_host_persistent
+
+        return worker_host_persistent.report(
+            client, records, runtime_id, proof, observer, continuation=True
+        )
     import worker_host_sequence
 
     return worker_host_sequence.report(

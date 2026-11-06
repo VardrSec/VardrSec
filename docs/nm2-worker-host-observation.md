@@ -14,6 +14,13 @@ Map signing configuration and enrollment remain explicit prerequisites. The
 stop and receipt reconciliation; actual integrated acceptance remains open. The
 overlay is not loaded by ordinary distribution commands.
 
+The additive persistent-v3 implementation is inactive pending the explicit owner
+disposition in [its contract](nm2-persistent-worker-contract.md). It separates
+availability until stop from fresh finite authority for each job. Its proposed
+STOP-only reporting capability lasts until revocation or retirement; this broader
+lifetime is not accepted by the earlier finite-protocol evidence. No persistent
+deployment or NM-2 closeout is claimed.
+
 The worker-only environment file supplies explicitly declared local credential
 references and existing profile limits. Never use the installation `.env` or
 export a host credential store there. The native bootstrap retains only its finite
@@ -89,12 +96,13 @@ wins the race, this invocation never falls back to a bound report; an unknown
 intent remains held for explicit recovery. This branch requires the matching Map
 runtime endpoint and does not change ordinary/manual/Mapless execution.
 
-Explicit `worker enable --max-attempts N` selects the v2 candidate, with N from
-1 through 32. The observer must read an actual owner-ready/2 file from the exact
+Explicit `worker enable --protocol finite-v2 --max-attempts N` selects the v2
+candidate, with N from 1 through 32. The observer must read an actual owner-ready/2 file from the exact
 reviewed image; the resulting registration/admission and host MAC record use
-their explicit v2 formats. Omitting the option retains the v1 one-shot path and
-requires its matching v1 image. No mode silently downgrades. Default startup and
-the four data mounts remain unchanged.
+their explicit v2 formats. `--protocol legacy-v1` selects the v1 one-shot path and
+requires its matching v1 image. Normal enablement selects `persistent-v3` and
+requires its separate reviewed owner-ready/3 image. No mode silently downgrades.
+Default startup and the four data mounts remain unchanged.
 
 V2 job completion and physical incarnation retirement are separate. A canonical
 completion may be observed within an active sequence, but cannot stand in for a
@@ -105,12 +113,22 @@ claims without rewriting historical outcomes, evidence or spent charges. The
 existing four-field host-stop ACK wrapper remains unchanged. Receipt lookup
 after expiry/revocation does not permit a new mutation.
 
-Each physical-report predicate has one durable MAC intent. At most 65 bounded
+Each finite-v2 physical-report predicate has one durable MAC intent. At most 65 bounded
 8-KiB files cover idle0, active1, idle1 through active32, idle32; the existing
 64-KiB host record keeps only their bounded cursor/digest index. No array or
 history is truncated. Missing, oversized, changed or unauthenticated metadata
 refuses before a report. Raw STOP custody is unchanged, and the original intent
 is retained after every continuation.
+
+V3 retains those same per-file and index bounds, but uses independent report
+ordinals 0–64 and structured `{last_sequence, phase}` cursors. Job sequence is a
+canonical decimal string through the signed 64-bit maximum; the report limit
+does not cap jobs or silently truncate history. Reporting occurs only after
+physical exit. A 66th report predicate holds without evicting any prior intent.
+Selected-history reads bind the full admission digest, exact sequence, canonical
+terminal and release receipts. Same-cursor receipt changes never permit another
+POST. Every continuation retains the same direct physical exit proof and repeats
+final confirmation immediately before its sole mutation.
 
 `worker report-exit --continue-after-transition` is a separate explicit action.
 It requires fresh authenticated immutable history proving the old conditional

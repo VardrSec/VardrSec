@@ -126,15 +126,24 @@ def parser():
         enable.add_argument("--" + name, required=True)
     enable.add_argument("--runtime-id", type=runtime_id)
     enable.add_argument(
+        "--protocol",
+        choices=("persistent-v3", "finite-v2", "legacy-v1"),
+        default="persistent-v3",
+        help="Explicit matching image protocol; normal background availability uses v3",
+    )
+    enable.add_argument(
         "--max-attempts",
+        help="Optional v3 finite job limit; required1..32 for explicit finite-v2",
+    )
+    enable.add_argument(
+        "--idle-timeout-seconds",
         type=int,
-        help="Explicit v2 sequence limit, 1..32; omission preserves the v1 single-attempt mode",
+        help="Optional v3 finite idle limit1..86400; omission leaves persistent idle unbounded",
     )
     enable.add_argument(
         "--expires-in",
         type=int,
-        default=900,
-        help="Admission seconds, 60..604800; the worker reserves its existing reporting runway",
+        help="Legacy/finite admission seconds60..604800 (default900); not a v3 lifetime",
     )
     enable.add_argument("--username", default="operator")
     enable.add_argument(
@@ -142,7 +151,7 @@ def parser():
         action="store_true",
         help="Explicitly read one bounded password line from stdin instead of hidden TTY input",
     )
-    for name in ("status", "stop", "report-exit", "reconcile", "revoke"):
+    for name in ("status", "disable", "stop", "report-exit", "reconcile", "revoke"):
         action = actions.add_parser(name)
         action.add_argument("--runtime-id", required=True, type=runtime_id)
         action.add_argument("--private-root", required=True)
@@ -312,9 +321,14 @@ def components(record, *, client=True):
         record["context"],
         runtime.WorkerLayout(**record["layout"]),
         **(
-            {"max_attempts": record["registration"]["max_attempts"]}
+            {"protocol": "persistent-v3"}
+            if "mode" in record["registration"]
+            else {
+                "protocol": "finite-v2",
+                "max_attempts": record["registration"]["max_attempts"],
+            }
             if "max_attempts" in record["registration"]
-            else {}
+            else {"protocol": "legacy-v1"}
         ),
     )
     identity = runtime.RuntimeIdentity(**record["registration"]["identity"])
@@ -331,9 +345,38 @@ def components(record, *, client=True):
 
 def enable(installation, args):
     args._failure_phase = "enable_inputs"
-    require(60 <= args.expires_in <= 604800)
+    protocol = getattr(args, "protocol", "persistent-v3")
     maximum = getattr(args, "max_attempts", None)
-    require(maximum is None or (type(maximum) is int and 1 <= maximum <= 32))
+    idle = getattr(args, "idle_timeout_seconds", None)
+    if protocol == "persistent-v3":
+        import worker_host_persistent
+
+        require(args.expires_in is None)
+        selected_limits = worker_host_persistent.limits(
+            {"max_attempts": maximum, "idle_timeout_seconds": idle}
+        )
+        admission_options = {"protocol": protocol, "limits": selected_limits}
+        observer_options = {"protocol": protocol}
+    else:
+        require(protocol in {"finite-v2", "legacy-v1"} and idle is None)
+        expiry = 900 if args.expires_in is None else args.expires_in
+        require(type(expiry) is int and 60 <= expiry <= 604800)
+        if protocol == "finite-v2":
+            require(maximum is not None)
+            if type(maximum) is str:
+                require(re.fullmatch(r"[1-9][0-9]?", maximum) is not None)
+                maximum = int(maximum)
+            require(type(maximum) is int and 1 <= maximum <= 32)
+        else:
+            require(maximum is None)
+        admission_options = {
+            "expires_in_seconds": expiry,
+            **({"max_attempts": maximum} if maximum is not None else {}),
+        }
+        observer_options = {
+            "protocol": protocol,
+            **({"max_attempts": maximum} if maximum is not None else {}),
+        }
     require(
         re.fullmatch(r"[0-9a-f]{64}", args.container_id or "")
         and re.fullmatch(r"sha256:[0-9a-f]{64}", args.image_id or "")
@@ -358,7 +401,7 @@ def enable(installation, args):
             args.state_volume,
             args.readiness_volume,
         ),
-        **({"max_attempts": maximum} if maximum is not None else {}),
+        **observer_options,
     )
     args._failure_phase = "enable_api_setup"
     client = host.HostClient(args.api_url, args.ca)
@@ -383,9 +426,8 @@ def enable(installation, args):
             runner_id=args.runner_id,
             identity=identity,
             observer=observer,
-            expires_in_seconds=args.expires_in,
             runtime_id=args.runtime_id,
-            **({"max_attempts": maximum} if maximum is not None else {}),
+            **admission_options,
         )
     # The host receipt exists before public permission can enter the container.
     args._failure_phase = "enable_publication_checks"
@@ -469,6 +511,15 @@ def dispatch(installation, args):
         return enable(installation, args)
     records = records_for(installation, args.private_root, existing=True)
     if args.action == "stop":
+        selected = load(records, args.runtime_id)
+        if "mode" in selected["registration"] and selected["disable_state"] == "none":
+            import worker_host_persistent
+
+            try:
+                client, _, _ = components(selected)
+                worker_host_persistent.disable(client, records, args.runtime_id)
+            except (host.HostRefused, runtime.RuntimeRefused, OSError, ValueError):
+                pass  # Exact physical emergency stop remains available offline.
         record, observer, proof = stop(records, args.runtime_id)
         if args.report:
             client, _, _ = components(record)
@@ -490,10 +541,21 @@ def dispatch(installation, args):
             "exit_code": proof.exit_code,
             "finished_at": proof.finished_at,
             "local_runner_reconciliation": "required",
+            **(
+                {"new_work_disable_state": record["disable_state"]}
+                if "mode" in record["registration"]
+                else {}
+            ),
         }
     record = load(records, args.runtime_id)
     if args.action == "status":
         _, observer, identity = components(record, client=False)
+        if "mode" in record["registration"]:
+            import worker_host_persistent
+
+            return worker_host_persistent.status(
+                records, args.runtime_id, observer, identity
+            )
         with records.locked():
             require(records.read(args.runtime_id) == record)
             actual = observer._bound(identity)
@@ -520,10 +582,36 @@ def dispatch(installation, args):
             ),
         }
     client, observer, identity = components(record)
+    if args.action == "disable":
+        import worker_host_persistent
+
+        require("mode" in record["registration"])
+        reply = worker_host_persistent.disable(client, records, args.runtime_id)
+        return {
+            "schema": "vardr.worker-cli/1",
+            "state": "new_work_disabled",
+            "runtime_id": args.runtime_id,
+            "receipt": reply,
+        }
     if args.action == "reconcile":
         reply = host.reconcile_exit(client, records, args.runtime_id)
-        sequenced = reply.get("schema") == "vardr.worker-receipt-observation/2"
+        sequenced = reply.get("schema") in {
+            "vardr.worker-receipt-observation/2",
+            "vardr.worker-receipt-observation/3",
+        }
         terminal = reply["retirement"] if sequenced else reply["receipt"]
+        if (
+            reply.get("schema") == "vardr.worker-receipt-observation/3"
+            and terminal is None
+            and load(records, args.runtime_id)["disable_state"] == "observed"
+        ):
+            return {
+                "schema": "vardr.worker-cli/1",
+                "state": "new_work_disabled_observed",
+                "runtime_id": args.runtime_id,
+                "receipt": reply,
+                "local_runner_reconciliation": "not_required_for_disable",
+            }
         return {
             "schema": "vardr.worker-cli/1",
             "state": "terminal_observed"
@@ -583,7 +671,9 @@ def main(argv=None, *, installation=None):
         args._failure_phase = "dispatch"
         reply = dispatch(installation, args)
         print(json.dumps(reply, sort_keys=True))
-        return 1 if reply["state"].startswith("held_") else 0
+        return (
+            1 if reply["state"] == "held" or reply["state"].startswith("held_") else 0
+        )
     except SystemExit as result:
         return result.code
     except KeyboardInterrupt as error:

@@ -246,6 +246,8 @@ class WorkerCLI(unittest.TestCase):
             }
             arguments = [
                 "enable",
+                "--protocol",
+                "legacy-v1",
                 *[
                     item
                     for key, value in values.items()
@@ -303,6 +305,160 @@ class WorkerCLI(unittest.TestCase):
             )
             self.assertEqual(f.observer.commands, [])
 
+    def test_normal_enable_selects_persistent_and_finite_protocols_are_explicit(self):
+        names = (
+            "api-url",
+            "ca",
+            "private-root",
+            "context",
+            "container-id",
+            "image-id",
+            "project",
+            "trust-source",
+            "admission-source",
+            "state-volume",
+            "readiness-volume",
+            "enrollment-id",
+            "runner-id",
+            "origin",
+            "public-trust",
+        )
+        arguments = [
+            "enable",
+            *[item for name in names for item in ("--" + name, "unused")],
+        ]
+        parser = cli.parser()
+        self.assertEqual(parser.parse_args(arguments).protocol, "persistent-v3")
+        self.assertIsNone(parser.parse_args(arguments).max_attempts)
+        self.assertIsNone(parser.parse_args(arguments).expires_in)
+        for protocol in ("legacy-v1", "finite-v2"):
+            with self.subTest(protocol=protocol):
+                self.assertEqual(
+                    parser.parse_args([*arguments, "--protocol", protocol]).protocol,
+                    protocol,
+                )
+
+    def test_persistent_stop_still_stops_exact_incarnation_when_disable_is_unreachable(
+        self,
+    ):
+        import worker_host_persistent
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            f = self.fixture(root)
+            f.record["registration"]["mode"] = "persistent"
+            f.record["disable_state"] = "none"
+            args = SimpleNamespace(
+                action="stop", runtime_id=RID, private_root=str(root), report=False
+            )
+            with (
+                patch.object(cli, "records_for", return_value=f.records),
+                patch.object(
+                    cli, "components", return_value=(f.client, f.observer, f.identity)
+                ),
+                patch.object(
+                    worker_host_persistent,
+                    "disable",
+                    side_effect=cli.host.HostRefused(),
+                ) as disable,
+            ):
+                reply = cli.dispatch(root, args)
+            self.assertEqual(reply["state"], "stopped_observed")
+            disable.assert_called_once_with(f.client, f.records, RID)
+            stops = [
+                arguments
+                for arguments, _ in f.observer.commands
+                if arguments[:2] == ("container", "stop")
+            ]
+            self.assertEqual(
+                stops, [("container", "stop", "-t", "10", f.identity.container_id)]
+            )
+
+    def test_default_enable_passes_explicit_persistent_policy_before_publication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            f = self.fixture(root)
+            args = SimpleNamespace(
+                protocol="persistent-v3",
+                max_attempts=None,
+                idle_timeout_seconds=None,
+                expires_in=None,
+                container_id=f.identity.container_id,
+                image_id=f.identity.image_id,
+                project=f.identity.project,
+                runner_id=RUNNER,
+                public_trust=str(root / "public.json"),
+                admission_source=str(f.public),
+                trust_source=str(f.trust),
+                context=f.observer.context,
+                state_volume=f.observer.layout.state_volume,
+                readiness_volume=f.observer.layout.readiness_volume,
+                api_url=f.record["client"]["base_url"],
+                ca=f.record["client"]["ca_file"],
+                private_root=str(root),
+                origin="https://map.internal",
+                enrollment_id="enrollment-1",
+                runtime_id=RID,
+            )
+            session = Mock()
+
+            def registered(*positional, **kwargs):
+                self.assertEqual(kwargs["protocol"], "persistent-v3")
+                self.assertEqual(
+                    kwargs["limits"],
+                    {"max_attempts": None, "idle_timeout_seconds": None},
+                )
+                self.assertNotIn("expires_in_seconds", kwargs)
+                self.assertNotIn("max_attempts", kwargs)
+                self.assertFalse((f.public / "admission.json").exists())
+                return f.record["admission"]
+
+            with (
+                patch.object(cli, "public_trust", return_value=b"[]"),
+                patch.object(cli, "records_for", return_value=f.records),
+                patch.object(
+                    cli.runtime, "LocalDocker", return_value=f.observer
+                ) as observer,
+                patch.object(cli.host, "HostClient", return_value=f.client),
+                patch.object(
+                    cli, "owner", return_value=contextlib.nullcontext(session)
+                ),
+                patch.object(
+                    cli.host, "register_runtime", side_effect=registered
+                ) as register,
+                patch.object(cli.host, "_client"),
+                patch.object(cli.host, "_observer"),
+            ):
+                self.assertEqual(cli.enable(root, args)["state"], "enabled")
+            self.assertEqual(observer.call_args.kwargs, {"protocol": "persistent-v3"})
+            register.assert_called_once()
+            self.assertEqual(
+                json.loads((f.public / "admission.json").read_bytes()),
+                f.record["admission"],
+            )
+
+    def test_advisory_held_status_is_a_nonzero_cli_result(self):
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            patch.object(
+                cli,
+                "dispatch",
+                return_value={
+                    "schema": "vardr.worker-status/1",
+                    "state": "held",
+                    "runtime_id": RID,
+                },
+            ),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(
+                cli.main(
+                    ["status", "--runtime-id", RID, "--private-root", temporary],
+                    installation=Path(temporary),
+                ),
+                1,
+            )
+
     def test_publication_never_overwrites_existing_permission(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "admission.json"
@@ -316,6 +472,7 @@ class WorkerCLI(unittest.TestCase):
             root = Path(temporary)
             f = self.fixture(root)
             args = SimpleNamespace(
+                protocol="legacy-v1",
                 expires_in=900,
                 container_id=f.identity.container_id,
                 image_id=f.identity.image_id,

@@ -164,7 +164,7 @@ class ObservedExit:
 class LocalDocker:
     """Bounded CLI access to one explicitly selected local Docker context."""
 
-    def __init__(self, context, layout, *, max_attempts=None):
+    def __init__(self, context, layout, *, max_attempts=None, protocol=None):
         require(
             type(context) is str and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", context)
         )
@@ -176,6 +176,17 @@ class LocalDocker:
             or (type(max_attempts) is int and 1 <= max_attempts <= 32)
         )
         self.max_attempts = max_attempts
+        require(protocol is None or type(protocol) is str)
+        self.protocol = (
+            protocol
+            if protocol is not None
+            else ("finite-v2" if max_attempts is not None else "legacy-v1")
+        )
+        require(self.protocol in {"legacy-v1", "finite-v2", "persistent-v3"})
+        require(
+            (self.protocol == "finite-v2" and max_attempts is not None)
+            or (self.protocol != "finite-v2" and max_attempts is None)
+        )
         self._observation_lock = threading.Lock()
         self._deadline = None
 
@@ -427,7 +438,9 @@ class LocalDocker:
             require(
                 ready["schema"]
                 == (
-                    "vardr.worker-owner-ready/2"
+                    "vardr.worker-owner-ready/3"
+                    if self.protocol == "persistent-v3"
+                    else "vardr.worker-owner-ready/2"
                     if self.max_attempts is not None
                     else "vardr.worker-owner-ready/1"
                 )

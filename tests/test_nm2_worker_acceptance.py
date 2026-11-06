@@ -1211,7 +1211,10 @@ class AcceptanceGuards(unittest.TestCase):
                         else self.fail("admission changed")
                     ),
                 )
-            self.assertEqual(constructor.call_args.kwargs, {"max_attempts": 2})
+            self.assertEqual(
+                constructor.call_args.kwargs,
+                {"max_attempts": 2, "protocol": "finite-v2"},
+            )
             cli.assert_called_once()
             observer.observe_exit.assert_called_once_with(identity)
             self.assertEqual(order, ["admitted_action", "actual_exit_observation"])
@@ -1789,6 +1792,7 @@ class AcceptanceGuards(unittest.TestCase):
             "database_roles.py",
             "worker_host.py",
             "worker_host_sequence.py",
+            "worker_host_persistent.py",
             "worker_runtime.py",
             "worker_secrets.py",
             "worker_volumes.py",
@@ -1954,7 +1958,9 @@ class AcceptanceGuards(unittest.TestCase):
                 with self.assertRaises(worker_runtime.RuntimeRefused):
                     fixture.run()
             observer.assert_called_once()
-            self.assertEqual(observer.call_args.kwargs, {"max_attempts": 2})
+            self.assertEqual(
+                observer.call_args.kwargs, {"max_attempts": 2, "protocol": "finite-v2"}
+            )
             docker.assert_not_called()
             snapshot.assert_not_called()
             stage.assert_not_called()
