@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Accept only the product's closed running/null-Map advisory response while the
+  optional idle fixture polls within its existing bound. Keep initial readiness,
+  native124, unchanged-work and independent exit requirements intact. Preserve
+  fixed wrapper checkpoints through the existing sanitized failure projection;
+  pure producer-to-decoder regressions do not identify the held Desktop cause.
+
 - Record verified Linux optional count-one evidence on the exact G/R1e05 cohort
   and the separate held Desktop idle receipt. Keep their scopes distinct and
   preserve the remaining NM-2 acceptance gates.

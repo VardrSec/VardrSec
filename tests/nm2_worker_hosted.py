@@ -855,7 +855,7 @@ def failure_projection(raw, selection):
             value["command_failure"] = diagnostic
     status_failure = raw.get("status_failure")
     if (
-        value["reason"] == "persistent_status_refused"
+        value["reason"] in {"persistent_status_refused", "idle_status_refused"}
         and type(status_failure) is dict
         and set(status_failure) == {"checkpoint"}
         and type(status_failure["checkpoint"]) is str

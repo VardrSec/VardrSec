@@ -146,6 +146,12 @@ class WorkerStatusRefused(AcceptanceRefused):
         }
 
 
+class IdleStatusRefused(WorkerStatusRefused):
+    def __init__(self, checkpoint):
+        super().__init__(checkpoint)
+        self.args = ("idle_status_refused",)
+
+
 class WorkerCLIRefused(AcceptanceRefused):
     def __init__(self, phase, code, registration_failure=None):
         super().__init__("fixture_command_failed")
@@ -529,6 +535,15 @@ def idle_status_value(value, code, admission):
         from nm2_worker_persistent_projection import stamp
         stamp(value["finished_at"], physical=True)
         return value
+    if all(value[k] is None for k in (
+        "cursor", "availability", "new_work_disabled", "reporting_revoked"
+    )):
+        # A bound running container may have no readable Map availability.
+        # This advisory poll is neither initial readiness nor physical exit.
+        require(code == 1 and value["state"] == "held"
+                and value["reason"] == "availability_unconfirmed"
+                and value["container_state"] == "running", reason)
+        return value
     require(value["container_state"] == "running"
             and value["cursor"] == {"last_sequence": "1", "phase": "idle"}
             and value["new_work_disabled"] is False
@@ -560,15 +575,18 @@ def idle_status_value(value, code, admission):
 def worker_idle_status_command(arguments, *, cwd, env, timeout, expected_admission):
     """No retries, stop, or claim; one existing read-only product status command."""
     import worker_host
+    checkpoint = "subprocess"
     try:
         result = subprocess.run(arguments, cwd=cwd, env=env, capture_output=True,
                                 timeout=timeout, check=False)
+        checkpoint = "output"
         require(type(result.stdout) is bytes and 0 < len(result.stdout) <= 4096
                 and result.stderr == b"", "idle_status_refused")
+        checkpoint = "lookup"
         idle_status_value(worker_host._json(result.stdout), result.returncode, expected_admission)
         return result.stdout
     except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AttributeError):
-        raise AcceptanceRefused("idle_status_refused") from None
+        raise IdleStatusRefused(checkpoint) from None
 
 
 def fixture_subnets(value):
