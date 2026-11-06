@@ -228,3 +228,28 @@ The explicitly selected idle-control fixture and independent reader are implemen
 for the existing optional60-second limit. One reviewed job must complete, followed
 by native124 without operator stop and exact retirement/reconciliation. Actual
 Linux/Desktop idle acceptance remains open. See the [bounded acceptance plan](nm2-worker-acceptance-plan.md).
+
+
+### Selected NM-2 platform evidence, 2026-11-06
+
+[Linux count-one run42300367549](https://github.com/VardrSec/VardrSec/actions/runs/42300367549)
+passed on Distribution `b516366e574eaeb1057e88301634e861f761fe0f`,
+Runner `1e05c5bc12369e6b6b953d80527ac3fcd906f53c`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c` and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`. Both Ubuntu and Windows compatibility
+jobs passed. The independently checked [sanitized count receipt](evidence/nm2-linux-count-one-verified-2026-11-06.json)
+reports one issued attempt, five target requests and evidence records, zero local
+holds, zero target/duration charges for the unissued job, and six owned stopped
+containers. The explicit limits were count-one with no idle timeout. Its ZIP digest,
+receipt digest and all four immutable source commits/trees were checked.
+
+The separate [Desktop idle receipt](evidence/nm2-desktop-idle-limit-held-2026-11-06.json)
+remains held at `idle_control_observation` / `idle_status_refused`, with no idle
+acceptance credit. Its retained public facts report six stopped retained containers,
+checked inventory and one permitted empty built-in bridge identity change; cause
+remains unknown. No job or timing result is inferred from this held receipt.
+
+These are separate selected-slice records. The count result does not establish the
+cause of earlier Linux refusals. Other availability, idle, zero-issued-job,
+stop/re-enable and containment evidence remains subject to its own acceptance
+record. NM-2 remains incomplete; NM-3 is not resumed by this evidence update.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Record verified Linux optional count-one evidence on the exact G/R1e05 cohort
+  and the separate held Desktop idle receipt. Keep their scopes distinct and
+  preserve the remaining NM-2 acceptance gates.
+
 - Compare fully validated worker mount snapshots by unique destination order,
   preserving every row/field and all other inspect state in a shallow copy.
   Keep raw inspection, exact identity/profile/volume checks, bounds and retries
