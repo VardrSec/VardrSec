@@ -29,7 +29,8 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_NAMES = {"distribution", "map", "runner", "gate"}
 IMAGE_NAMES = {"db", "api", "web", "proxy", "worker"}
-ORIGIN = "http://gate-fixture:8080"
+TARGET_HOST = "gate-fixture.test"
+ORIGIN = f"http://{TARGET_HOST}:8080"
 EXECUTION = {
     "timeout_seconds": 20,
     "max_response_bytes": 65536,
@@ -928,7 +929,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                     "read_only": True,
                 }
             ],
-            "networks": {"runner": {"aliases": ["gate-fixture"]}},
+            "networks": {"runner": {"aliases": [TARGET_HOST]}},
             "cap_drop": ["ALL"],
             "security_opt": ["no-new-privileges:true"],
             "read_only": True,
@@ -962,7 +963,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
         )
 
     def new_job(self, name, *, in_scope=True):
-        from gate_acceptance import reviewed_cases
+        from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
 
         now = datetime.now(timezone.utc)
 
@@ -1005,6 +1006,18 @@ print(json.dumps({'files':hashes,'executables':executables}))
             self.api.request(base + "/" + endpoint, body, method="PUT")
         case = next(case for case in reviewed_cases() if case["name"] == "fixed")
         case["spec"]["id"] = "nm2-" + name
+        requests = [case["spec"]["request"]]
+        requests.extend(
+            identity["preflight"]
+            for identity in case["spec"]["identities"]
+            if identity.get("preflight") is not None
+        )
+        for request in requests:
+            require(
+                request["url"].startswith(REVIEWED_ORIGIN + "/"),
+                "fixture_case_origin_mismatch",
+            )
+            request["url"] = ORIGIN + request["url"][len(REVIEWED_ORIGIN) :]
         stored = self.api.request(base + "/test-cases", case, expected=201)
         job = self.api.request(
             base + "/jobs",

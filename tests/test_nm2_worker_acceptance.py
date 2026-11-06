@@ -17,6 +17,66 @@ import worker_runtime
 
 
 class AcceptanceGuards(unittest.TestCase):
+    def test_case_and_scope_use_same_unambiguous_owned_fixture_origin(self):
+        from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
+
+        for in_scope in (True, False):
+            with self.subTest(in_scope=in_scope):
+                fixture = object.__new__(acceptance.Fixture)
+                fixture.project = "vardrsec-nm2-publicfixture"
+
+                def request(path, body=None, **kwargs):
+                    if path == "/engagements":
+                        return {"id": "engagement"}
+                    if path.endswith("/authorizations"):
+                        return {"id": "authorization"}
+                    if path.endswith("/test-cases"):
+                        return {**copy.deepcopy(body), "id": "case"}
+                    if path.endswith("/jobs"):
+                        return {"id": "job"}
+                    return {}
+
+                fixture.api = Mock()
+                fixture.api.request.side_effect = request
+                with patch.object(
+                    acceptance,
+                    "command",
+                    side_effect=AssertionError("queue preparation must not run Docker"),
+                ):
+                    _, _, _, case = fixture.new_job("origin", in_scope=in_scope)
+                self.assertEqual(acceptance.TARGET_HOST, "gate-fixture.test")
+                self.assertEqual(acceptance.ORIGIN, "http://gate-fixture.test:8080")
+                self.assertEqual(
+                    case["spec"]["request"]["url"],
+                    acceptance.ORIGIN + "/fixed/records/42?view=full&include=owner",
+                )
+                self.assertEqual(
+                    [
+                        identity["preflight"]["url"]
+                        for identity in case["spec"]["identities"]
+                        if identity.get("preflight") is not None
+                    ],
+                    [acceptance.ORIGIN + "/session"] * 2,
+                )
+                scope = next(
+                    call.args[1]
+                    for call in fixture.api.request.call_args_list
+                    if call.args[0].endswith("/scope/in")
+                )
+                self.assertEqual(
+                    scope,
+                    {
+                        "kind": "url",
+                        "value": acceptance.ORIGIN
+                        + ("/" if in_scope else "/unapproved/"),
+                    },
+                )
+        # The shared installed-Gate fixture keeps its original default origin.
+        self.assertEqual(
+            reviewed_cases()[1]["spec"]["request"]["url"],
+            REVIEWED_ORIGIN + "/fixed/records/42?view=full&include=owner",
+        )
+
     def test_http_refusal_records_only_status_and_normalized_route(self):
         api = object.__new__(acceptance.OwnerAPI)
         api.url, api.csrf = "https://localhost:28443", None
