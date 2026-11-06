@@ -37,6 +37,21 @@ inspection precedes creation of the local typed observation. Observation is capp
 at thirty seconds overall, with at most fifteen seconds per command. The daemon
 and trusted host remain part of the trust boundary; this is not attestation.
 
+Raw inspection remains unchanged. After every existing mount, tmpfs, profile and
+volume-source check, a bound snapshot uses a shallow copy with only its mount
+list sorted by the already validated unique destination. Every mount field and
+every other inspect field, including the entire state and capability lists, stays
+in the comparison. Duplicate/missing destinations and actual metadata changes
+still refuse; no timeout, retry or identity check is relaxed.
+
+This is necessary for Docker implementations such as
+[Moby v28.5.1](https://github.com/moby/moby/blob/f8215cc266744ef195a50a70d427c345da2acdbb/container/container_unix.go#L397-L412),
+whose Linux inspect mounts are collected directly from a map without sorting;
+[Go does not guarantee map traversal order](https://go.dev/ref/spec#For_range).
+Pure mocked-inspection regressions prove the order-only false refusal. The held
+Ubuntu count receipt retained neither an inspect-field diff nor engine version,
+so these regressions do not identify that trial's cause or close its gate.
+
 The caller supplies a protected `WorkerLayout` binding the exact public trust,
 public admission, state-volume and separate readiness-volume sources. Only these
 four data destinations and the reviewed `/tmp` tmpfs are allowed. The readiness

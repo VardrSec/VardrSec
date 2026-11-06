@@ -345,6 +345,122 @@ class WorkerRuntimeTests(unittest.TestCase):
                 project=self.identity.project,
             )
 
+    def capture_with_final_change(self, change, *, protocol="persistent-v3"):
+        self.info["state"].update(
+            Status="running", Running=True, ExitCode=0,
+            FinishedAt="0001-01-01T00:00:00Z", Pid=314,
+        )
+        self.ready["schema"] = {
+            "legacy-v1": "vardr.worker-owner-ready/1",
+            "finite-v2": "vardr.worker-owner-ready/2",
+            "persistent-v3": "vardr.worker-owner-ready/3",
+        }[protocol]
+
+        def command(argv, **options):
+            result = self.command(argv, **options)
+            if argv[3:5] == ["container", "inspect"] and self.inspect_count == 3:
+                value = json.loads(result.stdout)
+                change(value)
+                result.stdout = json.dumps(value)
+            return result
+
+        with patch.object(runtime.subprocess, "run", command):
+            return runtime.LocalDocker(
+                "desktop-linux", self.layout, protocol=protocol,
+                max_attempts=2 if protocol == "finite-v2" else None,
+            ).capture_running(
+                container_id=self.identity.container_id,
+                image_id=self.identity.image_id,
+                project=self.identity.project,
+            )
+
+    def test_mount_order_only_preserves_capture_in_every_protocol(self):
+        for protocol in ("legacy-v1", "finite-v2", "persistent-v3"):
+            with self.subTest(protocol=protocol):
+                self.setUp()
+                self.assertEqual(
+                    self.capture_with_final_change(
+                        lambda value: value["mounts"].reverse(), protocol=protocol
+                    ),
+                    self.identity,
+                )
+                self.assertEqual(self.inspect_count, 3)
+                self.assertEqual(len(self.calls), 16)
+
+    def test_bound_mount_order_is_copied_without_dropping_fields_or_mutating_input(self):
+        self.info["FutureInspectField"] = {"public-fixture": True}
+        self.info["mounts"][0]["FutureMountField"] = {"public-fixture": True}
+        original = copy.deepcopy(self.info)
+        observer = runtime.LocalDocker("desktop-linux", self.layout)
+        with (
+            patch.object(runtime.subprocess, "run", self.command),
+            patch.object(observer, "inspect", return_value=self.info),
+        ):
+            bound = observer._bound(self.identity)
+        self.assertEqual(self.info, original)
+        self.assertIsNot(bound, self.info)
+        self.assertIsNot(bound["mounts"], self.info["mounts"])
+        self.assertEqual(
+            bound,
+            {**original, "mounts": sorted(original["mounts"], key=lambda row: row["Destination"])},
+        )
+        self.assertTrue(all(any(row is source for source in self.info["mounts"]) for row in bound["mounts"]))
+
+    def test_mount_permutation_cannot_hide_other_inspect_changes(self):
+        changes = [
+            ("Source", "volume_metadata", lambda value: value["mounts"][0].update(Source="/untrusted")),
+            ("RW", "mounts", lambda value: value["mounts"][0].update(RW=False)),
+            ("Name", "mounts", lambda value: value["mounts"][0].update(Name="another-volume")),
+            ("unknown_mount_field", "incarnation_recheck", lambda value: value["mounts"][0].update(FutureMountField=True)),
+            ("propagation", "incarnation_recheck", lambda value: value["mounts"][0].update(Propagation="rshared")),
+            ("Pid", "incarnation_recheck", lambda value: value["state"].update(Pid=315)),
+            ("ExitCode", "incarnation_recheck", lambda value: value["state"].update(ExitCode=1)),
+            ("FinishedAt", "incarnation_recheck", lambda value: value["state"].update(FinishedAt="2026-11-05T20:01:00Z")),
+            ("StartedAt", "profile", lambda value: value["state"].update(StartedAt="2026-11-05T20:01:00Z")),
+            ("unknown_state_field", "incarnation_recheck", lambda value: value["state"].update(FutureStateField=True)),
+            ("image", "profile", lambda value: value.update(image="sha256:" + "d" * 64)),
+            ("privileged", "profile", lambda value: value["host"].update(privileged=True)),
+            ("cap_add_order", "incarnation_recheck", lambda value: value["host"]["cap_add"].reverse()),
+        ]
+        for name, checkpoint, change in changes:
+            with self.subTest(field=name):
+                self.setUp()
+
+                def changed(value):
+                    change(value)
+                    value["mounts"].reverse()
+
+                with self.assertRaises(runtime.RuntimeRefused) as caught:
+                    self.capture_with_final_change(changed)
+                self.assertEqual(caught.exception.checkpoint, checkpoint)
+
+    def test_duplicate_missing_or_untyped_mount_destination_still_refuses(self):
+        for change in (
+            lambda value: value["mounts"].append(copy.deepcopy(value["mounts"][0])),
+            lambda value: value["mounts"].pop(),
+            lambda value: value["mounts"][0].update(Destination=None),
+        ):
+            with self.subTest(change=change):
+                self.setUp()
+                with self.assertRaises(runtime.RuntimeRefused) as caught:
+                    self.capture_with_final_change(change)
+                self.assertEqual(caught.exception.checkpoint, "mounts")
+
+    def test_mount_order_only_preserves_exact_exit_rechecks(self):
+        def command(argv, **options):
+            result = self.command(argv, **options)
+            if argv[3:5] == ["container", "inspect"] and self.inspect_count == 2:
+                value = json.loads(result.stdout)
+                value["mounts"].reverse()
+                result.stdout = json.dumps(value)
+            return result
+
+        with patch.object(runtime.subprocess, "run", command):
+            proof = runtime.LocalDocker("desktop-linux", self.layout).observe_exit(self.identity)
+        self.assertEqual(proof.identity, self.identity)
+        self.assertEqual(proof.exit_code, 137)
+        self.assertEqual(self.inspect_count, 3)
+
     def test_runtime_admission_nonce_is_derived_from_actual_owner_archive(self):
         self.info["state"].update(Status="running", Running=True)
         self.assertEqual(self.capture(), self.identity)

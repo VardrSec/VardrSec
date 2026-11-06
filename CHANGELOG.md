@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Compare fully validated worker mount snapshots by unique destination order,
+  preserving every row/field and all other inspect state in a shallow copy.
+  Keep raw inspection, exact identity/profile/volume checks, bounds and retries
+  unchanged. Pure order-only regressions establish a comparison defect, not the
+  cause of the retained Ubuntu capture-recheck refusal or platform acceptance.
+
 - Add the explicit optional60-second native-idle acceptance fixture and strict
   independent reader, separate from availability/count proofs. Require one
   reviewed job, native124 without operator stop and original-run reconciliation;

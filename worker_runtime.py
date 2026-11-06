@@ -347,7 +347,10 @@ class LocalDocker:
             self._volume_sources(identity.project, value["mounts"])
         except (RuntimeRefused, KeyError, TypeError, AttributeError) as error:
             raise _capture_refused(error, checkpoint) from None
-        return value
+        return {
+            **value,
+            "mounts": sorted(value["mounts"], key=lambda mount: mount["Destination"]),
+        }
 
     def _volume_sources(self, project, mounts):
         # Pure validation is shared with host custody; no host-root traversal or
