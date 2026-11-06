@@ -82,6 +82,7 @@ def host_bind_path(value):
 _ID = re.compile(r"[0-9a-f]{64}")
 _IMAGE = re.compile(r"sha256:[0-9a-f]{64}")
 _PROOF = object()
+_CREATED_PROOF = object()
 # Deliberately exclude Config.Env and other credential-bearing configuration.
 _INSPECT = (
     '{"id":{{json .Id}},"image":{{json .Image}},"state":{{json .State}},'
@@ -176,6 +177,34 @@ class WorkerLayout:
 
 
 @dataclass(frozen=True, init=False)
+class ObservedCreated:
+    """Direct Created-profile observation, never runtime or never-sent proof.
+
+    Serialized fields cannot be loaded as proof. There is deliberately no
+    started timestamp, owner nonce, admission or execution authority here.
+    """
+
+    daemon_id: str
+    container_id: str
+    image_id: str
+    project: str
+    layout: WorkerLayout
+
+    def __init__(
+        self, daemon_id, container_id, image_id, project, layout, *, _proof=None
+    ):
+        require(_proof is _CREATED_PROOF)
+        for name, value in (
+            ("daemon_id", daemon_id),
+            ("container_id", container_id),
+            ("image_id", image_id),
+            ("project", project),
+            ("layout", layout),
+        ):
+            object.__setattr__(self, name, value)
+
+
+@dataclass(frozen=True, init=False)
 class ObservedExit:
     """Created only by the direct adapter, never loaded from caller JSON."""
 
@@ -188,6 +217,46 @@ class ObservedExit:
         object.__setattr__(self, "identity", identity)
         object.__setattr__(self, "finished_at", finished_at)
         object.__setattr__(self, "exit_code", exit_code)
+
+
+def _static_profile(value, host, labels, image_id, project):
+    """The existing immutable profile predicates, shared by bound/Created reads."""
+    require(
+        value["image"] == image_id
+        and value["user"] in {"0", "0:0", "root", "root:root"}
+        and value["entrypoint"] == ["/usr/local/bin/vardr-worker-owner"]
+        and value["command"] in (None, [])
+        and (value["healthcheck"] is None or value["healthcheck"] == {"Test": ["NONE"]})
+        and labels["com.docker.compose.project"] == project
+        and labels["com.docker.compose.service"] == "managed-worker"
+        and labels["io.vardrsec.managed-worker"] == "1"
+        and labels.get("com.docker.compose.oneoff") == "False"
+        and host["pid"] in {"", "private"}
+        and host["privileged"] is False
+        and (host["init"] is None or host["init"] is False)
+        and host["auto_remove"] is False
+        and host["readonly_root"] is True
+        and host["ipc"] == "private"
+        and host["cgroup"] == "private"
+        and host["devices"] in (None, [])
+        and host["device_requests"] in (None, [])
+        and host["port_bindings"] in (None, {})
+        and host["publish_all"] is False
+        and type(host["memory"]) is int
+        and host["memory"] == 536870912
+        and type(host["pids"]) is int
+        and host["pids"] == 64
+        and type(host["nano_cpus"]) is int
+        and host["nano_cpus"] == 1000000000
+        and (host["oom_disable"] is None or host["oom_disable"] is False)
+        and host["restart"] in {"", "no"}
+        and {v.upper().removeprefix("CAP_") for v in host["cap_add"]}
+        == {"SETUID", "SETGID", "SETPCAP"}
+        and {v.upper().removeprefix("CAP_") for v in host["cap_drop"]} == {"ALL"}
+        and type(host["security"]) is list
+        and len(host["security"]) == 1
+        and host["security"][0] in {"no-new-privileges", "no-new-privileges:true"}
+    )
 
 
 class LocalDocker:
@@ -296,47 +365,9 @@ class LocalDocker:
             checkpoint = "tmpfs"
             self._tmpfs(host["tmpfs"])
             checkpoint = "profile"
+            _static_profile(value, host, labels, identity.image_id, identity.project)
             require(
-                value["image"] == identity.image_id
-                and value["user"] in {"0", "0:0", "root", "root:root"}
-                and value["entrypoint"] == ["/usr/local/bin/vardr-worker-owner"]
-                and value["command"] in (None, [])
-                and (
-                    value["healthcheck"] is None
-                    or value["healthcheck"] == {"Test": ["NONE"]}
-                )
-                and labels["com.docker.compose.project"] == identity.project
-                and labels["com.docker.compose.service"] == "managed-worker"
-                and labels["io.vardrsec.managed-worker"] == "1"
-                and labels.get("com.docker.compose.oneoff") == "False"
-                and host["pid"] in {"", "private"}
-                and host["privileged"] is False
-                and (host["init"] is None or host["init"] is False)
-                and host["auto_remove"] is False
-                and host["readonly_root"] is True
-                and host["ipc"] == "private"
-                and host["cgroup"] == "private"
-                and host["devices"] in (None, [])
-                and host["device_requests"] in (None, [])
-                and host["port_bindings"] in (None, {})
-                and host["publish_all"] is False
-                and type(host["memory"]) is int
-                and host["memory"] == 536870912
-                and type(host["pids"]) is int
-                and host["pids"] == 64
-                and type(host["nano_cpus"]) is int
-                and host["nano_cpus"] == 1000000000
-                and (host["oom_disable"] is None or host["oom_disable"] is False)
-                and host["restart"] in {"", "no"}
-                and {v.upper().removeprefix("CAP_") for v in host["cap_add"]}
-                == {"SETUID", "SETGID", "SETPCAP"}
-                and {v.upper().removeprefix("CAP_") for v in host["cap_drop"]}
-                == {"ALL"}
-                and type(host["security"]) is list
-                and len(host["security"]) == 1
-                and host["security"][0]
-                in {"no-new-privileges", "no-new-privileges:true"}
-                and state["StartedAt"] == identity.started_at
+                state["StartedAt"] == identity.started_at
                 and type(state["Restarting"]) is bool
                 and type(state["Running"]) is bool
                 and type(state["Paused"]) is bool
@@ -516,6 +547,70 @@ class LocalDocker:
             TypeError,
         ) as error:
             raise _capture_refused(error, checkpoint) from None
+
+    def _created(self, container_id, image_id, project):
+        """Read the same profile/mount/volume guards without a runtime identity."""
+        value = self.inspect(container_id)
+        host, state, labels = value["host"], value["state"], value["labels"]
+        self._mounts(value["mounts"])
+        self._tmpfs(host["tmpfs"])
+        _static_profile(value, host, labels, image_id, project)
+        require(
+            state["Status"] == "created"
+            and state["Running"] is False
+            and state["Paused"] is False
+            and state["Restarting"] is False
+            and state["Dead"] is False
+            and state["OOMKilled"] is False
+            and type(state["Pid"]) is int
+            and state["Pid"] == 0
+            and type(state["ExitCode"]) is int
+            and state["ExitCode"] == 0
+            and state["StartedAt"] == state["FinishedAt"] == "0001-01-01T00:00:00Z"
+            and state["Error"] == ""
+        )
+        self._volume_sources(project, value["mounts"])
+        return {
+            **value,
+            "mounts": sorted(value["mounts"], key=lambda mount: mount["Destination"]),
+        }
+
+    def capture_created(self, *, daemon_id, container_id, image_id, project):
+        """Observe only a selected Created CID; start/registration are not inferred.
+
+        The lifecycle caller must separately validate replica/network inventory,
+        source ownership and its durable never-sent intent before any start.
+        """
+        require(
+            type(daemon_id) is str
+            and 1 <= len(daemon_id) <= 128
+            and type(container_id) is str
+            and _ID.fullmatch(container_id)
+            and type(image_id) is str
+            and _IMAGE.fullmatch(image_id)
+            and type(project) is str
+            and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project)
+        )
+        require(self._observation_lock.acquire(blocking=False))
+        try:
+            self._deadline = time.monotonic() + 30
+            require(self.daemon() == daemon_id)
+            before = self._created(container_id, image_id, project)
+            require(self._created(container_id, image_id, project) == before)
+            require(self.daemon() == daemon_id)
+            return ObservedCreated(
+                daemon_id,
+                container_id,
+                image_id,
+                project,
+                self.layout,
+                _proof=_CREATED_PROOF,
+            )
+        except (RuntimeRefused, KeyError, TypeError, AttributeError):
+            raise RuntimeRefused("worker_created_refused") from None
+        finally:
+            self._deadline = None
+            self._observation_lock.release()
 
     def capture_running(self, *, container_id, image_id, project):
         """Derive a fresh nonce from the actual owner's file, never caller JSON."""

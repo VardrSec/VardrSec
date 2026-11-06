@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add a distinct direct Created-worker observation with no fabricated start
+  identity or nonce. Share existing static profile guards with bound observation;
+  preserve current running/exit, mount, volume, readiness and deadline behavior.
+  Synthetic regressions cover both callers; next-enable, create/start commands
+  and physical lifecycle acceptance remain separate open work.
+
 - Accept only the product's closed running/null-Map advisory response while the
   optional idle fixture polls within its existing bound. Keep initial readiness,
   native124, unchanged-work and independent exit requirements intact. Preserve
