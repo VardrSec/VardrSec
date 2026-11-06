@@ -486,7 +486,7 @@ class AcceptanceGuards(unittest.TestCase):
             with self.subTest(scenario=scenario):
                 fixture, values = self.cancellation_fixture(scenario)
                 engagement, job, case = values[:3]
-                run_id = "00000000-0000-4000-8000-000000000099"
+                run_id = "0123456789abcdef" * 2
                 active = {
                     "run_id": run_id,
                     "job_id": job,
@@ -530,6 +530,34 @@ class AcceptanceGuards(unittest.TestCase):
                     fixture.cancellation_action(engagement, job, case)
                 fixture.helper.assert_not_called()
                 fixture.api.request.assert_not_called()
+
+    def test_cancellation_run_id_requires_actual_journal_hex_format_before_stop(self):
+        for run_id in ("00000000-0000-4000-8000-000000000099", "a" * 31, "A" * 32):
+            with self.subTest(run_id=run_id):
+                fixture, values = self.cancellation_fixture()
+                engagement, job, case = values[:3]
+                fixture.timed_traffic = Mock(return_value=values[6])
+                fixture.helper = Mock(
+                    return_value=acceptance.canonical(
+                        [
+                            {
+                                "run_id": run_id,
+                                "job_id": job,
+                                "phase": "executing",
+                                "backend_url": fixture.issuer_origin,
+                                "command_profile": {"controlled": True},
+                            }
+                        ]
+                    )
+                )
+                fixture.receipt = {}
+                with self.assertRaisesRegex(
+                    acceptance.AcceptanceRefused, "cancellation_run_id_invalid"
+                ):
+                    fixture.cancellation_action(engagement, job, case)
+                fixture.helper.assert_called_once_with(
+                    "audit", "list", "--json", "--engagement", engagement
+                )
 
     def test_retained_partial_helper_exports_only_hash_and_original_ack_metadata(self):
         with tempfile.TemporaryDirectory() as temporary:

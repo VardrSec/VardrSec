@@ -1629,7 +1629,7 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
         )
         run_id = selected[0]["run_id"]
         require(
-            re.fullmatch(r"[0-9a-f-]{36}", run_id) is not None,
+            re.fullmatch(r"[0-9a-f]{32}", run_id) is not None,
             "cancellation_run_id_invalid",
         )
         self.receipt["stage"] = "cancellation_request"
@@ -1931,6 +1931,7 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
         action = {}
 
         def on_running(admission):
+            self.receipt["stage"] = "cancellation_observe"
             action.update(self.cancellation_action(engagement, job, case))
 
         physical = self.worker(runner_id, enrollment_id, on_running=on_running)
@@ -1981,6 +1982,13 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
             "cancellation_original_metadata_changed",
         )
         inventory = self.inventory(engagement, job)
+        self.receipt["observed_failure"] = {
+            "physical": physical,
+            "inventory": inventory,
+            "retirement": retirement,
+            "local": local,
+            "reconciled": reconciled,
+        }
         require(self.traffic() == after["requests"], "cancellation_dispatch_after_stop")
         self.receipt["stage"] = "cancellation_verification"
         self.receipt["cases"][self.scenario] = self.verify_cancellation(
