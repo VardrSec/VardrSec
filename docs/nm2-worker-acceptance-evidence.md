@@ -5,6 +5,41 @@ paused. These receipts establish specific development slices, not release or
 complete worker acceptance. The [acceptance plan](nm2-worker-acceptance-plan.md)
 and [closeout control record](nm1-nm2-closeout.md) retain the remaining gates.
 
+## Persistent candidate: component evidence only
+
+The owner requires persistent availability until explicit operator stop, with
+finite idle/job limits optional. The [versioned contract](nm2-persistent-worker-contract.md)
+retains fresh authorization and finite execution authority for every job. The
+candidate is inactive; finite v1/v2 passes do not establish this requirement.
+
+The [frozen compiler receipt](evidence/nm2-persistent-compiler-2026-11-06.json)
+records network-disabled finite and persistent compiler-stage builds from Runner
+`5737d317f44a35d5f47ce2dfdd6f7cfb817f7a5d`. Both compiled and passed their
+native protocol-state units. These exercise modeled idle/job/counter boundaries;
+they do not measure real persistent uptime, run PID1 bootstrap or establish
+containment. The 96 prior containers, 76 tag references and 72 volumes were
+unchanged. Of 41 prior networks, one empty built-in bridge changed identity with
+equivalent checked semantic fields and empty membership; its cause is unknown.
+
+Host receipt review reproduced acceptance of boolean/float nested fences under
+Python equality. Commit `4c5f65f7d80d5ae77fb081a8790a4e4dd7df0200` switches the
+binding comparison to canonical bytes; recomputed v3 history/release/retirement
+hashes cannot hide those malformed values. All 67 focused Host tests passed.
+The separately committed diagnostic consumers passed 65 focused checks and
+export only fixed capture phase/reason values. Raw subprocess output stays private.
+
+Distribution `853df43b5509202fc9bc18b76a6f5901bad261eb` passed the
+[Windows/Ubuntu Python 3.10 compatibility run](https://github.com/VardrSec/VardrSec/actions/runs/42172087330):
+372 tests per platform, with 6 Windows and 2 Ubuntu explicit skips. This includes
+the corrected canonical temporary-directory bootstrap fixture. Installation,
+coupled Docker execution, certificate renewal and update jobs were explicitly
+skipped by the unit-only dispatch; their acceptance is not inferred.
+
+Runner journal/original-key recovery tests retain exact admission, selected job,
+missing ACKs and artifact bytes. A later job's physical retirement cannot replace
+an earlier job's completion. These are component checks, separate from the full
+coverage gate, PostgreSQL concurrency and actual Linux/Desktop acceptance.
+
 ## Actual Docker Desktop: two healthy jobs
 
 The [sanitized evidence](evidence/nm2-desktop-healthy-sequence-2026-11-05.json)

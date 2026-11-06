@@ -57,3 +57,10 @@ remain available until explicitly stopped, with the 60-second idle and 32-job
 controls optional. [The persistent implementation contract](nm2-persistent-worker-contract.md)
 separates that availability from fresh per-job execution authority. The finite
 candidate is retained as regression evidence; it is not an accepted substitute.
+
+The inactive v3 candidate now has additive Map/Runner/Host protocol code,
+original-key recovery tests and [compiler-only evidence](evidence/nm2-persistent-compiler-2026-11-06.json).
+The host receipt strictness fix and Windows/Ubuntu compatibility checks passed.
+Known preclaim-denial availability, the explicit STOP-report lifetime decision,
+full current-source component gates and the complete physical failure matrix
+remain open. No component pass closes NM-2 or resumes NM-3.
