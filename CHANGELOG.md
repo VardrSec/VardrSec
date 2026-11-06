@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep final Docker identity/inspection refusals distinct from advisory server
+  availability holds in persistent status; read-only polling cannot absorb a
+  failed physical guard.
+
 - Require an explicit expected database revision when exercising the additive
   worker migration; preserve the legacy fixture default and reject other heads.
 

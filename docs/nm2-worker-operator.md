@@ -103,6 +103,11 @@ never renews permission or sends a report. Physical inspection shares a bounded
 confirmation has its separate 30-second bound. Filesystem/host responsiveness is
 still a limitation rather than a real-time guarantee.
 
+A failed final physical inspection remains `physical_unconfirmed`, even when a
+server availability observation was already read. It cannot be interpreted as
+an advisory availability delay. Read-only availability polling never retries a
+guard failure or an uncertain mutation.
+
 Normal v3 stop first attempts the one-shot new-work disable, then stops only the
 exact bound container. Physical emergency stop remains available when Map is
 unreachable. A lost disable reply retains its send intent; reconcile only reads

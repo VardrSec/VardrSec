@@ -600,6 +600,69 @@ class PersistentHostTests(unittest.TestCase):
         self.assertEqual(value["state"], "stopped")
         self.assertEqual(value["exit_code"], f.proof.exit_code)
 
+    def test_final_physical_failure_is_never_an_advisory_availability_hold(self):
+        f = self.f
+        self.register()
+        running = {
+            **f.observer._bound(f.identity),
+            "state": {"Status": "running", "Running": True},
+        }
+        stopped = {**running, "state": {"Status": "exited", "Running": False}}
+        f.client.receipt = Mock(return_value=self.observation("35", False))
+        for failure in (
+            runtime.RuntimeRefused("worker_runtime_refused"),
+            OSError("private-canary-physical-path"),
+            ValueError("private-canary-malformed-inspection"),
+            stopped,
+        ):
+            with (
+                self.subTest(kind=type(failure).__name__),
+                patch.object(
+                    f.observer, "_bound", side_effect=[running, failure]
+                ) as inspect,
+                patch.object(
+                    f.records,
+                    "write",
+                    side_effect=AssertionError("status is read only"),
+                ),
+            ):
+                value = persistent.status(
+                    f.records, f.runtime_id, f.observer, f.identity, client=f.client
+                )
+            self.assertEqual(
+                (value["state"], value["reason"]), ("held", "physical_unconfirmed")
+            )
+            self.assertEqual(value["availability"]["state"], "held")
+            self.assertNotIn("private-canary", json.dumps(value))
+            self.assertEqual(inspect.call_count, 2)
+            self.assertIsNone(f.observer._deadline)
+            self.assertTrue(f.observer._observation_lock.acquire(blocking=False))
+            f.observer._observation_lock.release()
+
+    def test_api_availability_failure_remains_advisory_and_read_only(self):
+        f = self.f
+        self.register()
+        running = {
+            **f.observer._bound(f.identity),
+            "state": {"Status": "running", "Running": True},
+        }
+        f.client.receipt = Mock(side_effect=host.HostRefused("worker_host_refused"))
+        with (
+            patch.object(f.observer, "_bound", return_value=running) as inspect,
+            patch.object(
+                f.records, "write", side_effect=AssertionError("status is read only")
+            ),
+        ):
+            value = persistent.status(
+                f.records, f.runtime_id, f.observer, f.identity, client=f.client
+            )
+        self.assertEqual(
+            (value["state"], value["reason"]), ("held", "availability_unconfirmed")
+        )
+        self.assertIsNone(value["availability"])
+        self.assertEqual(inspect.call_count, 1)
+        self.assertIsNone(f.observer._deadline)
+
     def test_status_rejects_another_exact_incarnation_before_inspection(self):
         f = self.f
         self.register()

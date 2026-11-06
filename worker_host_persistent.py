@@ -506,6 +506,9 @@ def status(records, runtime_id, observer, identity, *, client=None):
                             current = _receipt(
                                 client, record, records.secret(runtime_id)
                             )
+                        except (host.HostRefused, OSError, ValueError):
+                            value["reason"] = "availability_unconfirmed"
+                        else:
                             value.update(
                                 cursor=current["cursor"],
                                 availability=current["availability"],
@@ -513,7 +516,7 @@ def status(records, runtime_id, observer, identity, *, client=None):
                                 reporting_revoked=current["reporting_revoked"],
                             )
                             final = observer._bound(identity)
-                            host.require(final["state"]["Status"] == "running")
+                            runtime.require(final["state"]["Status"] == "running")
                             presence = current["availability"]
                             fresh = presence["observed_at"] is not None and _stamp(
                                 presence["observed_at"]
@@ -551,13 +554,6 @@ def status(records, runtime_id, observer, identity, *, client=None):
                                     if not fresh
                                     else "availability_unconfirmed"
                                 )
-                        except (
-                            host.HostRefused,
-                            OSError,
-                            ValueError,
-                            runtime.RuntimeRefused,
-                        ):
-                            value["reason"] = "availability_unconfirmed"
                     value["container_state"] = state
                 finally:
                     observer._deadline = None
