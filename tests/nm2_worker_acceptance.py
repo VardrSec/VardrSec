@@ -44,6 +44,7 @@ INITIAL_CASES = (
     "healthy_sequence",
     "missing_local_grant",
 )
+SCENARIOS = ("healthy", "local-emergency-stop", "stop-work")
 _CONFIGURATION_ENV = {
     "HTTPS_PORT",
     "PROXY_IP",
@@ -221,6 +222,7 @@ def manifest(path):
         "vardrsec.py",
         "database_roles.py",
         "worker_host.py",
+        "worker_host_sequence.py",
         "worker_runtime.py",
         "worker_secrets.py",
         "worker_volumes.py",
@@ -395,7 +397,10 @@ def unchanged_inventory(before, after, project, *, admit_bridge=False):
 
 
 class Fixture:
-    def __init__(self, selection):
+    def __init__(self, selection, *, scenario="healthy"):
+        require(scenario in SCENARIOS, "fixture_scenario_refused")
+        self.scenario = scenario
+        self.max_attempts = 2 if scenario == "healthy" else 1
         self.m = selection
         self.source = Path(selection["sources"]["distribution"]["path"])
         self.install = Path(selection["installation"])
@@ -433,6 +438,14 @@ class Fixture:
             "status": "prepared",
             "retained": True,
         }
+        if scenario != "healthy":
+            self.receipt.update(
+                schema="vardr.nm2-worker-failure-acceptance/1",
+                scenario=scenario,
+                acceptance_scope="ordinary_http_cancellation_only",
+                nm2_exit_status="incomplete",
+            )
+            self.receipt["cases"][scenario] = {"status": "not_run"}
         self.secrets = []
 
     def docker(self, *args, env=None, **kwargs):
@@ -953,6 +966,8 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "restart": "no",
             "labels": {"io.vardrsec.nm2-fixture": self.project},
         }
+        if self.scenario != "healthy":
+            target["environment"] = {"NM2_FIXTURE_DELAY_SECONDS": "15"}
         self.overlay["services"]["gate-fixture"] = target
         self.write_overlay()
         self.compose("up", "-d", "--no-build", "--pull", "never", "gate-fixture")
@@ -1523,7 +1538,469 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "duration_allocated": 60,
         }
 
-    def worker(self, runner_id, enrollment_id):
+    def timed_traffic(self):
+        # Both timestamps come from this owned target's Linux monotonic clock.
+        # This inserts no process into the worker's private PID lineage.
+        source = (
+            "import json,time,urllib.request;"
+            "data=json.load(urllib.request.urlopen('http://localhost:8080/observations',timeout=3));"
+            "print(json.dumps({'requests':data['requests'],'observed_monotonic_ns':time.monotonic_ns()}))"
+        )
+        return json.loads(
+            self.compose(
+                "exec", "-T", "gate-fixture", "python", "-c", source, timeout=5
+            )
+        )
+
+    def local_metadata(self, run_id, engagement, job):
+        # Read only exact original association and retained known output metadata.
+        # No PID lookup/signal, capability reconstruction or raw file export.
+        source = """
+import hashlib,json,os,stat,sys
+from pathlib import Path
+from vardrrunner import config
+from vardrrunner.journal import Journal
+selection=json.load(sys.stdin)
+journal=Journal(config.journal_file())
+record=journal.get(selection['run_id'])
+assert record is not None and record.job_id==selection['job_id'] and record.engagement_id==selection['engagement_id']
+with journal._connection() as con:
+    claim=con.execute('SELECT state,consumption_sent,consumption_acknowledged FROM managed_claim_intents WHERE run_id=?',(record.run_id,)).fetchone()
+assert claim is not None
+files=[]
+if record.run_dir is not None:
+    directory=Path(record.run_dir)
+    assert directory.parent==config.runs_dir() and directory.is_dir() and all(not item.is_symlink() for item in (directory,*directory.parents))
+    path=directory/'vardrgate_result.json'
+    if path.exists() or path.is_symlink():
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        with os.fdopen(fd,'rb') as stream:
+            before=os.fstat(stream.fileno())
+            assert stat.S_ISREG(before.st_mode) and before.st_nlink==1 and 0<before.st_size<=1024*1024
+            raw=stream.read(1024*1024+1)
+            after=os.fstat(stream.fileno())
+            assert len(raw)==before.st_size and (before.st_ino,before.st_size,before.st_mtime_ns)==(after.st_ino,after.st_size,after.st_mtime_ns)
+        files.append({'name':'vardrgate_result.json','size':len(raw),'sha256':hashlib.sha256(raw).hexdigest()})
+print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':record.engagement_id,'phase':record.phase.value,'status':record.status,'local_stop_requested':journal.stop_requested(record.run_id),'claim_state':claim['state'],'consumption_sent':claim['consumption_sent'],'consumption_acknowledged':claim['consumption_acknowledged'],'partial_files':files}))
+"""
+        return json.loads(
+            self.helper(
+                "-I",
+                "-c",
+                source,
+                python=True,
+                stdin=canonical(
+                    {"run_id": run_id, "engagement_id": engagement, "job_id": job}
+                ),
+            )
+        )
+
+    def cancellation_action(self, engagement, job, case):
+        until = time.monotonic() + 25
+        marker = parse_qs(urlsplit(case["spec"]["request"]["url"]).query)["nm2_case"]
+        while True:
+            observed = self.timed_traffic()
+            requests = observed["requests"]
+            require(len(requests) <= 3, "cancellation_dispatch_advanced_before_action")
+            if len(requests) == 3:
+                require(
+                    [row["identity"] for row in requests] == ["owner", "peer", "owner"]
+                    and [urlsplit(row["path"]).path for row in requests]
+                    == ["/session", "/session", "/fixed/records/42"]
+                    and all(
+                        parse_qs(urlsplit(row["path"]).query).get("nm2_case") == marker
+                        for row in requests
+                    ),
+                    "cancellation_request_binding_mismatch",
+                )
+                break
+            require(time.monotonic() < until, "cancellation_resource_not_observed")
+            time.sleep(0.1)
+        records = json.loads(
+            self.helper("audit", "list", "--json", "--engagement", engagement)
+        )
+        selected = [row for row in records if row["job_id"] == job]
+        require(
+            len(selected) == 1
+            and selected[0]["phase"] == "executing"
+            and selected[0]["backend_url"] == self.issuer_origin
+            and selected[0]["command_profile"].get("controlled") is True,
+            "cancellation_original_run_not_active",
+        )
+        run_id = selected[0]["run_id"]
+        require(
+            re.fullmatch(r"[0-9a-f-]{36}", run_id) is not None,
+            "cancellation_run_id_invalid",
+        )
+        self.receipt["stage"] = "cancellation_request"
+        if self.scenario == "local-emergency-stop":
+            self.helper("jobs", "stop", run_id)
+        else:
+            require(self.scenario == "stop-work", "fixture_scenario_refused")
+            stopped = self.api.request(
+                f"/engagements/{engagement}/stop-work",
+                {"reason": "NM2 controlled HTTP fixture"},
+            )
+            require(
+                stopped.get("stop_work_at") is not None,
+                "cancellation_stop_work_not_recorded",
+            )
+        return {"run_id": run_id, "requests": requests}
+
+    def verify_cancellation(
+        self,
+        engagement,
+        job,
+        case,
+        physical,
+        inventory,
+        action,
+        after,
+        retirement,
+        local,
+        reconciled,
+    ):
+        require(
+            set(physical)
+            == {
+                "identity",
+                "runtime_id",
+                "runtime_sha256",
+                "exit_code",
+                "finished_at",
+                "operator_enable_state",
+            }
+            and set(physical["identity"])
+            == {
+                "daemon_id",
+                "container_id",
+                "image_id",
+                "project",
+                "started_at",
+                "owner_nonce",
+            }
+            and type(physical["exit_code"]) is int
+            and physical["exit_code"] != 0
+            and physical["operator_enable_state"] == "enabled",
+            "cancellation_physical_exit_not_proven",
+        )
+        require(
+            inventory["schema"] == "vardr.nm2-fixture-inventory/2"
+            and inventory["schema_revision"] == "0040runtimesequence"
+            and inventory["database_user"] == "vardrmap_app",
+            "normal_database_readiness_required",
+        )
+        requests = after["requests"]
+        require(
+            requests == action["requests"]
+            and len(requests) == 3
+            and all(
+                set(row) == {"identity", "method", "path", "received_monotonic_ns"}
+                and row["method"] == "GET"
+                for row in requests
+            )
+            and [row["identity"] for row in requests] == ["owner", "peer", "owner"]
+            and [urlsplit(row["path"]).path for row in requests]
+            == ["/session", "/session", "/fixed/records/42"],
+            "cancellation_dispatch_after_stop",
+        )
+        clocks = [row["received_monotonic_ns"] for row in requests]
+        require(
+            all(
+                type(value) is int and value > 0
+                for value in [*clocks, after["observed_monotonic_ns"]]
+            )
+            and clocks == sorted(clocks)
+            and 0 < after["observed_monotonic_ns"] - clocks[-1] < 15_000_000_000,
+            "cancellation_not_before_http_timeout",
+        )
+        require(
+            inventory["job_status"] == "failed"
+            and not inventory["results"]
+            and len(inventory["contracts"])
+            == len(inventory["stops"])
+            == len(inventory["runtimes"])
+            == 1
+            and inventory["targets_spent"] == 1
+            and inventory["duration_allocated"] == 30,
+            "cancellation_terminal_inventory_mismatch",
+        )
+        contract, stop, runtime = (
+            inventory["contracts"][0],
+            inventory["stops"][0],
+            inventory["runtimes"][0],
+        )
+        require(
+            contract["consumed"] is True
+            and type(contract["ordinal"]) is type(contract["fence"]) is int
+            and contract["ordinal"] == contract["fence"] == 1
+            and runtime["id"] == physical["runtime_id"]
+            and runtime["runtime_sha256"]
+            == physical["runtime_sha256"]
+            == digest(canonical(physical["identity"]))
+            and runtime["identity"] == physical["identity"]
+            and all(
+                type(runtime[key]) is int and runtime[key] == 1
+                for key in ("max_attempts", "last_sequence", "active_sequence")
+            )
+            and runtime["retired"] is True
+            and len(runtime["attempts"]) == 1,
+            "cancellation_runtime_binding_mismatch",
+        )
+        binding = {
+            "origin": self.issuer_origin,
+            "job_id": job,
+            "runner_id": runtime["runner_id"],
+            "contract_id": contract["id"],
+            "attempt_id": contract["attempt_id"],
+            "fence": contract["fence"],
+            "contract_sha256": contract["contract_sha256"],
+        }
+        attempt = runtime["attempts"][0]
+        require(
+            attempt["runtime_id"] == runtime["id"]
+            and type(attempt["runtime_sequence"]) is int
+            and attempt["runtime_sequence"] == 1
+            and attempt["job_id"] == job
+            and all(value is None for value in runtime["legacy_binding"].values())
+            and canonical(attempt["binding"]) == canonical(binding)
+            and attempt["bound_at"] is not None
+            and attempt["confirmed_at"] is not None
+            and attempt["released_at"] is None
+            and attempt["release_receipt"] is None
+            and attempt["native_done_sha256"] is None
+            and attempt["terminal_receipt"] is None
+            and attempt["terminal_receipt_sha256"] is None,
+            "cancellation_attempt_reused_or_unconfirmed",
+        )
+        terminal = retirement["attempt_receipt"]
+        cause = stop["cause"]
+        require(
+            cause
+            in {
+                "local_emergency_stop",
+                "remote_stop_requested",
+                "control_lease_expired",
+                "observed_exit",
+            },
+            "cancellation_unrelated_stop_cause",
+        )
+        outcome = (
+            "cancelled"
+            if cause in {"local_emergency_stop", "remote_stop_requested"}
+            else "failed"
+        )
+        stop_sha = digest(
+            canonical(
+                {
+                    "schema": "vardr.managed-stop/1",
+                    **binding,
+                    "outcome": outcome,
+                    "cause": cause,
+                    "termination_confirmed": True,
+                }
+            )
+        )
+        require(
+            canonical(terminal)
+            == canonical(
+                {
+                    "schema": "vardr.managed-stop-receipt/1",
+                    **binding,
+                    "outcome": outcome,
+                    "cause": cause,
+                    "receipt_sha256": stop_sha,
+                    "capacity_reserved": False,
+                }
+            )
+            and stop
+            == {
+                "contract_id": binding["contract_id"],
+                "receipt_sha256": stop_sha,
+                "outcome": outcome,
+                "cause": cause,
+            }
+            and inventory["execution"]
+            == {
+                "state": outcome,
+                "capacity_reserved": False,
+                "target_charge": 1,
+                "duration_seconds": 30,
+            },
+            "cancellation_stop_receipt_mismatch",
+        )
+        expected = {
+            "schema": "vardr.worker-retirement/2",
+            "runtime_id": physical["runtime_id"],
+            "runtime_sha256": physical["runtime_sha256"],
+            "origin": self.issuer_origin,
+            "runner_id": runtime["runner_id"],
+            "enrollment_id": runtime["enrollment_id"],
+            "runtime_sequence": 1,
+            "last_sequence": 1,
+            "binding": binding,
+            "attempt_receipt": terminal,
+            "report_sha256": runtime["report_sha256"],
+            "retired": True,
+        }
+        require(
+            isinstance(runtime["report_sha256"], str)
+            and re.fullmatch(r"[0-9a-f]{64}", runtime["report_sha256"]) is not None
+            and canonical(retirement)
+            == canonical({**expected, "receipt_sha256": digest(canonical(expected))}),
+            "cancellation_retirement_mismatch",
+        )
+        require(
+            local["run_id"] == action["run_id"]
+            and local["job_id"] == job
+            and local["engagement_id"] == engagement
+            and type(local["consumption_sent"])
+            is type(local["consumption_acknowledged"])
+            is int
+            and local["consumption_sent"] == local["consumption_acknowledged"] == 1
+            and local["local_stop_requested"]
+            is (self.scenario == "local-emergency-stop")
+            and reconciled["state"].startswith("terminal_")
+            and type(reconciled["remaining_local_holds"]) is int
+            and reconciled["remaining_local_holds"] == 0,
+            "cancellation_local_reconciliation_mismatch",
+        )
+        files = local["partial_files"]
+        require(
+            len(files) <= 1
+            and all(
+                set(row) == {"name", "size", "sha256"}
+                and row["name"] == "vardrgate_result.json"
+                and type(row["size"]) is int
+                and 0 < row["size"] <= 1024 * 1024
+                and re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
+                for row in files
+            ),
+            "cancellation_partial_projection_invalid",
+        )
+        return {
+            "status": "passed",
+            "physical": physical,
+            "job_id": job,
+            "case_sha256": digest(canonical(case["spec"])),
+            "requests": [
+                {
+                    "identity": row["identity"],
+                    "method": row["method"],
+                    "route": urlsplit(row["path"]).path,
+                    "received_monotonic_ns": row["received_monotonic_ns"],
+                }
+                for row in requests
+            ],
+            "target_request_count": 3,
+            "delay_seconds": 15,
+            "resource_to_exit_observation_seconds": (
+                after["observed_monotonic_ns"] - clocks[-1]
+            )
+            / 1e9,
+            "stop_cause": cause,
+            "native_stop_receipt": cause != "observed_exit",
+            "stop_receipt_sha256": stop_sha,
+            "retirement_receipt_sha256": retirement["receipt_sha256"],
+            "targets_spent": 1,
+            "duration_allocated": 30,
+            "capacity_reserved": False,
+            "partial_files": files,
+            "partial_result_state": "retained" if files else "not_emitted",
+            "retained_observations_sha256": digest(canonical(requests)),
+            "local_stop_requested": local["local_stop_requested"],
+            "remaining_local_holds": 0,
+            "forced_uncooperative_child_test": "not_run",
+        }
+
+    def cancelled_http(self):
+        self.receipt["stage"] = "cancellation_setup"
+        engagement, authorization, job, case = self.new_job(self.scenario, marker=True)
+        runner_id, enrollment_id = self.approve(
+            self.scenario, engagement, authorization, job, case
+        )
+        before = self.inventory(engagement, job)
+        require(
+            not self.traffic()
+            and before["job_status"] == "pending"
+            and before["execution"] is None
+            and not before["contracts"]
+            and before["targets_spent"] == before["duration_allocated"] == 0,
+            "approved_queue_executed_before_worker_enablement",
+        )
+        action = {}
+
+        def on_running(admission):
+            action.update(self.cancellation_action(engagement, job, case))
+
+        physical = self.worker(runner_id, enrollment_id, on_running=on_running)
+        after = self.timed_traffic()
+        self.receipt["stage"] = "cancellation_host_reconciliation"
+        reported = json.loads(
+            command(
+                [
+                    sys.executable,
+                    str(self.install / "vardrsec.py"),
+                    "worker",
+                    "report-exit",
+                    "--runtime-id",
+                    physical["runtime_id"],
+                    "--private-root",
+                    str(self.private),
+                ],
+                cwd=self.install,
+                env=self.environment,
+                timeout=120,
+            )
+        )
+        require(
+            reported["schema"] == "vardr.worker-cli/1"
+            and reported["state"] == "terminal_observed"
+            and reported["runtime_id"] == physical["runtime_id"],
+            "cancellation_host_report_not_bound",
+        )
+        retirement = reported["receipt"]["receipt"]
+        local = self.local_metadata(action["run_id"], engagement, job)
+        reconciled = json.loads(
+            self.helper("audit", "reconcile-managed", action["run_id"])
+        )
+        retained = self.local_metadata(action["run_id"], engagement, job)
+        require(
+            all(
+                retained[key] == local[key]
+                for key in (
+                    "run_id",
+                    "job_id",
+                    "engagement_id",
+                    "consumption_sent",
+                    "consumption_acknowledged",
+                    "local_stop_requested",
+                    "partial_files",
+                )
+            ),
+            "cancellation_original_metadata_changed",
+        )
+        inventory = self.inventory(engagement, job)
+        require(self.traffic() == after["requests"], "cancellation_dispatch_after_stop")
+        self.receipt["stage"] = "cancellation_verification"
+        self.receipt["cases"][self.scenario] = self.verify_cancellation(
+            engagement,
+            job,
+            case,
+            physical,
+            inventory,
+            action,
+            after,
+            retirement,
+            local,
+            reconciled,
+        )
+        self.receipt["status"], self.receipt["stage"] = (
+            "selected_failure_slice_passed",
+            "selected_failure_complete",
+        )
+
+    def worker(self, runner_id, enrollment_id, *, on_running=None):
         import worker_runtime
 
         public = self.install / "worker-public"
@@ -1569,7 +2046,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 self.project + "_runner-state",
                 self.ready_volume,
             ),
-            max_attempts=2,
+            max_attempts=self.max_attempts,
         )
         entered = time.monotonic()
         while True:
@@ -1627,7 +2104,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                     "--expires-in",
                     "900",
                     "--max-attempts",
-                    "2",
+                    str(self.max_attempts),
                     "--username",
                     "operator",
                     "--password-stdin",
@@ -1649,9 +2126,12 @@ print(json.dumps({'files':hashes,'executables':executables}))
         )
         require(
             admission["schema"] == "vardr.worker-admission/2"
-            and admission["max_attempts"] == 2,
+            and type(admission["max_attempts"]) is int
+            and admission["max_attempts"] == self.max_attempts,
             "operator_sequence_mode_not_bound",
         )
+        if on_running is not None:
+            on_running(admission)
         # Direct host observation of exact incarnation exit, never an exec or
         # a caller-generated JSON object passed off as physical proof.
         proof = observer.observe_exit(identity)
@@ -1678,7 +2158,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 self.project + "_runner-state",
                 self.ready_volume,
             ),
-            max_attempts=2,
+            max_attempts=self.max_attempts,
         )
         self.receipt["daemon_id"] = observer.daemon()
         require(
@@ -1772,6 +2252,9 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 "inventory": inventory,
                 "traffic_delta": 0,
             }
+            if self.scenario != "healthy":
+                self.cancelled_http()
+                return
             # Both approved jobs queue before one explicitly admitted incarnation.
             self.receipt["stage"] = "happy_setup"
             selections = []
@@ -1902,6 +2385,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cohort", required=True, type=Path)
+    parser.add_argument("--scenario", choices=SCENARIOS, default="healthy")
     parser.add_argument(
         "--execute",
         action="store_true",
@@ -1910,22 +2394,25 @@ def main(argv=None):
     args = parser.parse_args(argv)
     selection = manifest(args.cohort)
     if not args.execute:
+        receipt = {
+            "schema": "vardr.nm2-worker-source-validation/1",
+            "status": "sources_validated_runtime_not_run",
+            "project": selection["project"],
+            "sources": selection["sources"],
+            "images": selection["images"],
+            "initial_cases": INITIAL_CASES,
+            "docker_calls": 0,
+        }
+        if args.scenario != "healthy":
+            receipt["scenario"] = args.scenario
         print(
             json.dumps(
-                {
-                    "schema": "vardr.nm2-worker-source-validation/1",
-                    "status": "sources_validated_runtime_not_run",
-                    "project": selection["project"],
-                    "sources": selection["sources"],
-                    "images": selection["images"],
-                    "initial_cases": INITIAL_CASES,
-                    "docker_calls": 0,
-                },
+                receipt,
                 indent=2,
             )
         )
         return 0
-    fixture = Fixture(selection)
+    fixture = Fixture(selection, scenario=args.scenario)
     try:
         fixture.run()
     except Exception:
@@ -1935,7 +2422,12 @@ def main(argv=None):
         )
         return 1
     print(json.dumps(fixture.receipt, indent=2))
-    return 0 if fixture.receipt["status"] == "initial_stages_passed" else 1
+    return (
+        0
+        if fixture.receipt["status"]
+        in {"initial_stages_passed", "selected_failure_slice_passed"}
+        else 1
+    )
 
 
 if __name__ == "__main__":

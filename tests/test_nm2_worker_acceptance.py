@@ -262,6 +262,349 @@ class AcceptanceGuards(unittest.TestCase):
                 row["terminal_receipt_sha256"], row["result_receipt_sha256"]
             )
 
+    def cancellation_fixture(self, scenario="local-emergency-stop"):
+        data = self.sequence_fixture()
+        fixture = data.fixture
+        fixture.scenario = scenario
+        engagement, job, case = data.selections[0]
+        inventory = data.inventories[0]
+        inventory.update(job_status="failed", results=[])
+        runtime = inventory["runtimes"][0]
+        runtime.update(
+            max_attempts=1,
+            last_sequence=1,
+            active_sequence=1,
+            retired=True,
+            report_sha256="e" * 64,
+        )
+        runtime["attempts"] = runtime["attempts"][:1]
+        attempt = runtime["attempts"][0]
+        attempt.update(
+            released_at=None,
+            release_receipt=None,
+            native_done_sha256=None,
+            terminal_receipt=None,
+            terminal_receipt_sha256=None,
+        )
+        binding = attempt["binding"]
+        cause = (
+            "local_emergency_stop"
+            if scenario == "local-emergency-stop"
+            else "remote_stop_requested"
+        )
+        stop_sha = acceptance.digest(
+            acceptance.canonical(
+                {
+                    "schema": "vardr.managed-stop/1",
+                    **binding,
+                    "outcome": "cancelled",
+                    "cause": cause,
+                    "termination_confirmed": True,
+                }
+            )
+        )
+        terminal = {
+            "schema": "vardr.managed-stop-receipt/1",
+            **binding,
+            "outcome": "cancelled",
+            "cause": cause,
+            "receipt_sha256": stop_sha,
+            "capacity_reserved": False,
+        }
+        inventory["stops"] = [
+            {
+                "contract_id": binding["contract_id"],
+                "outcome": "cancelled",
+                "cause": cause,
+                "receipt_sha256": stop_sha,
+            }
+        ]
+        inventory["execution"]["state"] = "cancelled"
+        retirement = {
+            "schema": "vardr.worker-retirement/2",
+            "runtime_id": runtime["id"],
+            "runtime_sha256": runtime["runtime_sha256"],
+            "origin": fixture.issuer_origin,
+            "runner_id": runtime["runner_id"],
+            "enrollment_id": runtime["enrollment_id"],
+            "runtime_sequence": 1,
+            "last_sequence": 1,
+            "binding": binding,
+            "attempt_receipt": terminal,
+            "report_sha256": runtime["report_sha256"],
+            "retired": True,
+        }
+        retirement["receipt_sha256"] = acceptance.digest(
+            acceptance.canonical(retirement)
+        )
+        requests = data.traffic[0][:3]
+        local = {
+            "run_id": "original-run",
+            "job_id": job,
+            "engagement_id": engagement,
+            "consumption_sent": 1,
+            "consumption_acknowledged": 1,
+            "local_stop_requested": scenario == "local-emergency-stop",
+            "partial_files": [],
+            "private_extra": "private-local-canary",
+        }
+        data.physical["exit_code"] = 125
+        return fixture, [
+            engagement,
+            job,
+            case,
+            data.physical,
+            inventory,
+            {"run_id": "original-run", "requests": requests},
+            {
+                "requests": copy.deepcopy(requests),
+                "observed_monotonic_ns": requests[-1]["received_monotonic_ns"]
+                + 4_000_000_000,
+            },
+            retirement,
+            local,
+            {"state": "terminal_cancelled", "remaining_local_holds": 0},
+        ]
+
+    def test_cancellation_proof_is_bounded_retains_accounting_and_does_not_invent_partial_result(
+        self,
+    ):
+        for scenario in ("local-emergency-stop", "stop-work"):
+            with self.subTest(scenario=scenario):
+                fixture, values = self.cancellation_fixture(scenario)
+                proof = fixture.verify_cancellation(*values)
+                self.assertEqual(proof["status"], "passed")
+                self.assertEqual(proof["target_request_count"], 3)
+                self.assertEqual(proof["resource_to_exit_observation_seconds"], 4)
+                self.assertEqual(proof["partial_result_state"], "not_emitted")
+                self.assertEqual(proof["partial_files"], [])
+                self.assertEqual(proof["forced_uncooperative_child_test"], "not_run")
+                self.assertNotIn("private-", json.dumps(proof))
+                self.assertTrue(all("path" not in row for row in proof["requests"]))
+
+    def test_cancellation_refuses_timeout_unrelated_failure_reuse_missing_proof_and_raw_fields(
+        self,
+    ):
+        for mutation in (
+            "timeout",
+            "extra_dispatch",
+            "result",
+            "unconsumed",
+            "reused",
+            "wrong_runtime",
+            "bad_retirement",
+            "holds",
+            "missing_marker",
+            "raw_header",
+            "partial_canary",
+            "boolean_fence",
+            "physical_success",
+            "physical_extra",
+            "unrelated_cause",
+        ):
+            with self.subTest(mutation=mutation):
+                fixture, values = self.cancellation_fixture()
+                inventory, action, after, retirement, local, reconciled = values[4:]
+                if mutation == "timeout":
+                    after["observed_monotonic_ns"] += 16_000_000_000
+                elif mutation == "extra_dispatch":
+                    after["requests"].append(copy.deepcopy(after["requests"][-1]))
+                elif mutation == "result":
+                    inventory["results"] = [{"outcome": "completed"}]
+                elif mutation == "unconsumed":
+                    inventory["contracts"][0]["consumed"] = False
+                elif mutation == "reused":
+                    inventory["runtimes"][0]["last_sequence"] = 2
+                elif mutation == "wrong_runtime":
+                    inventory["runtimes"][0]["identity"]["container_id"] = "f" * 64
+                elif mutation == "bad_retirement":
+                    retirement["runtime_sequence"] = None
+                elif mutation == "holds":
+                    reconciled["remaining_local_holds"] = 1
+                elif mutation == "missing_marker":
+                    local["local_stop_requested"] = False
+                elif mutation == "raw_header":
+                    for rows in (action["requests"], after["requests"]):
+                        rows[0]["headers"] = {"Authorization": "private-header-canary"}
+                elif mutation == "partial_canary":
+                    local["partial_files"] = [
+                        {"name": "private-path-canary", "size": 1, "sha256": "a" * 64}
+                    ]
+                elif mutation == "boolean_fence":
+                    inventory["contracts"][0]["fence"] = True
+                elif mutation == "physical_success":
+                    values[3]["exit_code"] = 0
+                elif mutation == "physical_extra":
+                    values[3]["raw_log"] = "private-physical-canary"
+                elif mutation == "unrelated_cause":
+                    inventory["stops"][0]["cause"] = "tool_timeout"
+                with self.assertRaises(acceptance.AcceptanceRefused):
+                    fixture.verify_cancellation(*values)
+
+    def test_each_scenario_source_validation_is_explicit_and_never_contacts_docker(
+        self,
+    ):
+        for scenario in ("local-emergency-stop", "stop-work"):
+            with (
+                self.subTest(scenario=scenario),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                selection = self.selection(Path(temporary))
+                path = Path(temporary) / "cohort.json"
+                path.write_text(json.dumps(selection))
+                output = io.StringIO()
+                with (
+                    patch.object(acceptance, "command", side_effect=self.git_only),
+                    patch.object(
+                        acceptance.Fixture,
+                        "run",
+                        side_effect=AssertionError("no execution"),
+                    ),
+                    redirect_stdout(output),
+                ):
+                    self.assertEqual(
+                        acceptance.main(
+                            ["--cohort", str(path), "--scenario", scenario]
+                        ),
+                        0,
+                    )
+                receipt = json.loads(output.getvalue())
+                self.assertEqual(receipt["scenario"], scenario)
+                self.assertEqual(receipt["docker_calls"], 0)
+                fixture = acceptance.Fixture(selection, scenario=scenario)
+                self.assertEqual(fixture.max_attempts, 1)
+                self.assertEqual(fixture.receipt["nm2_exit_status"], "incomplete")
+                self.assertNotEqual(
+                    fixture.receipt["schema"], "vardr.nm2-worker-acceptance/2"
+                )
+                self.assertEqual(
+                    fixture.receipt["cases"][scenario], {"status": "not_run"}
+                )
+
+    def test_cancellation_actions_use_only_original_run_marker_or_owner_stop_work(self):
+        for scenario in ("local-emergency-stop", "stop-work"):
+            with self.subTest(scenario=scenario):
+                fixture, values = self.cancellation_fixture(scenario)
+                engagement, job, case = values[:3]
+                run_id = "00000000-0000-4000-8000-000000000099"
+                active = {
+                    "run_id": run_id,
+                    "job_id": job,
+                    "phase": "executing",
+                    "backend_url": fixture.issuer_origin,
+                    "command_profile": {"controlled": True},
+                }
+                fixture.timed_traffic = Mock(return_value=values[6])
+                fixture.helper = Mock(return_value=acceptance.canonical([active]))
+                fixture.api = Mock()
+                fixture.api.request.return_value = {
+                    "stop_work_at": "2026-11-06T02:00:00Z"
+                }
+                fixture.receipt = {}
+                action = fixture.cancellation_action(engagement, job, case)
+                self.assertEqual(action["run_id"], run_id)
+                first = fixture.helper.call_args_list[0]
+                self.assertEqual(
+                    first.args, ("audit", "list", "--json", "--engagement", engagement)
+                )
+                if scenario == "local-emergency-stop":
+                    self.assertEqual(
+                        fixture.helper.call_args_list[1].args, ("jobs", "stop", run_id)
+                    )
+                    fixture.api.request.assert_not_called()
+                else:
+                    self.assertEqual(fixture.helper.call_count, 1)
+                    fixture.api.request.assert_called_once_with(
+                        f"/engagements/{engagement}/stop-work",
+                        {"reason": "NM2 controlled HTTP fixture"},
+                    )
+                self.assertNotIn("pid", str(fixture.helper.call_args_list).lower())
+                fixture.timed_traffic.return_value["requests"].append(
+                    copy.deepcopy(values[6]["requests"][-1])
+                )
+                fixture.helper.reset_mock()
+                fixture.api.reset_mock()
+                with self.assertRaisesRegex(
+                    acceptance.AcceptanceRefused, "advanced_before_action"
+                ):
+                    fixture.cancellation_action(engagement, job, case)
+                fixture.helper.assert_not_called()
+                fixture.api.request.assert_not_called()
+
+    def test_retained_partial_helper_exports_only_hash_and_original_ack_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            runs = Path(temporary) / "runs"
+            directory = runs / "managed-original"
+            directory.mkdir(parents=True)
+            raw = b'{"private_body":"private-file-canary"}'
+            (directory / "vardrgate_result.json").write_bytes(raw)
+            record = SimpleNamespace(
+                run_id="run",
+                job_id="job",
+                engagement_id="eng",
+                run_dir=str(directory),
+                phase=SimpleNamespace(value="executing"),
+                status="cancelled",
+            )
+            claim = {
+                "state": "stop_closed",
+                "consumption_sent": 1,
+                "consumption_acknowledged": 1,
+            }
+            connection = MagicMock()
+            connection.__enter__.return_value.execute.return_value.fetchone.return_value = claim
+            journal = Mock()
+            journal.get.return_value = record
+            journal._connection.return_value = connection
+            journal.stop_requested.return_value = True
+            package = SimpleNamespace(
+                config=SimpleNamespace(
+                    journal_file=lambda: "fixture-journal", runs_dir=lambda: runs
+                )
+            )
+            journal_module = SimpleNamespace(Journal=lambda path: journal)
+            fixture = object.__new__(acceptance.Fixture)
+
+            def helper(*args, **kwargs):
+                self.assertEqual(args[:2], ("-I", "-c"))
+                self.assertTrue(kwargs["python"])
+                output = io.StringIO()
+                with (
+                    patch.dict(
+                        sys.modules,
+                        {"vardrrunner": package, "vardrrunner.journal": journal_module},
+                    ),
+                    patch("sys.stdin", io.StringIO(kwargs["stdin"].decode())),
+                    patch.object(
+                        os, "O_NOFOLLOW", getattr(os, "O_NOFOLLOW", 0), create=True
+                    ),
+                    patch.object(
+                        os, "O_NONBLOCK", getattr(os, "O_NONBLOCK", 0), create=True
+                    ),
+                    redirect_stdout(output),
+                ):
+                    exec(compile(args[2], "fixed_metadata_helper", "exec"), {})
+                return output.getvalue().encode()
+
+            fixture.helper = helper
+            metadata = fixture.local_metadata("run", "eng", "job")
+            self.assertEqual(
+                metadata["partial_files"],
+                [
+                    {
+                        "name": "vardrgate_result.json",
+                        "size": len(raw),
+                        "sha256": acceptance.digest(raw),
+                    }
+                ],
+            )
+            self.assertEqual(metadata["consumption_acknowledged"], 1)
+            self.assertNotIn("private-", json.dumps(metadata))
+            self.assertNotIn(str(directory), json.dumps(metadata))
+            record.job_id = "different-job"
+            with self.assertRaises(AssertionError):
+                fixture.local_metadata("run", "eng", "job")
+
     def test_sequence_proof_refuses_changed_identity_reuse_wrong_markers_and_missing_release(
         self,
     ):
@@ -328,9 +671,15 @@ class AcceptanceGuards(unittest.TestCase):
             )
             observer = Mock()
             observer.capture_running.return_value = identity
-            observer.observe_exit.return_value = SimpleNamespace(
-                exit_code=0, finished_at="2026-11-06T02:01:00.000000Z"
-            )
+            order = []
+
+            def observe_exit(selected):
+                order.append("actual_exit_observation")
+                return SimpleNamespace(
+                    exit_code=0, finished_at="2026-11-06T02:01:00.000000Z"
+                )
+
+            observer.observe_exit.side_effect = observe_exit
             fixture.compose = Mock(
                 side_effect=lambda *args, **kwargs: (
                     identity.container_id.encode() if "ps" in args else b""
@@ -368,10 +717,19 @@ class AcceptanceGuards(unittest.TestCase):
                 ) as constructor,
                 patch.object(acceptance, "command", side_effect=command) as cli,
             ):
-                result = fixture.worker("runner", "enrolled")
+                result = fixture.worker(
+                    "runner",
+                    "enrolled",
+                    on_running=lambda selected: (
+                        order.append("admitted_action")
+                        if selected == admission
+                        else self.fail("admission changed")
+                    ),
+                )
             self.assertEqual(constructor.call_args.kwargs, {"max_attempts": 2})
             cli.assert_called_once()
             observer.observe_exit.assert_called_once_with(identity)
+            self.assertEqual(order, ["admitted_action", "actual_exit_observation"])
             self.assertEqual(result["identity"], acceptance.asdict(identity))
             self.assertEqual(
                 sum("up" in call.args for call in fixture.compose.call_args_list), 1
@@ -814,6 +1172,7 @@ class AcceptanceGuards(unittest.TestCase):
             "vardrsec.py",
             "database_roles.py",
             "worker_host.py",
+            "worker_host_sequence.py",
             "worker_runtime.py",
             "worker_secrets.py",
             "worker_volumes.py",
@@ -877,6 +1236,7 @@ class AcceptanceGuards(unittest.TestCase):
             "source_mismatch",
             "dirty_source",
             "public_helper_untracked",
+            "missing_sequence_host",
         ):
             with (
                 self.subTest(mutation=mutation),
@@ -892,6 +1252,11 @@ class AcceptanceGuards(unittest.TestCase):
                     selection["private_root"] = selection["installation"]
                 elif mutation == "old_project":
                     selection["project"] = "vardrsec-compose-review"
+                elif mutation == "missing_sequence_host":
+                    (
+                        Path(selection["sources"]["distribution"]["path"])
+                        / "worker_host_sequence.py"
+                    ).unlink()
                 path = directory / "cohort.json"
                 path.write_text(json.dumps(selection))
 
