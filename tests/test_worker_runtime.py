@@ -352,6 +352,82 @@ class WorkerRuntimeTests(unittest.TestCase):
         self.assertTrue(any(argv[3:5] == ["container", "cp"] for argv, _ in self.calls))
         self.assertFalse(any("exec" in argv for argv, _ in self.calls))
 
+    def test_capture_refusals_identify_only_the_fixed_failed_check(self):
+        for checkpoint in sorted(runtime.CAPTURE_CHECKPOINTS):
+            with self.subTest(checkpoint=checkpoint):
+                self.setUp()
+                self.info["state"].update(Status="running", Running=True)
+                if checkpoint == "daemon":
+                    self.endpoint = "ssh://private-canary-host"
+                elif checkpoint == "identity":
+                    self.info["state"]["StartedAt"] = "private-canary-timestamp"
+                elif checkpoint == "mounts":
+                    self.info["mounts"][0]["RW"] = False
+                elif checkpoint == "tmpfs":
+                    self.info["host"]["tmpfs"]["/tmp"] = "private-canary-options"
+                elif checkpoint == "profile":
+                    self.info["user"] = "10001:10001"
+                elif checkpoint == "volume_metadata":
+                    self.volume_rows[self.layout.state_volume]["options"] = {
+                        "device": "/private-canary-path"
+                    }
+                elif checkpoint == "running_state":
+                    self.info["state"].update(Status="exited", Running=False)
+                elif checkpoint == "readiness_archive":
+                    self.archive_uid = 10001
+                elif checkpoint == "readiness_schema":
+                    self.ready["owner_uid"] = 10001
+
+                def command(argv, **kwargs):
+                    if checkpoint == "inspect" and argv[3:5] == [
+                        "container",
+                        "inspect",
+                    ]:
+                        return subprocess.CompletedProcess(
+                            argv, 0, "private-canary-invalid-json", ""
+                        )
+                    if checkpoint == "readiness_copy" and argv[3:5] == [
+                        "container",
+                        "cp",
+                    ]:
+                        return subprocess.CompletedProcess(
+                            argv, 1, b"private-canary-output", b"private-canary-error"
+                        )
+                    result = self.command(argv, **kwargs)
+                    if (
+                        checkpoint == "incarnation_recheck"
+                        and argv[3:5] == ["container", "inspect"]
+                        and self.inspect_count == 3
+                    ):
+                        value = json.loads(result.stdout)
+                        value["state"]["Pid"] = 314
+                        result.stdout = json.dumps(value)
+                    return result
+
+                with (
+                    patch.object(runtime.subprocess, "run", command),
+                    self.assertRaises(runtime.RuntimeRefused) as caught,
+                ):
+                    runtime.LocalDocker("desktop-linux", self.layout).capture_running(
+                        container_id=self.identity.container_id,
+                        image_id=self.identity.image_id,
+                        project=self.identity.project,
+                    )
+                self.assertEqual(caught.exception.args, ("worker_runtime_refused",))
+                self.assertEqual(caught.exception.checkpoint, checkpoint)
+
+    def test_nested_capture_metadata_preserves_only_known_fixed_checks(self):
+        error = runtime.RuntimeRefused("worker_runtime_refused")
+        error.checkpoint = "readiness_archive"
+        self.assertIs(runtime._capture_refused(error, "readiness_copy"), error)
+        self.assertEqual(error.checkpoint, "readiness_archive")
+        for value in ("private-canary-check", ["private-canary"], {"private": True}):
+            with self.subTest(kind=type(value).__name__):
+                error.checkpoint = value
+                self.assertIs(runtime._capture_refused(error, "profile"), error)
+                self.assertEqual(error.checkpoint, "profile")
+                self.assertEqual(error.args, ("worker_runtime_refused",))
+
     def test_sequence_mode_requires_actual_v2_owner_without_downgrade(self):
         self.info["state"].update(Status="running", Running=True)
         observer = runtime.LocalDocker("desktop-linux", self.layout, max_attempts=2)

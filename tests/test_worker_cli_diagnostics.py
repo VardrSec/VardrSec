@@ -198,6 +198,75 @@ class WorkerCLIDiagnostics(unittest.TestCase):
             self.assertEqual(reply["failure_phase"], "arguments")
             self.assertEqual(reply["failure_code"], "validation_refused")
 
+    def test_capture_checkpoints_keep_five_key_held_reply_without_payloads(self):
+        self.assertEqual(
+            set(cli.CAPTURE_FAILURE_PHASES), set(cli.runtime.CAPTURE_CHECKPOINTS)
+        )
+        for checkpoint, phase in cli.CAPTURE_FAILURE_PHASES.items():
+            with (
+                self.subTest(checkpoint=checkpoint),
+                tempfile.TemporaryDirectory() as t,
+            ):
+                root = Path(t)
+                error = cli.runtime.RuntimeRefused(PRIVATE)
+                error.checkpoint = checkpoint
+
+                def refused(installation, args):
+                    args._failure_phase = "enable_capture"
+                    raise error
+
+                with patch.object(cli, "dispatch", side_effect=refused):
+                    code, reply = self.invoke(
+                        [
+                            "status",
+                            "--runtime-id",
+                            fixtures.RID,
+                            "--private-root",
+                            str(root),
+                        ],
+                        root,
+                    )
+                self.assertEqual(code, 1)
+                self.assertEqual(
+                    reply,
+                    {
+                        "schema": "vardr.worker-cli/1",
+                        "state": "held",
+                        "runtime_id": fixtures.RID,
+                        "failure_phase": phase,
+                        "failure_code": "runtime_refused",
+                    },
+                )
+
+    def test_unknown_capture_metadata_and_other_phases_never_export_checkpoints(self):
+        for checkpoint in (PRIVATE, [PRIVATE], {PRIVATE: PRIVATE}):
+            for phase in ("enable_capture", "enable_recapture"):
+                with self.subTest(kind=type(checkpoint).__name__, phase=phase):
+                    error = cli.runtime.RuntimeRefused(PRIVATE)
+                    error.checkpoint = checkpoint
+                    diagnostic = cli.failure_diagnostic(
+                        type("Arguments", (), {"_failure_phase": phase})(), error
+                    )
+                    self.assertEqual(
+                        diagnostic,
+                        {"failure_phase": phase, "failure_code": "runtime_refused"},
+                    )
+                    self.assertNotIn(PRIVATE, json.dumps(diagnostic))
+        error.checkpoint = "profile"
+        self.assertEqual(
+            cli.failure_diagnostic(
+                type("Arguments", (), {"_failure_phase": "enable_recapture"})(), error
+            )["failure_phase"],
+            "enable_recapture",
+        )
+        self.assertEqual(
+            cli.failure_diagnostic(
+                type("Arguments", (), {"_failure_phase": "enable_capture_profile"})(),
+                error,
+            )["failure_phase"],
+            "dispatch",
+        )
+
     def test_success_and_keyboard_interrupt_keep_existing_outcomes(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)

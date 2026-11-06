@@ -20,6 +20,35 @@ class RuntimeRefused(ValueError):
     """A fixed, value-free refusal; unknown state must remain held."""
 
 
+CAPTURE_CHECKPOINTS = frozenset(
+    {
+        "daemon",
+        "inspect",
+        "identity",
+        "mounts",
+        "tmpfs",
+        "profile",
+        "volume_metadata",
+        "running_state",
+        "readiness_copy",
+        "readiness_archive",
+        "readiness_schema",
+        "incarnation_recheck",
+    }
+)
+
+
+def _capture_refused(error, checkpoint):
+    """Attach only a fixed check name; preserve a more specific nested check."""
+    if not isinstance(error, RuntimeRefused):
+        error = RuntimeRefused("worker_runtime_refused")
+    nested = getattr(error, "checkpoint", None)
+    if type(nested) is not str or nested not in CAPTURE_CHECKPOINTS:
+        require(type(checkpoint) is str and checkpoint in CAPTURE_CHECKPOINTS)
+        error.checkpoint = checkpoint
+    return error
+
+
 def require(value):
     if not value:
         raise RuntimeRefused("worker_runtime_refused")
@@ -252,15 +281,21 @@ class LocalDocker:
             raise RuntimeRefused("worker_runtime_refused") from None
 
     def _bound(self, identity):
-        require(
-            isinstance(identity, RuntimeIdentity)
-            and self.daemon() == identity.daemon_id
-        )
-        value = self.inspect(identity.container_id)
+        checkpoint = "daemon"
         try:
+            require(
+                isinstance(identity, RuntimeIdentity)
+                and self.daemon() == identity.daemon_id
+            )
+            checkpoint = "inspect"
+            value = self.inspect(identity.container_id)
+            checkpoint = "profile"
             host, state, labels = value["host"], value["state"], value["labels"]
+            checkpoint = "mounts"
             self._mounts(value["mounts"])
+            checkpoint = "tmpfs"
             self._tmpfs(host["tmpfs"])
+            checkpoint = "profile"
             require(
                 value["image"] == identity.image_id
                 and value["user"] in {"0", "0:0", "root", "root:root"}
@@ -308,9 +343,10 @@ class LocalDocker:
                 and state["Restarting"] is False
                 and state["Paused"] is False
             )
+            checkpoint = "volume_metadata"
             self._volume_sources(identity.project, value["mounts"])
-        except (KeyError, TypeError, AttributeError):
-            raise RuntimeRefused("worker_runtime_refused") from None
+        except (RuntimeRefused, KeyError, TypeError, AttributeError) as error:
+            raise _capture_refused(error, checkpoint) from None
         return value
 
     def _volume_sources(self, project, mounts):
@@ -389,15 +425,17 @@ class LocalDocker:
             )
 
     def _owner_nonce(self, container_id):
-        archive = self._command(
-            "container",
-            "cp",
-            container_id + ":/run/vardr-worker-ready/owner.json",
-            "-",
-            binary=True,
-        )
-        require(len(archive) <= 65536)
+        checkpoint = "readiness_copy"
         try:
+            archive = self._command(
+                "container",
+                "cp",
+                container_id + ":/run/vardr-worker-ready/owner.json",
+                "-",
+                binary=True,
+            )
+            require(len(archive) <= 65536)
+            checkpoint = "readiness_archive"
             with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as source:
                 members = source.getmembers()
                 require(len(members) == 1)
@@ -421,6 +459,7 @@ class LocalDocker:
                     value[key] = item
                 return value
 
+            checkpoint = "readiness_schema"
             ready = json.loads(raw.decode("utf-8"), object_pairs_hook=pairs)
             require(
                 type(ready) is dict
@@ -466,16 +505,25 @@ class LocalDocker:
                 and re.fullmatch(r"[0-9a-f]{64}", ready["owner_nonce"])
             )
             return ready["owner_nonce"]
-        except (tarfile.TarError, ValueError, UnicodeError, KeyError, TypeError):
-            raise RuntimeRefused("worker_runtime_refused") from None
+        except (
+            tarfile.TarError,
+            ValueError,
+            UnicodeError,
+            KeyError,
+            TypeError,
+        ) as error:
+            raise _capture_refused(error, checkpoint) from None
 
     def capture_running(self, *, container_id, image_id, project):
         """Derive a fresh nonce from the actual owner's file, never caller JSON."""
         require(self._observation_lock.acquire(blocking=False))
+        checkpoint = "daemon"
         try:
             self._deadline = time.monotonic() + 30
             daemon = self.daemon()
+            checkpoint = "inspect"
             first = self.inspect(container_id)
+            checkpoint = "identity"
             identity = RuntimeIdentity(
                 daemon,
                 container_id,
@@ -484,18 +532,22 @@ class LocalDocker:
                 first["state"]["StartedAt"],
                 "0" * 64,
             )
+            checkpoint = "profile"
             before = self._bound(identity)
+            checkpoint = "running_state"
             require(
                 before["state"]["Status"] == "running"
                 and before["state"]["Running"] is True
             )
+            checkpoint = "readiness_copy"
             nonce = self._owner_nonce(container_id)
+            checkpoint = "incarnation_recheck"
             require(self._bound(identity) == before)
             return RuntimeIdentity(
                 daemon, container_id, image_id, project, identity.started_at, nonce
             )
-        except (KeyError, TypeError):
-            raise RuntimeRefused("worker_runtime_refused") from None
+        except (RuntimeRefused, KeyError, TypeError) as error:
+            raise _capture_refused(error, checkpoint) from None
         finally:
             self._deadline = None
             self._observation_lock.release()

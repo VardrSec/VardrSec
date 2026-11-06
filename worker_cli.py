@@ -27,6 +27,22 @@ class CLIRefused(ValueError):
     pass
 
 
+CAPTURE_FAILURE_PHASES = {
+    "daemon": "enable_capture_daemon",
+    "inspect": "enable_capture_inspect",
+    "identity": "enable_capture_identity",
+    "mounts": "enable_capture_mounts",
+    "tmpfs": "enable_capture_tmpfs",
+    "profile": "enable_capture_profile",
+    "volume_metadata": "enable_capture_volume_metadata",
+    "running_state": "enable_capture_running_state",
+    "readiness_copy": "enable_capture_readiness_copy",
+    "readiness_archive": "enable_capture_readiness_archive",
+    "readiness_schema": "enable_capture_readiness_schema",
+    "incarnation_recheck": "enable_capture_incarnation_recheck",
+}
+
+
 FAILURE_PHASES = frozenset(
     {
         "arguments",
@@ -45,6 +61,7 @@ FAILURE_PHASES = frozenset(
         "enable_publish_trust",
         "enable_publish_admission",
     }
+    | set(CAPTURE_FAILURE_PHASES.values())
 )
 FAILURE_CODES = frozenset(
     {
@@ -62,8 +79,16 @@ FAILURE_CODES = frozenset(
 def failure_diagnostic(args, error):
     """Fixed operator diagnostics; never stringify an exception or input value."""
     phase = getattr(args, "_failure_phase", "arguments")
-    if type(phase) is not str or phase not in FAILURE_PHASES:
+    if (
+        type(phase) is not str
+        or phase not in FAILURE_PHASES
+        or phase in CAPTURE_FAILURE_PHASES.values()
+    ):
         phase = "dispatch"
+    if phase == "enable_capture" and isinstance(error, runtime.RuntimeRefused):
+        checkpoint = getattr(error, "checkpoint", None)
+        if type(checkpoint) is str and checkpoint in CAPTURE_FAILURE_PHASES:
+            phase = CAPTURE_FAILURE_PHASES[checkpoint]
     code = "operation_failed"
     for kind, known in (
         (KeyboardInterrupt, "interrupted"),
