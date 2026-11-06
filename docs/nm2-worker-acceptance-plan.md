@@ -399,3 +399,22 @@ correlated records without retaining approval tokens or signing material. The
 second job's original approval and catalog grants must precede worker start;
 post-exit eligibility alone is insufficient. Physical exit ordering retains all
 Docker nanoseconds with the existing runtime timestamp validator.
+
+### Optional native idle control (implementation; platform proof open)
+
+The explicit `persistent-idle-limit` acceptance scenario selects the existing
+60-second idle option with no count limit. It issues one reviewed five-GET job,
+requires native DONE and the durable release, and observes the unchanged native
+owner's exit124 without requesting an operator stop. A separate strict reader
+correlates the original authorization, traffic, counters, exact incarnation,
+unbound sequence1 retirement and original-run CLI reconciliation.
+
+The 75-second fixture poll ceiling grants no execution authority. The final
+exact-incarnation exit observation keeps the existing15-second Docker wait.
+Normal persistent startup still has neither finite-session option; the35-job
+availability and optional count-one scenarios retain their separate criteria.
+The optional idle receipt gives neither of those scenarios acceptance credit.
+Actual Linux/Desktop idle proof remains open until the reviewed Runner idle-return
+fix, its normal validation/CI and the matching image are accepted. No runtime/API,
+capture deadline, retry, credential provider or infrastructure is introduced.
+Zero-issued-job retirement and stop/re-enable remain separate open gates.

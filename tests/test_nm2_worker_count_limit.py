@@ -381,7 +381,7 @@ class CountLimit(unittest.TestCase):
             acceptance.target_environment("persistent-availability"),
             {"NM2_FIXTURE_REQUEST_CEILING": "175"},
         )
-        for name in ("healthy", "persistent-idle-limit", "unknown"):
+        for name in ("healthy", "unknown"):
             with self.assertRaises(acceptance.AcceptanceRefused):
                 acceptance.persistent_enable_args(name)
         with self.assertRaises(hosted.HostedRefused):

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add the explicit optional60-second native-idle acceptance fixture and strict
+  independent reader, separate from availability/count proofs. Require one
+  reviewed job, native124 without operator stop and original-run reconciliation;
+  actual platform proof remains open.
+
 - Record independently checked Docker Desktop persistent availability (70-second
   idle, 35 authorized jobs, 175 requests/evidence, explicit stop/reconciliation)
   and optional count-one slices. Keep Linux, optional idle, zero-job/re-enable

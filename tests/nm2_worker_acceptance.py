@@ -49,13 +49,15 @@ SCENARIOS = (
     "healthy",
     "persistent-availability",
     "persistent-count-limit",
+    "persistent-idle-limit",
     "local-emergency-stop",
     "stop-work",
     "missing-local-grant",
     "active-target-grant-revoked",
 )
 COUNT_SCENARIO = "persistent-count-limit"
-PERSISTENT_SCENARIOS = {"persistent-availability", COUNT_SCENARIO}
+IDLE_SCENARIO = "persistent-idle-limit"
+PERSISTENT_SCENARIOS = {"persistent-availability", COUNT_SCENARIO, IDLE_SCENARIO}
 
 
 def count_approval_context(inventory, original_context):
@@ -86,7 +88,7 @@ def persistent_limits(scenario):
     require(scenario in PERSISTENT_SCENARIOS, "fixture_scenario_refused")
     return {
         "max_attempts": "1" if scenario == COUNT_SCENARIO else None,
-        "idle_timeout_seconds": None,
+        "idle_timeout_seconds": 60 if scenario == IDLE_SCENARIO else None,
     }
 
 
@@ -94,7 +96,7 @@ def persistent_enable_args(scenario):
     limits = persistent_limits(scenario)
     return ["--protocol", "persistent-v3"] + (
         ["--max-attempts", limits["max_attempts"]] if limits["max_attempts"] else []
-    )
+    ) + (["--idle-timeout-seconds", "60"] if scenario == IDLE_SCENARIO else [])
 
 
 _CONFIGURATION_ENV = {
@@ -191,7 +193,7 @@ def target_environment(scenario):
     require(scenario in SCENARIOS, "fixture_scenario_refused")
     if scenario == "persistent-availability":
         return {"NM2_FIXTURE_REQUEST_CEILING": "175"}
-    if scenario == COUNT_SCENARIO:
+    if scenario in {COUNT_SCENARIO, IDLE_SCENARIO}:
         return {}
     if scenario != "healthy":
         return {"NM2_FIXTURE_DELAY_SECONDS": "15"}
@@ -329,7 +331,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
             expected_admission["schema"] == "vardr.worker-admission/3"
             and expected_admission["mode"] == "persistent"
             and expected_admission["limits"]
-            in tuple(persistent_limits(scenario) for scenario in PERSISTENT_SCENARIOS)
+            in tuple(persistent_limits(scenario) for scenario in {"persistent-availability", COUNT_SCENARIO})
             and expected_admission["runtime_sha256"]
             == digest(canonical(expected_admission["identity"]))
             and expected_admission["admission_sha256"]
@@ -486,6 +488,87 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
         AttributeError,
     ):
         raise WorkerStatusRefused(checkpoint) from None
+
+
+IDLE_STATUS_FIELDS = {
+    "schema", "runtime_id", "protocol", "mode", "limits", "identity", "state",
+    "reason", "cursor", "availability", "new_work_disabled", "reporting_revoked",
+    "registration_state", "disable_state", "stop_state", "revocation_state",
+    "container_state",
+}
+
+
+def idle_status_value(value, code, admission):
+    """Closed fixture-only decoder for the explicit60s optional-idle control."""
+    import worker_host_persistent as persistent
+
+    reason = "idle_status_refused"
+    record = {"runtime_id": admission["runtime_id"],
+              "registration": {k: admission[k] for k in persistent.REGISTRATION}}
+    persistent.admission(record, admission)
+    require(admission["limits"] == persistent_limits(IDLE_SCENARIO), reason)
+    terminal = type(value) is dict and value.get("state") == "stopped"
+    require(type(code) is int and code in {0, 1} and type(value) is dict
+            and set(value) == IDLE_STATUS_FIELDS | (
+                {"exit_code", "finished_at"} if terminal else set()), reason)
+    require(value["schema"] == "vardr.worker-status/1"
+            and value["protocol"] == "persistent-v3" and value["mode"] == "persistent"
+            and value["runtime_id"] == admission["runtime_id"]
+            and canonical(value["identity"]) == canonical(admission["identity"])
+            and canonical(value["limits"]) == canonical(admission["limits"])
+            and value["registration_state"] == "acknowledged"
+            and value["disable_state"] == value["stop_state"]
+            == value["revocation_state"] == "none", reason)
+    if terminal:
+        require(code == 0 and value["container_state"] == "exited"
+                and value["reason"] is None and type(value["exit_code"]) is int
+                and value["exit_code"] == 124
+                and all(value[k] is None for k in (
+                    "cursor", "availability", "new_work_disabled", "reporting_revoked")), reason)
+        # Docker physical timestamps permit nanoseconds; no normalization loss.
+        from nm2_worker_persistent_projection import stamp
+        stamp(value["finished_at"], physical=True)
+        return value
+    require(value["container_state"] == "running"
+            and value["cursor"] == {"last_sequence": "1", "phase": "idle"}
+            and value["new_work_disabled"] is False
+            and value["reporting_revoked"] is False, reason)
+    presence = value["availability"]
+    require(type(presence) is dict and set(presence) == {
+                "state", "observed_at", "fresh_until", "cursor"}
+            and presence["cursor"] == value["cursor"], reason)
+    fresh = False
+    if presence["observed_at"] is None:
+        require(presence["fresh_until"] is None, reason)
+    else:
+        observed, ending = persistent._stamp(presence["observed_at"]), persistent._stamp(presence["fresh_until"])
+        instant = datetime.now(timezone.utc)
+        require(observed <= instant and timedelta(0) < ending-observed <= timedelta(seconds=15), reason)
+        fresh = instant < ending
+    if code == 0:
+        require(value["state"] == presence["state"] == "idle-ready"
+                and value["reason"] is None and fresh, reason)
+    else:
+        require(value["state"] == "held" and (
+            value["reason"] == "availability_stale" and not fresh
+            and presence["state"] in {"held", "idle-ready"}
+            or value["reason"] == "availability_unconfirmed"
+            and presence["state"] == "held" and presence["observed_at"] is not None), reason)
+    return value
+
+
+def worker_idle_status_command(arguments, *, cwd, env, timeout, expected_admission):
+    """No retries, stop, or claim; one existing read-only product status command."""
+    import worker_host
+    try:
+        result = subprocess.run(arguments, cwd=cwd, env=env, capture_output=True,
+                                timeout=timeout, check=False)
+        require(type(result.stdout) is bytes and 0 < len(result.stdout) <= 4096
+                and result.stderr == b"", "idle_status_refused")
+        idle_status_value(worker_host._json(result.stdout), result.returncode, expected_admission)
+        return result.stdout
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AttributeError):
+        raise AcceptanceRefused("idle_status_refused") from None
 
 
 def fixture_subnets(value):
@@ -872,6 +955,12 @@ class Fixture:
                 nm2_exit_status="incomplete",
             )
             self.receipt["cases"]["persistent_availability"] = {"status": "not_run"}
+        elif scenario == IDLE_SCENARIO:
+            self.receipt.update(
+                schema="vardr.nm2-worker-idle-acceptance/1", scenario=scenario,
+                acceptance_scope="persistent_idle_control_only", nm2_exit_status="incomplete",
+            )
+            self.receipt["cases"]["persistent_idle_limit"] = {"status": "not_run"}
         elif scenario == COUNT_SCENARIO:
             self.receipt.update(
                 schema="vardr.nm2-worker-count-acceptance/1",
@@ -1291,7 +1380,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                     )
                     | (
                         {"count_approval_contexts": True}
-                        if getattr(self, "scenario", None) == COUNT_SCENARIO
+                        if getattr(self, "scenario", None) in {COUNT_SCENARIO, IDLE_SCENARIO}
                         else {}
                     )
                 ),
@@ -1670,7 +1759,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
             inventory["schema"]
             == (
                 "vardr.nm2-fixture-inventory/4"
-                if persistent and getattr(self, "scenario", None) == COUNT_SCENARIO
+                if persistent and getattr(self, "scenario", None) in {COUNT_SCENARIO, IDLE_SCENARIO}
                 else "vardr.nm2-fixture-inventory/3"
                 if persistent
                 else "vardr.nm2-fixture-inventory/2"
@@ -1680,7 +1769,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "normal_database_readiness_required",
         )
         require(
-            not self_exit or (persistent and self.scenario == COUNT_SCENARIO),
+            not self_exit or (persistent and self.scenario in {COUNT_SCENARIO, IDLE_SCENARIO}),
             "count_self_exit_scope_refused",
         )
         require(
@@ -1688,7 +1777,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 type(physical["exit_code"]) is int
                 and 0 <= physical["exit_code"] <= 255
                 and (
-                    physical["exit_code"] == 0
+                    physical["exit_code"] == (124 if self.scenario == IDLE_SCENARIO else 0)
                     and physical["operator_stop_state"] == "not_requested"
                     if self_exit
                     else physical["operator_stop_state"] == "stopped_observed"
@@ -3017,7 +3106,8 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
         )
 
     def worker_action(self, action, runtime_id, *, timeout=45, expected_admission=None):
-        command = worker_status_command if action == "status" else worker_cli_command
+        command = (worker_idle_status_command if getattr(self, "scenario", None) == IDLE_SCENARIO
+                   else worker_status_command) if action == "status" else worker_cli_command
         return json.loads(
             command(
                 [
@@ -3165,6 +3255,114 @@ print(json.dumps(result))
                 == 1,
                 "persistent_original_ack_not_closed",
             )
+
+    def persistent_idle_limit(self, zero):
+        require(type(zero) is list and not zero, "idle_baseline_not_empty")
+        self.receipt["stage"] = "idle_control_setup"
+        engagement, authorization, job, case = self.new_job("idle-control", marker=True)
+        original, context, authority = {}, {}, {}
+        binding = self.approve(
+            "idle-control", engagement, authorization, job, case,
+            review_snapshot=original, review_context=context, review_authority=authority,
+        )
+        before = self.inventory(engagement, job)
+        count_approval_context(before, context)
+        require(self.traffic() == zero, "idle_baseline_not_empty")
+        observed = {}
+
+        def on_running(admission):
+            observed["admission"] = json.loads(canonical(admission))
+            self.receipt["stage"] = "idle_control_release"
+            until = time.monotonic() + 45
+            while True:
+                current = next(row for row in self.api.request(
+                    f"/engagements/{engagement}/jobs")["jobs"] if row["id"] == job)
+                if current["status"] == "done":
+                    break
+                require(current["status"] in {"pending", "running"}
+                        and time.monotonic() < until, "idle_job_not_completed")
+                time.sleep(0.2)
+            local = self.persistent_metadata(admission, 1)
+            self.verify_persistent_local(local, admission, 1)
+            local["grants"] = self.grant_snapshot(engagement)
+            observed["local"] = local
+            observed["inventory_before_idle"] = self.inventory(engagement, job)
+            observed["traffic_before_idle"] = self.traffic()
+            require(len(observed["traffic_before_idle"]) == 5,
+                    "idle_complete_traffic_changed")
+            self.receipt["stage"] = "idle_control_observation"
+            entered = time.monotonic()
+            until = entered + 75  # Host observation only; native limit remains60.
+            first = self.worker_action("status", admission["runtime_id"],
+                timeout=max(0.001, until - time.monotonic()), expected_admission=admission)
+            require(first["state"] == "idle-ready", "idle_initial_readiness_missing")
+            observed["status_before_idle"] = first
+            while True:
+                remaining = until - time.monotonic()
+                require(remaining > 0, "idle_native_exit_not_observed")
+                time.sleep(min(1, remaining))
+                remaining = until - time.monotonic()
+                require(remaining > 0, "idle_native_exit_not_observed")
+                value = self.worker_action("status", admission["runtime_id"],
+                    timeout=remaining, expected_admission=admission)
+                if value["state"] == "stopped":
+                    observed["status_after_idle"] = value
+                    break
+            observed["observation_seconds"] = time.monotonic() - entered
+            require(0 < observed["observation_seconds"] <= 75,
+                    "idle_observation_budget_changed")
+            self.receipt["stage"] = "idle_control_unchanged"
+            observed["after_idle"] = self.persistent_metadata(admission, 1)
+            observed["inventory_after_idle"] = self.inventory(engagement, job)
+            observed["traffic_after_idle"] = self.traffic()
+            self.verify_persistent_local(observed["after_idle"], admission, 1)
+            require(canonical(observed["after_idle"]) == canonical(
+                {k: v for k, v in local.items() if k != "grants"})
+                and canonical(observed["inventory_after_idle"])
+                == canonical(observed["inventory_before_idle"])
+                and canonical(observed["traffic_after_idle"])
+                == canonical(observed["traffic_before_idle"]),
+                "idle_executed_or_changed_work")
+
+        physical = self.worker(*binding, on_running=on_running)
+        stopped = observed["status_after_idle"]
+        require(type(physical["exit_code"]) is int and physical["exit_code"] == 124
+                and physical["operator_stop_state"] == "not_requested"
+                and physical["identity"] == observed["admission"]["identity"]
+                and all(physical[k] == stopped[k] for k in ("exit_code", "finished_at")),
+                "idle_native_exit_not_proven")
+        self.receipt["stage"] = "idle_control_reconciliation"
+        retirement = self.report_exit(physical)
+        host = self.worker_action("reconcile", physical["runtime_id"], timeout=120)
+        require(host["state"] == "terminal_observed"
+                and canonical(host["receipt"]["retirement"]) == canonical(retirement),
+                "idle_host_receipt_changed")
+        reconciled = json.loads(self.helper("audit", "reconcile-managed",
+            observed["local"]["attempt"]["run_id"]))
+        require(type(reconciled["state"]) is str
+                and reconciled["state"].startswith("terminal_")
+                and type(reconciled["remaining_local_holds"]) is int
+                and reconciled["remaining_local_holds"] == 0,
+                "idle_original_reconciliation_held")
+        retained = self.persistent_metadata(observed["admission"], 1)
+        self.verify_persistent_local(retained, observed["admission"], 1, retired=True)
+        inventory, traffic = self.inventory(engagement, job), self.traffic()
+        require(canonical(traffic) == canonical(observed["traffic_after_idle"]),
+                "idle_complete_traffic_changed")
+        fixed, measured = self.verify_fixed(engagement, job, case, physical, before,
+            traffic, inventory, persistent=True, self_exit=True)
+        proof = dict(observed, fixed=fixed, measured=measured, inventory=inventory,
+            retirement=retirement, retained=retained, reconciled=reconciled,
+            selection={"engagement_id": engagement, "job_id": job,
+                "case_spec": case["spec"], "review_input": original,
+                "review_context": context, "review_authority": authority})
+        self.receipt["cases"]["persistent_idle_limit"] = {
+            "status": "passed", "limits": persistent_limits(IDLE_SCENARIO),
+            "physical": physical, "proof": proof,
+        }
+        self.receipt["status"], self.receipt["stage"] = (
+            "selected_idle_control_slice_passed", "selected_idle_control_complete")
+
 
     def persistent_count_limit(self, zero):
         require(type(zero) is list and not zero, "count_baseline_not_empty")
@@ -4216,7 +4414,7 @@ print(json.dumps(result))
             "finished_at": proof.finished_at,
             "operator_enable_state": enabled["state"],
         }
-        if self.protocol == "persistent-v3" and self.scenario == COUNT_SCENARIO:
+        if self.protocol == "persistent-v3" and self.scenario in {COUNT_SCENARIO, IDLE_SCENARIO}:
             value.update(
                 admission_sha256=admission["admission_sha256"],
                 operator_stop_state="not_requested",
@@ -4346,6 +4544,9 @@ print(json.dumps(result))
             }
             if self.scenario == "persistent-availability":
                 self.persistent_availability(engagement, job, zero)
+                return
+            if self.scenario == IDLE_SCENARIO:
+                self.persistent_idle_limit(zero)
                 return
             if self.scenario == COUNT_SCENARIO:
                 self.persistent_count_limit(zero)
@@ -4528,6 +4729,10 @@ def main(argv=None):
                 "strict_out_of_scope",
                 "persistent_availability",
             )
+        if args.scenario == IDLE_SCENARIO:
+            receipt["initial_cases"] = ("default_disabled", "strict_out_of_scope", "persistent_idle_limit")
+            receipt.update(scenario=args.scenario, limits=persistent_limits(IDLE_SCENARIO),
+                           acceptance_scope="persistent_idle_control_only")
         if args.scenario == COUNT_SCENARIO:
             receipt["initial_cases"] = (
                 "default_disabled",
@@ -4561,6 +4766,7 @@ def main(argv=None):
             "selected_failure_slice_passed",
             "selected_availability_slice_passed",
             "selected_count_control_slice_passed",
+            "selected_idle_control_slice_passed",
         }
         else 1
     )

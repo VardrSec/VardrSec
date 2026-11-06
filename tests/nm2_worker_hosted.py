@@ -26,7 +26,7 @@ SOURCE = Path(__file__).resolve().parents[1]
 # Root helpers must come from this exact source tree, never the caller's cwd.
 sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
-PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit"}
+PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit", "persistent-idle-limit"}
 REPOSITORIES = {
     name: "VardrSec/" + repo
     for name, repo in (
@@ -652,6 +652,7 @@ def failure_projection(raw, selection):
             "vardr.nm2-worker-acceptance/2",
             "vardr.nm2-worker-persistent-acceptance/1",
             "vardr.nm2-worker-count-acceptance/1",
+            "vardr.nm2-worker-idle-acceptance/1",
         }
         and raw.get("status") == "held"
         and raw.get("sources") == selection["sources"]
@@ -669,6 +670,9 @@ def failure_projection(raw, selection):
             raw.get("scenario") == "persistent-count-limit"
             and raw.get("expected_database_revision") == "0041persistentruntime"
         )
+    if raw["schema"] == "vardr.nm2-worker-idle-acceptance/1":
+        require(raw.get("scenario") == "persistent-idle-limit"
+                and raw.get("expected_database_revision") == "0041persistentruntime")
     stages = {
         "image_sources",
         "core_setup",
@@ -687,6 +691,9 @@ def failure_projection(raw, selection):
         "persistent_operator_stop",
         "persistent_exit_observation",
         "persistent_exit_binding",
+        "idle_control_setup", "idle_control_release", "idle_control_observation",
+        "idle_control_unchanged", "idle_control_reconciliation",
+        "selected_idle_control_complete",
         "count_control_setup",
         "count_control_release",
         "count_control_local_release",
@@ -700,6 +707,12 @@ def failure_projection(raw, selection):
     }
     reasons = {
         "fixture_http_status",
+        "idle_baseline_not_empty", "idle_job_not_completed",
+        "idle_complete_traffic_changed", "idle_initial_readiness_missing",
+        "idle_native_exit_not_observed", "idle_observation_budget_changed",
+        "idle_executed_or_changed_work", "idle_native_exit_not_proven",
+        "idle_host_receipt_changed", "idle_original_reconciliation_held",
+        "idle_status_refused",
         "count_baseline_not_empty",
         "count_complete_traffic_changed",
         "count_enrollment_changed",
@@ -889,6 +902,12 @@ def failure_projection(raw, selection):
 
 def public_projection(raw, selection):
     """Project only fixed statuses and measured hashes, never raw nested data."""
+    if type(raw) is dict and raw.get("schema") == "vardr.nm2-worker-idle-acceptance/1":
+        from nm2_worker_idle_projection import project
+        try:
+            return project(raw, selection)
+        except (ValueError, TypeError, KeyError, IndexError):
+            raise HostedRefused("nm2_hosted_idle_receipt_refused") from None
     if type(raw) is dict and raw.get("schema") == "vardr.nm2-worker-count-acceptance/1":
         from nm2_worker_count_projection import project
 
@@ -1083,6 +1102,10 @@ class Hosted:
                 expected_database_revision=self.database_revision,
                 scope="Persistent idle availability and 35 separately authorized jobs in one explicitly stopped incarnation; NM2 remains incomplete",
             )
+        elif self.scenario == "persistent-idle-limit":
+            self.receipt.update(schema="vardr.nm2-hosted/5", scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope="Optional native60s idle control after one reviewed job; NM2 remains incomplete")
         elif self.scenario == "persistent-count-limit":
             self.receipt.update(
                 schema="vardr.nm2-hosted/4",
@@ -1383,6 +1406,7 @@ class Hosted:
                     "healthy": "vardr.nm2-worker-acceptance/2",
                     "persistent-availability": "vardr.nm2-worker-persistent-acceptance/1",
                     "persistent-count-limit": "vardr.nm2-worker-count-acceptance/1",
+                    "persistent-idle-limit": "vardr.nm2-worker-idle-acceptance/1",
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
@@ -1391,6 +1415,7 @@ class Hosted:
                     "healthy": "vardr.nm2-hosted/2",
                     "persistent-availability": "vardr.nm2-hosted/3",
                     "persistent-count-limit": "vardr.nm2-hosted/4",
+                    "persistent-idle-limit": "vardr.nm2-hosted/5",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],

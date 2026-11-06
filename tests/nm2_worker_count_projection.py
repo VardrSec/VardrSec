@@ -190,7 +190,28 @@ def review(selection, admission, before, gate_sha256, project):
     spec = selection["case_spec"]
     require(type(spec) is dict and type(spec.get("id")) is str)
     name = spec["id"].removeprefix("nm2-")
-    common.same(spec, expected_case(name))
+    return _review_fixed_spec(selection, admission, before, gate_sha256, project,
+                              expected_spec=expected_case(name))
+
+
+def _review_fixed_spec(selection, admission, before, gate_sha256, project, *, expected_spec):
+    common.fields(
+        selection,
+        {
+            "engagement_id",
+            "job_id",
+            "case_spec",
+            "review_input",
+            "review_context",
+            "review_authority",
+        },
+    )
+    for key in ("engagement_id", "job_id"):
+        host._identifier(selection[key])
+    spec = selection["case_spec"]
+    require(type(spec) is dict and type(spec.get("id")) is str)
+    name = spec["id"].removeprefix("nm2-")
+    common.same(spec, expected_spec)
     request = common.fields(
         selection["review_input"],
         {

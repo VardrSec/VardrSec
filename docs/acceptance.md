@@ -221,3 +221,10 @@ image/configuration and report identities recorded. CI validates collection;
 evidence. The initial local scan keeps all five image vulnerability gates blocked.
 Unsigned evidence does not establish authenticated provenance, reproducible builds
 or release readiness. Publication remains a separate authorized step.
+
+### Optional native idle control (implementation; platform proof open)
+
+The explicitly selected idle-control fixture and independent reader are implemented
+for the existing optional60-second limit. One reviewed job must complete, followed
+by native124 without operator stop and exact retirement/reconciliation. Actual
+Linux/Desktop idle acceptance remains open. See the [bounded acceptance plan](nm2-worker-acceptance-plan.md).
