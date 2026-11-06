@@ -51,3 +51,9 @@ passed through one explicitly admitted worker, including exact completion/releas
 history and preserved-resource checks. Its Linux counterpart and the integrated
 failure matrix remain separate gates. Healthy continuation alone does not close
 NM-2 or authorize NM-3 to resume.
+
+The owner subsequently clarified that normal enabled background operation must
+remain available until explicitly stopped, with the 60-second idle and 32-job
+controls optional. [The persistent implementation contract](nm2-persistent-worker-contract.md)
+separates that availability from fresh per-job execution authority. The finite
+candidate is retained as regression evidence; it is not an accepted substitute.
