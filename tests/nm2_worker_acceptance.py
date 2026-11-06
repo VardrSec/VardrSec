@@ -48,11 +48,55 @@ INITIAL_CASES = (
 SCENARIOS = (
     "healthy",
     "persistent-availability",
+    "persistent-count-limit",
     "local-emergency-stop",
     "stop-work",
     "missing-local-grant",
     "active-target-grant-revoked",
 )
+COUNT_SCENARIO = "persistent-count-limit"
+PERSISTENT_SCENARIOS = {"persistent-availability", COUNT_SCENARIO}
+
+
+def count_approval_context(inventory, original_context):
+    """Correlate the original public context with its registered row; not attestation."""
+    require(
+        type(inventory) is dict
+        and inventory.get("schema") == "vardr.nm2-fixture-inventory/4"
+        and type(inventory.get("approvals")) is list
+        and len(inventory["approvals"]) == 1
+        and type(inventory["approvals"][0]) is dict
+        and type(inventory["approvals"][0].get("id")) is str
+        and type(original_context) is dict
+        and type(inventory.get("approval_context_sha256")) is dict,
+        "count_registered_context_changed",
+    )
+    registered = inventory["approval_context_sha256"]
+    identifier = inventory["approvals"][0]["id"]
+    require(
+        set(registered) == {identifier}
+        and type(registered[identifier]) is str
+        and re.fullmatch(r"[a-f0-9]{64}", registered[identifier]) is not None
+        and registered[identifier] == digest(canonical(original_context)),
+        "count_registered_context_changed",
+    )
+
+
+def persistent_limits(scenario):
+    require(scenario in PERSISTENT_SCENARIOS, "fixture_scenario_refused")
+    return {
+        "max_attempts": "1" if scenario == COUNT_SCENARIO else None,
+        "idle_timeout_seconds": None,
+    }
+
+
+def persistent_enable_args(scenario):
+    limits = persistent_limits(scenario)
+    return ["--protocol", "persistent-v3"] + (
+        ["--max-attempts", limits["max_attempts"]] if limits["max_attempts"] else []
+    )
+
+
 _CONFIGURATION_ENV = {
     "HTTPS_PORT",
     "PROXY_IP",
@@ -147,6 +191,8 @@ def target_environment(scenario):
     require(scenario in SCENARIOS, "fixture_scenario_refused")
     if scenario == "persistent-availability":
         return {"NM2_FIXTURE_REQUEST_CEILING": "175"}
+    if scenario == COUNT_SCENARIO:
+        return {}
     if scenario != "healthy":
         return {"NM2_FIXTURE_DELAY_SECONDS": "15"}
     return {}
@@ -283,7 +329,7 @@ def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
             expected_admission["schema"] == "vardr.worker-admission/3"
             and expected_admission["mode"] == "persistent"
             and expected_admission["limits"]
-            == {"max_attempts": None, "idle_timeout_seconds": None}
+            in tuple(persistent_limits(scenario) for scenario in PERSISTENT_SCENARIOS)
             and expected_admission["runtime_sha256"]
             == digest(canonical(expected_admission["identity"]))
             and expected_admission["admission_sha256"]
@@ -766,13 +812,13 @@ class Fixture:
             "fixture_database_revision_refused",
         )
         require(
-            scenario != "persistent-availability"
+            scenario not in PERSISTENT_SCENARIOS
             or database_revision == "0041persistentruntime",
             "persistent_database_revision_required",
         )
         self.scenario = scenario
         self.protocol = (
-            "persistent-v3" if scenario == "persistent-availability" else "finite-v2"
+            "persistent-v3" if scenario in PERSISTENT_SCENARIOS else "finite-v2"
         )
         self.database_revision = database_revision
         self.max_attempts = (
@@ -826,6 +872,14 @@ class Fixture:
                 nm2_exit_status="incomplete",
             )
             self.receipt["cases"]["persistent_availability"] = {"status": "not_run"}
+        elif scenario == COUNT_SCENARIO:
+            self.receipt.update(
+                schema="vardr.nm2-worker-count-acceptance/1",
+                scenario=scenario,
+                acceptance_scope="persistent_count_control_only",
+                nm2_exit_status="incomplete",
+            )
+            self.receipt["cases"]["persistent_count_limit"] = {"status": "not_run"}
         elif scenario != "healthy":
             self.receipt.update(
                 schema="vardr.nm2-worker-failure-acceptance/1",
@@ -1235,6 +1289,11 @@ print(json.dumps({'files':hashes,'executables':executables}))
                         if self.protocol == "persistent-v3"
                         else {}
                     )
+                    | (
+                        {"count_approval_contexts": True}
+                        if getattr(self, "scenario", None) == COUNT_SCENARIO
+                        else {}
+                    )
                 ),
             )
         )
@@ -1491,6 +1550,9 @@ print(json.dumps({'files':hashes,'executables':executables}))
         *,
         local_grants=True,
         expected=200,
+        review_snapshot=None,
+        review_context=None,
+        review_authority=None,
     ):
         from vardrrunner.authorization.contracts import approve
         from vardrrunner.authorization.plan import compile_gate_plan
@@ -1554,20 +1616,19 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "authorization_id": authorization,
             "plan": plan,
         }
+        review_input = {
+            **selection,
+            "expires_at": expiry,
+            "max_executions": 1,
+            "max_duration_seconds": 30,
+            "max_artifact_bytes": 1024 * 1024,
+            "credential_grants": [
+                {**reference, "revision": 1, "expires_at": expiry}
+                for reference in plan["credential_references"]
+            ],
+        }
         review = self.api.request(
-            f"/jobs/{job}/managed/approval/review",
-            {
-                **selection,
-                "expires_at": expiry,
-                "max_executions": 1,
-                "max_duration_seconds": 30,
-                "max_artifact_bytes": 1024 * 1024,
-                "credential_grants": [
-                    {**reference, "revision": 1, "expires_at": expiry}
-                    for reference in plan["credential_references"]
-                ],
-            },
-            expected=expected,
+            f"/jobs/{job}/managed/approval/review", review_input, expected=expected
         )
         if expected != 200:
             return None
@@ -1584,6 +1645,12 @@ print(json.dumps({'files':hashes,'executables':executables}))
             f"/jobs/{job}/managed/approval/register",
             {**selection, "approval": approval},
         )
+        if review_snapshot is not None:
+            review_snapshot.update(review_input)
+        if review_context is not None:
+            review_context.update(review["context"])
+        if review_authority is not None:
+            review_authority.update(review["authority_snapshot"])
         return runner_id, enrollment["enrollment_id"]
 
     def verify_fixed(
@@ -1597,11 +1664,14 @@ print(json.dumps({'files':hashes,'executables':executables}))
         inventory,
         *,
         persistent=False,
+        self_exit=False,
     ):
         require(
             inventory["schema"]
             == (
-                "vardr.nm2-fixture-inventory/3"
+                "vardr.nm2-fixture-inventory/4"
+                if persistent and getattr(self, "scenario", None) == COUNT_SCENARIO
+                else "vardr.nm2-fixture-inventory/3"
                 if persistent
                 else "vardr.nm2-fixture-inventory/2"
             )
@@ -1610,10 +1680,19 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "normal_database_readiness_required",
         )
         require(
+            not self_exit or (persistent and self.scenario == COUNT_SCENARIO),
+            "count_self_exit_scope_refused",
+        )
+        require(
             (
                 type(physical["exit_code"]) is int
                 and 0 <= physical["exit_code"] <= 255
-                and physical["operator_stop_state"] == "stopped_observed"
+                and (
+                    physical["exit_code"] == 0
+                    and physical["operator_stop_state"] == "not_requested"
+                    if self_exit
+                    else physical["operator_stop_state"] == "stopped_observed"
+                )
             )
             if persistent
             else physical["exit_code"] == 0,
@@ -3087,6 +3166,481 @@ print(json.dumps(result))
                 "persistent_original_ack_not_closed",
             )
 
+    def persistent_count_limit(self, zero):
+        require(type(zero) is list and not zero, "count_baseline_not_empty")
+        self.receipt["stage"] = "count_control_setup"
+        selections = []
+        for name in ("count-a", "count-b"):
+            engagement, authorization, job, case = self.new_job(name, marker=True)
+            review_input, review_context, review_authority = {}, {}, {}
+            binding = self.approve(
+                name,
+                engagement,
+                authorization,
+                job,
+                case,
+                review_snapshot=review_input,
+                review_context=review_context,
+                review_authority=review_authority,
+            )
+            selections.append(
+                (
+                    engagement,
+                    job,
+                    case,
+                    binding,
+                    review_input,
+                    review_context,
+                    review_authority,
+                )
+            )
+        selections.sort(key=lambda row: row[1])  # Existing discovery order.
+        first, second = selections
+        require(first[3] == second[3], "count_enrollment_changed")
+        before = self.inventory(*first[:2])
+        pending_before = json.loads(canonical(self.inventory(*second[:2])))
+        baseline = self.traffic()
+        require(type(baseline) is list and not baseline, "count_baseline_not_empty")
+        originals = json.loads(
+            canonical(
+                [
+                    {
+                        "engagement_id": row[0],
+                        "job_id": row[1],
+                        "case_spec": row[2]["spec"],
+                        "review_input": row[4],
+                        "review_context": row[5],
+                        "review_authority": row[6],
+                    }
+                    for row in selections
+                ]
+            )
+        )
+        count_approval_context(before, originals[0]["review_context"])
+        count_approval_context(pending_before, originals[1]["review_context"])
+        observed = {}
+
+        def on_running(admission):
+            observed["admission"] = json.loads(canonical(admission))
+            self.receipt["stage"] = "count_control_release"
+            until = time.monotonic() + 45
+            while True:
+                rows = self.api.request(f"/engagements/{first[0]}/jobs")["jobs"]
+                job = next(row for row in rows if row["id"] == first[1])
+                if job["status"] == "done":
+                    break
+                require(
+                    job["status"] in {"pending", "running"}
+                    and time.monotonic() < until,
+                    "count_job_not_completed",
+                )
+                time.sleep(0.2)
+
+        physical = self.worker(*first[3], on_running=on_running)
+        require(
+            type(physical["exit_code"]) is int
+            and physical["exit_code"] == 0
+            and physical["operator_stop_state"] == "not_requested",
+            "count_self_exit_not_proven",
+        )
+        # Map completion precedes native DONE and the durable release ACK.
+        self.receipt["stage"] = "count_control_local_release"
+        observed["local"] = self.persistent_metadata(observed["admission"], 1)
+        self.verify_persistent_local(observed["local"], observed["admission"], 1)
+        observed["local"]["grants"] = self.grant_snapshot(first[0])
+        # Same original unsigned review, no new approval/register/grant operation.
+        self.receipt["stage"] = "count_control_eligibility"
+        eligibility = self.api.request(
+            f"/jobs/{second[1]}/managed/approval/review", second[4]
+        )
+        eligibility["original_context"] = second[5]
+        eligibility["observed_at"] = (
+            datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        )
+        grants = self.grant_snapshot(second[0])
+        self.receipt["stage"] = "count_control_reconciliation"
+        retirement = self.report_exit(physical)
+        host = self.worker_action("reconcile", physical["runtime_id"], timeout=120)
+        require(
+            host["state"] == "terminal_observed"
+            and canonical(host["receipt"]["retirement"]) == canonical(retirement),
+            "count_host_receipt_changed",
+        )
+        local = observed["local"]
+        reconciled = json.loads(
+            self.helper("audit", "reconcile-managed", local["attempt"]["run_id"])
+        )
+        require(
+            type(reconciled["state"]) is str
+            and reconciled["state"].startswith("terminal_")
+            and type(reconciled["remaining_local_holds"]) is int
+            and reconciled["remaining_local_holds"] == 0,
+            "count_original_reconciliation_held",
+        )
+        retained = self.persistent_metadata(observed["admission"], 1)
+        inventories = [self.inventory(*row[:2]) for row in selections]
+        traffic = self.traffic()
+        require(
+            type(traffic) is list and len(traffic) == 5,
+            "count_complete_traffic_changed",
+        )
+        fixed, measured = self.verify_fixed(
+            *first[:3],
+            physical,
+            before,
+            traffic,
+            inventories[0],
+            persistent=True,
+            self_exit=True,
+        )
+        require(
+            canonical(traffic) == canonical(measured["requests"]),
+            "count_complete_traffic_changed",
+        )
+        self.receipt["stage"] = "count_control_verification"
+        summary = self.verify_count_limit(
+            physical,
+            observed["admission"],
+            measured,
+            inventories,
+            local,
+            retirement,
+            retained,
+            eligibility,
+            grants,
+            [row["review_context"] for row in originals],
+        )
+        summary["proof"] = dict(
+            admission=observed["admission"],
+            selections=originals,
+            pending_before=pending_before,
+            traffic={"before": baseline, "after": traffic},
+            fixed=fixed,
+            measured=measured,
+            inventories=inventories,
+            local=local,
+            retirement=retirement,
+            retained=retained,
+            eligibility=eligibility,
+            grants=grants,
+        )
+        self.receipt["cases"]["persistent_count_limit"] = summary
+        self.receipt["status"], self.receipt["stage"] = (
+            "selected_count_control_slice_passed",
+            "selected_count_control_complete",
+        )
+
+    def verify_count_limit(
+        self,
+        physical,
+        admission,
+        measured,
+        inventories,
+        local,
+        retirement,
+        retained,
+        eligibility,
+        grants,
+        original_contexts,
+    ):
+        from worker_host_persistent import (
+            _purpose,
+            admission as checked_admission,
+            retirement as checked_retirement,
+        )
+
+        from worker_runtime import _timestamp as physical_time
+
+        record = {
+            "runtime_id": admission["runtime_id"],
+            "registration": {
+                k: v
+                for k, v in admission.items()
+                if k
+                not in {"schema", "runtime_id", "runtime_sha256", "admission_sha256"}
+            },
+        }
+        try:
+            checked_admission(record, admission)
+            checked_retirement(record, retirement)
+        except ValueError:
+            raise AcceptanceRefused("count_incarnation_or_policy_changed") from None
+
+        def moment(value):
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+        def grants_live(snapshot, engagement, start, end):
+            entries = snapshot["grants"]
+            fields = {
+                "issuer",
+                "engagement_id",
+                "origin",
+                "source",
+                "name",
+                "id",
+                "issued_at",
+                "expires_at",
+                "status",
+            }
+            names = {"FIXTURE_OWNER_TOKEN", "FIXTURE_PEER_TOKEN"}
+            try:
+                return (
+                    snapshot["policy_reason"] == "granted"
+                    and type(entries) is list
+                    and len(entries) == 2
+                    and all(type(g) is dict and set(g) == fields for g in entries)
+                    and len({g["id"] for g in entries}) == 2
+                    and {g["name"] for g in entries} == names
+                    and all(
+                        type(g["id"]) is str
+                        and str(uuid.UUID(g["id"])) == g["id"]
+                        and g["issuer"] == admission["origin"]
+                        and g["engagement_id"] == engagement
+                        and g["origin"] == ORIGIN
+                        and g["source"] == "env"
+                        and g["status"] == "active"
+                        and moment(g["issued_at"]) <= start
+                        and moment(g["expires_at"]) > end
+                        for g in entries
+                    )
+                )
+            except (KeyError, ValueError, TypeError, AttributeError):
+                return False
+
+        def references_live(references, end):
+            fields = {"identity_id", "source", "name", "revision", "expires_at"}
+            return (
+                type(references) is list
+                and len(references) == 2
+                and all(type(g) is dict and set(g) == fields for g in references)
+                and {g["identity_id"] for g in references} == {"owner", "peer"}
+                and all(
+                    g["source"] == "value_env"
+                    and g["name"] == "FIXTURE_" + g["identity_id"].upper() + "_TOKEN"
+                    and type(g["revision"]) is int
+                    and g["revision"] == 1
+                    and moment(g["expires_at"]) > end
+                    for g in references
+                )
+            )
+
+        def approval_live(approval, issued, start, end):
+            expected = dict(
+                issued=issued, revoked=False, max_executions=1, max_duration_seconds=30
+            )
+            return (
+                canonical({k: approval[k] for k in expected}) == canonical(expected)
+                and moment(approval["approved_at"]) <= start
+                and moment(approval["expires_at"]) > end
+                and references_live(approval["credential_grants"], end)
+            )
+
+        require(
+            len(inventories) == 2 and len(inventories[0]["runtimes"]) == 1,
+            "count_history_changed",
+        )
+        require(
+            type(original_contexts) is list and len(original_contexts) == 2,
+            "count_registered_context_changed",
+        )
+        for inventory, context in zip(inventories, original_contexts, strict=True):
+            count_approval_context(inventory, context)
+        issued, pending = inventories
+        runtime = issued["runtimes"][0]
+        require(
+            type(physical["exit_code"]) is int
+            and physical["exit_code"] == 0
+            and physical["operator_stop_state"] == "not_requested"
+            and canonical(physical["identity"]) == canonical(admission["identity"])
+            and admission["mode"] == runtime["mode"] == "persistent"
+            and admission["limits"] == persistent_limits(COUNT_SCENARIO)
+            and canonical(runtime["admission"]) == canonical(admission)
+            and all(
+                physical[k] == admission[k] == runtime["id" if k == "runtime_id" else k]
+                for k in ("runtime_id", "runtime_sha256", "admission_sha256")
+            )
+            and type(runtime["max_attempts"]) is int
+            and runtime["max_attempts"] == 1
+            and runtime["last_sequence"] == runtime["head_sequence"] == "1"
+            and runtime["active_sequence"] is None
+            and runtime["retired"] is True
+            and runtime["new_work_disabled"] is True
+            and runtime["reporting_revoked"] is False
+            and all(v is None for v in runtime["legacy_binding"].values()),
+            "count_incarnation_or_policy_changed",
+        )
+        require(len(runtime["attempts"]) == 1, "count_history_changed")
+        attempt = runtime["attempts"][0]
+        bound, released = moment(attempt["bound_at"]), moment(attempt["released_at"])
+        require(
+            bound <= moment(attempt["confirmed_at"]) <= released
+            and len(issued["approvals"]) == 1
+            and approval_live(issued["approvals"][0], 1, bound, released)
+            and grants_live(
+                local["grants"], measured["engagement_id"], bound, released
+            ),
+            "count_first_authority_not_fresh",
+        )
+        self.verify_persistent_local(local, admission, 1)
+        self.verify_persistent_local(retained, admission, 1, retired=True)
+        require(
+            attempt["runtime_sequence"] == "1"
+            and attempt["previous_sequence"] is None
+            and attempt["runtime_mode"] == "persistent"
+            and attempt["job_id"] == measured["job_id"]
+            and canonical(attempt["binding"]) == canonical(measured["binding"])
+            and canonical(attempt["terminal_receipt"])
+            == canonical(local["attempt"]["completion"])
+            == canonical(measured["terminal_receipt"])
+            and canonical(attempt["release_receipt"])
+            == canonical(local["attempt"]["release"])
+            == canonical(measured["release_receipt"])
+            and local["attempt"]["job_id"] == measured["job_id"]
+            and local["attempt"]["artifact_sha256"] == measured["artifact_sha256"]
+            and local["attempt"]["native_done_sha256"]
+            == attempt["native_done_sha256"]
+            == measured["native_done_sha256"]
+            and measured["terminal_receipt_sha256"]
+            == attempt["terminal_receipt_sha256"]
+            == digest(canonical(attempt["terminal_receipt"]))
+            and canonical(retained["attempt"])
+            == canonical(
+                {
+                    **local["attempt"],
+                    "state": "physical_retirement_observed",
+                    "retired_from_state": "released",
+                }
+            ),
+            "count_original_receipt_changed",
+        )
+        require(
+            type(measured["evidence_count"]) is int
+            and measured["evidence_count"] == len(measured["requests"]) == 5
+            and all(
+                type(row["received_monotonic_ns"]) is int
+                and row["received_monotonic_ns"] > 0
+                for row in measured["requests"]
+            )
+            and type(issued["targets_spent"])
+            is type(issued["duration_allocated"])
+            is int
+            and issued["targets_spent"] == 1
+            and issued["duration_allocated"] == 30,
+            "count_first_job_not_proven",
+        )
+        require(
+            pending["job_id"] > measured["job_id"]
+            and pending["engagement_id"] != measured["engagement_id"]
+            and pending["job_status"] == "pending"
+            and pending["execution"] is None
+            and all(
+                not pending[k] for k in ("contracts", "results", "stops", "runtimes")
+            )
+            and type(pending["targets_spent"])
+            is type(pending["duration_allocated"])
+            is int
+            and pending["targets_spent"] == pending["duration_allocated"] == 0
+            and len(pending["approvals"]) == 1,
+            "count_second_job_was_issued",
+        )
+        approval, context = pending["approvals"][0], eligibility["context"]
+        instant = moment(eligibility["observed_at"])
+        original = eligibility["original_context"]
+        snapshot = eligibility["authority_snapshot"]
+        require(
+            type(context) is type(original) is dict
+            and canonical({k: v for k, v in context.items() if k != "not_before"})
+            == canonical({k: v for k, v in original.items() if k != "not_before"})
+            and moment(original["not_before"])
+            <= moment(context["not_before"])
+            <= instant
+            and snapshot["origin"] == admission["origin"]
+            and snapshot["enrollment"]["id"] == admission["enrollment_id"]
+            and snapshot["enrollment"]["runner_id"] == admission["runner_id"]
+            and context["authority_sha256"] == digest(canonical(snapshot))
+            and type(context["authority_revision"]) is int
+            and context["authority_revision"] >= 0
+            and type(context["plan_sha256"]) is str
+            and re.fullmatch(r"[a-f0-9]{64}", context["plan_sha256"])
+            and context["mode"] == "strict"
+            and context["control"] == "managed_online"
+            and context["exceptions"] == []
+            and type(context["scope"]) is list
+            and context["scope"]
+            and all(
+                row["origin"] == ORIGIN
+                and row["method"] == "GET"
+                and row["excluded"] is False
+                for row in context["scope"]
+            )
+            and canonical(context["credential_grants"])
+            == canonical(approval["credential_grants"]),
+            "count_second_job_not_eligible",
+        )
+        require(
+            physical_time(attempt["released_at"])
+            <= physical_time(physical["finished_at"])
+            <= physical_time(eligibility["observed_at"])
+            and context["job_id"] == pending["job_id"]
+            and context["engagement_id"] == pending["engagement_id"]
+            and context["runner_id"] == admission["runner_id"]
+            and context["expires_at"] == approval["expires_at"]
+            and type(context["max_executions"])
+            is type(context["max_duration_seconds"])
+            is int
+            and context["max_executions"] == 1
+            and context["max_duration_seconds"] == 30
+            and canonical(eligibility["authority_snapshot"]["limits"])
+            == canonical({"concurrency": 1, "targets": 5, "duration": 120})
+            and approval_live(approval, 0, instant, instant)
+            and grants_live(grants, pending["engagement_id"], instant, instant),
+            "count_second_job_not_eligible",
+        )
+        report_sha = _purpose(
+            {"runtime_id": physical["runtime_id"]},
+            {
+                **{
+                    k: physical[k]
+                    for k in (
+                        "runtime_sha256",
+                        "admission_sha256",
+                        "finished_at",
+                        "exit_code",
+                    )
+                },
+                "observation_sha256": digest(
+                    canonical(
+                        {
+                            k: physical[k]
+                            for k in ("identity", "finished_at", "exit_code")
+                        }
+                    )
+                ),
+                "last_sequence": "1",
+            },
+        )
+        require(
+            runtime["report_sha256"] == report_sha
+            and retirement["report_sha256"] == report_sha
+            and retirement["last_sequence"] == "1"
+            and retirement["runtime_sequence"] is None
+            and canonical(retained["retirement"]) == canonical(retirement),
+            "count_retirement_changed",
+        )
+        return dict(
+            status="passed",
+            limits=admission["limits"],
+            physical=physical,
+            issued_job_id=measured["job_id"],
+            unissued_job_id=pending["job_id"],
+            issued_attempts=1,
+            unissued_target_charge=0,
+            unissued_duration_charge=0,
+            target_request_count=5,
+            evidence_count=5,
+            remaining_local_holds=0,
+        )
+
     def persistent_availability(self, denied_engagement, denied_job, zero):
         runner_id, enrollment_id = self.runner_binding
         selections, before_jobs, local, idle = [], [], [], {}
@@ -3595,7 +4149,7 @@ print(json.dumps(result))
                     "--public-trust",
                     str(public / "trust.json"),
                     *(
-                        ["--protocol", "persistent-v3"]
+                        persistent_enable_args(self.scenario)
                         if self.protocol == "persistent-v3"
                         else [
                             "--expires-in",
@@ -3629,8 +4183,7 @@ print(json.dumps(result))
             require(
                 admission["schema"] == "vardr.worker-admission/3"
                 and admission["mode"] == "persistent"
-                and admission["limits"]
-                == {"max_attempts": None, "idle_timeout_seconds": None}
+                and admission["limits"] == persistent_limits(self.scenario)
                 and admission["reporting_authority"]
                 == {"purpose": "worker-stop-only", "expires_at": None}
                 and admission["admission_sha256"]
@@ -3663,7 +4216,12 @@ print(json.dumps(result))
             "finished_at": proof.finished_at,
             "operator_enable_state": enabled["state"],
         }
-        if self.protocol == "persistent-v3":
+        if self.protocol == "persistent-v3" and self.scenario == COUNT_SCENARIO:
+            value.update(
+                admission_sha256=admission["admission_sha256"],
+                operator_stop_state="not_requested",
+            )
+        elif self.protocol == "persistent-v3":
             self.receipt["stage"] = "persistent_exit_binding"
             require(
                 self.operator_stop["identity"] == asdict(identity)
@@ -3788,6 +4346,9 @@ print(json.dumps(result))
             }
             if self.scenario == "persistent-availability":
                 self.persistent_availability(engagement, job, zero)
+                return
+            if self.scenario == COUNT_SCENARIO:
+                self.persistent_count_limit(zero)
                 return
             if self.scenario == "missing-local-grant":
                 self.missing_grant()
@@ -3943,7 +4504,7 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
     require(
-        args.scenario != "persistent-availability"
+        args.scenario not in PERSISTENT_SCENARIOS
         or args.database_revision == "0041persistentruntime",
         "persistent_database_revision_required",
     )
@@ -3966,6 +4527,12 @@ def main(argv=None):
                 "default_disabled",
                 "strict_out_of_scope",
                 "persistent_availability",
+            )
+        if args.scenario == COUNT_SCENARIO:
+            receipt["initial_cases"] = (
+                "default_disabled",
+                "strict_out_of_scope",
+                "persistent_count_limit",
             )
         print(
             json.dumps(
@@ -3993,6 +4560,7 @@ def main(argv=None):
             "initial_stages_passed",
             "selected_failure_slice_passed",
             "selected_availability_slice_passed",
+            "selected_count_control_slice_passed",
         }
         else 1
     )

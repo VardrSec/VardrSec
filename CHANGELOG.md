@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Narrow mount-custody refusal diagnostics to closed sub-checkpoints, retaining
+  validated native-observer checkpoints through fixed errors. Keep custody checks,
+  call order, original non-registration exceptions and Linux permission fallback
+  unchanged; optional diagnostic failures never mask the underlying refusal.
+- Preserve the Ubuntu persistent trial at Distribution `9bc09e8` as held at
+  mount custody before registration. Its public receipt establishes no 35-job
+  result or permission cause; platform acceptance remains open.
+
+- Prepare an explicitly selected persistent count-one fixture with retained
+  original public reviews, exact five-request proof and an independent count-only
+  reader for Ubuntu and Windows Desktop. Keep default startup, unlimited worker
+  availability and its separate 70-second/35-job gates unchanged. Actual count
+  platform acceptance remains open.
+
 - Match persistent proof traffic to the reviewed resource query and exact case
   marker. Retain fixed independent-exit observation/binding checkpoints and
   real producer-to-reader regressions; preserve all 70-second/35-job gates.

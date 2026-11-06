@@ -26,6 +26,7 @@ SOURCE = Path(__file__).resolve().parents[1]
 # Root helpers must come from this exact source tree, never the caller's cwd.
 sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
+PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit"}
 REPOSITORIES = {
     name: "VardrSec/" + repo
     for name, repo in (
@@ -568,16 +569,12 @@ def cohort(env):
 def execution_options(env):
     scenario = env.get("NM2_SCENARIO", "healthy")
     revision = env.get("NM2_DATABASE_REVISION", "0040runtimesequence")
-    require(
-        type(scenario) is str and scenario in {"healthy", "persistent-availability"}
-    )
+    require(type(scenario) is str and scenario in {"healthy", *PERSISTENT_SCENARIOS})
     require(
         type(revision) is str
         and revision in {"0040runtimesequence", "0041persistentruntime"}
     )
-    require(
-        scenario != "persistent-availability" or revision == "0041persistentruntime"
-    )
+    require(scenario not in PERSISTENT_SCENARIOS or revision == "0041persistentruntime")
     return scenario, revision
 
 
@@ -654,6 +651,7 @@ def failure_projection(raw, selection):
             "vardr.nm2-worker-acceptance/1",
             "vardr.nm2-worker-acceptance/2",
             "vardr.nm2-worker-persistent-acceptance/1",
+            "vardr.nm2-worker-count-acceptance/1",
         }
         and raw.get("status") == "held"
         and raw.get("sources") == selection["sources"]
@@ -664,6 +662,11 @@ def failure_projection(raw, selection):
     if raw["schema"] == "vardr.nm2-worker-persistent-acceptance/1":
         require(
             raw.get("scenario") == "persistent-availability"
+            and raw.get("expected_database_revision") == "0041persistentruntime"
+        )
+    elif raw["schema"] == "vardr.nm2-worker-count-acceptance/1":
+        require(
+            raw.get("scenario") == "persistent-count-limit"
             and raw.get("expected_database_revision") == "0041persistentruntime"
         )
     stages = {
@@ -684,12 +687,36 @@ def failure_projection(raw, selection):
         "persistent_operator_stop",
         "persistent_exit_observation",
         "persistent_exit_binding",
+        "count_control_setup",
+        "count_control_release",
+        "count_control_local_release",
+        "count_control_eligibility",
+        "count_control_reconciliation",
+        "count_control_verification",
+        "selected_count_control_complete",
         "persistent_receipt_reconciliation",
         "persistent_availability_verification",
         "selected_availability_complete",
     }
     reasons = {
         "fixture_http_status",
+        "count_baseline_not_empty",
+        "count_complete_traffic_changed",
+        "count_enrollment_changed",
+        "count_first_authority_not_fresh",
+        "count_first_job_not_proven",
+        "count_history_changed",
+        "count_host_receipt_changed",
+        "count_incarnation_or_policy_changed",
+        "count_job_not_completed",
+        "count_original_receipt_changed",
+        "count_registered_context_changed",
+        "count_original_reconciliation_held",
+        "count_retirement_changed",
+        "count_second_job_not_eligible",
+        "count_second_job_was_issued",
+        "count_self_exit_not_proven",
+        "count_self_exit_scope_refused",
         "fixture_stage_failed",
         "fixture_command_failed",
         "happy_worker_exit_not_clean",
@@ -862,6 +889,13 @@ def failure_projection(raw, selection):
 
 def public_projection(raw, selection):
     """Project only fixed statuses and measured hashes, never raw nested data."""
+    if type(raw) is dict and raw.get("schema") == "vardr.nm2-worker-count-acceptance/1":
+        from nm2_worker_count_projection import project
+
+        try:
+            return project(raw, selection)
+        except (ValueError, TypeError, KeyError, IndexError):
+            raise HostedRefused("nm2_hosted_count_receipt_refused") from None
     if (
         type(raw) is dict
         and raw.get("schema") == "vardr.nm2-worker-persistent-acceptance/1"
@@ -1048,6 +1082,13 @@ class Hosted:
                 scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope="Persistent idle availability and 35 separately authorized jobs in one explicitly stopped incarnation; NM2 remains incomplete",
+            )
+        elif self.scenario == "persistent-count-limit":
+            self.receipt.update(
+                schema="vardr.nm2-hosted/4",
+                scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope="Optional persistent count-one control in one self-exited incarnation; NM2 remains incomplete",
             )
 
     def command(self, args, *, capture=False, timeout=60):
@@ -1265,7 +1306,7 @@ class Hosted:
                 file=self.sources["runner"]
                 / (
                     "Dockerfile.worker.persistent"
-                    if self.scenario == "persistent-availability"
+                    if self.scenario in PERSISTENT_SCENARIOS
                     else "Dockerfile.worker"
                 ),
                 extra=("--build-arg", "RUNNER_BASE_IMAGE=" + tag),
@@ -1338,17 +1379,19 @@ class Hosted:
             )
             require(
                 observed.get("schema")
-                == (
-                    "vardr.nm2-worker-persistent-acceptance/1"
-                    if self.scenario == "persistent-availability"
-                    else "vardr.nm2-worker-acceptance/2"
-                )
+                == {
+                    "healthy": "vardr.nm2-worker-acceptance/2",
+                    "persistent-availability": "vardr.nm2-worker-persistent-acceptance/1",
+                    "persistent-count-limit": "vardr.nm2-worker-count-acceptance/1",
+                }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
             self.receipt.update(
-                schema="vardr.nm2-hosted/3"
-                if self.scenario == "persistent-availability"
-                else "vardr.nm2-hosted/2",
+                schema={
+                    "healthy": "vardr.nm2-hosted/2",
+                    "persistent-availability": "vardr.nm2-hosted/3",
+                    "persistent-count-limit": "vardr.nm2-hosted/4",
+                }[self.scenario],
                 stage="complete",
                 status=observed["status"],
             )

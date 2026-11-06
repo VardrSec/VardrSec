@@ -91,7 +91,7 @@ class ControlledRequestCeiling(unittest.TestCase):
                 self.assertEqual(
                     value,
                     {}
-                    if scenario == "healthy"
+                    if scenario in {"healthy", "persistent-count-limit"}
                     else {"NM2_FIXTURE_DELAY_SECONDS": "15"},
                 )
         with self.assertRaises(acceptance.AcceptanceRefused):

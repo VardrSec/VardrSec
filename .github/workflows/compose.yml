@@ -14,9 +14,9 @@ on:
         type: boolean
         default: false
       nm2_scenario:
-        description: Explicit finite regression or persistent availability slice
+        description: Explicit finite regression, persistent availability or count control
         type: choice
-        options: [healthy, persistent-availability]
+        options: [healthy, persistent-availability, persistent-count-limit]
         default: healthy
       nm2_database_revision:
         description: Require the exact reviewed Map schema; does not migrate or enable work

@@ -65,6 +65,29 @@ Local authentication is defined in Map [#111](https://github.com/VardrSec/VardrM
 and its browser integration in [#112](https://github.com/VardrSec/VardrMap/pull/112).
 
 
+## NM-2 persistent availability: held custody observation (2026-11-06)
+
+[Ubuntu trial 42273172251](https://github.com/VardrSec/VardrSec/actions/runs/42273172251)
+used Distribution `9bc09e8e96d1697563dce63741973da9a3a3c07c`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c`, Runner
+`e8cdec333af0ed721504f3857369a76c8a8a4e06` and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`. Both compatibility jobs passed;
+the actual coupled trial remained held at `operator_worker_enable`, registration
+checkpoint `mount_custody`. The sanitized public receipt hash is
+`1b717c59bc90982f79b34d6f24eae98d1e16bdd47fe9a3cf1571ecef41432fd6`;
+[the retained observation](evidence/nm2-ubuntu-persistent-mount-custody-held-2026-11-06.json)
+records its exact sources and limitations.
+
+The receipt exports no completed-job measurements or 35-job oracle result. It
+cannot isolate daemon-volume metadata, bind/managed/private path resolution, or
+path separation, and establishes no permission or layout cause. Existing Linux
+`PermissionError` fallback is already explicit. Fixed sub-checkpoint diagnostics
+and pure failure-injection tests provide observability only; all custody checks,
+exception behavior outside registration and remaining platform gates stay intact.
+A separately reviewed optional-count trial is the next focused observation; its
+result cannot supply 35-job or unlimited-availability acceptance. No additional
+35-job run, default enablement, release or deployment is approved by this record.
+
 ## Compose development acceptance (2026-10-26)
 
 The source-built stack passed local validation on Docker Desktop with Linux

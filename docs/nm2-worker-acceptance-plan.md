@@ -358,3 +358,42 @@ statuses, validated request/evidence counts, case/artifact/receipt/CA hashes,
 executable/source inventories and the retained stopped-container count. A failed
 stage remains `held`; raw logs, snapshots, sessions, keys, paths and custody are
 excluded. Hosted success does not establish Desktop/native Windows acceptance.
+
+## Optional persistent count control: development candidate
+
+The explicitly selected `persistent-count-limit` fixture uses schema
+`0041persistentruntime`, persistent admission with `max_attempts: "1"`, and no
+idle limit. It queues two independently reviewed jobs before enabling one fresh
+incarnation. Acceptance requires one job's original consumption, native DONE and
+release acknowledgements, exact five requests, exit zero without an operator stop,
+original-key retirement and a still-eligible unissued second job with zero traffic
+and charges. The second eligibility check reuses the original unsigned review;
+it does not renew, sign or register execution authority.
+
+The private raw receipt retains the original unresolved case specs, public
+admission, unsigned review inputs, original contexts and public authority
+snapshots, pre-worker inventories, complete traffic and original receipts. The
+[count reader](../tests/nm2_worker_count_projection.py) independently binds those
+facts to the reviewed fixed case and exact plan, using the existing receipt,
+grant and inventory validators. Public output contains fixed statuses, counts
+and hashes. The source-derived plan fixture used by pure tests is not an actual
+compiler or platform result. These hashes correlate evidence; they are not
+attestation.
+
+Hosted and Windows Desktop count receipts have distinct schemas and scope.
+Hosted execution still requires explicit opt-in and four exact reviewed source
+commits; healthy remains the default scenario. Default platform startup starts no
+worker. Count control does not satisfy the separate unlimited-availability proof:
+70 seconds of ready idle, 35 individually authorized jobs, 175 requests and an
+explicit operator stop remain required. Actual count platform acceptance and the
+remaining NM-2 matrix are open; NM-3 remains paused.
+
+Count-only fixture inventory schema4 preserves the existing eight approval
+metadata fields and adds `approval_context_sha256`, keyed by the exact registered
+approval IDs. The existing read-only metadata query computes those context
+digests in the same pass. Original retained contexts must match both before and
+post inventories; availability inventory schema3 remains unchanged. This binds
+correlated records without retaining approval tokens or signing material. The
+second job's original approval and catalog grants must precede worker start;
+post-exit eligibility alone is insufficient. Physical exit ordering retains all
+Docker nanoseconds with the existing runtime timestamp validator.

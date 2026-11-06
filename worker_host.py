@@ -42,6 +42,18 @@ _COOKIE = "__Host-vardrmap.session"
 _CAPABILITY = b"VardrSec.WorkerStop.v1\0"
 _MAC = b"VardrSec.WorkerHostRecord.v1\0"
 _DNS = threading.Lock()
+_MOUNT_CUSTODY_CHECKPOINTS = frozenset(
+    {
+        "mount_managed_metadata",
+        "mount_bind_resolution",
+        "mount_managed_resolution",
+        "mount_private_resolution",
+        "mount_separation",
+    }
+)
+_MOUNT_CAPTURE_CHECKPOINTS = frozenset(
+    "mount_capture_" + checkpoint for checkpoint in runtime.CAPTURE_CHECKPOINTS
+)
 REGISTRATION_CHECKPOINTS = frozenset(
     {
         "inputs",
@@ -54,7 +66,7 @@ REGISTRATION_CHECKPOINTS = frozenset(
         "final_store",
         "unknown_store",
     }
-)
+) | _MOUNT_CUSTODY_CHECKPOINTS | _MOUNT_CAPTURE_CHECKPOINTS
 REGISTRATION_REQUEST_STAGES = frozenset(
     {"connect", "tls", "send", "status", "headers", "body", "json"}
 )
@@ -104,10 +116,23 @@ def registration_detail(value):
     return dict(value)
 
 
+def _exception_attribute(error, name):
+    try:
+        attributes = object.__getattribute__(error, "__dict__")
+        return attributes.get(name) if type(attributes) is dict else None
+    except BaseException:
+        # Optional diagnostics must never mask the original failure.
+        return None
+
+
 def registration_diagnostic(error):
     if not isinstance(error, HostRefused):
         return None
-    return registration_detail(error.__dict__.get("registration_failure"))
+    try:
+        return registration_detail(_exception_attribute(error, "registration_failure"))
+    except BaseException:
+        # Malicious metadata keys must not replace the original refusal either.
+        return None
 
 
 @contextmanager
@@ -116,10 +141,45 @@ def registration_step(checkpoint):
     try:
         yield
     except Exception as error:
-        detail = registration_diagnostic(error) or registration_detail(
-            {"checkpoint": checkpoint, "request_stage": None, "http_status": None}
-        )
+        detail = registration_diagnostic(error)
+        if detail is None:
+            if checkpoint == "mount_custody":
+                nested = _exception_attribute(error, "_mount_custody_checkpoint")
+                if type(nested) is str and nested in (
+                    _MOUNT_CUSTODY_CHECKPOINTS | _MOUNT_CAPTURE_CHECKPOINTS
+                ):
+                    checkpoint = nested
+            detail = registration_detail(
+                {"checkpoint": checkpoint, "request_stage": None, "http_status": None}
+            )
         raise HostRefused(registration_failure=detail) from None
+
+
+@contextmanager
+def _mount_custody_step(checkpoint):
+    """Annotate only; outside registration, rethrow the identical exception."""
+    try:
+        yield
+    except Exception as error:
+        try:
+            nested = _exception_attribute(error, "_mount_custody_checkpoint")
+            if type(nested) is not str or nested not in (
+                _MOUNT_CUSTODY_CHECKPOINTS | _MOUNT_CAPTURE_CHECKPOINTS
+            ):
+                selected = checkpoint if type(checkpoint) is str and checkpoint in _MOUNT_CUSTODY_CHECKPOINTS else None
+                captured = (
+                    _exception_attribute(error, "checkpoint")
+                    if isinstance(error, runtime.RuntimeRefused)
+                    else None
+                )
+                if type(captured) is str and captured in runtime.CAPTURE_CHECKPOINTS:
+                    selected = "mount_capture_" + captured
+                if selected is not None:
+                    error._mount_custody_checkpoint = selected
+        except BaseException:
+            # Even hostile attribute setters must leave the original error intact.
+            pass
+        raise
 
 
 def require(value):
@@ -723,38 +783,42 @@ class HostRecords:
             temporary.unlink(missing_ok=True)
 
     def outside_mounts(self, observer, identity):
-        require(isinstance(observer, runtime.LocalDocker))
-        import worker_volumes
+        with _mount_custody_step("mount_managed_metadata"):
+            require(isinstance(observer, runtime.LocalDocker))
+            import worker_volumes
 
-        # This also checks actual binds against the explicit layout (including
-        # the narrow Desktop drive mapping) and validates both default-local
-        # volume records through the selected daemon, without host-root access.
-        managed = worker_volumes.managed_sources(observer, identity)
-        binds = [observer.layout.trust_source, observer.layout.admission_source]
-        sources = []
-        for source in binds:
-            mapped = runtime.host_bind_path(source)
-            require(
-                isinstance(
-                    mapped, PureWindowsPath if os.name == "nt" else PurePosixPath
-                )
-            )
-            sources.append(Path(str(mapped)).resolve(strict=True))
-        for source in managed:
-            resolved = _managed_source(source, windows_vm=os.name == "nt")
-            if resolved is not None:
-                sources.append(resolved)
-        locations = [self.directory]
-        if isinstance(self.backend, custody.PosixSecrets):
-            locations.append(self.backend.directory)
-        for location in locations:
-            location = location.resolve(strict=True)
-            for source in sources:
-                mount = Path(source)
+            # Validate actual binds and default-local volumes through the selected
+            # daemon before any host-path custody comparison.
+            managed = worker_volumes.managed_sources(observer, identity)
+        with _mount_custody_step("mount_bind_resolution"):
+            binds = [observer.layout.trust_source, observer.layout.admission_source]
+            sources = []
+            for source in binds:
+                mapped = runtime.host_bind_path(source)
                 require(
-                    not location.is_relative_to(mount)
-                    and not mount.is_relative_to(location)
+                    isinstance(
+                        mapped, PureWindowsPath if os.name == "nt" else PurePosixPath
+                    )
                 )
+                sources.append(Path(str(mapped)).resolve(strict=True))
+        with _mount_custody_step("mount_managed_resolution"):
+            for source in managed:
+                resolved = _managed_source(source, windows_vm=os.name == "nt")
+                if resolved is not None:
+                    sources.append(resolved)
+        with _mount_custody_step("mount_private_resolution"):
+            locations = [self.directory]
+            if isinstance(self.backend, custody.PosixSecrets):
+                locations.append(self.backend.directory)
+            for location in locations:
+                location = location.resolve(strict=True)
+                with _mount_custody_step("mount_separation"):
+                    for source in sources:
+                        mount = Path(source)
+                        require(
+                            not location.is_relative_to(mount)
+                            and not mount.is_relative_to(location)
+                        )
 
 
 def _client(record, client):

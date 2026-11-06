@@ -148,8 +148,18 @@ def managed_sources(observer, identity):
             daemon_root(observer._command("info", "--format", DAEMON_FORMAT)) == root
         )
         return result
-    except (KeyError, TypeError, ValueError, UnicodeError):
-        raise runtime.RuntimeRefused("worker_runtime_refused") from None
+    except (KeyError, TypeError, ValueError, UnicodeError) as error:
+        refused = runtime.RuntimeRefused("worker_runtime_refused")
+        if isinstance(error, runtime.RuntimeRefused):
+            try:
+                attributes = object.__getattribute__(error, "__dict__")
+                checkpoint = attributes.get("checkpoint") if type(attributes) is dict else None
+                if type(checkpoint) is str and checkpoint in runtime.CAPTURE_CHECKPOINTS:
+                    refused.checkpoint = checkpoint
+            except BaseException:
+                # Optional diagnostic attributes cannot replace the fixed refusal.
+                pass
+        raise refused from None
     finally:
         observer._deadline = None
         observer._observation_lock.release()

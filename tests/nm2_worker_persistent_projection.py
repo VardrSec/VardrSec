@@ -246,7 +246,17 @@ def requests(value, number):
     return min(clocks), max(clocks)
 
 
-def job(value, inventory, stored, admission, record, number):
+def _job(
+    value,
+    inventory,
+    stored,
+    admission,
+    record,
+    number,
+    *,
+    request_check,
+    count_inventory=False,
+):
     fields(value, ATTEMPT)
     require(value["runtime_sequence"] == str(number))
     for key in ("job_id", "engagement_id"):
@@ -344,9 +354,17 @@ def job(value, inventory, stored, admission, record, number):
     )
     same(value["local"]["attempt"]["completion"], value["terminal_receipt"])
     same(value["local"]["attempt"]["release"], release)
-    fields(inventory, INVENTORY)
+    fields(
+        inventory,
+        INVENTORY | ({"approval_context_sha256"} if count_inventory else set()),
+    )
     require(
-        inventory["schema"] == "vardr.nm2-fixture-inventory/3"
+        inventory["schema"]
+        == (
+            "vardr.nm2-fixture-inventory/4"
+            if count_inventory
+            else "vardr.nm2-fixture-inventory/3"
+        )
         and inventory["schema_revision"] == "0041persistentruntime"
         and inventory["database_user"] == "vardrmap_app"
     )
@@ -397,7 +415,19 @@ def job(value, inventory, stored, admission, record, number):
             }
         ],
     )
-    return bounds, requests(value["requests"], number)
+    return bounds, request_check()
+
+
+def job(value, inventory, stored, admission, record, number):
+    return _job(
+        value,
+        inventory,
+        stored,
+        admission,
+        record,
+        number,
+        request_check=lambda: requests(value["requests"], number),
+    )
 
 
 def grants(value, inventory, admission, bound, released):
@@ -925,7 +955,7 @@ def project(raw, selection):
         raise ProjectionRefused("nm2_persistent_projection_refused") from None
 
 
-def desktop_inventory(raw, selection, before, after):
+def _desktop_inventory(raw, selection, before, after, physical):
     """Recheck supplied snapshot facts; never contact Docker or infer a cause."""
     require(
         selection["docker_context"] == "desktop-linux"
@@ -1048,7 +1078,6 @@ def desktop_inventory(raw, selection, before, after):
             )
         )
     require(services == set(expected))
-    physical = raw["cases"]["persistent_availability"]["physical"]
     worker = after["containers"][physical["identity"]["container_id"]]
     require(worker["labels"]["com.docker.compose.service"] == "managed-worker")
     same(worker["image"], physical["identity"]["image_id"])
@@ -1065,6 +1094,16 @@ def desktop_inventory(raw, selection, before, after):
             "cause": "unknown",
         },
     }
+
+
+def desktop_inventory(raw, selection, before, after):
+    return _desktop_inventory(
+        raw,
+        selection,
+        before,
+        after,
+        raw["cases"]["persistent_availability"]["physical"],
+    )
 
 
 def project_desktop(raw, selection, before, after):

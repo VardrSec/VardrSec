@@ -154,10 +154,16 @@ def approval_projection(row, persistent):
 def observe(selection):
     persistent_bound = selection.get("runtime_attempt_bound")
     persistent = "runtime_attempt_bound" in selection
+    count_contexts = "count_approval_contexts" in selection
     if (
         set(selection)
         != {"engagement_id", "job_id"}
         | ({"runtime_attempt_bound"} if persistent else set())
+        | ({"count_approval_contexts"} if count_contexts else set())
+        or (
+            count_contexts
+            and (selection["count_approval_contexts"] is not True or not persistent)
+        )
         or (
             persistent and (type(persistent_bound) is not int or persistent_bound != 35)
         )
@@ -165,7 +171,7 @@ def observe(selection):
             not isinstance(value, str)
             or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", value)
             for key, value in selection.items()
-            if key != "runtime_attempt_bound"
+            if key not in {"runtime_attempt_bound", "count_approval_contexts"}
         )
     ):
         raise ValueError("fixture_selection_refused")
@@ -190,15 +196,21 @@ def observe(selection):
             ]
             if any(runtime is None for runtime in runtimes):
                 raise ValueError("fixture_runtime_history_incomplete")
-            return {
-                "schema": "vardr.nm2-fixture-inventory/3"
+            value = {
+                "schema": "vardr.nm2-fixture-inventory/4"
+                if count_contexts
+                else "vardr.nm2-fixture-inventory/3"
                 if persistent
                 else "vardr.nm2-fixture-inventory/2",
                 "schema_revision": db.execute(
                     text("SELECT version_num FROM alembic_version")
                 ).scalar_one(),
                 "database_user": db.execute(text("SELECT current_user")).scalar_one(),
-                **selection,
+                **{
+                    key: item
+                    for key, item in selection.items()
+                    if key != "count_approval_contexts"
+                },
                 "job_status": job.status,
                 "targets_spent": engagement.targets_spent,
                 "duration_allocated": engagement.duration_allocated,
@@ -256,6 +268,20 @@ def observe(selection):
                     for runtime in runtimes
                 ],
             }
+            if count_contexts:
+                value["approval_context_sha256"] = {
+                    row.id: hashlib.sha256(
+                        json.dumps(
+                            row.context,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            ensure_ascii=True,
+                            allow_nan=False,
+                        ).encode()
+                    ).hexdigest()
+                    for row in approvals
+                }
+            return value
         finally:
             db.rollback()
 
