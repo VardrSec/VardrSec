@@ -296,14 +296,13 @@ def register_runtime(
                 and records.backend.read(runtime_id) is None
             )
         with host.registration_step("local_capture"):
-            host.require(
-                observer.capture_running(
-                    container_id=identity.container_id,
-                    image_id=identity.image_id,
-                    project=identity.project,
-                )
-                == identity
+            captured = observer.capture_running(
+                container_id=identity.container_id,
+                image_id=identity.image_id,
+                project=identity.project,
             )
+            with host.registration_step("local_identity_changed"):
+                host.require(captured == identity)
         with host.registration_step("mount_custody"):
             records.outside_mounts(observer, identity)
         secret = secrets.token_hex(32)

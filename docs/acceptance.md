@@ -65,6 +65,30 @@ Local authentication is defined in Map [#111](https://github.com/VardrSec/VardrM
 and its browser integration in [#112](https://github.com/VardrSec/VardrMap/pull/112).
 
 
+## NM-2 optional count: held recapture observation (2026-11-06)
+
+[Ubuntu count trial 42284035325](https://github.com/VardrSec/VardrSec/actions/runs/42284035325)
+used Distribution `dc473835dc453bb5f0fa4a8560f41711d57e64ba`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c`, Runner
+`e8cdec333af0ed721504f3857369a76c8a8a4e06` and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`, selecting
+`persistent-count-limit` with database revision `0041persistentruntime`.
+Compatibility passed on Ubuntu and Windows; the coupled trial remained held at
+registration checkpoint `local_capture`. The sanitized receipt hash is
+`90e75c361bc692799d76e1418e21ec55fd1a3ec1bb1d9feb8d6783682d6fd1b0`;
+[the retained observation](evidence/nm2-ubuntu-count-local-capture-held-2026-11-06.json)
+records its exact sources and limitations.
+
+This checkpoint cannot distinguish a refused observer subcheck from a changed
+valid identity. No count completion, independent count oracle or 35-job result was
+exported. Startup/admission expiry is an unconfirmed hypothesis: the native startup
+ceiling of 120 seconds, fixture admission wait of 60 seconds, observer ceiling of
+30 seconds and command ceiling of 15 seconds remain unchanged. No new
+capture, retry, timeout extension, permission fallback or authority is introduced
+by fixed recapture diagnostics. Pure synthetic regressions are separate from
+actual Linux/Desktop acceptance; neither optional-count nor unlimited operation
+is accepted by this failed trial. The earlier held 35-job observation remains.
+
 ## NM-2 persistent availability: held custody observation (2026-11-06)
 
 [Ubuntu trial 42273172251](https://github.com/VardrSec/VardrSec/actions/runs/42273172251)

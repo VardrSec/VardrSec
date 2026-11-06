@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Preserve closed observer checkpoints during persistent registration recapture,
+  distinguishing a changed valid identity from a capture refusal. Keep unknown
+  metadata generic and retain all existing captures, deadlines, custody checks
+  and single-send registration behavior.
+- Retain the Ubuntu count-limit trial at Distribution `dc473835` as held at
+  `local_capture`; no capture subpredicate, timeout cause or count result was
+  observed. Count, 35-job and unlimited-availability acceptance remain separate.
+
 - Narrow mount-custody refusal diagnostics to closed sub-checkpoints, retaining
   validated native-observer checkpoints through fixed errors. Keep custody checks,
   call order, original non-registration exceptions and Linux permission fallback

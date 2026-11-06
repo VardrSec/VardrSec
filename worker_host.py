@@ -54,10 +54,14 @@ _MOUNT_CUSTODY_CHECKPOINTS = frozenset(
 _MOUNT_CAPTURE_CHECKPOINTS = frozenset(
     "mount_capture_" + checkpoint for checkpoint in runtime.CAPTURE_CHECKPOINTS
 )
+_LOCAL_CAPTURE_CHECKPOINTS = frozenset(
+    "local_capture_" + checkpoint for checkpoint in runtime.CAPTURE_CHECKPOINTS
+)
 REGISTRATION_CHECKPOINTS = frozenset(
     {
         "inputs",
         "local_capture",
+        "local_identity_changed",
         "mount_custody",
         "secret_store",
         "initial_store",
@@ -66,7 +70,7 @@ REGISTRATION_CHECKPOINTS = frozenset(
         "final_store",
         "unknown_store",
     }
-) | _MOUNT_CUSTODY_CHECKPOINTS | _MOUNT_CAPTURE_CHECKPOINTS
+) | _MOUNT_CUSTODY_CHECKPOINTS | _MOUNT_CAPTURE_CHECKPOINTS | _LOCAL_CAPTURE_CHECKPOINTS
 REGISTRATION_REQUEST_STAGES = frozenset(
     {"connect", "tls", "send", "status", "headers", "body", "json"}
 )
@@ -143,7 +147,11 @@ def registration_step(checkpoint):
     except Exception as error:
         detail = registration_diagnostic(error)
         if detail is None:
-            if checkpoint == "mount_custody":
+            if checkpoint == "local_capture" and isinstance(error, runtime.RuntimeRefused):
+                captured = _exception_attribute(error, "checkpoint")
+                if type(captured) is str and captured in runtime.CAPTURE_CHECKPOINTS:
+                    checkpoint = "local_capture_" + captured
+            elif checkpoint == "mount_custody":
                 nested = _exception_attribute(error, "_mount_custody_checkpoint")
                 if type(nested) is str and nested in (
                     _MOUNT_CUSTODY_CHECKPOINTS | _MOUNT_CAPTURE_CHECKPOINTS
