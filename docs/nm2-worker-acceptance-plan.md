@@ -1,10 +1,12 @@
 # Coupled NM-2 worker acceptance plan
 
-Status: both the earlier one-attempt slice and the frozen two-job Windows Docker
-Desktop slice passed. The [two-job evidence](nm2-worker-acceptance-evidence.md)
-records its exact scope and preserved-resource guard. Native Linux is being
-verified separately; no Desktop result establishes its acceptance. The existing
-NM-3 evidence and component pins remain unchanged.
+Status: the earlier one-attempt and frozen two-job Windows Docker Desktop slices
+passed. The [two-job evidence](nm2-worker-acceptance-evidence.md) preserves their
+exact scope. Separate [current platform receipts](acceptance.md#linux-availability-and-later-held-desktop-idle-2026-11-06)
+now verify selected persistent availability and count controls on Linux and
+Desktop. Dedicated idle, true zero-job stop, re-enable and the remaining failure
+and containment matrix stay open. No result establishes another platform or
+source cohort. NM-3 remains paused; its evidence and component pins are preserved.
 
 `tests/nm2_worker_acceptance.py` now prepares the first coupled slice: default
 disabled, owner/CSRF transport denial, Strict out-of-scope approval refusal, and
@@ -199,12 +201,26 @@ unrelated step failed is not acceptance.
 
 ## Local metadata and retained limits
 
-After the worker stops, separate ordinary helpers may use existing `audit list
---json` to derive the original run ID and `audit reconcile-managed RUN_ID` to
-observe its exact server receipt. They share only the selected Runner state,
-original active enrolled API key, public CA and owned network. They receive no
-owner session, host STOP secret or private approval key, and never insert a process
-into a live worker's PID lineage.
+After the worker stops, a separate ordinary helper may invoke existing
+`audit reconcile-managed RUN_ID` with the known original runtime-associated run
+ID to observe its exact server receipt. General `audit list --json` output is
+bounded and has no runtime filter; an automated lifecycle caller must not guess
+an original ID from it. A component-owned exact selector is separate open work.
+The online helper uses only the selected Runner state, original active enrolled
+API key, public CA and owned network. It receives no owner session, host STOP
+secret or private approval key, and never enters a live worker's PID lineage.
+
+Runner's new explicit `worker-state` command provides a separate offline audit
+of the exact existing journal/identity and runtime/admission binding. It returns
+closed counts and parent/retirement facts, not original run IDs. A dedicated
+UID10001, capability-free, network-none helper needs no Map credential or trust
+mount. Its root filesystem can be read-only; its exact selected state volume must
+permit normal SQLite WAL handling, which may create/change sidecars. Missing
+support or incomplete inspection stays held. Keep operator lifecycle journal
+selection/validation in Runner; a Distribution command must not copy or query its
+database. Fixture-only metadata snapshots are not an operator interface. Never
+use immutable SQLite, truncate history, or turn empty parent0 into a fabricated
+RunRecord or retirement receipt.
 
 Record the initial profile's credential pass-list/name limits and unsupported
 proxy settings explicitly. A revoked/lost original Runner enrollment/key leaves

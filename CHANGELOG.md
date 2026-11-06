@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reconcile the NM-1/NM-2 closeout ledger with verified platform evidence. Keep
+  zero-job/re-enable, idle, failure and containment gates open in NM-2; clarify
+  exact original-run selection and offline WAL inspection without advancing pins.
+
 - Record verified Linux persistent availability on the exact G/R1e05 cohort and
   the later held Desktop idle lookup on its separate 751be0f/R09008 cohort.
   Preserve the earlier held receipt; cleanup-only worker124/no-stop metadata

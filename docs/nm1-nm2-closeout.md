@@ -58,14 +58,28 @@ controls optional. [The persistent implementation contract](nm2-persistent-worke
 separates that availability from fresh per-job execution authority. The finite
 candidate is retained as regression evidence; it is not an accepted substitute.
 
-The inactive v3 candidate now has additive Map/Runner/Host protocol code,
+The default-disabled v3 candidate has additive Map/Runner/Host protocol code,
 original-key recovery tests and [compiler-only evidence](evidence/nm2-persistent-compiler-2026-11-06.json).
-The host receipt strictness fix and Windows/Ubuntu compatibility checks passed.
-The owner approved the explicit persistent STOP-report lifetime for isolated
-testing on 2026-11-06, retaining its disclosed trusted-host risk. Current Runner,
-Map and Gate component CI gates passed, including Map's PostgreSQL and coupled
-Map/Runner/Gate integration. The [selected Desktop unlimited/count slices](nm2-worker-acceptance-evidence.md)
-now pass for their exact cohort. Linux availability/count, optional idle,
-zero-job/next-enable and the complete physical failure matrix remain open. The first Desktop availability attempt held on a
-fixture status refusal; its stopped resources and original evidence are retained.
-No component pass closes NM-2 or resumes NM-3.
+The owner approved persistent STOP reporting for isolated testing on 2026-11-06,
+retaining its disclosed trusted-host risk. Component CI and selected physical
+results are distinct from phase acceptance. The [current platform evidence](acceptance.md#linux-availability-and-later-held-desktop-idle-2026-11-06)
+now includes separate verified Linux and Desktop default-unlimited availability
+and optional count-one slices. Their exact source cohorts differ; no result is
+transferred to another image or platform. Held attempts and stopped resources
+remain retained. No component pass closes NM-2 or resumes NM-3.
+
+## Current NM-2 exit disposition, 2026-11-06
+
+| Requirement | Verified scope | Remaining gate |
+| --- | --- | --- |
+| Explicit enablement and persistent availability | Separate Linux and Desktop slices observed 70 idle seconds without target traffic, then 35 individually authorized jobs and explicit stop/reconciliation. Both optional limits were unset. | These finite observations do not close the complete failure or containment matrix. Default startup stays disabled and each job still requires fresh finite authority. |
+| Optional finite controls | Separate Linux and Desktop count-one slices passed without charging the unissued job. | Dedicated idle control remains open: both Desktop idle attempts held. The later receipt records a lookup refusal; cleanup-only exit124/no fixture stop is not native-idle acceptance. Linux idle is untested. |
+| Zero-issued-job stop and same-installation next enable | Runner's explicit existing-state inspection passed its full suite/coverage and nine CI jobs. Distinct Created-container observation completed 532 Distribution tests with 18 declared skips and no failures/errors; Ubuntu/Windows compatibility passed. | These are prerequisites only. True empty parent0 needs positive host/Map retirement and association-free local evidence. A supported re-enable command and ambiguous/preclaim recovery remain open. |
+| Per-job cancellation, permissions and budgets | Existing component and bounded owned-HTTP fixtures remain available. | Original integrated local/remote stop, grant expiry/revocation, budgets and retained partial-evidence cases require their own frozen-cohort physical results. |
+| Failure and containment behavior | Preserve existing conservative holds, exact ownership, durable send fences and independent exit checks. | Disconnect, crash/stop, duplicate/lost reply and the full bootstrap/channel/owner-loss/credential-isolation/pressure/clock matrix remain open. Previously blocked adversarial operations remain stopped. |
+
+No remaining NM-2 exit requirement is deferred to NM-3 or NM-5. NM-3's independent
+Runner, Full/Mapless, Docker, Windows and cross-platform objectives remain required
+and preserved. NM-4 testing intelligence and NM-5 validation/release keep their
+original sequence. None of this evidence authorizes release, deployment or a
+component-pin change.
