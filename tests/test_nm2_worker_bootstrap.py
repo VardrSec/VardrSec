@@ -184,6 +184,7 @@ class Engine:
 
 class BootstrapTests(unittest.TestCase):
     def arguments(self, root):
+        root = root.resolve(strict=True)
         build = root / "build.json"
         build.write_text(
             json.dumps(
@@ -250,6 +251,22 @@ class BootstrapTests(unittest.TestCase):
                 self.assertEqual(bootstrap.main(flags), 0)
             self.assertEqual(json.loads(output.getvalue())["docker_calls"], 0)
             self.assertFalse(args.output.exists())
+
+    def test_fixture_canonicalizes_alias_but_output_guard_still_refuses_alias(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve(strict=True)
+            child = root / "child"
+            child.mkdir()
+            alias = child / ".."
+            args = self.arguments(alias)
+            self.assertEqual(args.build_receipt.parent, root)
+            self.assertEqual(args.output.parent, root)
+            bootstrap.validate(args)
+            args.output = alias / "new-output"
+            with self.assertRaisesRegex(
+                bootstrap.shared.AcceptanceRefused, "bootstrap_output_parent_required"
+            ):
+                bootstrap.validate(args)
 
     def test_isolated_standalone_help_and_validation_need_no_pythonpath_or_docker(self):
         with tempfile.TemporaryDirectory() as temporary:
