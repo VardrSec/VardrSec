@@ -310,6 +310,102 @@ def vector():
     return raw, selection
 
 
+def desktop_vector(*, bridge_change=False):
+    raw, selection = vector()
+    raw["platform"] = "win32"
+    selection.update(
+        docker_context="desktop-linux",
+        allow_empty_builtin_bridge_id_change=bridge_change,
+    )
+    for name, row in selection["sources"].items():
+        row["path"] = "C:\\private\\source\\" + name
+    physical = raw["cases"]["persistent_availability"]["physical"]
+
+    def container(container_id, service, *, old=False):
+        state = {
+            "running": False,
+            "paused": False,
+            "restarting": False,
+            "dead": False,
+            "exit_code": physical["exit_code"] if service == "managed-worker" else 0,
+            "started_at": physical["identity"]["started_at"],
+            "finished_at": physical["finished_at"],
+        }
+        return {
+            "id": container_id,
+            "image": selection["images"][
+                service if service in {"db", "api", "web", "proxy"} else "worker"
+            ],
+            "labels": {
+                "com.docker.compose.project": "old-project"
+                if old
+                else selection["project"],
+                "com.docker.compose.service": service,
+            },
+            "state": state,
+            "restarts": 0,
+            "networks": {},
+            "mounts": [],
+        }
+
+    bridge_id = hashed("old-bridge")
+    before = {
+        "containers": {
+            hashed("old-stopped"): container(hashed("old-stopped"), "db", old=True)
+        },
+        "networks": {
+            bridge_id: {
+                "id": bridge_id,
+                "name": "bridge",
+                "driver": "bridge",
+                "scope": "local",
+                "internal": False,
+                "attachable": False,
+                "ipv6": False,
+                "ingress": False,
+                "options": {"com.docker.network.bridge.default_bridge": "true"},
+                "ipam": {"Driver": "default", "Options": None, "Config": []},
+                "labels": {},
+                "containers": {},
+            }
+        },
+        "volumes": {
+            "PRIVATE-old-volume": {
+                "id": "PRIVATE-old-volume",
+                "driver": "local",
+                "labels": {},
+                "options": None,
+            }
+        },
+        "images": {
+            image: {
+                "id": image,
+                "tags": ["PRIVATE-image-tag"],
+                "digests": [],
+                "labels": {},
+            }
+            for image in selection["images"].values()
+        },
+    }
+    after = copy.deepcopy(before)
+    for container_id, service in zip(
+        raw["fixture_stop"]["container_ids"],
+        ("managed-worker", "db", "api", "web", "proxy", "gate-fixture"),
+        strict=True,
+    ):
+        after["containers"][container_id] = container(container_id, service)
+    if bridge_change:
+        bridge = after["networks"].pop(bridge_id)
+        bridge["id"] = hashed("new-bridge")
+        after["networks"][bridge["id"]] = bridge
+    raw["before_sha256"] = host.digest(before)
+    raw["after_sha256"] = host.digest(after)
+    raw["admitted_inventory_diffs"] = projection.fixture.unchanged_inventory(
+        before, after, selection["project"], admit_bridge=bridge_change
+    )
+    return raw, selection, before, after
+
+
 class PersistentProjectionTests(unittest.TestCase):
     def assert_refused(self, raw, selection):
         with self.assertRaisesRegex(
@@ -691,6 +787,177 @@ class PersistentProjectionTests(unittest.TestCase):
                 cursor = cursor[key]
             cursor["PRIVATE_EXTRA_CANARY"] = "PRIVATE_CREDENTIAL_CANARY"
             self.assert_refused(raw, selection)
+
+    def test_desktop_entry_preserves_raw_platform_and_uses_the_same_strict_proof(self):
+        for bridge_change in (False, True):
+            with self.subTest(bridge_change=bridge_change):
+                args = desktop_vector(bridge_change=bridge_change)
+                original = copy.deepcopy(args)
+                with (
+                    patch("subprocess.run", side_effect=AssertionError("no process")),
+                    patch(
+                        "socket.create_connection",
+                        side_effect=AssertionError("no network"),
+                    ),
+                ):
+                    result = projection.project_desktop(*args)
+                self.assertEqual(args, original)
+                self.assertEqual(result["platform"], "win32")
+                self.assertEqual(result["container_platform"], "linux")
+                self.assertEqual(
+                    result["schema"], "vardr.nm2-worker-persistent-desktop-public/1"
+                )
+                self.assertEqual(
+                    result["inventory_guard"]["new_stopped_owned_container_count"], 6
+                )
+                self.assertEqual(
+                    result["inventory_guard"]["before_counts"]["containers"], 1
+                )
+                self.assertEqual(
+                    result["inventory_guard"]["after_counts"]["containers"], 7
+                )
+                self.assertEqual(
+                    result["inventory_guard"]["semantic_bridge_classification"],
+                    {
+                        "empty_builtin_bridge_id_change_count": int(bridge_change),
+                        "cause": "unknown",
+                    },
+                )
+                linux, selection = vector()
+                expected = projection.project(linux, selection)
+                self.assertEqual(
+                    {key: result[key] for key in expected if key != "schema"},
+                    {key: value for key, value in expected.items() if key != "schema"},
+                )
+                self.assert_refused(
+                    *args[:2]
+                )  # Original win32 receipt stays unacceptable to Linux.
+                text = json.dumps(result)
+                for canary in (
+                    "PRIVATE-",
+                    "C:\\",
+                    "old-project",
+                    "container_id",
+                    "before_sha256",
+                    "after_sha256",
+                ):
+                    self.assertNotIn(canary, text)
+
+    def test_desktop_platform_paths_context_and_snapshot_hashes_are_required(self):
+        for kind in (
+            "platform",
+            "posix",
+            "relative",
+            "traversal",
+            "context",
+            "bridge_bool",
+            "before_hash",
+            "after_hash",
+        ):
+            with self.subTest(kind=kind):
+                raw, selection, before, after = desktop_vector()
+                if kind == "platform":
+                    raw["platform"] = "linux"
+                elif kind == "posix":
+                    selection["sources"]["runner"]["path"] = "/private/source/runner"
+                elif kind == "relative":
+                    selection["sources"]["runner"]["path"] = "C:relative"
+                elif kind == "traversal":
+                    selection["sources"]["runner"]["path"] = "C:\\private\\..\\runner"
+                elif kind == "context":
+                    selection["docker_context"] = "default"
+                elif kind == "bridge_bool":
+                    selection["allow_empty_builtin_bridge_id_change"] = 1
+                elif kind == "before_hash":
+                    raw["before_sha256"] = "0" * 64
+                elif kind == "after_hash":
+                    raw["after_sha256"] = "0" * 64
+                with self.assertRaisesRegex(
+                    projection.ProjectionRefused, "^nm2_persistent_projection_refused$"
+                ):
+                    projection.project_desktop(raw, selection, before, after)
+
+    def test_desktop_resource_guard_rejects_mutation_unowned_or_running_cleanup(self):
+        for kind in (
+            "old_mutation",
+            "old_float",
+            "unowned",
+            "extra_owned",
+            "running",
+            "paused",
+            "restarting",
+            "dead",
+            "image",
+            "service",
+            "worker_exit",
+            "worker_start",
+            "worker_finish",
+            "old_cleanup",
+        ):
+            with self.subTest(kind=kind):
+                raw, selection, before, after = desktop_vector()
+                worker_id = raw["cases"]["persistent_availability"]["physical"][
+                    "identity"
+                ]["container_id"]
+                worker = after["containers"][worker_id]
+                old_id = next(iter(before["containers"]))
+                if kind == "old_mutation":
+                    after["containers"][old_id]["state"]["running"] = True
+                elif kind == "old_float":
+                    after["containers"][old_id]["state"]["exit_code"] = 0.0
+                elif kind in {"unowned", "extra_owned"}:
+                    new = copy.deepcopy(worker)
+                    new["id"] = hashed("extra")
+                    if kind == "unowned":
+                        new["labels"] = {}
+                    after["containers"][new["id"]] = new
+                elif kind in {"running", "paused", "restarting", "dead"}:
+                    worker["state"][kind] = True
+                elif kind == "image":
+                    worker["image"] = selection["images"]["db"]
+                elif kind == "service":
+                    worker["labels"]["com.docker.compose.service"] = "gate-fixture"
+                elif kind == "worker_exit":
+                    worker["state"]["exit_code"] = 0
+                elif kind == "worker_start":
+                    worker["state"]["started_at"] = "2026-11-06T01:58:00Z"
+                elif kind == "worker_finish":
+                    worker["state"]["finished_at"] = "2026-11-06T02:03:00Z"
+                elif kind == "old_cleanup":
+                    raw["fixture_stop"]["container_ids"][1] = old_id
+                raw["after_sha256"] = host.digest(after)
+                with self.assertRaises(projection.ProjectionRefused):
+                    projection.project_desktop(raw, selection, before, after)
+
+    def test_desktop_empty_bridge_admission_is_explicit_exact_and_semantic(self):
+        for kind in (
+            "not_explicit",
+            "missing_diff",
+            "attached",
+            "nondefault",
+            "bool_change",
+        ):
+            with self.subTest(kind=kind):
+                raw, selection, before, after = desktop_vector(bridge_change=True)
+                old = next(iter(before["networks"].values()))
+                new = next(iter(after["networks"].values()))
+                if kind == "not_explicit":
+                    selection["allow_empty_builtin_bridge_id_change"] = False
+                elif kind == "missing_diff":
+                    raw["admitted_inventory_diffs"] = []
+                elif kind == "attached":
+                    new["containers"] = {hashed("attached"): {}}
+                elif kind == "nondefault":
+                    old["options"]["com.docker.network.bridge.default_bridge"] = "false"
+                    new["options"]["com.docker.network.bridge.default_bridge"] = "false"
+                elif kind == "bool_change":
+                    new["internal"] = 0
+                raw["before_sha256"], raw["after_sha256"] = (
+                    host.digest(before),
+                    host.digest(after),
+                )
+                with self.assertRaises(projection.ProjectionRefused):
+                    projection.project_desktop(raw, selection, before, after)
 
 
 if __name__ == "__main__":

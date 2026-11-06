@@ -7,6 +7,30 @@ and [closeout control record](nm1-nm2-closeout.md) retain the remaining gates.
 
 ## Persistent candidate: component evidence only
 
+Runner `89f92b50145c06411574f7ba2c32002591f6b915` passed its complete native
+Windows suite: 2,913 passed, 67 explicit skips, 95.7998% statement coverage,
+with the existing 95% gate unchanged and 215 source files unchanged. Ruff, format,
+mypy and Bandit passed. All nine [cross-platform CI jobs](https://github.com/VardrSec/VardrRunner/actions/runs/42176914807)
+passed, including Windows, macOS and Ubuntu Python 3.10–3.14.
+
+The [control-fix compiler receipt](evidence/nm2-persistent-control-compiler-2026-11-06.json)
+records exact finite/v3 compiler builds after review found a refresh precheck
+outside the failure latch and an unbounded clean-idle-EOF wait. Thread regressions
+failed on the old callback path and passed after its small correction. Native
+scalar units passed for an immutable EOF cleanup deadline without changing
+healthy persistent idle. This is source/compiler evidence, not physical
+disconnect, owner-loss or containment acceptance.
+
+Distribution `3309b57` passed 390 local unit tests with 18 explicit skips and an
+unchanged 169-file manifest. Its [Windows/Ubuntu Python 3.10 compatibility run](https://github.com/VardrSec/VardrSec/actions/runs/42183736936)
+also passed. Physical and installation jobs were explicitly disabled in that run.
+Separate pure projections retain Linux and Windows host identities. The Desktop
+entry additionally binds full inventory hashes, canonical unchanged old rows,
+six new stopped service/image identities and explicit semantic bridge exceptions.
+It never relabels Windows data to pass the Linux-only guard.
+The final Desktop projection candidate passed 394 local unit tests with 18
+explicit skips; all 169 source files remained unchanged during that check.
+
 The owner requires persistent availability until explicit operator stop, with
 finite idle/job limits optional. The [versioned contract](nm2-persistent-worker-contract.md)
 retains fresh authorization and finite execution authority for every job. The

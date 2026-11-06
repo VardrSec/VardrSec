@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep Windows Docker Desktop evidence separate from the Linux-hosted guard.
+  Recheck bound before/after inventories, unchanged existing resources and six
+  stopped owned services while sharing the same strict persistent proof checks.
+
 - Add an explicitly selected Ubuntu persistent-availability counterpart over the
   same worker fixture and exact four source commits. Recheck compact original
   receipts before exporting only statuses/counts/hashes; reject duplicate,

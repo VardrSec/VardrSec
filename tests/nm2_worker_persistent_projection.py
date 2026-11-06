@@ -6,6 +6,7 @@ No raw identity, origin, grant, path, stdout or proof object enters the output.
 
 from datetime import datetime
 import math
+from pathlib import PureWindowsPath
 import re
 from urllib.parse import parse_qs, urlsplit
 
@@ -481,7 +482,7 @@ def grants(value, inventory, admission, bound, released):
     return approval["id"], ids
 
 
-def _project(raw, selection):
+def _project(raw, selection, *, desktop=False):
     require(
         type(raw) is dict
         and type(selection) is dict
@@ -496,7 +497,7 @@ def _project(raw, selection):
         raw["scenario"] == "persistent-availability"
         and raw["acceptance_scope"] == "persistent_availability_only"
         and raw["nm2_exit_status"] == "incomplete"
-        and raw["platform"] == "linux"
+        and raw["platform"] == ("win32" if desktop else "linux")
         and raw["retained"] is True
     )
     fields(selection["sources"], fixture.SOURCE_NAMES)
@@ -504,10 +505,14 @@ def _project(raw, selection):
         fields(row, {"path", "commit"})
         require(
             type(row["path"]) is str
-            and row["path"].startswith("/")
             and type(row["commit"]) is str
             and re.fullmatch(r"[a-f0-9]{40}", row["commit"])
         )
+        if desktop:
+            source = PureWindowsPath(row["path"])
+            require(source.is_absolute() and ".." not in source.parts)
+        else:
+            require(row["path"].startswith("/"))
     fields(selection["images"], fixture.IMAGE_NAMES)
     for image in selection["images"].values():
         require(type(image) is str and re.fullmatch(r"sha256:[a-f0-9]{64}", image))
@@ -523,7 +528,7 @@ def _project(raw, selection):
     require(raw["readiness_volume"] == selection["project"] + "_worker-ready")
     require(
         raw["expected_database_revision"] == "0041persistentruntime"
-        and raw["admitted_inventory_diffs"] == []
+        and (desktop or raw["admitted_inventory_diffs"] == [])
     )
     for key in ("before_sha256", "after_sha256", "public_ca_der_sha256"):
         host._hash(raw[key])
@@ -905,6 +910,172 @@ def _project(raw, selection):
 def project(raw, selection):
     try:
         return _project(raw, selection)
+    except (
+        ValueError,
+        TypeError,
+        KeyError,
+        IndexError,
+        AttributeError,
+        OverflowError,
+        RecursionError,
+    ):
+        raise ProjectionRefused("nm2_persistent_projection_refused") from None
+
+
+def desktop_inventory(raw, selection, before, after):
+    """Recheck supplied snapshot facts; never contact Docker or infer a cause."""
+    require(
+        selection["docker_context"] == "desktop-linux"
+        and type(selection["allow_empty_builtin_bridge_id_change"]) is bool
+    )
+    shapes = {
+        "containers": {
+            "id",
+            "image",
+            "labels",
+            "state",
+            "restarts",
+            "networks",
+            "mounts",
+        },
+        "networks": {
+            "id",
+            "name",
+            "driver",
+            "scope",
+            "internal",
+            "attachable",
+            "ipv6",
+            "ingress",
+            "options",
+            "ipam",
+            "labels",
+            "containers",
+        },
+        "volumes": {"id", "driver", "labels", "options"},
+        "images": {"id", "tags", "digests", "labels"},
+    }
+    for inventory, digest_key in ((before, "before_sha256"), (after, "after_sha256")):
+        fields(inventory, set(shapes))
+        require(host.digest(inventory) == raw[digest_key])
+        for kind, shape in shapes.items():
+            require(type(inventory[kind]) is dict)
+            for key, value in inventory[kind].items():
+                fields(value, shape)
+                require(
+                    type(key) is str
+                    and value["id"] == key
+                    and type(value["labels"]) is dict
+                )
+    admitted = fixture.unchanged_inventory(
+        before,
+        after,
+        selection["project"],
+        admit_bridge=selection["allow_empty_builtin_bridge_id_change"],
+    )
+    same(raw["admitted_inventory_diffs"], admitted)
+    require(len(admitted) <= 1)
+    for kind in ("containers", "volumes", "images"):
+        for key, value in before[kind].items():
+            same(value, after[kind][key])
+    replacements = {entry["before"]: entry["after"] for entry in admitted}
+    for key, value in before["networks"].items():
+        candidate = after["networks"][replacements.get(key, key)]
+        if key in replacements:
+            require(
+                value["name"] == candidate["name"] == "bridge"
+                and value["driver"] == candidate["driver"] == "bridge"
+                and value["scope"] == candidate["scope"] == "local"
+                and value["containers"] == candidate["containers"] == {}
+            )
+            options = value["options"]
+            require(options is None or type(options) is dict)
+            if (
+                options is not None
+                and "com.docker.network.bridge.default_bridge" in options
+            ):
+                require(options["com.docker.network.bridge.default_bridge"] == "true")
+            same(
+                {k: v for k, v in value.items() if k != "id"},
+                {k: v for k, v in candidate.items() if k != "id"},
+            )
+        else:
+            same(value, candidate)
+    owned = set(after["containers"]) - set(before["containers"])
+    require(owned == set(raw["fixture_stop"]["container_ids"]) and len(owned) == 6)
+    expected = {
+        name: selection["images"][name] for name in ("db", "api", "web", "proxy")
+    }
+    expected.update(
+        {
+            name: selection["images"]["worker"]
+            for name in ("managed-worker", "gate-fixture")
+        }
+    )
+    services = set()
+    for container_id in owned:
+        host._hash(container_id)
+        value = after["containers"][container_id]
+        labels = value["labels"]
+        service = labels.get("com.docker.compose.service")
+        require(
+            labels.get("com.docker.compose.project") == selection["project"]
+            and type(service) is str
+            and service in expected
+            and service not in services
+            and value["image"] == expected[service]
+        )
+        services.add(service)
+        state = fields(
+            value["state"],
+            {
+                "running",
+                "paused",
+                "restarting",
+                "dead",
+                "exit_code",
+                "started_at",
+                "finished_at",
+            },
+        )
+        require(
+            all(
+                state[key] is False
+                for key in ("running", "paused", "restarting", "dead")
+            )
+        )
+    require(services == set(expected))
+    physical = raw["cases"]["persistent_availability"]["physical"]
+    worker = after["containers"][physical["identity"]["container_id"]]
+    require(worker["labels"]["com.docker.compose.service"] == "managed-worker")
+    same(worker["image"], physical["identity"]["image_id"])
+    same(worker["state"]["started_at"], physical["identity"]["started_at"])
+    for key in ("exit_code", "finished_at"):
+        same(worker["state"][key], physical[key])
+    return {
+        "status": "passed",
+        "before_counts": {kind: len(before[kind]) for kind in sorted(shapes)},
+        "after_counts": {kind: len(after[kind]) for kind in sorted(shapes)},
+        "new_stopped_owned_container_count": 6,
+        "semantic_bridge_classification": {
+            "empty_builtin_bridge_id_change_count": len(admitted),
+            "cause": "unknown",
+        },
+    }
+
+
+def project_desktop(raw, selection, before, after):
+    """Project original Windows-host/Linux-container proof without relabeling it."""
+    try:
+        result = _project(raw, selection, desktop=True)
+        guard = desktop_inventory(raw, selection, before, after)
+        return {
+            **result,
+            "schema": "vardr.nm2-worker-persistent-desktop-public/1",
+            "platform": "win32",
+            "container_platform": "linux",
+            "inventory_guard": guard,
+        }
     except (
         ValueError,
         TypeError,
