@@ -25,6 +25,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_NAMES = {"distribution", "map", "runner", "gate"}
@@ -40,6 +41,7 @@ INITIAL_CASES = (
     "default_disabled",
     "strict_out_of_scope",
     "happy_fixed",
+    "healthy_sequence",
     "missing_local_grant",
 )
 _CONFIGURATION_ENV = {
@@ -421,7 +423,7 @@ class Fixture:
             TERM="dumb",
         )
         self.receipt = {
-            "schema": "vardr.nm2-worker-acceptance/1",
+            "schema": "vardr.nm2-worker-acceptance/2",
             "platform": sys.platform,
             "project": self.project,
             "readiness_volume": self.ready_volume,
@@ -487,12 +489,27 @@ class Fixture:
         result = {}
         for kind, (noun, listing, template) in specs.items():
             rows = {}
-            for identifier in sorted(set(self.docker(*listing).decode().split())):
-                row = json.loads(
-                    self.docker(noun, "inspect", "--format", template, identifier)
-                )
-                row["labels"] = row.get("labels") or {}
-                rows[row["id"]] = row
+            identifiers = sorted(set(self.docker(*listing).decode().split()))
+            # Keep the full original projection while bounding command length.
+            # Retained fixtures must not make every later guard need hundreds
+            # of separate Docker client processes.
+            for start in range(0, len(identifiers), 32):
+                selected = identifiers[start : start + 32]
+                raw = self.docker(noun, "inspect", "--format", template, *selected)
+                observed = set()
+                for line in raw.splitlines():
+                    row = json.loads(line)
+                    require(
+                        type(row) is dict
+                        and type(row.get("id")) is str
+                        and row["id"] in selected
+                        and row["id"] not in observed,
+                        "inventory_batch_mismatch",
+                    )
+                    observed.add(row["id"])
+                    row["labels"] = row.get("labels") or {}
+                    rows[row["id"]] = row
+                require(observed == set(selected), "inventory_batch_mismatch")
             result[kind] = rows
         return result
 
@@ -962,7 +979,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
             self.helper("doctor", "--platform", "--offline", "--json")
         )
 
-    def new_job(self, name, *, in_scope=True):
+    def new_job(self, name, *, in_scope=True, marker=False):
         from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
 
         now = datetime.now(timezone.utc)
@@ -1018,6 +1035,14 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 "fixture_case_origin_mismatch",
             )
             request["url"] = ORIGIN + request["url"][len(REVIEWED_ORIGIN) :]
+            if marker:
+                require(
+                    re.fullmatch(r"[a-z0-9-]{1,64}", name) is not None,
+                    "fixture_marker_invalid",
+                )
+                request["url"] += (
+                    ("&" if "?" in request["url"] else "?") + "nm2_case=" + name
+                )
         stored = self.api.request(base + "/test-cases", case, expected=201)
         job = self.api.request(
             base + "/jobs",
@@ -1137,6 +1162,367 @@ print(json.dumps({'files':hashes,'executables':executables}))
         )
         return runner_id, enrollment["enrollment_id"]
 
+    def verify_fixed(
+        self, engagement, job, case, physical, before_worker, requests, inventory
+    ):
+        require(
+            inventory["schema"] == "vardr.nm2-fixture-inventory/2"
+            and inventory["schema_revision"] == "0040runtimesequence"
+            and inventory["database_user"] == "vardrmap_app",
+            "normal_database_readiness_required",
+        )
+        require(physical["exit_code"] == 0, "happy_worker_exit_not_clean")
+        require(
+            inventory["job_status"] == "done"
+            and len(inventory["contracts"]) == len(inventory["results"]) == 1
+            and not inventory["stops"],
+            "happy_terminal_receipt_missing",
+        )
+        require(
+            inventory["execution"]["state"] == "completed"
+            and inventory["execution"]["capacity_reserved"] is False
+            and inventory["execution"]["target_charge"] == 1
+            and inventory["execution"]["duration_seconds"] == 30
+            and inventory["targets_spent"] == 1
+            and inventory["duration_allocated"] == 30
+            and inventory["contracts"][0]["consumed"] is True
+            and inventory["contracts"][0]["ordinal"] == 1
+            and inventory["contracts"][0]["fence"] == 1
+            and inventory["results"][0]["outcome"] == "completed",
+            "happy_retained_allowance_mismatch",
+        )
+        require(
+            len(requests) == 5
+            and {row["identity"] for row in requests} == {"owner", "peer", "anonymous"},
+            "happy_fixed_traffic_mismatch",
+        )
+        marker = parse_qs(urlsplit(case["spec"]["request"]["url"]).query).get(
+            "nm2_case"
+        )
+        require(
+            marker is not None
+            and all(
+                parse_qs(urlsplit(row["path"]).query).get("nm2_case") == marker
+                for row in requests
+            ),
+            "happy_case_traffic_binding_mismatch",
+        )
+        base = "/engagements/" + engagement
+        completed_job = next(
+            row for row in self.api.request(base + "/jobs")["jobs"] if row["id"] == job
+        )
+        assessment = completed_job["assessment"]
+        require(
+            assessment["status"] == "conclusive"
+            and assessment["baseline_valid"] is True
+            and assessment["case_snapshot_verified"] is True
+            and assessment["preflight"]["status"] == "passed"
+            and assessment["case_hash"] == digest(canonical(case["spec"]))
+            and assessment["candidate_findings"] == 0,
+            "fixed_assessment_not_proven",
+        )
+        require(
+            self.api.request(base + "/scans?job_id=" + job)["scans"] == []
+            and len(inventory["runtimes"]) == 1
+            and inventory["results"][0]["evidence_created"] == 5
+            and inventory["results"][0]["scan_items_created"] == 0,
+            "fixed_result_runtime_binding_not_proven",
+        )
+        runtime = inventory["runtimes"][0]
+        selected = [row for row in runtime["attempts"] if row["job_id"] == job]
+        require(len(selected) == 1, "fixed_runtime_attempt_missing")
+        attempt = selected[0]
+        require(
+            attempt["runtime_id"] == runtime["id"]
+            and attempt["confirmed_at"] is not None
+            and attempt["released_at"] is not None,
+            "fixed_runtime_attempt_unreleased",
+        )
+        result, contract = inventory["results"][0], inventory["contracts"][0]
+        binding = attempt["binding"]
+        require(
+            binding
+            == {
+                "origin": self.issuer_origin,
+                "runner_id": runtime["runner_id"],
+                "job_id": job,
+                "contract_id": contract["id"],
+                "attempt_id": contract["attempt_id"],
+                "fence": contract["fence"],
+                "contract_sha256": contract["contract_sha256"],
+            }
+            and result["contract_id"] == binding["contract_id"],
+            "fixed_runtime_attempt_binding_mismatch",
+        )
+        require(
+            all(
+                re.fullmatch(r"[a-f0-9]{64}", value or "") is not None
+                for value in (
+                    binding["contract_sha256"],
+                    result["artifact_sha256"],
+                    result["receipt_sha256"],
+                    attempt["native_done_sha256"],
+                )
+            ),
+            "fixed_runtime_attempt_hash_invalid",
+        )
+        require(
+            result["receipt_sha256"]
+            == digest(
+                canonical(
+                    {
+                        "schema": "vardr.managed-result/1",
+                        **binding,
+                        "artifact_sha256": result["artifact_sha256"],
+                        "case_sha256": assessment["case_hash"],
+                    }
+                )
+            ),
+            "fixed_result_receipt_hash_mismatch",
+        )
+        terminal = {
+            "schema": "vardr.managed-completion/1",
+            **binding,
+            "receipt_sha256": result["receipt_sha256"],
+            "outcome": "completed",
+            "capacity_reserved": False,
+        }
+        require(
+            canonical(attempt["terminal_receipt"]) == canonical(terminal)
+            and attempt["terminal_receipt_sha256"] == digest(canonical(terminal)),
+            "fixed_full_completion_not_proven",
+        )
+        release = {
+            "schema": "vardr.worker-idle-release/1",
+            "runtime_id": runtime["id"],
+            "runtime_sha256": runtime["runtime_sha256"],
+            "runtime_sequence": attempt["runtime_sequence"],
+            "binding": binding,
+            "terminal_receipt_sha256": digest(canonical(terminal)),
+            "native_done_sha256": attempt["native_done_sha256"],
+            "released": True,
+        }
+        release["receipt_sha256"] = digest(canonical(release))
+        require(
+            canonical(attempt["release_receipt"]) == canonical(release),
+            "fixed_runtime_release_not_proven",
+        )
+        evidence = self.api.request(base + "/evidence?job_id=" + job)["evidence"]
+        require(
+            len(evidence) == 5
+            and all(
+                digest(row["body"].encode()) == row["content_hash"] for row in evidence
+            ),
+            "evidence_hash_mismatch",
+        )
+        retained = canonical(evidence)
+        require(
+            not any(
+                secret.encode() in retained
+                for secret in (
+                    *self.secrets,
+                    "disposable-private-response-canary",
+                    "disposable-response-cookie-canary",
+                )
+            ),
+            "evidence_redaction_failed",
+        )
+        public_assessment = {
+            key: assessment[key]
+            for key in (
+                "status",
+                "baseline_valid",
+                "case_snapshot_verified",
+                "case_hash",
+                "candidate_findings",
+            )
+        } | {"preflight": {"status": assessment["preflight"]["status"]}}
+        measured = {
+            "runtime_sequence": attempt["runtime_sequence"],
+            "engagement_id": engagement,
+            "job_id": job,
+            "case_sha256": assessment["case_hash"],
+            "evidence_count": len(evidence),
+            "evidence_sha256": digest(retained),
+            "artifact_sha256": result["artifact_sha256"],
+            "result_receipt_sha256": result["receipt_sha256"],
+            "terminal_receipt_sha256": digest(canonical(terminal)),
+            "release_receipt_sha256": release["receipt_sha256"],
+            "native_done_sha256": attempt["native_done_sha256"],
+            **{
+                key: attempt[key] for key in ("bound_at", "confirmed_at", "released_at")
+            },
+            "binding": binding,
+            "terminal_receipt": terminal,
+            "release_receipt": release,
+            "requests": requests,
+            "assessment": public_assessment,
+            "target_charge": inventory["execution"]["target_charge"],
+            "duration_seconds": inventory["execution"]["duration_seconds"],
+            "capacity_reserved": inventory["execution"]["capacity_reserved"],
+        }
+        return {
+            "status": "passed",
+            "physical": physical,
+            "before_worker": before_worker,
+            "inventory": inventory,
+            "requests": requests,
+            "case_sha256": assessment["case_hash"],
+            "evidence_count": len(evidence),
+            "evidence_sha256": digest(retained),
+        }, measured
+
+    def verify_healthy_sequence(
+        self, physical, measured, inventories, runner_id, enrollment_id
+    ):
+        require(
+            len(measured) == len(inventories) == 2, "healthy_sequence_count_mismatch"
+        )
+        runtimes = [inventory["runtimes"][0] for inventory in inventories]
+        runtime = runtimes[0]
+        require(
+            canonical(runtime) == canonical(runtimes[1]),
+            "healthy_sequence_snapshot_mismatch",
+        )
+        require(
+            runtime["id"] == physical["runtime_id"]
+            and runtime["runtime_sha256"]
+            == physical["runtime_sha256"]
+            == digest(canonical(physical["identity"]))
+            and runtime["identity"] == physical["identity"]
+            and runtime["runner_id"] == runner_id
+            and runtime["enrollment_id"] == enrollment_id,
+            "healthy_sequence_incarnation_mismatch",
+        )
+        require(
+            type(runtime["max_attempts"]) is int
+            and runtime["max_attempts"] == 2
+            and type(runtime["last_sequence"]) is int
+            and runtime["last_sequence"] == 2
+            and runtime["active_sequence"] is None
+            and runtime["retired"] is False
+            and runtime["report_sha256"] is None
+            and set(runtime["legacy_binding"])
+            == {
+                "job_id",
+                "contract_id",
+                "attempt_id",
+                "fence",
+                "contract_sha256",
+                "bound_at",
+                "confirmed_at",
+            }
+            and all(value is None for value in runtime["legacy_binding"].values()),
+            "healthy_sequence_runtime_not_idle",
+        )
+        require(
+            len(runtime["attempts"]) == 2
+            and [row["runtime_sequence"] for row in runtime["attempts"]] == [1, 2]
+            and [row["job_id"] for row in runtime["attempts"]]
+            == [row["job_id"] for row in measured]
+            and all(
+                type(row["runtime_sequence"]) is int for row in runtime["attempts"]
+            ),
+            "healthy_sequence_history_mismatch",
+        )
+        for key in (
+            "job_id",
+            "engagement_id",
+            "case_sha256",
+            "artifact_sha256",
+            "result_receipt_sha256",
+            "terminal_receipt_sha256",
+            "release_receipt_sha256",
+            "native_done_sha256",
+        ):
+            require(
+                len({row[key] for row in measured}) == 2,
+                "healthy_sequence_reused_" + key,
+            )
+        dates = []
+        for row in measured:
+            require(
+                type(row["runtime_sequence"]) is int
+                and row["runtime_sequence"] in {1, 2}
+                and row["evidence_count"] == len(row["requests"]) == 5
+                and row["target_charge"] == 1
+                and row["duration_seconds"] == 30
+                and row["capacity_reserved"] is False,
+                "healthy_sequence_measurement_mismatch",
+            )
+            current = []
+            for key in ("bound_at", "confirmed_at", "released_at"):
+                value = row[key]
+                require(
+                    type(value) is str
+                    and re.fullmatch(
+                        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z", value
+                    )
+                    is not None,
+                    "healthy_sequence_timestamp_invalid",
+                )
+                try:
+                    current.append(datetime.fromisoformat(value.replace("Z", "+00:00")))
+                except ValueError:
+                    raise AcceptanceRefused(
+                        "healthy_sequence_timestamp_invalid"
+                    ) from None
+            require(
+                current[0] <= current[1] <= current[2],
+                "healthy_sequence_attempt_order_invalid",
+            )
+            dates.append(current)
+        require(
+            dates[0][2] <= dates[1][0], "healthy_sequence_release_after_next_binding"
+        )
+        require(
+            len(
+                {
+                    tuple(
+                        parse_qs(urlsplit(row["requests"][0]["path"]).query).get(
+                            "nm2_case", []
+                        )
+                    )
+                    for row in measured
+                }
+            )
+            == 2,
+            "healthy_sequence_marker_reused",
+        )
+        require(
+            all(
+                type(request["received_monotonic_ns"]) is int
+                and request["received_monotonic_ns"] > 0
+                for row in measured
+                for request in row["requests"]
+            ),
+            "healthy_sequence_request_clock_invalid",
+        )
+        require(
+            max(row["received_monotonic_ns"] for row in measured[0]["requests"])
+            <= min(row["received_monotonic_ns"] for row in measured[1]["requests"]),
+            "healthy_sequence_request_order_invalid",
+        )
+        require(
+            sum(inventory["targets_spent"] for inventory in inventories) == 2
+            and sum(inventory["duration_allocated"] for inventory in inventories) == 60,
+            "healthy_sequence_allowance_mismatch",
+        )
+        return {
+            "status": "passed",
+            "physical": physical,
+            "runtime_id": runtime["id"],
+            "runtime_sha256": runtime["runtime_sha256"],
+            "max_attempts": 2,
+            "last_sequence": 2,
+            "active_sequence": None,
+            "attempts": measured,
+            "target_request_count": 10,
+            "evidence_count": 10,
+            "targets_spent": 2,
+            "duration_allocated": 60,
+        }
+
     def worker(self, runner_id, enrollment_id):
         import worker_runtime
 
@@ -1183,6 +1569,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 self.project + "_runner-state",
                 self.ready_volume,
             ),
+            max_attempts=2,
         )
         entered = time.monotonic()
         while True:
@@ -1239,6 +1626,8 @@ print(json.dumps({'files':hashes,'executables':executables}))
                     str(public / "trust.json"),
                     "--expires-in",
                     "900",
+                    "--max-attempts",
+                    "2",
                     "--username",
                     "operator",
                     "--password-stdin",
@@ -1257,6 +1646,11 @@ print(json.dumps({'files':hashes,'executables':executables}))
             and enabled["runtime_id"] == admission["runtime_id"]
             and enabled["runtime_sha256"] == admission["runtime_sha256"],
             "operator_enable_not_bound",
+        )
+        require(
+            admission["schema"] == "vardr.worker-admission/2"
+            and admission["max_attempts"] == 2,
+            "operator_sequence_mode_not_bound",
         )
         # Direct host observation of exact incarnation exit, never an exec or
         # a caller-generated JSON object passed off as physical proof.
@@ -1284,6 +1678,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 self.project + "_runner-state",
                 self.ready_volume,
             ),
+            max_attempts=2,
         )
         self.receipt["daemon_id"] = observer.daemon()
         require(
@@ -1377,120 +1772,77 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 "inventory": inventory,
                 "traffic_delta": 0,
             }
-            # Single container/attempt first slice. Later cases use a fresh
-            # installation; retained state or unknown receipts are never cleared.
+            # Both approved jobs queue before one explicitly admitted incarnation.
             self.receipt["stage"] = "happy_setup"
-            engagement, authorization, job, case = self.new_job("happy-fixed")
-            binding = self.approve("happy-fixed", engagement, authorization, job, case)
+            selections = []
+            for name in ("happy-fixed", "healthy-sequence"):
+                engagement, authorization, job, case = self.new_job(name, marker=True)
+                binding = self.approve(name, engagement, authorization, job, case)
+                selections.append((engagement, job, case, binding))
+            # The existing managed discovery route orders by immutable job ID,
+            # not creation time. Keep the expected first/second jobs aligned.
+            selections.sort(key=lambda row: row[1])
+            require(
+                selections[0][3] == selections[1][3],
+                "healthy_sequence_enrollment_changed",
+            )
             traffic = self.traffic()
-            before_worker = self.inventory(engagement, job)
+            before_jobs = [
+                self.inventory(engagement, job) for engagement, job, _, _ in selections
+            ]
             require(
                 traffic == zero
-                and before_worker["job_status"] == "pending"
-                and before_worker["execution"] is None
-                and not before_worker["contracts"]
-                and before_worker["targets_spent"]
-                == before_worker["duration_allocated"]
-                == 0
-                and before_worker["approvals"][0]["issued"] == 0,
+                and all(
+                    before["job_status"] == "pending"
+                    and before["execution"] is None
+                    and not before["contracts"]
+                    and before["targets_spent"] == before["duration_allocated"] == 0
+                    and len(before["approvals"]) == 1
+                    and before["approvals"][0]["issued"] == 0
+                    for before in before_jobs
+                ),
                 "approved_queue_executed_before_worker_enablement",
             )
-            physical = self.worker(*binding)
+            physical = self.worker(*selections[0][3])
             self.receipt["stage"] = "happy_verification"
-            inventory = self.inventory(engagement, job)
-            requests = self.traffic()[len(traffic) :]
-            # Retain selected measured state even when a later acceptance check
-            # refuses. This is diagnostic evidence, never a passed-case marker.
+            inventories = [
+                self.inventory(engagement, job) for engagement, job, _, _ in selections
+            ]
+            observed = self.traffic()[len(traffic) :]
             self.receipt["observed_attempt"] = {
                 "physical": physical,
-                "inventory": inventory,
-                "target_request_count": len(requests),
+                "inventories": inventories,
+                "target_request_count": len(observed),
             }
-            require(
-                inventory["schema_revision"] == "0039managedruntime"
-                and inventory["database_user"] == "vardrmap_app",
-                "normal_database_readiness_required",
+            require(len(observed) == 10, "healthy_sequence_total_traffic_mismatch")
+            measured = []
+            for index, ((engagement, job, case, _), inventory) in enumerate(
+                zip(selections, inventories)
+            ):
+                marker = parse_qs(urlsplit(case["spec"]["request"]["url"]).query)[
+                    "nm2_case"
+                ]
+                requests = [
+                    row
+                    for row in observed
+                    if parse_qs(urlsplit(row["path"]).query).get("nm2_case") == marker
+                ]
+                proof, attempt = self.verify_fixed(
+                    engagement,
+                    job,
+                    case,
+                    physical,
+                    before_jobs[index],
+                    requests,
+                    inventory,
+                )
+                measured.append(attempt)
+                if index == 0:
+                    self.receipt["cases"]["happy_fixed"] = proof
+            self.receipt["stage"] = "healthy_sequence_verification"
+            self.receipt["cases"]["healthy_sequence"] = self.verify_healthy_sequence(
+                physical, measured, inventories, *selections[0][3]
             )
-            require(
-                physical["exit_code"] == 0,
-                "happy_worker_exit_not_clean",
-            )
-            require(
-                inventory["job_status"] == "done"
-                and len(inventory["contracts"]) == len(inventory["results"]) == 1
-                and not inventory["stops"],
-                "happy_terminal_receipt_missing",
-            )
-            require(
-                inventory["execution"]["capacity_reserved"] is False
-                and inventory["targets_spent"] == 1
-                and inventory["duration_allocated"] == 30
-                and inventory["contracts"][0]["consumed"] is True
-                and inventory["contracts"][0]["ordinal"] == 1
-                and inventory["contracts"][0]["fence"] == 1
-                and inventory["results"][0]["outcome"] == "completed",
-                "happy_retained_allowance_mismatch",
-            )
-            require(
-                len(requests) == 5
-                and {r["identity"] for r in requests} == {"owner", "peer", "anonymous"},
-                "happy_fixed_traffic_mismatch",
-            )
-            base = "/engagements/" + engagement
-            completed_job = next(
-                row
-                for row in self.api.request(base + "/jobs")["jobs"]
-                if row["id"] == job
-            )
-            assessment = completed_job["assessment"]
-            require(
-                assessment["status"] == "conclusive"
-                and assessment["baseline_valid"] is True
-                and assessment["case_snapshot_verified"] is True
-                and assessment["preflight"]["status"] == "passed"
-                and assessment["case_hash"] == digest(canonical(case["spec"]))
-                and assessment["candidate_findings"] == 0,
-                "fixed_assessment_not_proven",
-            )
-            require(
-                self.api.request(base + "/scans?job_id=" + job)["scans"] == []
-                and len(inventory["runtimes"]) == 1
-                and inventory["runtimes"][0]["confirmed"] is True
-                and inventory["results"][0]["evidence_created"] == 5
-                and inventory["results"][0]["scan_items_created"] == 0,
-                "fixed_result_runtime_binding_not_proven",
-            )
-            evidence = self.api.request(base + "/evidence?job_id=" + job)["evidence"]
-            require(
-                len(evidence) == 5
-                and all(
-                    digest(row["body"].encode()) == row["content_hash"]
-                    for row in evidence
-                ),
-                "evidence_hash_mismatch",
-            )
-            retained = canonical(evidence)
-            require(
-                not any(
-                    secret.encode() in retained
-                    for secret in (
-                        *self.secrets,
-                        "disposable-private-response-canary",
-                        "disposable-response-cookie-canary",
-                    )
-                ),
-                "evidence_redaction_failed",
-            )
-            self.receipt["cases"]["happy_fixed"] = {
-                "status": "passed",
-                "physical": physical,
-                "before_worker": before_worker,
-                "inventory": inventory,
-                "requests": requests,
-                "case_sha256": assessment["case_hash"],
-                "evidence_count": len(evidence),
-                "evidence_sha256": digest(retained),
-            }
             self.receipt["status"] = "initial_stages_passed"
             self.receipt["stage"] = "initial_complete"
         except Exception as error:

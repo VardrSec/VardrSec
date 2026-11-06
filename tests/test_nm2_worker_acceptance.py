@@ -2,6 +2,7 @@
 
 from contextlib import redirect_stdout
 import copy
+from datetime import datetime
 import importlib.util
 import io
 import json
@@ -9,6 +10,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
@@ -17,11 +19,582 @@ import worker_runtime
 
 
 class AcceptanceGuards(unittest.TestCase):
+    def sequence_fixture(self):
+        fixture = object.__new__(acceptance.Fixture)
+        fixture.issuer_origin, fixture.secrets = (
+            "https://map.example/backend",
+            ["private-token-canary"],
+        )
+        identity = {
+            "daemon_id": "owned-daemon",
+            "container_id": "a" * 64,
+            "image_id": "sha256:" + "b" * 64,
+            "project": "vardrsec-nm2-sequence",
+            "started_at": "2026-11-06T02:00:00.000000Z",
+            "owner_nonce": "c" * 64,
+        }
+        runtime_id = "00000000-0000-4000-8000-000000000090"
+        runner_id = "00000000-0000-4000-8000-000000000080"
+        physical = {
+            "identity": identity,
+            "runtime_id": runtime_id,
+            "runtime_sha256": acceptance.digest(acceptance.canonical(identity)),
+            "exit_code": 0,
+            "finished_at": "2026-11-06T02:01:00.000000Z",
+            "operator_enable_state": "enabled",
+        }
+        runtime = {
+            "id": runtime_id,
+            "runtime_sha256": physical["runtime_sha256"],
+            "identity": copy.deepcopy(identity),
+            "runner_id": runner_id,
+            "enrollment_id": "enrolled",
+            "max_attempts": 2,
+            "last_sequence": 2,
+            "active_sequence": None,
+            "retired": False,
+            "report_sha256": None,
+            "legacy_binding": dict.fromkeys(
+                (
+                    "job_id",
+                    "contract_id",
+                    "attempt_id",
+                    "fence",
+                    "contract_sha256",
+                    "bound_at",
+                    "confirmed_at",
+                )
+            ),
+            "attempts": [],
+        }
+        selections, inventories, traffic, responses = [], [], [], {}
+        for number in (1, 2):
+            engagement, job, marker = (
+                f"engagement-{number}",
+                f"job-{number}",
+                f"case-{number}",
+            )
+            case = {
+                "spec": {
+                    "id": marker,
+                    "request": {
+                        "method": "GET",
+                        "url": acceptance.ORIGIN
+                        + "/fixed/records/42?nm2_case="
+                        + marker,
+                    },
+                }
+            }
+            case_sha = acceptance.digest(acceptance.canonical(case["spec"]))
+            binding = {
+                "origin": fixture.issuer_origin,
+                "runner_id": runner_id,
+                "job_id": job,
+                "contract_id": f"contract-{number}",
+                "attempt_id": f"attempt-{number}",
+                "fence": 1,
+                "contract_sha256": acceptance.digest(f"contract {number}".encode()),
+            }
+            artifact = acceptance.digest(f"artifact {number}".encode())
+            result_sha = acceptance.digest(
+                acceptance.canonical(
+                    {
+                        "schema": "vardr.managed-result/1",
+                        **binding,
+                        "artifact_sha256": artifact,
+                        "case_sha256": case_sha,
+                    }
+                )
+            )
+            terminal = {
+                "schema": "vardr.managed-completion/1",
+                **binding,
+                "receipt_sha256": result_sha,
+                "outcome": "completed",
+                "capacity_reserved": False,
+            }
+            terminal_sha = acceptance.digest(acceptance.canonical(terminal))
+            native_sha = acceptance.digest(f"native done {number}".encode())
+            release = {
+                "schema": "vardr.worker-idle-release/1",
+                "runtime_id": runtime_id,
+                "runtime_sha256": physical["runtime_sha256"],
+                "runtime_sequence": number,
+                "binding": binding,
+                "terminal_receipt_sha256": terminal_sha,
+                "native_done_sha256": native_sha,
+                "released": True,
+            }
+            release["receipt_sha256"] = acceptance.digest(acceptance.canonical(release))
+            prefix = f"2026-11-06T02:00:0{number}."
+            runtime["attempts"].append(
+                {
+                    "runtime_id": runtime_id,
+                    "runtime_sequence": number,
+                    "job_id": job,
+                    "binding": binding,
+                    "bound_at": prefix + "100000Z",
+                    "confirmed_at": prefix + "200000Z",
+                    "released_at": prefix + "300000Z",
+                    "terminal_receipt": terminal,
+                    "terminal_receipt_sha256": terminal_sha,
+                    "native_done_sha256": native_sha,
+                    "release_receipt": release,
+                }
+            )
+            inventory = {
+                "schema": "vardr.nm2-fixture-inventory/2",
+                "schema_revision": "0040runtimesequence",
+                "database_user": "vardrmap_app",
+                "job_status": "done",
+                "targets_spent": 1,
+                "duration_allocated": 30,
+                "execution": {
+                    "state": "completed",
+                    "capacity_reserved": False,
+                    "target_charge": 1,
+                    "duration_seconds": 30,
+                },
+                "contracts": [
+                    {
+                        "id": binding["contract_id"],
+                        "attempt_id": binding["attempt_id"],
+                        "ordinal": 1,
+                        "fence": 1,
+                        "consumed": True,
+                        "contract_sha256": binding["contract_sha256"],
+                    }
+                ],
+                "results": [
+                    {
+                        "contract_id": binding["contract_id"],
+                        "artifact_sha256": artifact,
+                        "receipt_sha256": result_sha,
+                        "outcome": "completed",
+                        "evidence_created": 5,
+                        "scan_items_created": 0,
+                    }
+                ],
+                "stops": [],
+            }
+            inventories.append(inventory)
+            requests = [
+                {
+                    "identity": who,
+                    "method": "GET",
+                    "path": ("/session" if index < 2 else "/fixed/records/42")
+                    + "?nm2_case="
+                    + marker,
+                    "received_monotonic_ns": number * 100 + index,
+                }
+                for index, who in enumerate(
+                    ("owner", "peer", "owner", "peer", "anonymous")
+                )
+            ]
+            traffic.append(requests)
+            assessment = {
+                "status": "conclusive",
+                "baseline_valid": True,
+                "case_snapshot_verified": True,
+                "preflight": {"status": "passed"},
+                "case_hash": case_sha,
+                "candidate_findings": 0,
+            }
+            base = "/engagements/" + engagement
+            responses[base + "/jobs"] = {
+                "jobs": [{"id": job, "assessment": assessment}]
+            }
+            responses[base + "/scans?job_id=" + job] = {"scans": []}
+            evidence = [
+                {"body": f"public evidence {number}-{index}"} for index in range(5)
+            ]
+            for row in evidence:
+                row["content_hash"] = acceptance.digest(row["body"].encode())
+            responses[base + "/evidence?job_id=" + job] = {"evidence": evidence}
+            selections.append((engagement, job, case))
+        for inventory in inventories:
+            inventory["runtimes"] = [copy.deepcopy(runtime)]
+        fixture.api = Mock()
+        fixture.api.request.side_effect = lambda route: responses[route]
+        return SimpleNamespace(
+            fixture=fixture,
+            physical=physical,
+            runner_id=runner_id,
+            selections=selections,
+            inventories=inventories,
+            traffic=traffic,
+        )
+
+    def measure_sequence(self, data):
+        proofs, measured = [], []
+        for selection, inventory, requests in zip(
+            data.selections, data.inventories, data.traffic
+        ):
+            proof, attempt = data.fixture.verify_fixed(
+                *selection,
+                data.physical,
+                {"job_status": "pending"},
+                requests,
+                inventory,
+            )
+            proofs.append(proof)
+            measured.append(attempt)
+        return proofs, data.fixture.verify_healthy_sequence(
+            data.physical, measured, data.inventories, data.runner_id, "enrolled"
+        )
+
+    def test_two_distinct_healthy_jobs_require_one_exact_idle_runtime_and_full_receipts(
+        self,
+    ):
+        proofs, measured = self.measure_sequence(self.sequence_fixture())
+        self.assertEqual([len(proof["requests"]) for proof in proofs], [5, 5])
+        self.assertEqual(measured["target_request_count"], 10)
+        self.assertEqual(measured["evidence_count"], 10)
+        self.assertEqual(
+            (measured["targets_spent"], measured["duration_allocated"]), (2, 60)
+        )
+        self.assertEqual(
+            [row["runtime_sequence"] for row in measured["attempts"]], [1, 2]
+        )
+        self.assertIsNone(measured["active_sequence"])
+        for row in measured["attempts"]:
+            self.assertNotEqual(
+                row["terminal_receipt_sha256"], row["result_receipt_sha256"]
+            )
+
+    def test_sequence_proof_refuses_changed_identity_reuse_wrong_markers_and_missing_release(
+        self,
+    ):
+        for change in (
+            "identity",
+            "active",
+            "history",
+            "release_order",
+            "marker",
+            "artifact",
+            "full_completion",
+            "release_hash",
+            "legacy_binding",
+        ):
+            with self.subTest(change=change):
+                data = self.sequence_fixture()
+                if change == "identity":
+                    data.physical["identity"]["container_id"] = "d" * 64
+                elif change == "marker":
+                    data.traffic[1][0]["path"] = "/session?nm2_case=case-1"
+                elif change == "artifact":
+                    data.inventories[1]["results"][0]["artifact_sha256"] = (
+                        data.inventories[0]["results"][0]["artifact_sha256"]
+                    )
+                else:
+                    for inventory in data.inventories:
+                        runtime = inventory["runtimes"][0]
+                        if change == "active":
+                            runtime["active_sequence"] = 2
+                        elif change == "history":
+                            runtime["attempts"][1]["runtime_sequence"] = 1
+                        elif change == "release_order":
+                            runtime["attempts"][0]["released_at"] = (
+                                "2026-11-06T02:00:03.000000Z"
+                            )
+                        elif change == "full_completion":
+                            runtime["attempts"][0]["terminal_receipt_sha256"] = runtime[
+                                "attempts"
+                            ][0]["terminal_receipt"]["receipt_sha256"]
+                        elif change == "release_hash":
+                            runtime["attempts"][1]["release_receipt"][
+                                "receipt_sha256"
+                            ] = "f" * 64
+                        elif change == "legacy_binding":
+                            runtime["legacy_binding"]["job_id"] = "job-1"
+                with self.assertRaises(acceptance.AcceptanceRefused):
+                    self.measure_sequence(data)
+
+    def test_one_worker_uses_actual_v2_observer_and_explicit_bounded_cli_enable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            selection = self.selection(Path(temporary))
+            fixture = acceptance.Fixture(selection)
+            fixture.install.mkdir()
+            fixture.private.mkdir()
+            fixture.trust, fixture.password = [], "synthetic test password"
+            fixture.issuer_origin = "https://map.example/backend"
+            identity = worker_runtime.RuntimeIdentity(
+                "daemon",
+                "a" * 64,
+                fixture.images["worker"],
+                fixture.project,
+                "2026-11-06T02:00:00.000000Z",
+                "c" * 64,
+            )
+            observer = Mock()
+            observer.capture_running.return_value = identity
+            observer.observe_exit.return_value = SimpleNamespace(
+                exit_code=0, finished_at="2026-11-06T02:01:00.000000Z"
+            )
+            fixture.compose = Mock(
+                side_effect=lambda *args, **kwargs: (
+                    identity.container_id.encode() if "ps" in args else b""
+                )
+            )
+            admission = {
+                "schema": "vardr.worker-admission/2",
+                "max_attempts": 2,
+                "runtime_id": "runtime",
+                "runtime_sha256": acceptance.digest(
+                    acceptance.canonical(acceptance.asdict(identity))
+                ),
+            }
+
+            def command(arguments, **kwargs):
+                self.assertEqual(arguments[arguments.index("--max-attempts") + 1], "2")
+                (fixture.install / "worker-public" / "admission.json").write_bytes(
+                    acceptance.canonical(admission)
+                )
+                return acceptance.canonical(
+                    {
+                        "schema": "vardr.worker-cli/1",
+                        "state": "enabled",
+                        "identity": acceptance.asdict(identity),
+                        **{
+                            key: admission[key]
+                            for key in ("runtime_id", "runtime_sha256")
+                        },
+                    }
+                )
+
+            with (
+                patch.object(
+                    worker_runtime, "LocalDocker", return_value=observer
+                ) as constructor,
+                patch.object(acceptance, "command", side_effect=command) as cli,
+            ):
+                result = fixture.worker("runner", "enrolled")
+            self.assertEqual(constructor.call_args.kwargs, {"max_attempts": 2})
+            cli.assert_called_once()
+            observer.observe_exit.assert_called_once_with(identity)
+            self.assertEqual(result["identity"], acceptance.asdict(identity))
+            self.assertEqual(
+                sum("up" in call.args for call in fixture.compose.call_args_list), 1
+            )
+
+    def test_readonly_inventory_finds_v2_history_when_legacy_binding_is_null(self):
+        data = self.sequence_fixture()
+        chosen = data.inventories[0]
+        public = chosen["runtimes"][0]
+        names = (
+            "Engagement",
+            "JobExecution",
+            "ManagedApproval",
+            "ManagedContract",
+            "ManagedResult",
+            "ManagedRuntime",
+            "ManagedRuntimeAttempt",
+            "ManagedStop",
+            "ScanJob",
+        )
+        models = {name: type(name, (), {"runtime_sequence": 0}) for name in names}
+        runtime = SimpleNamespace(
+            **{key: value for key, value in public.items() if key != "legacy_binding"},
+            **public["legacy_binding"],
+            origin=data.fixture.issuer_origin,
+            capability_sha256="private-stop-canary",
+        )
+        attempts = []
+        for row in public["attempts"]:
+            values = {
+                key: value
+                for key, value in row.items()
+                if key not in {"binding", "bound_at", "confirmed_at", "released_at"}
+            }
+            values.update(
+                {
+                    key: row["binding"][key]
+                    for key in ("contract_id", "attempt_id", "fence", "contract_sha256")
+                }
+            )
+            values.update(
+                {
+                    key: datetime.fromisoformat(row[key].replace("Z", "+00:00"))
+                    for key in ("bound_at", "confirmed_at", "released_at")
+                }
+            )
+            attempts.append(SimpleNamespace(**values))
+        records = {
+            models["ManagedRuntimeAttempt"]: attempts,
+            models["ManagedRuntime"]: [runtime],
+            models["ManagedContract"]: [
+                SimpleNamespace(
+                    **chosen["contracts"][0],
+                    job_id="job-1",
+                    envelope={"private": "private-envelope-canary"},
+                )
+            ],
+            models["ManagedResult"]: [
+                SimpleNamespace(**chosen["results"][0], job_id="job-1")
+            ],
+        }
+        filters, statements = [], []
+
+        class Query:
+            def __init__(self, model, rows):
+                self.model, self.rows, self.bound = model, list(rows), None
+
+            def filter_by(self, **values):
+                filters.append((self.model.__name__, values))
+                self.rows = [
+                    row
+                    for row in self.rows
+                    if all(getattr(row, key) == value for key, value in values.items())
+                ]
+                return self
+
+            def order_by(self, *unused):
+                self.rows.sort(key=lambda row: row.runtime_sequence)
+                return self
+
+            def limit(self, bound):
+                self.bound = bound
+                return self
+
+            def all(self):
+                return self.rows if self.bound is None else self.rows[: self.bound]
+
+        class Database:
+            def __init__(self):
+                self.rolled_back = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *unused):
+                return False
+
+            def execute(self, statement):
+                statements.append(statement)
+                return SimpleNamespace(
+                    scalar_one=lambda: (
+                        "0040runtimesequence"
+                        if "version_num" in statement
+                        else "vardrmap_app"
+                    )
+                )
+
+            def get(self, model, identifier):
+                if model is models["Engagement"]:
+                    return SimpleNamespace(
+                        id=identifier, targets_spent=1, duration_allocated=30
+                    )
+                if model is models["ScanJob"]:
+                    return SimpleNamespace(
+                        id=identifier, program_id="engagement-1", status="done"
+                    )
+                if model is models["JobExecution"]:
+                    return SimpleNamespace(**chosen["execution"])
+                if model is models["ManagedRuntime"] and identifier == runtime.id:
+                    return runtime
+                return None
+
+            def query(self, model):
+                return Query(model, records.get(model, []))
+
+            def rollback(self):
+                self.rolled_back = True
+
+        database = Database()
+        source = Path(acceptance.__file__).with_name("nm2_worker_inventory.py")
+        spec = importlib.util.spec_from_file_location("nm2_inventory_unit", source)
+        module = importlib.util.module_from_spec(spec)
+        with patch.dict(
+            sys.modules,
+            {
+                "models": SimpleNamespace(**models),
+                "db": SimpleNamespace(SessionLocal=lambda: database),
+                "sqlalchemy": SimpleNamespace(text=lambda value: value),
+            },
+        ):
+            spec.loader.exec_module(module)
+            observed = module.observe(
+                {"engagement_id": "engagement-1", "job_id": "job-1"}
+            )
+        self.assertEqual(statements[0], "SET TRANSACTION READ ONLY")
+        self.assertTrue(database.rolled_back)
+        self.assertIn(("ManagedRuntimeAttempt", {"job_id": "job-1"}), filters)
+        self.assertNotIn(("ManagedRuntime", {"job_id": "job-1"}), filters)
+        self.assertEqual(len(observed["runtimes"]), 1)
+        self.assertEqual(
+            [row["runtime_sequence"] for row in observed["runtimes"][0]["attempts"]],
+            [1, 2],
+        )
+        self.assertTrue(
+            all(
+                value is None
+                for value in observed["runtimes"][0]["legacy_binding"].values()
+            )
+        )
+        self.assertNotIn("private-", json.dumps(observed))
+
+    def test_snapshot_batches_exact_public_ids_and_refuses_incomplete_or_mixed_output(
+        self,
+    ):
+        identifiers = {
+            "container": [f"{number:064x}" for number in range(70)],
+            "network": ["network-one", "network-two"],
+            "volume": ["volume-one", "volume-two"],
+            "image": ["sha256:" + "a" * 64, "sha256:" + "b" * 64],
+        }
+        for fault in (None, "missing", "duplicate", "foreign"):
+            with self.subTest(fault=fault):
+                fixture = object.__new__(acceptance.Fixture)
+                batches = []
+
+                def docker(*args):
+                    if args[0] == "ps":
+                        return "\n".join(identifiers["container"]).encode()
+                    if args[1] == "ls":
+                        return "\n".join(identifiers[args[0]]).encode()
+                    self.assertEqual(args[1:3], ("inspect", "--format"))
+                    self.assertNotIn(".Config.Env", args[3])
+                    selected = args[4:]
+                    self.assertTrue(0 < len(selected) <= 32)
+                    batches.append((args[0], selected))
+                    rows = [{"id": value, "labels": None} for value in selected]
+                    if args[0] == "container":
+                        if fault == "missing":
+                            rows.pop()
+                        elif fault == "duplicate":
+                            rows.append(rows[0])
+                        elif fault == "foreign":
+                            rows[0] = {"id": "f" * 64}
+                    return "\n".join(json.dumps(row) for row in rows).encode()
+
+                fixture.docker = docker
+                if fault is not None:
+                    with self.assertRaisesRegex(
+                        acceptance.AcceptanceRefused, "inventory_batch_mismatch"
+                    ):
+                        fixture.snapshot()
+                    continue
+                result = fixture.snapshot()
+                self.assertEqual(
+                    [len(batch) for kind, batch in batches if kind == "container"],
+                    [32, 32, 6],
+                )
+                for noun, kind in (
+                    ("container", "containers"),
+                    ("network", "networks"),
+                    ("volume", "volumes"),
+                    ("image", "images"),
+                ):
+                    self.assertEqual(set(result[kind]), set(identifiers[noun]))
+                    self.assertTrue(
+                        all(row["labels"] == {} for row in result[kind].values())
+                    )
+
     def test_case_and_scope_use_same_unambiguous_owned_fixture_origin(self):
         from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
 
-        for in_scope in (True, False):
-            with self.subTest(in_scope=in_scope):
+        for in_scope, marked in ((True, False), (False, False), (True, True)):
+            with self.subTest(in_scope=in_scope, marked=marked):
                 fixture = object.__new__(acceptance.Fixture)
                 fixture.project = "vardrsec-nm2-publicfixture"
 
@@ -43,12 +616,17 @@ class AcceptanceGuards(unittest.TestCase):
                     "command",
                     side_effect=AssertionError("queue preparation must not run Docker"),
                 ):
-                    _, _, _, case = fixture.new_job("origin", in_scope=in_scope)
+                    _, _, _, case = fixture.new_job(
+                        "origin", in_scope=in_scope, marker=marked
+                    )
+                suffix = "&nm2_case=origin" if marked else ""
                 self.assertEqual(acceptance.TARGET_HOST, "gate-fixture.test")
                 self.assertEqual(acceptance.ORIGIN, "http://gate-fixture.test:8080")
                 self.assertEqual(
                     case["spec"]["request"]["url"],
-                    acceptance.ORIGIN + "/fixed/records/42?view=full&include=owner",
+                    acceptance.ORIGIN
+                    + "/fixed/records/42?view=full&include=owner"
+                    + suffix,
                 )
                 self.assertEqual(
                     [
@@ -56,7 +634,12 @@ class AcceptanceGuards(unittest.TestCase):
                         for identity in case["spec"]["identities"]
                         if identity.get("preflight") is not None
                     ],
-                    [acceptance.ORIGIN + "/session"] * 2,
+                    [
+                        acceptance.ORIGIN
+                        + "/session"
+                        + ("?nm2_case=origin" if marked else "")
+                    ]
+                    * 2,
                 )
                 scope = next(
                     call.args[1]
@@ -379,17 +962,18 @@ class AcceptanceGuards(unittest.TestCase):
             fixture = acceptance.Fixture(selection)
             with (
                 patch("sys.path", list(sys.path)),
-                patch.object(
-                    worker_runtime.LocalDocker,
-                    "daemon",
-                    side_effect=worker_runtime.RuntimeRefused("worker_runtime_refused"),
-                ),
+                patch.object(worker_runtime, "LocalDocker", autospec=True) as observer,
                 patch.object(fixture, "docker") as docker,
                 patch.object(fixture, "snapshot") as snapshot,
                 patch.object(fixture, "stage") as stage,
             ):
+                observer.return_value.daemon.side_effect = (
+                    worker_runtime.RuntimeRefused("worker_runtime_refused")
+                )
                 with self.assertRaises(worker_runtime.RuntimeRefused):
                     fixture.run()
+            observer.assert_called_once()
+            self.assertEqual(observer.call_args.kwargs, {"max_attempts": 2})
             docker.assert_not_called()
             snapshot.assert_not_called()
             stage.assert_not_called()

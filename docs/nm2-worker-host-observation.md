@@ -89,6 +89,39 @@ wins the race, this invocation never falls back to a bound report; an unknown
 intent remains held for explicit recovery. This branch requires the matching Map
 runtime endpoint and does not change ordinary/manual/Mapless execution.
 
+Explicit `worker enable --max-attempts N` selects the v2 candidate, with N from
+1 through 32. The observer must read an actual owner-ready/2 file from the exact
+reviewed image; the resulting registration/admission and host MAC record use
+their explicit v2 formats. Omitting the option retains the v1 one-shot path and
+requires its matching v1 image. No mode silently downgrades. Default startup and
+the four data mounts remain unchanged.
+
+V2 job completion and physical incarnation retirement are separate. A canonical
+completion may be observed within an active sequence, but cannot stand in for a
+`vardr.worker-retirement/2` receipt. Retirement binds the same runtime, the active
+sequence and existing seven-field binding (or the exact idle `last_sequence`),
+the report hash and any pre-existing canonical attempt receipt. It fences future
+claims without rewriting historical outcomes, evidence or spent charges. The
+existing four-field host-stop ACK wrapper remains unchanged. Receipt lookup
+after expiry/revocation does not permit a new mutation.
+
+Each physical-report predicate has one durable MAC intent. At most 65 bounded
+8-KiB files cover idle0, active1, idle1 through active32, idle32; the existing
+64-KiB host record keeps only their bounded cursor/digest index. No array or
+history is truncated. Missing, oversized, changed or unauthenticated metadata
+refuses before a report. Raw STOP custody is unchanged, and the original intent
+is retained after every continuation.
+
+`worker report-exit --continue-after-transition` is a separate explicit action.
+It requires fresh authenticated immutable history proving the old conditional
+request can never commit, then repeats the direct typed physical-exit check and
+persists one new intent before one POST. For v1, only the one-way unbound-to-bound
+transition qualifies. For v2, claim/release advance the cursor monotonically;
+recurring idle must also pin `last_sequence`. A changed receipt at the same
+cursor, a null response, elapsed time or an HTTP error is insufficient. Unknown
+continuation replies remain held; ordinary reconcile never resends. These source
+and unit checks do not establish sequential or failure-path platform acceptance.
+
 `worker_secrets` holds the raw STOP capability **on the host only**. Windows uses
 the current user's existing native Credential Manager with local-machine
 persistence; there is no plaintext fallback or enterprise roaming. Linux uses a

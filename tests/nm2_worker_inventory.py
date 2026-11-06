@@ -6,8 +6,10 @@ the database. The transaction is explicitly read-only and always rolled back.
 """
 
 import json
+import hashlib
 import re
 import sys
+from datetime import timezone
 
 from sqlalchemy import text
 
@@ -19,9 +21,89 @@ from models import (
     ManagedContract,
     ManagedResult,
     ManagedRuntime,
+    ManagedRuntimeAttempt,
     ManagedStop,
     ScanJob,
 )
+
+
+def stamp(value):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return (
+        value.astimezone(timezone.utc)
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def runtime_projection(db, runtime):
+    attempts = (
+        db.query(ManagedRuntimeAttempt)
+        .filter_by(runtime_id=runtime.id)
+        .order_by(ManagedRuntimeAttempt.runtime_sequence)
+        .limit(33)
+        .all()
+    )
+    if len(attempts) > 32:
+        raise ValueError("fixture_runtime_history_bound")
+    return {
+        "id": runtime.id,
+        "runtime_sha256": runtime.runtime_sha256,
+        "runner_id": runtime.runner_id,
+        "enrollment_id": runtime.enrollment_id,
+        "identity": runtime.identity,
+        "max_attempts": runtime.max_attempts,
+        "last_sequence": runtime.last_sequence,
+        "active_sequence": runtime.active_sequence,
+        "retired": runtime.retired,
+        "report_sha256": runtime.report_sha256,
+        "legacy_binding": {
+            key: getattr(runtime, key)
+            for key in (
+                "job_id",
+                "contract_id",
+                "attempt_id",
+                "fence",
+                "contract_sha256",
+            )
+        }
+        | {
+            "bound_at": stamp(runtime.bound_at),
+            "confirmed_at": stamp(runtime.confirmed_at),
+        },
+        "attempts": [
+            {
+                "runtime_id": row.runtime_id,
+                "runtime_sequence": row.runtime_sequence,
+                "job_id": row.job_id,
+                "binding": {
+                    "origin": runtime.origin,
+                    "runner_id": runtime.runner_id,
+                    **{
+                        key: getattr(row, key)
+                        for key in (
+                            "job_id",
+                            "contract_id",
+                            "attempt_id",
+                            "fence",
+                            "contract_sha256",
+                        )
+                    },
+                },
+                "bound_at": stamp(row.bound_at),
+                "confirmed_at": stamp(row.confirmed_at),
+                "released_at": stamp(row.released_at),
+                "terminal_receipt": row.terminal_receipt,
+                "terminal_receipt_sha256": row.terminal_receipt_sha256,
+                "native_done_sha256": row.native_done_sha256,
+                "release_receipt": row.release_receipt,
+            }
+            for row in attempts
+        ],
+    }
 
 
 def observe(selection):
@@ -42,9 +124,17 @@ def observe(selection):
             approvals = db.query(ManagedApproval).filter_by(job_id=job.id).all()
             results = db.query(ManagedResult).filter_by(job_id=job.id).all()
             stops = db.query(ManagedStop).filter_by(job_id=job.id).all()
-            runtimes = db.query(ManagedRuntime).filter_by(job_id=job.id).all()
+            selected_attempts = (
+                db.query(ManagedRuntimeAttempt).filter_by(job_id=job.id).all()
+            )
+            runtimes = [
+                db.get(ManagedRuntime, runtime_id)
+                for runtime_id in sorted({row.runtime_id for row in selected_attempts})
+            ]
+            if any(runtime is None for runtime in runtimes):
+                raise ValueError("fixture_runtime_history_incomplete")
             return {
-                "schema": "vardr.nm2-fixture-inventory/1",
+                "schema": "vardr.nm2-fixture-inventory/2",
                 "schema_revision": db.execute(
                     text("SELECT version_num FROM alembic_version")
                 ).scalar_one(),
@@ -73,6 +163,13 @@ def observe(selection):
                         key: getattr(row, key)
                         for key in ("id", "attempt_id", "ordinal", "fence", "consumed")
                     }
+                    | {
+                        "contract_sha256": hashlib.sha256(
+                            json.dumps(
+                                row.envelope, sort_keys=True, separators=(",", ":")
+                            ).encode()
+                        ).hexdigest()
+                    }
                     for row in contracts
                 ],
                 "results": [
@@ -96,20 +193,7 @@ def observe(selection):
                     }
                     for row in stops
                 ],
-                "runtimes": [
-                    {
-                        key: getattr(row, key)
-                        for key in (
-                            "id",
-                            "runtime_sha256",
-                            "contract_id",
-                            "retired",
-                            "report_sha256",
-                        )
-                    }
-                    | {"confirmed": row.confirmed_at is not None}
-                    for row in runtimes
-                ],
+                "runtimes": [runtime_projection(db, runtime) for runtime in runtimes],
             }
         finally:
             db.rollback()

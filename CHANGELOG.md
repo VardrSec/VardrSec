@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add explicit bounded v2 worker admission and owner-readiness matching while
+  preserving omitted-option v1 behavior. Separate attempt completion from physical
+  retirement; retain bounded per-cursor MAC intents and permit only explicit,
+  positively fenced report continuation. No automatic replay or worker start.
+
 - Add a default-off manual Ubuntu counterpart for the same coupled NM-2 fixture,
   requiring four exact source commits and fresh-host checks. Reuse existing
   Dockerfiles and publish only validated status/count/hash evidence; remaining

@@ -352,6 +352,28 @@ class WorkerRuntimeTests(unittest.TestCase):
         self.assertTrue(any(argv[3:5] == ["container", "cp"] for argv, _ in self.calls))
         self.assertFalse(any("exec" in argv for argv, _ in self.calls))
 
+    def test_sequence_mode_requires_actual_v2_owner_without_downgrade(self):
+        self.info["state"].update(Status="running", Running=True)
+        observer = runtime.LocalDocker("desktop-linux", self.layout, max_attempts=2)
+        with patch.object(runtime.subprocess, "run", self.command):
+            with self.assertRaises(runtime.RuntimeRefused):
+                observer.capture_running(
+                    container_id=self.identity.container_id,
+                    image_id=self.identity.image_id,
+                    project=self.identity.project,
+                )
+            self.ready["schema"] = "vardr.worker-owner-ready/2"
+            self.assertEqual(
+                observer.capture_running(
+                    container_id=self.identity.container_id,
+                    image_id=self.identity.image_id,
+                    project=self.identity.project,
+                ),
+                self.identity,
+            )
+            with self.assertRaises(runtime.RuntimeRefused):
+                self.capture()
+
     def test_unready_or_wrong_owner_file_never_produces_runtime_admission(self):
         self.info["state"].update(Status="running", Running=True)
         original = copy.deepcopy(self.ready)

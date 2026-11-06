@@ -164,13 +164,18 @@ class ObservedExit:
 class LocalDocker:
     """Bounded CLI access to one explicitly selected local Docker context."""
 
-    def __init__(self, context, layout):
+    def __init__(self, context, layout, *, max_attempts=None):
         require(
             type(context) is str and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", context)
         )
         self.context = context
         require(isinstance(layout, WorkerLayout))
         self.layout = layout
+        require(
+            max_attempts is None
+            or (type(max_attempts) is int and 1 <= max_attempts <= 32)
+        )
+        self.max_attempts = max_attempts
         self._observation_lock = threading.Lock()
         self._deadline = None
 
@@ -420,7 +425,12 @@ class LocalDocker:
                 }
             )
             require(
-                ready["schema"] == "vardr.worker-owner-ready/1"
+                ready["schema"]
+                == (
+                    "vardr.worker-owner-ready/2"
+                    if self.max_attempts is not None
+                    else "vardr.worker-owner-ready/1"
+                )
                 and type(ready["owner_pid"]) is int
                 and ready["owner_pid"] == 1
                 and type(ready["owner_uid"]) is int

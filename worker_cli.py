@@ -74,6 +74,11 @@ def parser():
         enable.add_argument("--" + name, required=True)
     enable.add_argument("--runtime-id", type=runtime_id)
     enable.add_argument(
+        "--max-attempts",
+        type=int,
+        help="Explicit v2 sequence limit, 1..32; omission preserves the v1 single-attempt mode",
+    )
+    enable.add_argument(
         "--expires-in",
         type=int,
         default=900,
@@ -98,6 +103,12 @@ def parser():
         if name == "revoke":
             action.add_argument("--username", default="operator")
             action.add_argument("--password-stdin", action="store_true")
+        if name == "report-exit":
+            action.add_argument(
+                "--continue-after-transition",
+                action="store_true",
+                help="One new report only after a verified irreversible runtime transition",
+            )
     return result
 
 
@@ -246,7 +257,13 @@ def load(records, selected_id):
 
 def components(record, *, client=True):
     observer = runtime.LocalDocker(
-        record["context"], runtime.WorkerLayout(**record["layout"])
+        record["context"],
+        runtime.WorkerLayout(**record["layout"]),
+        **(
+            {"max_attempts": record["registration"]["max_attempts"]}
+            if "max_attempts" in record["registration"]
+            else {}
+        ),
     )
     identity = runtime.RuntimeIdentity(**record["registration"]["identity"])
     api = (
@@ -262,6 +279,8 @@ def components(record, *, client=True):
 
 def enable(installation, args):
     require(60 <= args.expires_in <= 604800)
+    maximum = getattr(args, "max_attempts", None)
+    require(maximum is None or (type(maximum) is int and 1 <= maximum <= 32))
     require(
         re.fullmatch(r"[0-9a-f]{64}", args.container_id or "")
         and re.fullmatch(r"sha256:[0-9a-f]{64}", args.image_id or "")
@@ -285,6 +304,7 @@ def enable(installation, args):
             args.state_volume,
             args.readiness_volume,
         ),
+        **({"max_attempts": maximum} if maximum is not None else {}),
     )
     client = host.HostClient(args.api_url, args.ca)
     records = records_for(installation, args.private_root)
@@ -306,6 +326,7 @@ def enable(installation, args):
             observer=observer,
             expires_in_seconds=args.expires_in,
             runtime_id=args.runtime_id,
+            **({"max_attempts": maximum} if maximum is not None else {}),
         )
     # The host receipt exists before public permission can enter the container.
     with records.locked():
@@ -423,15 +444,31 @@ def dispatch(installation, args):
                 for key in ("registration_state", "stop_state", "revocation_state")
             },
             "receipt": record["receipt"],
+            **(
+                {
+                    "configured_max_attempts": record["registration"]["max_attempts"],
+                    "stop_report_cursors": [
+                        entry["cursor"] for entry in record["report_cursors"]
+                    ],
+                }
+                if "max_attempts" in record["registration"]
+                else {}
+            ),
         }
     client, observer, identity = components(record)
     if args.action == "reconcile":
         reply = host.reconcile_exit(client, records, args.runtime_id)
+        sequenced = reply.get("schema") == "vardr.worker-receipt-observation/2"
+        terminal = reply["retirement"] if sequenced else reply["receipt"]
         return {
             "schema": "vardr.worker-cli/1",
             "state": "terminal_observed"
-            if reply["receipt"] is not None
-            else "held_no_terminal_receipt",
+            if terminal is not None
+            else (
+                "held_no_retirement_receipt"
+                if sequenced
+                else "held_no_terminal_receipt"
+            ),
             "runtime_id": args.runtime_id,
             "receipt": reply,
             "local_runner_reconciliation": "required",
@@ -439,9 +476,12 @@ def dispatch(installation, args):
     if args.action == "report-exit":
         proof = observer.observe_exit(identity)
         require(isinstance(proof, runtime.ObservedExit))
-        reply = host.report_observed_exit(
-            client, records, args.runtime_id, proof, observer
+        report = (
+            host.continue_observed_exit
+            if getattr(args, "continue_after_transition", False)
+            else host.report_observed_exit
         )
+        reply = report(client, records, args.runtime_id, proof, observer)
         return {
             "schema": "vardr.worker-cli/1",
             "state": "terminal_observed",

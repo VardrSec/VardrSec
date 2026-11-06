@@ -1,14 +1,17 @@
 # Coupled NM-2 worker acceptance plan
 
-Status: preparation only. This plan records no Docker run, target execution or
-accepted platform result. Windows Docker Desktop and native Linux require their
-own receipts. The existing NM-3 evidence and component pins remain unchanged.
+Status: the earlier one-attempt Windows Docker Desktop slice passed in its frozen
+cohort. This revision prepares two healthy jobs in one explicitly admitted
+container; it records no physical two-job result. Windows Docker Desktop and
+native Linux require their own receipts. The existing NM-3 evidence and component
+pins remain unchanged.
 
 `tests/nm2_worker_acceptance.py` now prepares the first coupled slice: default
 disabled, owner/CSRF transport denial, Strict out-of-scope approval refusal, and
-one happy fixed-case worker attempt. Its default command validates source inputs
-without contacting Docker. Missing local grant, cancellation, failures and the
-remaining matrix stay explicitly `not_run`; this slice cannot close NM-2 alone.
+two distinct happy fixed-case jobs under one admission with `max_attempts=2`.
+Its default command validates source inputs without contacting Docker. Missing
+local grant, cancellation, failures and the remaining matrix stay explicitly
+`not_run`; this slice cannot close NM-2 alone.
 
 ## Fixture and component boundaries
 
@@ -48,8 +51,9 @@ fresh named readiness volume, preseeded by the image for UID/GID10000 and marked
 `<new-project>_worker-ready` through `VARDRSEC_WORKER_READY_VOLUME`, records it, and
 refuses any existing volume at that exact name. One project runs one incarnation;
 it cannot recycle the volume or restart an unresolved worker. This adds no service
-or secret store. The corrected volume path still needs independent physical
-acceptance; earlier tmpfs-proof refusals remain refusals.
+or secret store. The corrected volume path passed the earlier basic and coupled
+one-attempt Desktop proofs; earlier tmpfs-proof refusals remain refusals. Those
+proofs do not establish the new two-job sequence or Linux acceptance.
 
 The target accepts only synthetic identities and fixture data. Its request log
 records method, route, identity and timestamps, never authorization headers or
@@ -62,7 +66,7 @@ kernel adversarial operations belong in this harness.
 1. Stage a fresh private installation using the public distribution files and
    explicit immutable image overrides. Preserve the product `versions.json`.
    Start only database/API/web/proxy with managed assembly disabled. Use the normal
-   startup migration path and verify schema `0039managedruntime` through existing
+   startup migration path and verify schema `0040runtimesequence` through existing
    readiness/doctor behavior, rather than creating tables in the harness.
    The fixture wrapper reuses the existing `configure` and `database_roles.apply`
    implementations with its explicit Compose files/project; it does not teach
@@ -100,9 +104,11 @@ kernel adversarial operations belong in this harness.
    readiness through `LocalDocker`, then invoke the public `vardrsec.py worker
    enable` command with every exact cohort/layout field. The existing owner
    password enters only through bounded stdin. The CLI registers the incarnation
-   through the real owner session and atomically publishes only acknowledged
-   public admission and Runner trust. Admission TTL is 900 seconds; the worker
-   preserves its separate 150-second reporting runway.
+   through the real owner session with explicit `--max-attempts 2` and atomically
+   publishes only acknowledged v2 public admission and Runner trust. Both direct
+   observers also require `max_attempts=2`; neither path accepts a v1 downgrade.
+   Admission TTL is 900 seconds; the worker preserves its separate 150-second
+   reporting runway.
 
 The host HTTPS endpoint may be `https://localhost:<port>/backend`; the exact managed
 Runner/issuer origin remains `https://vardrsec.localhost:<port>/backend`, reachable
@@ -111,14 +117,19 @@ Do not strip the configured `/backend` API prefix to make a test pass.
 
 ## Incremental cases
 
-Each case starts with fresh engagement/job/runtime state. Cases that retain an
-unknown local hold use a separate fixture state volume so a later case cannot
-silently clear it. A new container incarnation always needs fresh admission.
+The two healthy jobs use separate engagements, reviewed cases and jobs, but share
+one enrolled Runner and one admitted container incarnation. Both are pending,
+unissued and uncharged before explicit enablement, with zero target requests.
+Each receives a distinct inert `nm2_case` query marker on its primary request and
+both preflights. Cases that retain an unknown local hold use a separate fixture
+state volume so a later case cannot silently clear it. A new container incarnation
+always needs fresh admission.
 
 | Stage | Case | Required measured result |
 | --- | --- | --- |
 | 1 | Default startup | Only core services run; a queued approved job remains pending and target request count stays zero before explicit worker enablement. |
 | 1 | Happy fixed-Gate queue | One exact claim/ordinal/fence; consumed and runtime-confirmed before target work; conclusive expected owner/peer/anonymous decisions; case-bound hashed evidence; one immutable result/completion; capacity released, target/duration charges retained. |
+| 1 | Healthy sequence | Two distinct jobs complete in the same physical runtime, each with five measured requests and five redacted evidence rows. Durable release of sequence 1 precedes binding of sequence 2. Both canonical completions and native-DONE/release hashes remain distinct; final runtime is idle at sequence 2 with maximum 2. |
 | 1 | Strict denial | Missing/out-of-scope/expired authority or changed signed context is rejected before issuance/launch; no target traffic or budget refund is fabricated. Ordinary legacy advisory behavior is unchanged. |
 | 1 | Missing local grant | Worker refuses before claim/target traffic; job stays unissued; any known zero-RPC local marker retires only by its explicit local rule. |
 | 2 | Local emergency stop | A separate ordinary helper invokes existing `jobs stop RUN_ID`; bounded graceful/forced handling is measured, partial artifacts remain, and no new target dispatch follows confirmed termination. |
@@ -159,6 +170,23 @@ case/plan/artifact/receipt hashes, scenario outcomes, request-count deltas and
 measured stop bounds. Record `not_run`, `passed`, `failed` and `held` separately.
 Do not replace missing evidence with constant success booleans.
 
+The new raw receipt is `vardr.nm2-worker-acceptance/2`. It retains
+`happy_fixed` for the first job and adds `healthy_sequence` with both exact
+bindings, canonical terminal/release receipts, UTC microsecond binding,
+confirmation and release timestamps, per-job case/evidence/artifact hashes and
+request observations. The read-only `vardr.nm2-fixture-inventory/2` selects runtime
+attempt history by job ID; it cannot depend on the legacy Runtime job columns,
+which remain NULL in v2. It refuses history above 32 attempts instead of truncating
+it. Verification requires the same runtime ID, container/nonce identity and
+enrollment, sequences 1 and 2, release 1 no later than binding 2, distinct artifacts
+and full completion hashes, ten total requests/evidence rows, two spent targets
+and 60 allocated seconds. Existing result hashes and full completion hashes have
+separate fields and are recomputed independently.
+
+The hosted wrapper correlates this private receipt with retained database history
+and exports only selected statuses, counts and hashes. Older held `/1` receipts
+remain diagnostic evidence; they are not rewritten as two-job acceptance.
+
 Passwords, API keys, fixture tokens, private signing keys, host STOP secrets,
 cookies, CSRF values and unredacted command output are excluded from receipts and
 logs. Test credentials stay in private memory or protected fixture-private paths
@@ -193,8 +221,8 @@ these exact keys:
 
 Run `python tests/nm2_worker_acceptance.py --cohort <private-cohort.json>` for source
 validation only. Add `--execute` only after reviewing this command surface and
-the exact cohort. Neither this document nor the validation receipt records an
-actual Docker result. Use an environment with Runner's existing dependencies
+the exact cohort. A source-validation receipt records no actual Docker result.
+Use an environment with Runner's existing dependencies
 available for the separate fixture approval signer.
 
 All Docker invocations use `docker --context <selected-context>`. Compose always
