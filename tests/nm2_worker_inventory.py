@@ -39,17 +39,24 @@ def stamp(value):
     )
 
 
-def runtime_projection(db, runtime):
+def runtime_projection(db, runtime, *, persistent_bound=None):
+    bound = 32 if persistent_bound is None else persistent_bound
+    if persistent_bound is not None and (
+        type(persistent_bound) is not int
+        or persistent_bound != 35
+        or getattr(runtime, "mode", None) != "persistent"
+    ):
+        raise ValueError("fixture_persistent_history_bound")
     attempts = (
         db.query(ManagedRuntimeAttempt)
         .filter_by(runtime_id=runtime.id)
         .order_by(ManagedRuntimeAttempt.runtime_sequence)
-        .limit(33)
+        .limit(bound + 1)
         .all()
     )
-    if len(attempts) > 32:
+    if len(attempts) > bound:
         raise ValueError("fixture_runtime_history_bound")
-    return {
+    value = {
         "id": runtime.id,
         "runtime_sha256": runtime.runtime_sha256,
         "runner_id": runtime.runner_id,
@@ -104,12 +111,62 @@ def runtime_projection(db, runtime):
             for row in attempts
         ],
     }
+    if persistent_bound is not None:
+        value.update(
+            mode=runtime.mode,
+            admission_sha256=runtime.admission_sha256,
+            admission=runtime.admission_snapshot,
+            head_sequence=str(runtime.head_sequence) if runtime.head_sequence else None,
+            last_sequence=str(runtime.last_sequence),
+            active_sequence=str(runtime.active_sequence)
+            if runtime.active_sequence
+            else None,
+            new_work_disabled=runtime.new_work_disabled,
+            reporting_revoked=runtime.revoked,
+        )
+        for projected, row in zip(value["attempts"], attempts):
+            projected.update(
+                runtime_sequence=str(row.runtime_sequence),
+                runtime_mode=row.runtime_mode,
+                previous_sequence=str(row.previous_sequence)
+                if row.previous_sequence
+                else None,
+            )
+    return value
+
+
+def approval_projection(row, persistent):
+    value = {"id": row.id, "issued": row.issued, "revoked": row.revoked}
+    if persistent:
+        from managed_wire import parse, unb64
+
+        payload = parse(unb64(row.envelope["payload"], 256 * 1024), 256 * 1024)
+        value.update(
+            approved_at=payload["approved_at"],
+            expires_at=row.context["expires_at"],
+            max_executions=row.context["max_executions"],
+            max_duration_seconds=row.context["max_duration_seconds"],
+            credential_grants=row.context["credential_grants"],
+        )
+    return value
 
 
 def observe(selection):
-    if set(selection) != {"engagement_id", "job_id"} or any(
-        not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", value)
-        for value in selection.values()
+    persistent_bound = selection.get("runtime_attempt_bound")
+    persistent = "runtime_attempt_bound" in selection
+    if (
+        set(selection)
+        != {"engagement_id", "job_id"}
+        | ({"runtime_attempt_bound"} if persistent else set())
+        or (
+            persistent and (type(persistent_bound) is not int or persistent_bound != 35)
+        )
+        or any(
+            not isinstance(value, str)
+            or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", value)
+            for key, value in selection.items()
+            if key != "runtime_attempt_bound"
+        )
     ):
         raise ValueError("fixture_selection_refused")
     with SessionLocal() as db:
@@ -134,7 +191,9 @@ def observe(selection):
             if any(runtime is None for runtime in runtimes):
                 raise ValueError("fixture_runtime_history_incomplete")
             return {
-                "schema": "vardr.nm2-fixture-inventory/2",
+                "schema": "vardr.nm2-fixture-inventory/3"
+                if persistent
+                else "vardr.nm2-fixture-inventory/2",
                 "schema_revision": db.execute(
                     text("SELECT version_num FROM alembic_version")
                 ).scalar_one(),
@@ -155,8 +214,7 @@ def observe(selection):
                     )
                 },
                 "approvals": [
-                    {"id": row.id, "issued": row.issued, "revoked": row.revoked}
-                    for row in approvals
+                    approval_projection(row, persistent) for row in approvals
                 ],
                 "contracts": [
                     {
@@ -193,7 +251,10 @@ def observe(selection):
                     }
                     for row in stops
                 ],
-                "runtimes": [runtime_projection(db, runtime) for runtime in runtimes],
+                "runtimes": [
+                    runtime_projection(db, runtime, persistent_bound=persistent_bound)
+                    for runtime in runtimes
+                ],
             }
         finally:
             db.rollback()

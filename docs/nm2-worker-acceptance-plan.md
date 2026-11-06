@@ -19,6 +19,29 @@ select `--database-revision 0041persistentruntime`. This selects an assertion,
 not a migration or worker protocol. Unexpected revisions remain refused; choosing
 the new schema does not establish persistent-worker acceptance.
 
+The separate `--scenario persistent-availability` candidate requires
+`--database-revision 0041persistentruntime` and an explicitly matched v3 image.
+Its default command validates sources with zero Docker calls. Only `--execute`
+uses a fresh owned installation: it verifies default-disabled startup, then
+admits one worker with neither optional finite limit. After fresh idle readiness
+and an empty original journal, it measures 70 seconds without authorized work,
+then signs and approves 35 distinct jobs one at a time. Every job needs fresh
+grants, five case-bound requests/evidence rows, durable native DONE/release and
+zero original-journal holds before approval of the next job.
+
+The fixture finally invokes explicit operator stop, independently observes the
+same incarnation's exit and verifies host/original-key retirement without
+altering completed-job receipts. Metadata reads use a separate ordinary Runner
+container, never exec into the worker's PID namespace. Inventory `/3` refuses
+fixture history beyond 35 rather than truncating it; finite `/2` keeps its
+32-record bound. These are fixture bounds, not persistent service limits.
+
+Read-only status polling accepts only fixed, validated advisory holds and never
+counts them as readiness. Physical guard failures, malformed output and uncertain
+mutations remain refusals. A passing selected slice uses a distinct persistent
+receipt and still records NM-2 incomplete. Its pure protocol/oracle tests are
+not measured uptime or platform/containment acceptance.
+
 ## Fixture and component boundaries
 
 Use a new `vardrsec-nm2-<random-id>` installation/project, exact reviewed image IDs

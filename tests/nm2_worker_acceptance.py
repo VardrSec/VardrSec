@@ -47,6 +47,7 @@ INITIAL_CASES = (
 )
 SCENARIOS = (
     "healthy",
+    "persistent-availability",
     "local-emergency-stop",
     "stop-work",
     "missing-local-grant",
@@ -214,6 +215,148 @@ def worker_cli_command(arguments, *, cwd=None, env=None, stdin=None, timeout=30)
     # Runtime IDs are checked but deliberately not exported: admission may be
     # ambiguous after a lost reply. No hashes of raw output or secret values.
     raise WorkerCLIRefused(phase, code)
+
+
+def worker_status_command(arguments, *, cwd, env, timeout, expected_admission):
+    """Read-only status may report a narrowly validated advisory hold with rc1."""
+    import worker_host
+    import worker_host_persistent
+    import worker_runtime
+
+    reason = "persistent_status_refused"
+    try:
+        require(
+            expected_admission["schema"] == "vardr.worker-admission/3"
+            and expected_admission["mode"] == "persistent"
+            and expected_admission["limits"]
+            == {"max_attempts": None, "idle_timeout_seconds": None}
+            and expected_admission["runtime_sha256"]
+            == digest(canonical(expected_admission["identity"]))
+            and expected_admission["admission_sha256"]
+            == digest(
+                canonical(
+                    {
+                        k: v
+                        for k, v in expected_admission.items()
+                        if k != "admission_sha256"
+                    }
+                )
+            ),
+            reason,
+        )
+        worker_runtime.RuntimeIdentity(**expected_admission["identity"])
+        result = subprocess.run(
+            arguments,
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+        require(
+            type(result.returncode) is int
+            and result.returncode in {0, 1}
+            and type(result.stdout) is bytes
+            and 0 < len(result.stdout) <= 4096
+            and result.stderr == b"",
+            reason,
+        )
+        value = worker_host._json(result.stdout)
+        require(
+            set(value)
+            == {
+                "schema",
+                "runtime_id",
+                "protocol",
+                "mode",
+                "limits",
+                "identity",
+                "state",
+                "reason",
+                "cursor",
+                "availability",
+                "new_work_disabled",
+                "reporting_revoked",
+                "registration_state",
+                "disable_state",
+                "stop_state",
+                "revocation_state",
+                "container_state",
+            }
+            and value["schema"] == "vardr.worker-status/1"
+            and value["protocol"] == "persistent-v3"
+            and value["mode"] == "persistent"
+            and value["runtime_id"] == expected_admission["runtime_id"]
+            and canonical(value["identity"])
+            == canonical(expected_admission["identity"])
+            and canonical(value["limits"]) == canonical(expected_admission["limits"])
+            and value["container_state"] == "running"
+            and value["registration_state"] == "acknowledged"
+            and value["disable_state"]
+            == value["stop_state"]
+            == value["revocation_state"]
+            == "none"
+            and value["new_work_disabled"] is False
+            and value["reporting_revoked"] is False,
+            reason,
+        )
+        _, phase = worker_host_persistent.cursor_key(value["cursor"])
+        presence = value["availability"]
+        require(
+            type(presence) is dict
+            and set(presence) == {"state", "observed_at", "fresh_until", "cursor"}
+            and canonical(presence["cursor"]) == canonical(value["cursor"]),
+            reason,
+        )
+        expected_state = "active" if phase == 0 else "idle-ready"
+        fresh = False
+        if presence["observed_at"] is None:
+            require(presence["fresh_until"] is None, reason)
+        else:
+            observed = worker_host_persistent._stamp(presence["observed_at"])
+            ending = worker_host_persistent._stamp(presence["fresh_until"])
+            instant = datetime.now(timezone.utc)
+            require(
+                observed <= instant
+                and timedelta(0) < ending - observed <= timedelta(seconds=15),
+                reason,
+            )
+            fresh = instant < ending
+        if result.returncode == 1:
+            require(
+                value["state"] == "held"
+                and type(value["reason"]) is str
+                and value["reason"]
+                in {"availability_stale", "availability_unconfirmed"}
+                and (
+                    presence["state"] == "held" and presence["observed_at"] is not None
+                    if value["reason"] == "availability_unconfirmed"
+                    else not fresh
+                    and presence["state"] in {"held", expected_state}
+                    and (
+                        presence["state"] == "held"
+                        or presence["observed_at"] is not None
+                    )
+                ),
+                reason,
+            )
+        else:
+            require(
+                value["state"] == presence["state"] == expected_state
+                and value["reason"] is None
+                and fresh,
+                reason,
+            )
+        return result.stdout
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+    ):
+        raise AcceptanceRefused(reason) from None
 
 
 def manifest(path):
@@ -502,9 +645,21 @@ class Fixture:
             database_revision in {"0040runtimesequence", "0041persistentruntime"},
             "fixture_database_revision_refused",
         )
+        require(
+            scenario != "persistent-availability"
+            or database_revision == "0041persistentruntime",
+            "persistent_database_revision_required",
+        )
         self.scenario = scenario
+        self.protocol = (
+            "persistent-v3" if scenario == "persistent-availability" else "finite-v2"
+        )
         self.database_revision = database_revision
-        self.max_attempts = 2 if scenario == "healthy" else 1
+        self.max_attempts = (
+            None
+            if self.protocol == "persistent-v3"
+            else (2 if scenario == "healthy" else 1)
+        )
         self.m = selection
         self.source = Path(selection["sources"]["distribution"]["path"])
         self.install = Path(selection["installation"])
@@ -543,7 +698,15 @@ class Fixture:
             "retained": True,
             "expected_database_revision": database_revision,
         }
-        if scenario != "healthy":
+        if scenario == "persistent-availability":
+            self.receipt.update(
+                schema="vardr.nm2-worker-persistent-acceptance/1",
+                scenario=scenario,
+                acceptance_scope="persistent_availability_only",
+                nm2_exit_status="incomplete",
+            )
+            self.receipt["cases"]["persistent_availability"] = {"status": "not_run"}
+        elif scenario != "healthy":
             self.receipt.update(
                 schema="vardr.nm2-worker-failure-acceptance/1",
                 scenario=scenario,
@@ -941,7 +1104,14 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 "python",
                 "-c",
                 source,
-                stdin=canonical({"engagement_id": engagement, "job_id": job}),
+                stdin=canonical(
+                    {"engagement_id": engagement, "job_id": job}
+                    | (
+                        {"runtime_attempt_bound": 35}
+                        if self.protocol == "persistent-v3"
+                        else {}
+                    )
+                ),
             )
         )
 
@@ -1079,7 +1249,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "restart": "no",
             "labels": {"io.vardrsec.nm2-fixture": self.project},
         }
-        if self.scenario != "healthy":
+        if self.scenario not in {"healthy", "persistent-availability"}:
             target["environment"] = {"NM2_FIXTURE_DELAY_SECONDS": "15"}
         self.overlay["services"]["gate-fixture"] = target
         self.write_overlay()
@@ -1223,6 +1393,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 stdin=(self.key["token"] + "\n").encode(),
             )
         )
+        self.runner_binding = runner_id, enrollment["enrollment_id"]
         if local_grants:
             for who in ("owner", "peer"):
                 self.helper(
@@ -1291,15 +1462,38 @@ print(json.dumps({'files':hashes,'executables':executables}))
         return runner_id, enrollment["enrollment_id"]
 
     def verify_fixed(
-        self, engagement, job, case, physical, before_worker, requests, inventory
+        self,
+        engagement,
+        job,
+        case,
+        physical,
+        before_worker,
+        requests,
+        inventory,
+        *,
+        persistent=False,
     ):
         require(
-            inventory["schema"] == "vardr.nm2-fixture-inventory/2"
+            inventory["schema"]
+            == (
+                "vardr.nm2-fixture-inventory/3"
+                if persistent
+                else "vardr.nm2-fixture-inventory/2"
+            )
             and inventory["schema_revision"] == self.database_revision
             and inventory["database_user"] == "vardrmap_app",
             "normal_database_readiness_required",
         )
-        require(physical["exit_code"] == 0, "happy_worker_exit_not_clean")
+        require(
+            (
+                type(physical["exit_code"]) is int
+                and 0 <= physical["exit_code"] <= 255
+                and physical["operator_stop_state"] == "stopped_observed"
+            )
+            if persistent
+            else physical["exit_code"] == 0,
+            "happy_worker_exit_not_clean",
+        )
         require(
             inventory["job_status"] == "done"
             and len(inventory["contracts"]) == len(inventory["results"]) == 1
@@ -1421,7 +1615,9 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "fixed_full_completion_not_proven",
         )
         release = {
-            "schema": "vardr.worker-idle-release/1",
+            "schema": "vardr.worker-idle-release/2"
+            if persistent
+            else "vardr.worker-idle-release/1",
             "runtime_id": runtime["id"],
             "runtime_sha256": runtime["runtime_sha256"],
             "runtime_sequence": attempt["runtime_sequence"],
@@ -1430,6 +1626,8 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "native_done_sha256": attempt["native_done_sha256"],
             "released": True,
         }
+        if persistent:
+            release["admission_sha256"] = runtime["admission_sha256"]
         release["receipt_sha256"] = digest(canonical(release))
         require(
             canonical(attempt["release_receipt"]) == canonical(release),
@@ -2614,6 +2812,547 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             "selected_failure_complete",
         )
 
+    def worker_action(self, action, runtime_id, *, timeout=45, expected_admission=None):
+        command = worker_status_command if action == "status" else worker_cli_command
+        return json.loads(
+            command(
+                [
+                    sys.executable,
+                    str(self.install / "vardrsec.py"),
+                    "worker",
+                    action,
+                    "--runtime-id",
+                    runtime_id,
+                    "--private-root",
+                    str(self.private),
+                ],
+                cwd=self.install,
+                env=self.environment,
+                timeout=timeout,
+                **(
+                    {"expected_admission": expected_admission}
+                    if action == "status"
+                    else {}
+                ),
+            )
+        )
+
+    def persistent_idle(self, admission, number):
+        until = time.monotonic() + 45
+        while True:
+            value = self.worker_action(
+                "status",
+                admission["runtime_id"],
+                timeout=max(0.001, until - time.monotonic()),
+                expected_admission=admission,
+            )
+            require(
+                value["schema"] == "vardr.worker-status/1"
+                and value["protocol"] == "persistent-v3"
+                and value["mode"] == "persistent"
+                and value["limits"]
+                == {"max_attempts": None, "idle_timeout_seconds": None}
+                and value["identity"] == admission["identity"]
+                and value["runtime_id"] == admission["runtime_id"],
+                "persistent_status_identity_changed",
+            )
+            if value["state"] == "idle-ready" and value["cursor"] == {
+                "last_sequence": str(number),
+                "phase": "idle",
+            }:
+                require(
+                    value["new_work_disabled"] is False
+                    and value["reporting_revoked"] is False,
+                    "persistent_availability_disabled",
+                )
+                return value
+            require(
+                value["state"] != "stopped" and time.monotonic() < until,
+                "persistent_idle_not_observed",
+            )
+            time.sleep(0.2)
+
+    def persistent_metadata(self, admission, number):
+        # Separate ordinary Runner container, only after idle/DONE/release. Never
+        # exec a process into the managed worker's private PID namespace.
+        source = """
+import json,sys,time
+from vardrrunner import config
+from vardrrunner.journal import Journal
+from vardrrunner.authorization import worker_persistent as persistent
+from vardrrunner.authorization.reconciliation import local_holds
+selection=json.load(sys.stdin)
+journal=Journal(config.journal_file())
+until=time.monotonic()+5
+while True:
+    with journal._connection() as con:
+        current=persistent.parent(con,selection['runtime_id'])
+        assert current['admission_sha256']==selection['admission_sha256']
+        attempt=con.execute('SELECT * FROM managed_persistent_attempts WHERE runtime_id=? AND runtime_sequence=?',(selection['runtime_id'],selection['number'])).fetchone() if selection['number'] else None
+        ready=current['last_sequence']==selection['number'] and current['active_sequence'] is None and (attempt is None or attempt['state'] in {'released','physical_retirement_observed'})
+    if ready:break
+    assert time.monotonic()<until
+    time.sleep(.1)
+with journal._connection() as con:
+    current=persistent.parent(con,selection['runtime_id'])
+    counts={}
+    for name,query in {'runs':'SELECT count(*) FROM runs','claims':'SELECT count(*) FROM managed_claim_intents','contracts':'SELECT count(*) FROM authorization_contracts','results':'SELECT count(*) FROM managed_result_intents'}.items():
+        table={'runs':'runs','claims':'managed_claim_intents','contracts':'authorization_contracts','results':'managed_result_intents'}[name]
+        counts[name]=con.execute(query).fetchone()[0] if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(table,)).fetchone() else 0
+    projected=None
+    if attempt is not None:
+        persistent._validate_attempt(con,attempt)
+        claim=con.execute('SELECT state,consumption_sent,consumption_acknowledged FROM managed_claim_intents WHERE run_id=?',(attempt['run_id'],)).fetchone()
+        run=journal.get(attempt['run_id'])
+        assert claim is not None and run is not None
+        projected={'run_id':run.run_id,'job_id':run.job_id,'phase':run.phase.value,'pid':run.pid,'artifact_sha256':run.artifact_sha256,'state':attempt['state'],'retired_from_state':attempt['retired_from_state'],'claim_state':claim['state'],'consumption_sent':claim['consumption_sent'],'consumption_acknowledged':claim['consumption_acknowledged'],'native_done_sha256':attempt['native_done_sha256'],'completion':json.loads(attempt['completion']),'release':json.loads(attempt['release_ack'])}
+    result={'runtime_id':current['runtime_id'],'runtime_sha256':current['runtime_sha256'],'admission_sha256':current['admission_sha256'],'last_sequence':str(current['last_sequence']),'active_sequence':None if current['active_sequence'] is None else str(current['active_sequence']),'state':current['state'],'retirement':None if current['retirement'] is None else json.loads(current['retirement']),'counts':counts,'attempt':projected}
+result['remaining_local_holds']=local_holds(journal)
+print(json.dumps(result))
+"""
+        return json.loads(
+            self.helper(
+                "-I",
+                "-c",
+                source,
+                python=True,
+                stdin=canonical(
+                    {
+                        "runtime_id": admission["runtime_id"],
+                        "admission_sha256": admission["admission_sha256"],
+                        "number": number,
+                    }
+                ),
+            )
+        )
+
+    @staticmethod
+    def verify_persistent_local(value, admission, number, *, retired=False):
+        require(
+            value["runtime_id"] == admission["runtime_id"]
+            and value["runtime_sha256"] == admission["runtime_sha256"]
+            and value["admission_sha256"] == admission["admission_sha256"]
+            and value["last_sequence"] == str(number)
+            and value["active_sequence"] is None
+            and value["state"] == ("retired" if retired else "idle")
+            and type(value["remaining_local_holds"]) is int
+            and value["remaining_local_holds"] == 0
+            and value["counts"]
+            == dict.fromkeys(("runs", "claims", "contracts", "results"), number)
+            and all(type(count) is int for count in value["counts"].values()),
+            "persistent_original_journal_not_closed",
+        )
+        if number == 0:
+            require(value["attempt"] is None, "persistent_idle_not_empty")
+        else:
+            attempt = value["attempt"]
+            require(
+                attempt["phase"] == "done"
+                and attempt["pid"] is None
+                and attempt["state"]
+                == ("physical_retirement_observed" if retired else "released")
+                and (not retired or attempt["retired_from_state"] == "released")
+                and attempt["claim_state"] == "persistent_released"
+                and type(attempt["consumption_sent"])
+                is type(attempt["consumption_acknowledged"])
+                is int
+                and attempt["consumption_sent"]
+                == attempt["consumption_acknowledged"]
+                == 1,
+                "persistent_original_ack_not_closed",
+            )
+
+    def persistent_availability(self, denied_engagement, denied_job, zero):
+        runner_id, enrollment_id = self.runner_binding
+        selections, before_jobs, local, idle = [], [], [], {}
+
+        def on_running(admission):
+            self.receipt["stage"] = "persistent_idle"
+            self.persistent_idle(admission, 0)
+            initial = self.persistent_metadata(admission, 0)
+            self.verify_persistent_local(initial, admission, 0)
+            entered = time.monotonic()
+            while time.monotonic() - entered < 70:
+                time.sleep(max(0.0, min(1, 70 - (time.monotonic() - entered))))
+            elapsed = time.monotonic() - entered
+            status = self.persistent_idle(admission, 0)
+            after = self.persistent_metadata(admission, 0)
+            self.verify_persistent_local(after, admission, 0)
+            denied = self.inventory(denied_engagement, denied_job)
+            require(
+                elapsed >= 70
+                and self.traffic() == zero
+                and denied["execution"] is None
+                and not denied["contracts"]
+                and denied["targets_spent"] == denied["duration_allocated"] == 0,
+                "persistent_idle_executed_work",
+            )
+            idle.update(
+                seconds=elapsed,
+                before=initial,
+                after=after,
+                status=status,
+                target_request_count=0,
+            )
+            for number in range(1, 36):
+                self.receipt["stage"] = "persistent_job_approval"
+                name = "persistent-" + str(number).zfill(2)
+                engagement, authorization, job, case = self.new_job(name, marker=True)
+                before = self.inventory(engagement, job)
+                require(
+                    before["job_status"] == "pending"
+                    and before["execution"] is None
+                    and not before["approvals"]
+                    and not before["contracts"]
+                    and not before["results"]
+                    and before["targets_spent"] == before["duration_allocated"] == 0,
+                    "persistent_unapproved_job_executed",
+                )
+                before_jobs.append(before)
+                require(
+                    self.approve(name, engagement, authorization, job, case)
+                    == (runner_id, enrollment_id),
+                    "persistent_enrollment_changed",
+                )
+                selections.append((engagement, job, case))
+                self.receipt["stage"] = "persistent_job_release"
+                self.persistent_idle(admission, number)
+                metadata = self.persistent_metadata(admission, number)
+                self.verify_persistent_local(metadata, admission, number)
+                require(
+                    metadata["attempt"]["job_id"] == job, "persistent_local_job_changed"
+                )
+                metadata["grants"] = self.grant_snapshot(engagement)
+                local.append(metadata)
+            self.receipt["stage"] = "persistent_operator_stop"
+            self.operator_stop = self.worker_action("stop", admission["runtime_id"])
+            require(
+                self.operator_stop["schema"] == "vardr.worker-cli/1"
+                and self.operator_stop["state"] == "stopped_observed"
+                and self.operator_stop["runtime_id"] == admission["runtime_id"]
+                and self.operator_stop["new_work_disable_state"] == "acknowledged",
+                "persistent_operator_stop_not_proven",
+            )
+            idle["admission"] = admission
+
+        physical = self.worker(runner_id, enrollment_id, on_running=on_running)
+        self.receipt["stage"] = "persistent_receipt_reconciliation"
+        retirement = self.report_exit(physical)
+        host = self.worker_action("reconcile", physical["runtime_id"], timeout=120)
+        require(
+            host["state"] == "terminal_observed"
+            and canonical(host["receipt"]["retirement"]) == canonical(retirement),
+            "persistent_host_receipt_changed",
+        )
+        reconciled = json.loads(
+            self.helper("audit", "reconcile-managed", local[-1]["attempt"]["run_id"])
+        )
+        require(
+            type(reconciled["state"]) is str
+            and reconciled["state"].startswith("terminal_")
+            and reconciled["remaining_local_holds"] == 0,
+            "persistent_original_reconciliation_held",
+        )
+        retained = self.persistent_metadata(idle["admission"], 35)
+        self.verify_persistent_local(retained, idle["admission"], 35, retired=True)
+        require(
+            canonical(retained["retirement"]) == canonical(retirement)
+            and all(
+                retained["attempt"][key] == local[-1]["attempt"][key]
+                for key in (
+                    "run_id",
+                    "job_id",
+                    "phase",
+                    "pid",
+                    "artifact_sha256",
+                    "claim_state",
+                    "consumption_sent",
+                    "consumption_acknowledged",
+                    "native_done_sha256",
+                    "completion",
+                    "release",
+                )
+            ),
+            "persistent_retirement_rewrote_job",
+        )
+        inventories = [
+            self.inventory(engagement, job) for engagement, job, _ in selections
+        ]
+        observed = self.traffic()[len(zero) :]
+        require(len(observed) == 175, "persistent_total_traffic_mismatch")
+        measured = []
+        for index, ((engagement, job, case), inventory) in enumerate(
+            zip(selections, inventories)
+        ):
+            marker = parse_qs(urlsplit(case["spec"]["request"]["url"]).query)[
+                "nm2_case"
+            ]
+            requests = [
+                row
+                for row in observed
+                if parse_qs(urlsplit(row["path"]).query).get("nm2_case") == marker
+            ]
+            _, proof = self.verify_fixed(
+                engagement,
+                job,
+                case,
+                physical,
+                before_jobs[index],
+                requests,
+                inventory,
+                persistent=True,
+            )
+            proof["local"] = local[index]
+            measured.append(proof)
+        self.receipt["stage"] = "persistent_availability_verification"
+        self.receipt["cases"]["persistent_availability"] = (
+            self.verify_persistent_sequence(
+                physical, idle, measured, inventories, retirement, retained
+            )
+        )
+        self.receipt["status"], self.receipt["stage"] = (
+            "selected_availability_slice_passed",
+            "selected_availability_complete",
+        )
+
+    def verify_persistent_sequence(
+        self, physical, idle, measured, inventories, retirement, retained
+    ):
+        require(
+            type(idle["seconds"]) in {int, float}
+            and idle["seconds"] >= 70
+            and idle["target_request_count"] == 0
+            and len(measured) == len(inventories) == 35,
+            "persistent_availability_measurement_missing",
+        )
+        admission = idle["admission"]
+        self.verify_persistent_local(idle["before"], admission, 0)
+        self.verify_persistent_local(idle["after"], admission, 0)
+        self.verify_persistent_local(retained, admission, 35, retired=True)
+        runtime = inventories[0]["runtimes"][0]
+        require(
+            all(
+                len(value["runtimes"]) == 1
+                and canonical(value["runtimes"][0]) == canonical(runtime)
+                for value in inventories
+            )
+            and runtime["id"] == physical["runtime_id"] == admission["runtime_id"]
+            and runtime["identity"] == physical["identity"] == admission["identity"]
+            and runtime["runtime_sha256"]
+            == physical["runtime_sha256"]
+            == admission["runtime_sha256"]
+            == digest(canonical(physical["identity"]))
+            and runtime["admission_sha256"]
+            == physical["admission_sha256"]
+            == admission["admission_sha256"]
+            and canonical(runtime["admission"]) == canonical(admission)
+            and admission["schema"] == "vardr.worker-admission/3"
+            and admission["mode"] == runtime["mode"] == "persistent"
+            and admission["admission_sha256"]
+            == digest(
+                canonical(
+                    {
+                        key: value
+                        for key, value in admission.items()
+                        if key != "admission_sha256"
+                    }
+                )
+            )
+            and admission["reporting_authority"]
+            == {"purpose": "worker-stop-only", "expires_at": None}
+            and admission["limits"]
+            == {"max_attempts": None, "idle_timeout_seconds": None}
+            and runtime["max_attempts"] is None
+            and runtime["last_sequence"] == runtime["head_sequence"] == "35"
+            and runtime["active_sequence"] is None
+            and runtime["retired"] is True
+            and runtime["new_work_disabled"] is True
+            and runtime["reporting_revoked"] is False
+            and all(value is None for value in runtime["legacy_binding"].values()),
+            "persistent_incarnation_or_policy_changed",
+        )
+        require(
+            len(runtime["attempts"]) == 35
+            and [row["runtime_sequence"] for row in runtime["attempts"]]
+            == [str(n) for n in range(1, 36)]
+            and [row["previous_sequence"] for row in runtime["attempts"]]
+            == [None] + [str(n) for n in range(1, 35)]
+            and all(row["runtime_mode"] == "persistent" for row in runtime["attempts"])
+            and [row["job_id"] for row in runtime["attempts"]]
+            == [row["job_id"] for row in measured],
+            "persistent_history_incomplete",
+        )
+        for key in (
+            "job_id",
+            "engagement_id",
+            "case_sha256",
+            "artifact_sha256",
+            "result_receipt_sha256",
+            "terminal_receipt_sha256",
+            "release_receipt_sha256",
+            "native_done_sha256",
+        ):
+            require(
+                len({row[key] for row in measured}) == 35, "persistent_reused_" + key
+            )
+        markers = []
+        previous_clock = None
+        for row in measured:
+            clocks = [request["received_monotonic_ns"] for request in row["requests"]]
+            marker = parse_qs(urlsplit(row["requests"][0]["path"]).query).get(
+                "nm2_case"
+            )
+            require(
+                len(clocks) == 5
+                and all(type(clock) is int and clock > 0 for clock in clocks)
+                and (previous_clock is None or previous_clock <= min(clocks)),
+                "persistent_observed_request_order_invalid",
+            )
+            require(
+                type(marker) is list
+                and len(marker) == 1
+                and all(
+                    parse_qs(urlsplit(request["path"]).query).get("nm2_case") == marker
+                    for request in row["requests"]
+                ),
+                "persistent_request_marker_invalid",
+            )
+            markers.append(marker[0])
+            previous_clock = max(clocks)
+        require(len(set(markers)) == 35, "persistent_request_marker_reused")
+        prior = None
+        grant_ids = set()
+        for number, (row, inventory) in enumerate(zip(measured, inventories), 1):
+            self.verify_persistent_local(row["local"], admission, number)
+            require(
+                row["runtime_sequence"] == str(number)
+                and row["evidence_count"] == len(row["requests"]) == 5
+                and row["target_charge"] == 1
+                and row["duration_seconds"] == 30
+                and row["capacity_reserved"] is False
+                and row["local"]["attempt"]["artifact_sha256"] == row["artifact_sha256"]
+                and canonical(row["local"]["attempt"]["completion"])
+                == canonical(row["terminal_receipt"])
+                and canonical(row["local"]["attempt"]["release"])
+                == canonical(row["release_receipt"])
+                and row["local"]["attempt"]["native_done_sha256"]
+                == row["native_done_sha256"],
+                "persistent_job_or_local_ack_mismatch",
+            )
+            times = [
+                datetime.fromisoformat(row[key].replace("Z", "+00:00"))
+                for key in ("bound_at", "confirmed_at", "released_at")
+            ]
+            require(
+                times[0] <= times[1] <= times[2]
+                and (prior is None or prior <= times[0]),
+                "persistent_release_after_next_binding",
+            )
+            prior = times[2]
+            require(len(inventory["approvals"]) == 1, "persistent_approval_missing")
+            approval = inventory["approvals"][0]
+            require(
+                approval["issued"] == 1
+                and approval["revoked"] is False
+                and approval["max_executions"] == 1
+                and approval["max_duration_seconds"] == 30
+                and len(approval["credential_grants"]) == 2
+                and datetime.fromisoformat(
+                    approval["approved_at"].replace("Z", "+00:00")
+                )
+                <= times[0]
+                and datetime.fromisoformat(
+                    approval["expires_at"].replace("Z", "+00:00")
+                )
+                > times[2]
+                and all(
+                    datetime.fromisoformat(g["expires_at"].replace("Z", "+00:00"))
+                    > times[2]
+                    for g in approval["credential_grants"]
+                ),
+                "persistent_approval_not_fresh",
+            )
+            grants = row["local"]["grants"]
+            require(
+                grants["policy_reason"] == "granted" and len(grants["grants"]) == 2,
+                "persistent_local_grant_not_fresh",
+            )
+            for grant in grants["grants"]:
+                require(
+                    grant["id"] not in grant_ids
+                    and grant["status"] == "active"
+                    and grant["engagement_id"] == row["engagement_id"]
+                    and datetime.fromisoformat(
+                        grant["issued_at"].replace("Z", "+00:00")
+                    )
+                    <= times[0]
+                    and datetime.fromisoformat(
+                        grant["expires_at"].replace("Z", "+00:00")
+                    )
+                    > times[2],
+                    "persistent_local_grant_not_fresh",
+                )
+                grant_ids.add(grant["id"])
+        expected = {
+            "schema": "vardr.worker-retirement/3",
+            "runtime_id": physical["runtime_id"],
+            "runtime_sha256": physical["runtime_sha256"],
+            "admission_sha256": physical["admission_sha256"],
+            **{key: admission[key] for key in ("origin", "runner_id", "enrollment_id")},
+            "runtime_sequence": None,
+            "last_sequence": "35",
+            "binding": None,
+            "attempt_receipt": None,
+            "report_sha256": runtime["report_sha256"],
+            "retired": True,
+        }
+        expected["receipt_sha256"] = digest(canonical(expected))
+        require(
+            canonical(retirement) == canonical(expected)
+            and retained["retirement"] == retirement
+            and re.fullmatch(r"[a-f0-9]{64}", runtime["report_sha256"] or "")
+            is not None
+            and all(
+                retained["attempt"][key] == measured[-1]["local"]["attempt"][key]
+                for key in (
+                    "run_id",
+                    "job_id",
+                    "phase",
+                    "pid",
+                    "artifact_sha256",
+                    "claim_state",
+                    "consumption_sent",
+                    "consumption_acknowledged",
+                    "native_done_sha256",
+                    "completion",
+                    "release",
+                )
+            ),
+            "persistent_retirement_receipt_changed",
+        )
+        require(
+            sum(v["targets_spent"] for v in inventories) == 35
+            and sum(v["duration_allocated"] for v in inventories) == 1050,
+            "persistent_allowance_mismatch",
+        )
+        return {
+            "status": "passed",
+            "physical": physical,
+            "idle_seconds": idle["seconds"],
+            "idle_target_request_count": 0,
+            "limits": admission["limits"],
+            "admission_sha256": admission["admission_sha256"],
+            "last_sequence": "35",
+            "attempts": measured,
+            "target_request_count": 175,
+            "evidence_count": 175,
+            "targets_spent": 35,
+            "duration_allocated": 1050,
+            "remaining_local_holds": 0,
+            "retirement_receipt_sha256": retirement["receipt_sha256"],
+            "runtime_acceptance_scope": "persistent_availability_only",
+        }
+
     def worker(self, runner_id, enrollment_id, *, on_running=None):
         import worker_runtime
 
@@ -2661,7 +3400,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 self.ready_volume,
             ),
             max_attempts=self.max_attempts,
-            protocol="finite-v2",
+            protocol=self.protocol,
         )
         entered = time.monotonic()
         while True:
@@ -2716,12 +3455,18 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                     self.issuer_origin,
                     "--public-trust",
                     str(public / "trust.json"),
-                    "--expires-in",
-                    "900",
-                    "--max-attempts",
-                    str(self.max_attempts),
-                    "--protocol",
-                    "finite-v2",
+                    *(
+                        ["--protocol", "persistent-v3"]
+                        if self.protocol == "persistent-v3"
+                        else [
+                            "--expires-in",
+                            "900",
+                            "--max-attempts",
+                            str(self.max_attempts),
+                            "--protocol",
+                            "finite-v2",
+                        ]
+                    ),
                     "--username",
                     "operator",
                     "--password-stdin",
@@ -2741,18 +3486,35 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             and enabled["runtime_sha256"] == admission["runtime_sha256"],
             "operator_enable_not_bound",
         )
-        require(
-            admission["schema"] == "vardr.worker-admission/2"
-            and type(admission["max_attempts"]) is int
-            and admission["max_attempts"] == self.max_attempts,
-            "operator_sequence_mode_not_bound",
-        )
+        if self.protocol == "persistent-v3":
+            require(
+                admission["schema"] == "vardr.worker-admission/3"
+                and admission["mode"] == "persistent"
+                and admission["limits"]
+                == {"max_attempts": None, "idle_timeout_seconds": None}
+                and admission["reporting_authority"]
+                == {"purpose": "worker-stop-only", "expires_at": None}
+                and admission["admission_sha256"]
+                == digest(
+                    canonical(
+                        {k: v for k, v in admission.items() if k != "admission_sha256"}
+                    )
+                ),
+                "operator_persistent_mode_not_bound",
+            )
+        else:
+            require(
+                admission["schema"] == "vardr.worker-admission/2"
+                and type(admission["max_attempts"]) is int
+                and admission["max_attempts"] == self.max_attempts,
+                "operator_sequence_mode_not_bound",
+            )
         if on_running is not None:
             on_running(admission)
         # Direct host observation of exact incarnation exit, never an exec or
         # a caller-generated JSON object passed off as physical proof.
         proof = observer.observe_exit(identity)
-        return {
+        value = {
             "identity": asdict(identity),
             "runtime_id": admission["runtime_id"],
             "runtime_sha256": admission["runtime_sha256"],
@@ -2760,6 +3522,18 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             "finished_at": proof.finished_at,
             "operator_enable_state": enabled["state"],
         }
+        if self.protocol == "persistent-v3":
+            require(
+                self.operator_stop["identity"] == asdict(identity)
+                and self.operator_stop["exit_code"] == proof.exit_code
+                and self.operator_stop["finished_at"] == proof.finished_at,
+                "persistent_stop_exit_changed",
+            )
+            value.update(
+                admission_sha256=admission["admission_sha256"],
+                operator_stop_state=self.operator_stop["state"],
+            )
+        return value
 
     def run(self):
         sys.path.insert(0, str(self.source))
@@ -2776,7 +3550,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 self.ready_volume,
             ),
             max_attempts=self.max_attempts,
-            protocol="finite-v2",
+            protocol=self.protocol,
         )
         self.receipt["daemon_id"] = observer.daemon()
         require(
@@ -2870,6 +3644,9 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 "inventory": inventory,
                 "traffic_delta": 0,
             }
+            if self.scenario == "persistent-availability":
+                self.persistent_availability(engagement, job, zero)
+                return
             if self.scenario == "missing-local-grant":
                 self.missing_grant()
                 return
@@ -3021,6 +3798,11 @@ def main(argv=None):
         help="Run the reviewed explicit fixture; creates and retains owned Docker resources",
     )
     args = parser.parse_args(argv)
+    require(
+        args.scenario != "persistent-availability"
+        or args.database_revision == "0041persistentruntime",
+        "persistent_database_revision_required",
+    )
     selection = manifest(args.cohort)
     if not args.execute:
         receipt = {
@@ -3035,6 +3817,12 @@ def main(argv=None):
         }
         if args.scenario != "healthy":
             receipt["scenario"] = args.scenario
+        if args.scenario == "persistent-availability":
+            receipt["initial_cases"] = (
+                "default_disabled",
+                "strict_out_of_scope",
+                "persistent_availability",
+            )
         print(
             json.dumps(
                 receipt,
@@ -3057,7 +3845,11 @@ def main(argv=None):
     return (
         0
         if fixture.receipt["status"]
-        in {"initial_stages_passed", "selected_failure_slice_passed"}
+        in {
+            "initial_stages_passed",
+            "selected_failure_slice_passed",
+            "selected_availability_slice_passed",
+        }
         else 1
     )
 

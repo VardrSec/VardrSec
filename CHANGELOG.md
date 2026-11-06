@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add a separately selected persistent-availability fixture: fresh ready idle for
+  70 seconds, 35 individually approved jobs and explicit operator stop/reporting
+  in one exact incarnation. Preserve finite fixtures, default source-only checks,
+  physical guards, original receipts and the remaining NM-2 acceptance gates.
+
 - Keep final Docker identity/inspection refusals distinct from advisory server
   availability holds in persistent status; read-only polling cannot absorb a
   failed physical guard.
