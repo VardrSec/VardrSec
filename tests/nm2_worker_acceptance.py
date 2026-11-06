@@ -50,6 +50,7 @@ SCENARIOS = (
     "persistent-availability",
     "persistent-count-limit",
     "persistent-idle-limit",
+    "persistent-empty-stop",
     "local-emergency-stop",
     "stop-work",
     "missing-local-grant",
@@ -57,7 +58,8 @@ SCENARIOS = (
 )
 COUNT_SCENARIO = "persistent-count-limit"
 IDLE_SCENARIO = "persistent-idle-limit"
-PERSISTENT_SCENARIOS = {"persistent-availability", COUNT_SCENARIO, IDLE_SCENARIO}
+EMPTY_SCENARIO = "persistent-empty-stop"
+PERSISTENT_SCENARIOS = {"persistent-availability", COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO}
 
 
 def count_approval_context(inventory, original_context):
@@ -199,7 +201,7 @@ def target_environment(scenario):
     require(scenario in SCENARIOS, "fixture_scenario_refused")
     if scenario == "persistent-availability":
         return {"NM2_FIXTURE_REQUEST_CEILING": "175"}
-    if scenario in {COUNT_SCENARIO, IDLE_SCENARIO}:
+    if scenario in {COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO}:
         return {}
     if scenario != "healthy":
         return {"NM2_FIXTURE_DELAY_SECONDS": "15"}
@@ -1003,6 +1005,12 @@ class Fixture:
                 nm2_exit_status="incomplete",
             )
             self.receipt["cases"]["persistent_availability"] = {"status": "not_run"}
+        elif scenario == EMPTY_SCENARIO:
+            self.receipt.update(
+                schema="vardr.nm2-worker-empty-acceptance/1", scenario=scenario,
+                acceptance_scope="persistent_empty_stop_only", nm2_exit_status="incomplete",
+            )
+            self.receipt["cases"]["persistent_empty_stop"] = {"status": "not_run"}
         elif scenario == IDLE_SCENARIO:
             self.receipt.update(
                 schema="vardr.nm2-worker-idle-acceptance/1", scenario=scenario,
@@ -1677,23 +1685,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
         )["id"]
         return engagement, authorization, job, stored
 
-    def approve(
-        self,
-        name,
-        engagement,
-        authorization,
-        job,
-        case,
-        *,
-        local_grants=True,
-        expected=200,
-        review_snapshot=None,
-        review_context=None,
-        review_authority=None,
-    ):
-        from vardrrunner.authorization.contracts import approve
-        from vardrrunner.authorization.plan import compile_gate_plan
-
+    def enroll_runner(self):
         identity = self.helper("identity", "show").decode()
         runner_id = re.search(r"Runner ID:\s*([0-9a-f-]{36})", identity).group(1)
         enrollment = json.loads(
@@ -1718,6 +1710,27 @@ print(json.dumps({'files':hashes,'executables':executables}))
             )
         )
         self.runner_binding = runner_id, enrollment["enrollment_id"]
+        return self.runner_binding
+
+    def approve(
+        self,
+        name,
+        engagement,
+        authorization,
+        job,
+        case,
+        *,
+        local_grants=True,
+        expected=200,
+        review_snapshot=None,
+        review_context=None,
+        review_authority=None,
+    ):
+        from vardrrunner.authorization.contracts import approve
+        from vardrrunner.authorization.plan import compile_gate_plan
+
+        runner_id, enrollment_id = self.enroll_runner()
+        enrollment = {"enrollment_id": enrollment_id}
         if local_grants:
             for who in ("owner", "peer"):
                 self.helper(
@@ -3304,6 +3317,138 @@ print(json.dumps(result))
                 "persistent_original_ack_not_closed",
             )
 
+    @staticmethod
+    def verify_empty_worker_state(value, admission):
+        expected = {
+            "schema": "vardr.worker-state-audit/1", "status": "empty_unissued",
+            "reason": None, "complete": True,
+            "binding": {key: admission[key] for key in (
+                "runner_id", "runtime_id", "runtime_sha256", "admission_sha256")},
+            "parent": {"state": "idle", "last_sequence": "0",
+                       "head_sequence": None, "active_sequence": None},
+            "counts": {"attempts": 0, "selections": 0,
+                       "associated_runs": 0, "associated_claims": 0},
+            "global_holds": 0, "retirement_receipt_sha256": None,
+        }
+        require(canonical(value) == canonical(expected), "empty_local_state_not_proven")
+        return value
+
+    def empty_audit_volume(self, admission):
+        import worker_volumes
+
+        endpoint = json.loads(self.docker("context", "inspect", self.m["docker_context"],
+                                         "--format", "{{json .Endpoints.docker.Host}}"))
+        daemon = json.loads(self.docker("info", "--format", "{{json .ID}}"))
+        root = worker_volumes.daemon_root(self.docker(
+            "info", "--format", worker_volumes.DAEMON_FORMAT).decode("utf-8"))
+        name = self.project + "_runner-state"
+        template = ('{"name":{{json .Name}},"driver":{{json .Driver}},'
+                    '"scope":{{json .Scope}},"options":{{json .Options}},'
+                    '"source":{{json .Mountpoint}},"created_at":{{json .CreatedAt}},'
+                    '"project":{{json (index .Labels "com.docker.compose.project")}},'
+                    '"volume":{{json (index .Labels "com.docker.compose.volume")}}}')
+        value = worker_volumes.parse_document(self.docker(
+            "volume", "inspect", "--format", template, name).decode("utf-8"))
+        reason = "empty_audit_volume_not_bound"
+        require(type(endpoint) is str and endpoint.startswith(("unix:///", "npipe:////"))
+                and daemon == admission["identity"]["daemon_id"], reason)
+        require(set(value) == {"name", "driver", "scope", "options", "source",
+                               "created_at", "project", "volume"}
+                and value["name"] == name and value["driver"] == value["scope"] == "local"
+                and value["options"] in (None, {}) and value["project"] == self.project
+                and value["volume"] == "runner-state"
+                and worker_volumes._path(value["source"])
+                == worker_volumes._path(root) / "volumes" / name / "_data"
+                and type(value["created_at"]) is str and 1 <= len(value["created_at"]) <= 64,
+                reason)
+        require(datetime.fromisoformat(value["created_at"].replace("Z", "+00:00")).tzinfo is not None,
+                reason)
+        return {"daemon_id": daemon, "endpoint": endpoint, "root": root, **value}
+
+    def empty_worker_state(self, admission):
+        # Component-owned offline inspection. The root filesystem is read-only;
+        # this one exact state volume permits ordinary SQLite WAL sidecars.
+        args = ["run", "--rm", "--pull", "never", "--user", "10001:10001",
+                "--read-only", "--network", "none", "--cap-drop", "ALL",
+                "--security-opt", "no-new-privileges:true", "--label",
+                "com.docker.compose.project=" + self.project,
+                "--pids-limit", "64", "--memory", "512m", "--cpus", "1", "--mount",
+                "type=volume,source=" + self.project + "_runner-state,target=/home/runner/.vardrmap",
+                "--env", "HOME=/home/runner", "--env", "PYTHONDONTWRITEBYTECODE=1",
+                "--entrypoint", "vardrrunner", self.images["worker"], "worker-state",
+                "--journal", "/home/runner/.vardrmap/runner-journal.sqlite3",
+                "--identity", "/home/runner/.vardrmap/runner-identity.json"]
+        for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256"):
+            args.extend(["--" + key.replace("_", "-"), admission[key]])
+        before = self.empty_audit_volume(admission)  # Absence refuses before run.
+        value = json.loads(self.docker(*args, timeout=45))
+        after = self.empty_audit_volume(admission)
+        require(canonical(before) == canonical(after), "empty_audit_volume_changed")
+        self.empty_audit_volumes.append({"before": before, "after": after})
+        return self.verify_empty_worker_state(value, admission)
+
+    def empty_engagements(self):
+        value = self.api.request("/engagements")
+        require(canonical(value) == canonical({"engagements": [], "programs": []}),
+                "empty_map_inventory_not_empty")
+        return value
+
+    def persistent_empty_stop(self):
+        self.receipt["stage"] = "empty_stop_setup"
+        engagements_before, traffic_before = self.empty_engagements(), self.traffic()
+        require(traffic_before == [], "empty_target_traffic_not_empty")
+        binding = self.enroll_runner()
+        self.empty_audit_volumes = []
+        proof = {"engagements_before": engagements_before, "traffic_before": traffic_before}
+
+        def on_running(admission):
+            proof["admission"] = admission
+            self.receipt["stage"] = "empty_stop_ready"
+            proof["status"] = self.persistent_idle(admission, 0)
+            proof["status_observed_at"] = datetime.now(timezone.utc).isoformat(
+                timespec="microseconds").replace("+00:00", "Z")
+            proof["audit_before"] = self.verify_empty_worker_state(self.empty_worker_state(admission), admission)
+            self.receipt["stage"] = "empty_operator_stop"
+            self.operator_stop = self.worker_action("stop", admission["runtime_id"])
+            require(self.operator_stop["schema"] == "vardr.worker-cli/1"
+                    and self.operator_stop["state"] == "stopped_observed"
+                    and self.operator_stop["runtime_id"] == admission["runtime_id"]
+                    and self.operator_stop["new_work_disable_state"] == "acknowledged",
+                    "empty_operator_stop_not_proven")
+            proof["operator_stop"] = self.operator_stop
+
+        physical = self.worker(*binding, on_running=on_running)
+        admission = proof["admission"]
+        require(physical["identity"] == admission["identity"]
+                and all(physical[key] == self.operator_stop[key] for key in (
+                    "runtime_id", "exit_code", "finished_at", "identity"))
+                and physical["operator_stop_state"] == "stopped_observed",
+                "empty_physical_stop_not_bound")
+        self.receipt["stage"] = "empty_stop_reconciliation"
+        proof["retirement"] = self.report_exit(physical)
+        retirement = proof["retirement"]
+        require(retirement["last_sequence"] == "0" and retirement["runtime_sequence"] is None
+                and retirement["binding"] is None and retirement["attempt_receipt"] is None
+                and retirement["retired"] is True, "empty_retirement_not_unbound")
+        proof["host_reconciled"] = self.worker_action("reconcile", physical["runtime_id"], timeout=120)
+        require(proof["host_reconciled"]["state"] == "terminal_observed"
+                and canonical(proof["host_reconciled"]["receipt"]["retirement"]) == canonical(retirement),
+                "empty_host_receipt_changed")
+        proof["audit_after"] = self.verify_empty_worker_state(self.empty_worker_state(admission), admission)
+        proof["audit_volumes"] = self.empty_audit_volumes
+        require(len(proof["audit_volumes"]) == 2
+                and all(canonical(row["before"]) == canonical(proof["audit_volumes"][0]["before"])
+                        and canonical(row["after"]) == canonical(row["before"])
+                        for row in proof["audit_volumes"]), "empty_audit_volume_changed")
+        proof["engagements_after"], proof["traffic_after"] = self.empty_engagements(), self.traffic()
+        require(proof["traffic_after"] == [], "empty_target_traffic_not_empty")
+        self.receipt["cases"]["persistent_empty_stop"] = {
+            "status": "passed", "limits": persistent_limits(EMPTY_SCENARIO),
+            "physical": physical, "proof": proof,
+        }
+        self.receipt["status"], self.receipt["stage"] = (
+            "selected_empty_stop_slice_passed", "selected_empty_stop_complete")
+
     def persistent_idle_limit(self, zero):
         require(type(zero) is list and not zero, "idle_baseline_not_empty")
         self.receipt["stage"] = "idle_control_setup"
@@ -4567,6 +4712,9 @@ print(json.dumps(result))
             }
             self.receipt["stage"] = "managed_setup"
             self.enable()
+            if self.scenario == EMPTY_SCENARIO:
+                self.persistent_empty_stop()
+                return
             self.receipt["stage"] = "strict_scope_setup"
             engagement, authorization, job, case = self.new_job(
                 "strict-denial", in_scope=False
@@ -4777,6 +4925,10 @@ def main(argv=None):
                 "strict_out_of_scope",
                 "persistent_availability",
             )
+        if args.scenario == EMPTY_SCENARIO:
+            receipt["initial_cases"] = ("default_disabled", "persistent_empty_stop")
+            receipt.update(scenario=args.scenario, limits=persistent_limits(EMPTY_SCENARIO),
+                           acceptance_scope="persistent_empty_stop_only")
         if args.scenario == IDLE_SCENARIO:
             receipt["initial_cases"] = ("default_disabled", "strict_out_of_scope", "persistent_idle_limit")
             receipt.update(scenario=args.scenario, limits=persistent_limits(IDLE_SCENARIO),

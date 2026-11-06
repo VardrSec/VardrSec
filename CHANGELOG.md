@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add an explicit zero-issued-job stop fixture and independent Linux/Desktop
+  reader. Require complete component-owned empty-state audits, measured fresh
+  readiness and positive unbound host retirement at sequence0. Own and bound the
+  temporary no-network auditor; preserve normal WAL semantics and conservative
+  volume-race holds. Empty local state remains N/A, never fabricated retirement.
+  Actual platform, next-enable and other NM-2 gates remain open.
+
 - Keep the optional idle fixture's existing post-job poll open for only the
   product's closed physical-unconfirmed response families. They remain held and
   supply neither initial readiness nor terminal proof. Preserve the 75-second

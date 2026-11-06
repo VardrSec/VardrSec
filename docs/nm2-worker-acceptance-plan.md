@@ -438,3 +438,57 @@ Actual Linux/Desktop idle proof remains open until the reviewed Runner idle-retu
 fix, its normal validation/CI and the matching image are accepted. No runtime/API,
 capture deadline, retry, credential provider or infrastructure is introduced.
 Zero-issued-job retirement and stop/re-enable remain separate open gates.
+
+### Explicit zero-issued-job stop (implementation; platform proof open)
+
+The separately selected `persistent-empty-stop` scenario branches after managed
+setup and before strict-scope job creation. It reuses identity/enrollment without
+creating an engagement, job, approval or local credential grant. The owner Map
+inventory must remain exactly `{"engagements":[],"programs":[]}` and complete
+target observations must remain empty. Normal defaults and the existing healthy,
+availability, count and idle schemas/readers remain unchanged.
+
+After fresh ready-idle at sequence0, the fixture runs the pinned Runner image's
+`worker-state` CLI in a separate temporary UID10001 container. It uses a read-only
+root filesystem, no network, all capabilities dropped, no-new-privileges, and
+only the exact existing named runner-state volume. Only HOME and disabled bytecode
+writes are explicitly configured. No credential is injected through arguments or
+environment, and no trust directory or Docker socket is mounted. The state volume
+may contain cached configuration or credentials; this is trusted Runner inspection,
+not a credential-inaccessible sandbox. The command performs no credential lookup,
+Map request or tool execution and returns only its closed metadata. The state
+volume remains writable for ordinary SQLite read-only WAL sidecars; this is not an
+immutable database copy or a claim that the entire volume is read-only.
+
+The auditor has the exact fixture-project ownership label so bounded cleanup can
+select a surviving helper. Its own PID64, memory512m and CPU1 limits do not change
+healthy-job limits. A timeout remains held; `--rm` helper removal cannot be treated
+as retained-container proof or erase the original failure. Readiness retains a UTC
+sample immediately after status returns; the reader requires that instant inside
+the exact physical lifetime and the Map freshness interval, without rounding the
+physical nanosecond bounds. Retired stopped availability has separate semantics
+and does not require a fresh running-presence window.
+
+Pre/post checks bind the same local daemon, exact volume name, default local
+driver, project/logical-volume labels, creation timestamp and lexical daemon
+source. Absence before audit refuses before container creation; changed/missing
+post metadata holds the result. Docker named-volume attachment is not atomic
+against concurrent deletion/replacement. This isolated fixture requires a trusted
+host with no concurrent Docker writers, retains resources on uncertainty, and
+does not establish a production lifecycle lock or missing-volume race prevention.
+
+The ordinary explicit stop must agree with the separate exact-incarnation exit
+observation. The original host STOP reporting and authenticated reconciliation
+must positively return unbound retirement at last sequence0. A second offline
+audit must still return complete `empty_unissued`: parent idle0 with no head or
+active sequence, all four association counts zero, global holds zero and no
+local retirement digest. That local result is `not_applicable_empty_unissued`;
+it supplies neither physical exit nor Map retirement. No synthetic RunRecord or
+`audit reconcile-managed` call is created for a job that never existed.
+
+The independent reader has separate Linux and Desktop public schemas and the
+hosted wrapper uses schema6 only for this explicit scenario. It checks the same
+admission, source/image/incarnation, fresh status, offline state, positive host
+receipt, empty traffic/inventory and stopped-resource joins. Mocked regressions
+are component evidence only. Actual zero-job acceptance, a subsequent enablement,
+native optional idle and the remaining NM-2 matrix stay open; NM-3 stays paused.

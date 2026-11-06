@@ -26,7 +26,7 @@ SOURCE = Path(__file__).resolve().parents[1]
 # Root helpers must come from this exact source tree, never the caller's cwd.
 sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
-PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit", "persistent-idle-limit"}
+PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit", "persistent-idle-limit", "persistent-empty-stop"}
 REPOSITORIES = {
     name: "VardrSec/" + repo
     for name, repo in (
@@ -653,6 +653,7 @@ def failure_projection(raw, selection):
             "vardr.nm2-worker-persistent-acceptance/1",
             "vardr.nm2-worker-count-acceptance/1",
             "vardr.nm2-worker-idle-acceptance/1",
+            "vardr.nm2-worker-empty-acceptance/1",
         }
         and raw.get("status") == "held"
         and raw.get("sources") == selection["sources"]
@@ -673,7 +674,12 @@ def failure_projection(raw, selection):
     if raw["schema"] == "vardr.nm2-worker-idle-acceptance/1":
         require(raw.get("scenario") == "persistent-idle-limit"
                 and raw.get("expected_database_revision") == "0041persistentruntime")
+    if raw["schema"] == "vardr.nm2-worker-empty-acceptance/1":
+        require(raw.get("scenario") == "persistent-empty-stop"
+                and raw.get("expected_database_revision") == "0041persistentruntime")
     stages = {
+        "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
+        "empty_stop_reconciliation", "selected_empty_stop_complete",
         "image_sources",
         "core_setup",
         "default_disabled",
@@ -706,6 +712,11 @@ def failure_projection(raw, selection):
         "selected_availability_complete",
     }
     reasons = {
+        "empty_audit_volume_not_bound", "empty_audit_volume_changed",
+        "empty_local_state_not_proven", "empty_map_inventory_not_empty",
+        "empty_target_traffic_not_empty", "empty_operator_stop_not_proven",
+        "empty_physical_stop_not_bound", "empty_retirement_not_unbound",
+        "empty_host_receipt_changed",
         "fixture_http_status",
         "idle_baseline_not_empty", "idle_job_not_completed",
         "idle_complete_traffic_changed", "idle_initial_readiness_missing",
@@ -902,6 +913,12 @@ def failure_projection(raw, selection):
 
 def public_projection(raw, selection):
     """Project only fixed statuses and measured hashes, never raw nested data."""
+    if type(raw) is dict and raw.get("schema") == "vardr.nm2-worker-empty-acceptance/1":
+        from nm2_worker_empty_projection import project
+        try:
+            return project(raw, selection)
+        except (ValueError, TypeError, KeyError, IndexError):
+            raise HostedRefused("nm2_hosted_empty_receipt_refused") from None
     if type(raw) is dict and raw.get("schema") == "vardr.nm2-worker-idle-acceptance/1":
         from nm2_worker_idle_projection import project
         try:
@@ -1102,6 +1119,10 @@ class Hosted:
                 expected_database_revision=self.database_revision,
                 scope="Persistent idle availability and 35 separately authorized jobs in one explicitly stopped incarnation; NM2 remains incomplete",
             )
+        elif self.scenario == "persistent-empty-stop":
+            self.receipt.update(schema="vardr.nm2-hosted/6", scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope="Explicit zero-issued-job stop with offline empty audit; NM2 remains incomplete")
         elif self.scenario == "persistent-idle-limit":
             self.receipt.update(schema="vardr.nm2-hosted/5", scenario=self.scenario,
                 expected_database_revision=self.database_revision,
@@ -1407,6 +1428,7 @@ class Hosted:
                     "persistent-availability": "vardr.nm2-worker-persistent-acceptance/1",
                     "persistent-count-limit": "vardr.nm2-worker-count-acceptance/1",
                     "persistent-idle-limit": "vardr.nm2-worker-idle-acceptance/1",
+                    "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
@@ -1416,6 +1438,7 @@ class Hosted:
                     "persistent-availability": "vardr.nm2-hosted/3",
                     "persistent-count-limit": "vardr.nm2-hosted/4",
                     "persistent-idle-limit": "vardr.nm2-hosted/5",
+                    "persistent-empty-stop": "vardr.nm2-hosted/6",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],
