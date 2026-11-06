@@ -10,13 +10,40 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import nm2_worker_acceptance as acceptance
 import worker_runtime
 
 
 class AcceptanceGuards(unittest.TestCase):
+    def test_http_refusal_records_only_status_and_normalized_route(self):
+        api = object.__new__(acceptance.OwnerAPI)
+        api.url, api.csrf = "https://localhost:28443", None
+        api.ca = Mock()
+        api.ca.read_bytes.return_value = b"public-fixture-CA"
+        api.ca_sha256 = acceptance.digest(b"public-fixture-CA")
+        response = MagicMock()
+        response.status = 409
+        response.read.return_value = b'{"token":"private-response-canary"}'
+        api.opener = Mock()
+        api.opener.open.return_value = response
+        path = "/jobs/00000000-0000-0000-0000-000000000011/managed/approval/review?token=private-query-canary"
+        with self.assertRaises(acceptance.HTTPStatusRefused) as refused:
+            api.request(path, {"password": "private-body-canary"}, expected=403)
+        self.assertEqual(str(refused.exception), "fixture_http_status")
+        self.assertEqual(
+            refused.exception.public,
+            {
+                "method": "POST",
+                "route": "/jobs/{id}/managed/approval/review",
+                "expected_status": 403,
+                "actual_status": 409,
+            },
+        )
+        self.assertNotIn("private-", json.dumps(refused.exception.public))
+        response.read.assert_not_called()
+
     def test_constructor_isolates_compose_inputs_and_preserves_os_path(self):
         controls = (
             "HTTPS_PORT",

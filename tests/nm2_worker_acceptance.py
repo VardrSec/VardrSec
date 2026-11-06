@@ -61,6 +61,26 @@ class AcceptanceRefused(ValueError):
     pass
 
 
+class HTTPStatusRefused(AcceptanceRefused):
+    def __init__(self, method, path, expected, actual):
+        super().__init__("fixture_http_status")
+        route = re.sub(
+            r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}",
+            "{id}",
+            path.partition("?")[0],
+        )
+        self.public = {
+            "method": method
+            if method in {"GET", "POST", "PUT", "DELETE", "PATCH"}
+            else "refused",
+            "route": route
+            if re.fullmatch(r"/[A-Za-z0-9_/{}/.:-]{0,255}", route)
+            else "refused",
+            "expected_status": expected,
+            "actual_status": actual,
+        }
+
+
 def require(condition, reason):
     if not condition:
         raise AcceptanceRefused(reason)
@@ -308,7 +328,10 @@ class OwnerAPI:
         except urllib.error.HTTPError as error:
             response = error
         with response:
-            require(response.status == expected, "fixture_http_status")
+            if response.status != expected:
+                raise HTTPStatusRefused(
+                    request.get_method(), path, expected, response.status
+                )
             raw = response.read(1024 * 1024 + 1)
             require(len(raw) <= 1024 * 1024, "fixture_http_bound")
             return json.loads(raw) if raw else None
@@ -1287,9 +1310,12 @@ print(json.dumps({'files':hashes,'executables':executables}))
             require(image in before["images"], "reviewed_local_image_missing")
         self.receipt["before_sha256"] = digest(canonical(before))
         try:
+            self.receipt["stage"] = "image_sources"
             self.receipt["image_sources"] = self.image_sources()
+            self.receipt["stage"] = "core_setup"
             self.stage()
             publish(self.install / "nm2-inventory-before.json", canonical(before))
+            self.receipt["stage"] = "default_disabled"
             OwnerAPI(self.url, self.install / "trust" / "root.crt").request(
                 "/engagements", expected=401
             )
@@ -1313,13 +1339,16 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 "csrf_write_status": 403,
                 "unauthenticated_read_status": 401,
             }
+            self.receipt["stage"] = "managed_setup"
             self.enable()
+            self.receipt["stage"] = "strict_scope_setup"
             engagement, authorization, job, case = self.new_job(
                 "strict-denial", in_scope=False
             )
             zero = self.traffic()
+            self.receipt["stage"] = "strict_scope_denial"
             self.approve(
-                "strict-denial", engagement, authorization, job, case, expected=403
+                "strict-denial", engagement, authorization, job, case, expected=409
             )
             inventory = self.inventory(engagement, job)
             require(
@@ -1331,11 +1360,13 @@ print(json.dumps({'files':hashes,'executables':executables}))
             )
             self.receipt["cases"]["strict_out_of_scope"] = {
                 "status": "passed",
+                "approval_http_status": 409,
                 "inventory": inventory,
                 "traffic_delta": 0,
             }
             # Single container/attempt first slice. Later cases use a fresh
             # installation; retained state or unknown receipts are never cleared.
+            self.receipt["stage"] = "happy_setup"
             engagement, authorization, job, case = self.new_job("happy-fixed")
             binding = self.approve("happy-fixed", engagement, authorization, job, case)
             traffic = self.traffic()
@@ -1352,6 +1383,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 "approved_queue_executed_before_worker_enablement",
             )
             physical = self.worker(*binding)
+            self.receipt["stage"] = "happy_verification"
             inventory = self.inventory(engagement, job)
             requests = self.traffic()[len(traffic) :]
             require(
@@ -1437,6 +1469,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 "evidence_sha256": digest(retained),
             }
             self.receipt["status"] = "initial_stages_passed"
+            self.receipt["stage"] = "initial_complete"
         except Exception as error:
             self.receipt["status"] = "held"
             self.receipt["reason"] = (
@@ -1444,6 +1477,11 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 if isinstance(error, AcceptanceRefused)
                 else "fixture_stage_failed"
             )
+            if isinstance(error, HTTPStatusRefused):
+                self.receipt["http_failure"] = {
+                    **error.public,
+                    "stage": self.receipt.get("stage", "unknown"),
+                }
             raise
         finally:
             # Preserve stopped/failed fixtures and custody; never down/prune or
