@@ -97,6 +97,7 @@
     "networks": 29,
     "volumes": 52
   },
+  "public_ca_der_sha256": "cd7dc93f0bb14067fea2a456bc3efbdc4f7c6fa78d556e257e0f74c32125b166",
   "raw_receipt_sha256": "2e7c96fda5d80936b401f4eeb1673ef112235f8b557ce6939bc51c3ced322a88",
   "remaining_required_cases": {
     "budget_exhaustion": "not_run",

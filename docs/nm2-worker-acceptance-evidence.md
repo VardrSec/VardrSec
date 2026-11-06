@@ -45,13 +45,18 @@ retained receipt, and the original inventory classifier rechecked its guard.
 Windows host metadata was preserved as Windows; the Linux-only hosted entry
 guard was not substituted for a Desktop result.
 
-The same cohort is running in the separate
+The same cohort ran in the separate
 [Linux development check](https://github.com/VardrSec/VardrSec/actions/runs/42160265308).
-Its coupled verdict is pending. This run's Ubuntu Python 3.10 compatibility job
+Its coupled verdict is **held**, at worker enablement with the fixed public reason
+`fixture_command_failed`. The discarded private VM logs are not recoverable
+evidence; no inner cause or Linux acceptance is inferred. Focused safe diagnostics
+are required before the next candidate run. This run's Ubuntu Python 3.10 compatibility job
 found that the evidence helper rejected nine-digit Docker timestamps; Windows
 compatibility was cancelled by that matrix failure. A narrow subsequent fix
 validates calendar fields separately while retaining all nanoseconds for ordering;
-21 focused helper tests pass locally, with fresh Python 3.10 CI still required.
+21 focused helper tests pass locally, and both Windows/Ubuntu Python 3.10 jobs in
+the [fix-only CI run](https://github.com/VardrSec/VardrSec/actions/runs/42160711644)
+passed. That unit-only run did not repeat physical worker acceptance.
 The earlier Linux one-attempt run remains held; neither
 its successfully built images nor passing compatibility jobs establish worker
 acceptance.
@@ -68,10 +73,48 @@ passed, including Linux, Windows and macOS.
 Map's final persisted-proof strictness cases passed 40 focused checks. Six
 persisted JSON type corruptions were reproduced before the three narrow guards
 were fixed. Its [full CI](https://github.com/VardrSec/VardrMap/actions/runs/42159647822)
-is verifying the final source. The earlier PostgreSQL run exposed a test oracle
+passed all seven jobs on the final source. PostgreSQL ran 106 migration/concurrency
+checks and 1,984 backend tests with 22 explicit skips, followed by the actual
+Map/Runner/Gate integration. The earlier PostgreSQL run exposed a test oracle
 waiting at the wrong lock and a fixture-variable shadow; their test-only fixes
 retain exact backend/blocker and budget assertions. A collected or skipped
 PostgreSQL test is not recorded as a pass.
+
+## Actual Docker Desktop: bootstrap refusal
+
+The [bootstrap evidence](evidence/nm2-desktop-bootstrap-2026-11-05.json)
+records two fresh target-free containers using the same frozen worker image and
+owner executable as the healthy sequence. Distribution helper source was frozen
+at `5a6ec7ac6d55341b700c1f63d7e73f049170787f`, with 157 files checked against
+their Git blobs before execution.
+
+The ordinary initial-user and missing-SETPCAP misconfigurations both exited 125
+before readiness. A successful direct archive read observed the empty original
+readiness directory, and the copied executable matched the reviewed binary hash.
+The profiles had no network, credentials, admission, data mounts, command override
+or extra privilege. Both containers remain stopped. All 80 previous containers,
+68 images/tags, 35 networks and 62 volumes were guarded; only the explicitly
+classified empty built-in bridge ID change was admitted. Descendant absence was
+not independently observed and is not inferred from PID 0.
+
+An earlier attempt refused in metadata preflight because Docker omitted unset
+image configuration keys. The corrected lookup handles missing optional fields
+without weakening their accepted values. That refusal remains retained and is
+not rewritten as a bootstrap result.
+
+## Cancellation work in progress
+
+The first local emergency-stop fixture was held before sending its stop command:
+its test expected a dashed Run ID rather than Journal's 32 lower-case hexadecimal
+identifier. All six fixture containers were stopped and retained, with the same
+narrow inventory classification. The corrected fixture has regression coverage;
+this attempt establishes no cancellation pass.
+
+Review also identified a product gap: guarded Gate cancellation could exit before
+publishing a partial result, and Runner's stopped path did not retain such a result
+through its non-success publication lane. Focused Gate and Runner changes are in
+development. They must preserve confirmed-stop proof, existing deadlines and
+unknown holds; a partial file never authorizes healthy reuse or a new claim.
 
 The distribution's two-job candidate passed 308 unit methods: 290 passed and 18
 explicitly skipped. Its real Map/Runner approval preparation regression passed

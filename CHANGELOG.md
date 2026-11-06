@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add explicitly selected ordinary HTTP stop fixtures and two target-free
+  bootstrap configuration checks. Correct the fixture's Run ID validation and
+  optional Docker configuration-field lookup from actual preflight refusals;
+  retain those refusals separately from measured passes and keep NM-2 open.
+
 - Record the frozen two-job Docker Desktop worker slice with exact receipts,
   source/image custody and retained-resource checks; keep the failure matrix and
   NM-2 closeout open. Preserve nanosecond Docker timestamp ordering on Python
