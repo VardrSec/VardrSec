@@ -309,6 +309,45 @@ class PersistentAvailability(unittest.TestCase):
             value["limits"], dict(max_attempts=None, idle_timeout_seconds=None)
         )
 
+    def test_compact_proof_retains_one_history_and_roundtrips_the_full_oracle(self):
+        data = vector()
+        canary = "private-operator-key-and-token-canary"
+        data.fixture.secrets = [canary]
+        data.fixture.operator_key = canary.encode()
+        value = self.verify(data)
+        proof = value["proof"]
+        self.assertEqual(
+            set(proof), {"idle", "runtime", "inventories", "retirement", "retained"}
+        )
+        self.assertEqual(proof["idle"], data.idle)
+        self.assertEqual(proof["runtime"], data.runtime)
+        self.assertEqual(len(proof["inventories"]), 35)
+        self.assertTrue(all("runtimes" not in row for row in proof["inventories"]))
+        restored = [
+            {**row, "runtimes": [proof["runtime"]]} for row in proof["inventories"]
+        ]
+        checked = data.fixture.verify_persistent_sequence(
+            value["physical"],
+            proof["idle"],
+            value["attempts"],
+            restored,
+            proof["retirement"],
+            proof["retained"],
+        )
+        for key in (
+            "last_sequence",
+            "target_request_count",
+            "evidence_count",
+            "targets_spent",
+            "duration_allocated",
+            "retirement_receipt_sha256",
+        ):
+            self.assertEqual(value[key], checked[key])
+        raw = acceptance.canonical(value)
+        self.assertLess(len(raw), 4 * 1024 * 1024)
+        self.assertEqual(raw.count(b'"runtime_mode"'), 35)
+        self.assertNotIn(canary.encode(), raw)
+
     def test_missing_idle_history_reused_identity_or_ack_never_pass(self):
         faults = {
             "short_idle": lambda d: d.idle.update(seconds=60),

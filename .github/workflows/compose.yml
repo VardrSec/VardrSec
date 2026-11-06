@@ -13,6 +13,16 @@ on:
         description: Explicitly run the reviewed initial NM-2 harness on a fresh Ubuntu VM
         type: boolean
         default: false
+      nm2_scenario:
+        description: Explicit finite regression or persistent availability slice
+        type: choice
+        options: [healthy, persistent-availability]
+        default: healthy
+      nm2_database_revision:
+        description: Require the exact reviewed Map schema; does not migrate or enable work
+        type: choice
+        options: [0040runtimesequence, 0041persistentruntime]
+        default: 0040runtimesequence
       nm2_distribution_sha:
         description: Exact reviewed distribution SHA, must equal the selected workflow commit
         type: string
@@ -48,6 +58,8 @@ jobs:
       - name: Run the exact explicitly selected coupled cohort
         env:
           NM2_COUPLED: ${{ inputs.nm2_coupled }}
+          NM2_SCENARIO: ${{ inputs.nm2_scenario }}
+          NM2_DATABASE_REVISION: ${{ inputs.nm2_database_revision }}
           NM2_DISTRIBUTION_SHA: ${{ inputs.nm2_distribution_sha }}
           NM2_MAP_SHA: ${{ inputs.nm2_map_sha }}
           NM2_RUNNER_SHA: ${{ inputs.nm2_runner_sha }}

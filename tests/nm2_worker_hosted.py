@@ -8,6 +8,7 @@ import argparse
 from datetime import datetime
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -561,6 +562,52 @@ def cohort(env):
     return values
 
 
+def execution_options(env):
+    scenario = env.get("NM2_SCENARIO", "healthy")
+    revision = env.get("NM2_DATABASE_REVISION", "0040runtimesequence")
+    require(
+        type(scenario) is str and scenario in {"healthy", "persistent-availability"}
+    )
+    require(
+        type(revision) is str
+        and revision in {"0040runtimesequence", "0041persistentruntime"}
+    )
+    require(
+        scenario != "persistent-availability" or revision == "0041persistentruntime"
+    )
+    return scenario, revision
+
+
+def decode_receipt(data):
+    """Bounded evidence JSON: reject duplicate keys and non-finite constants."""
+    require(type(data) is bytes and 0 < len(data) <= 4 * 1024 * 1024)
+
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            require(key not in result)
+            result[key] = value
+        return result
+
+    def invalid_constant(_):
+        raise HostedRefused("nm2_hosted_receipt_refused")
+
+    def finite_float(text):
+        value = float(text)
+        require(math.isfinite(value))
+        return value
+
+    try:
+        return json.loads(
+            data.decode("utf-8"),
+            object_pairs_hook=unique,
+            parse_constant=invalid_constant,
+            parse_float=finite_float,
+        )
+    except (ValueError, UnicodeError, TypeError, RecursionError):
+        raise HostedRefused("nm2_hosted_receipt_refused") from None
+
+
 def host_guard(env):
     release = platform.freedesktop_os_release()
     require(
@@ -600,13 +647,22 @@ def failure_projection(raw, selection):
     require(
         type(raw) is dict
         and raw.get("schema")
-        in {"vardr.nm2-worker-acceptance/1", "vardr.nm2-worker-acceptance/2"}
+        in {
+            "vardr.nm2-worker-acceptance/1",
+            "vardr.nm2-worker-acceptance/2",
+            "vardr.nm2-worker-persistent-acceptance/1",
+        }
         and raw.get("status") == "held"
         and raw.get("sources") == selection["sources"]
         and raw.get("images") == selection["images"]
         and raw.get("project") == selection["project"]
         and raw.get("platform") == "linux"
     )
+    if raw["schema"] == "vardr.nm2-worker-persistent-acceptance/1":
+        require(
+            raw.get("scenario") == "persistent-availability"
+            and raw.get("expected_database_revision") == "0041persistentruntime"
+        )
     stages = {
         "image_sources",
         "core_setup",
@@ -619,6 +675,13 @@ def failure_projection(raw, selection):
         "happy_verification",
         "healthy_sequence_verification",
         "initial_complete",
+        "persistent_idle",
+        "persistent_job_approval",
+        "persistent_job_release",
+        "persistent_operator_stop",
+        "persistent_receipt_reconciliation",
+        "persistent_availability_verification",
+        "selected_availability_complete",
     }
     reasons = {
         "fixture_http_status",
@@ -665,6 +728,50 @@ def failure_projection(raw, selection):
         "healthy_sequence_reused_terminal_receipt_sha256",
         "healthy_sequence_reused_release_receipt_sha256",
         "healthy_sequence_reused_native_done_sha256",
+        "operator_persistent_mode_not_bound",
+        "persistent_allowance_mismatch",
+        "persistent_approval_missing",
+        "persistent_approval_not_fresh",
+        "persistent_availability_disabled",
+        "persistent_availability_measurement_missing",
+        "persistent_enrollment_changed",
+        "persistent_history_incomplete",
+        "persistent_host_receipt_changed",
+        "persistent_idle_executed_work",
+        "persistent_idle_not_empty",
+        "persistent_idle_not_observed",
+        "persistent_incarnation_or_policy_changed",
+        "persistent_job_or_local_ack_mismatch",
+        "persistent_local_grant_not_fresh",
+        "persistent_local_job_changed",
+        "persistent_observed_request_order_invalid",
+        "persistent_operator_stop_not_proven",
+        "persistent_original_ack_not_closed",
+        "persistent_original_journal_not_closed",
+        "persistent_original_reconciliation_held",
+        "persistent_release_after_next_binding",
+        "persistent_request_marker_invalid",
+        "persistent_request_marker_reused",
+        "persistent_retirement_receipt_changed",
+        "persistent_retirement_rewrote_job",
+        "persistent_status_identity_changed",
+        "persistent_status_refused",
+        "persistent_stop_exit_changed",
+        "persistent_total_traffic_mismatch",
+        "persistent_unapproved_job_executed",
+        *{
+            "persistent_reused_" + name
+            for name in (
+                "job_id",
+                "engagement_id",
+                "case_sha256",
+                "artifact_sha256",
+                "result_receipt_sha256",
+                "terminal_receipt_sha256",
+                "release_receipt_sha256",
+                "native_done_sha256",
+            )
+        },
     }
     value = {
         "stage": raw.get("stage") if raw.get("stage") in stages else "unclassified",
@@ -710,6 +817,16 @@ def failure_projection(raw, selection):
 
 def public_projection(raw, selection):
     """Project only fixed statuses and measured hashes, never raw nested data."""
+    if (
+        type(raw) is dict
+        and raw.get("schema") == "vardr.nm2-worker-persistent-acceptance/1"
+    ):
+        from nm2_worker_persistent_projection import project
+
+        try:
+            return project(raw, selection)
+        except (ValueError, TypeError, KeyError, IndexError):
+            raise HostedRefused("nm2_hosted_persistent_receipt_refused") from None
     require(
         type(raw) is dict
         and raw.get("schema") == "vardr.nm2-worker-acceptance/2"
@@ -838,6 +955,7 @@ def public_projection(raw, selection):
 class Hosted:
     def __init__(self, env):
         self.pins = cohort(env)
+        self.scenario, self.database_revision = execution_options(env)
         temporary = host_guard(env)
         self.root = temporary / "nm2-hosted-private"
         self.public = temporary / "nm2-hosted-public"
@@ -879,6 +997,13 @@ class Hosted:
                 REMAINING_REQUIRED_CASES, "not_run"
             ),
         }
+        if self.scenario == "persistent-availability":
+            self.receipt.update(
+                schema="vardr.nm2-hosted/3",
+                scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope="Persistent idle availability and 35 separately authorized jobs in one explicitly stopped incarnation; NM2 remains incomplete",
+            )
 
     def command(self, args, *, capture=False, timeout=60):
         remaining = self.deadline - time.monotonic()
@@ -1092,7 +1217,12 @@ class Hosted:
             self.receipt["images"]["worker"] = self.build(
                 "worker",
                 self.sources["runner"],
-                file=self.sources["runner"] / "Dockerfile.worker",
+                file=self.sources["runner"]
+                / (
+                    "Dockerfile.worker.persistent"
+                    if self.scenario == "persistent-availability"
+                    else "Dockerfile.worker"
+                ),
                 extra=("--build-arg", "RUNNER_BASE_IMAGE=" + tag),
             )[0]
             require(
@@ -1127,9 +1257,13 @@ class Hosted:
                         str(SOURCE / "tests/nm2_worker_acceptance.py"),
                         "--cohort",
                         str(path),
+                        "--scenario",
+                        self.scenario,
+                        "--database-revision",
+                        self.database_revision,
                         "--execute",
                     ],
-                    timeout=900,
+                    timeout=1200 if self.scenario == "persistent-availability" else 900,
                 )
             except Exception:
                 try:
@@ -1139,7 +1273,7 @@ class Hosted:
                         failed = handle.read(4 * 1024 * 1024 + 1)
                     require(len(failed) <= 4 * 1024 * 1024)
                     self.receipt["harness_failure"] = failure_projection(
-                        json.loads(failed), selection
+                        decode_receipt(failed), selection
                     )
                 except Exception:
                     self.receipt["harness_failure"] = {
@@ -1147,10 +1281,32 @@ class Hosted:
                         "reason": "receipt_unavailable_or_invalid",
                     }
                 raise
-            raw = (self.root / "installation/nm2-worker-receipt.json").read_bytes()
+            with (self.root / "installation/nm2-worker-receipt.json").open(
+                "rb"
+            ) as handle:
+                raw = handle.read(4 * 1024 * 1024 + 1)
             require(len(raw) <= 4 * 1024 * 1024)
-            self.receipt.update(public_projection(json.loads(raw), selection))
-            self.receipt.update(stage="complete", status="initial_stages_passed")
+            observed = decode_receipt(raw)
+            require(
+                observed.get("expected_database_revision", "0040runtimesequence")
+                == self.database_revision
+            )
+            require(
+                observed.get("schema")
+                == (
+                    "vardr.nm2-worker-persistent-acceptance/1"
+                    if self.scenario == "persistent-availability"
+                    else "vardr.nm2-worker-acceptance/2"
+                )
+            )
+            self.receipt.update(public_projection(observed, selection))
+            self.receipt.update(
+                schema="vardr.nm2-hosted/3"
+                if self.scenario == "persistent-availability"
+                else "vardr.nm2-hosted/2",
+                stage="complete",
+                status=observed["status"],
+            )
         finally:
             require(self.receipt["stage"] in STAGES)
             output = self.public / "receipt.json"
@@ -1167,7 +1323,7 @@ def main(argv=None):
         return 2
     try:
         Hosted(dict(os.environ)).run()
-        print("NM2 hosted two-job slice passed; remaining acceptance stays open")
+        print("NM2 hosted selected slice passed; remaining acceptance stays open")
         return 0
     except Exception:
         print("NM2 hosted held; no acceptance claimed")

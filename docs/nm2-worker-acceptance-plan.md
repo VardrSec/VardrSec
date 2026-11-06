@@ -42,6 +42,27 @@ mutations remain refusals. A passing selected slice uses a distinct persistent
 receipt and still records NM-2 incomplete. Its pure protocol/oracle tests are
 not measured uptime or platform/containment acceptance.
 
+The manual Ubuntu workflow uses the same fixture with explicit
+`nm2_scenario=persistent-availability` and
+`nm2_database_revision=0041persistentruntime`, plus all four exact source SHAs.
+The selected Distribution SHA must equal the workflow commit. The default remains
+the finite healthy regression, with coupled execution disabled. The persistent
+selection uses the matching Dockerfile and its own hosted `/3` receipt; it never
+negotiates a finite image. Nothing publishes an image or deploys a user installation.
+
+Persistent evidence retains one shared history plus compact per-job original
+records. The public projection independently rechecks admission, grant/approval
+windows, original ACKs, canonical result/completion/release receipts, actual
+request markers/clocks and retirement before exporting fixed counts and hashes.
+Evidence-body and source-inventory digests remain producer-verified observations,
+not remote attestation. Raw bodies, identities, grants, paths and logs stay private.
+Receipt reads are bounded before decoding; duplicate keys and nonfinite JSON are
+refused. A failed run exports only fixed diagnostic categories.
+
+The controlled HTTP wrapper explicitly selects its 175-request ceiling only for
+this 35-job fixture. The shared target and all other scenarios keep their normal
+60-request ceiling. This does not change product limits or per-job authorization.
+
 ## Fixture and component boundaries
 
 Use a new `vardrsec-nm2-<random-id>` installation/project, exact reviewed image IDs

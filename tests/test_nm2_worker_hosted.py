@@ -333,14 +333,16 @@ class HostedGuards(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(hosted.HostedRefused):
                 hosted._physical_time(value)
 
-    def failed_harness(self, *, mutate=None, raw_content=None, publish=True):
+    def failed_harness(
+        self, *, mutate=None, raw_content=None, publish=True, options=None
+    ):
         """Exercise the real failure/read/projection/finally path with inert commands."""
         with (
             tempfile.TemporaryDirectory() as temporary,
             patch.object(hosted, "host_guard", return_value=Path(temporary)),
             patch.object(hosted.socket, "socket"),
         ):
-            obj = hosted.Hosted(environment(temporary))
+            obj = hosted.Hosted({**environment(temporary), **(options or {})})
             obj.sources.update({name: obj.root / name for name in hosted.REPOSITORIES})
             obj.daemon_guard, obj.prepare_sources = Mock(), Mock()
             obj.build = Mock(
@@ -353,6 +355,12 @@ class HostedGuards(unittest.TestCase):
                     return
                 selection = json.loads((obj.root / "cohort.json").read_text())
                 raw = raw_receipt(selection)
+                if obj.scenario == "persistent-availability":
+                    raw.update(
+                        schema="vardr.nm2-worker-persistent-acceptance/1",
+                        scenario=obj.scenario,
+                        expected_database_revision=obj.database_revision,
+                    )
                 raw.update(
                     status="held", stage="happy_setup", reason="fixture_http_status"
                 )
@@ -387,7 +395,123 @@ class HostedGuards(unittest.TestCase):
             self.assertNotIn("cases", public)
             self.assertNotIn("image_sources", public)
             self.assertNotIn("private", json.dumps(public))
+            self.assertEqual(
+                obj.build.call_args_list[-1].kwargs["file"].name,
+                "Dockerfile.worker.persistent"
+                if obj.scenario == "persistent-availability"
+                else "Dockerfile.worker",
+            )
+            invocation = next(
+                call.args[0]
+                for call in obj.command.call_args_list
+                if "--execute" in call.args[0]
+            )
+            self.assertEqual(
+                invocation[invocation.index("--scenario") + 1], obj.scenario
+            )
+            self.assertEqual(
+                invocation[invocation.index("--database-revision") + 1],
+                obj.database_revision,
+            )
             return public
+
+    def test_hosted_mode_and_schema_selection_refuse_before_host_or_commands(self):
+        self.assertEqual(
+            hosted.execution_options({}), ("healthy", "0040runtimesequence")
+        )
+        self.assertEqual(
+            hosted.execution_options(
+                {
+                    "NM2_SCENARIO": "persistent-availability",
+                    "NM2_DATABASE_REVISION": "0041persistentruntime",
+                }
+            ),
+            ("persistent-availability", "0041persistentruntime"),
+        )
+        bad = (
+            {"NM2_SCENARIO": "persistent-availability"},
+            {"NM2_SCENARIO": "private-scenario-canary"},
+            {"NM2_SCENARIO": True},
+            {"NM2_SCENARIO": []},
+            {"NM2_DATABASE_REVISION": "unexpected-head"},
+            {"NM2_DATABASE_REVISION": None},
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            for options in bad:
+                with (
+                    self.subTest(options=options),
+                    patch.object(hosted, "host_guard") as guard,
+                    patch.object(hosted.subprocess, "run") as run,
+                ):
+                    with self.assertRaises(hosted.HostedRefused):
+                        hosted.Hosted({**environment(temporary), **options})
+                guard.assert_not_called()
+                run.assert_not_called()
+
+    def test_receipt_decoder_rejects_duplicate_keys_nonfinite_and_unbounded_input(self):
+        self.assertEqual(
+            hosted.decode_receipt(b'{"value":{"count":35}}'), {"value": {"count": 35}}
+        )
+        for raw in (
+            b"",
+            b"\xff",
+            b'{"count":1,"count":35}',
+            b'{"nested":{"state":0,"state":1}}',
+            b'{"value":NaN}',
+            b'{"value":Infinity}',
+            b'{"value":-Infinity}',
+            b'{"value":1e999}',
+            b"x" * (4 * 1024 * 1024 + 1),
+        ):
+            with self.subTest(raw=raw[:40]), self.assertRaises(hosted.HostedRefused):
+                hosted.decode_receipt(raw)
+
+    def test_persistent_failure_keeps_fixed_checkpoint_without_claiming_measurements(
+        self,
+    ):
+        options = {
+            "NM2_SCENARIO": "persistent-availability",
+            "NM2_DATABASE_REVISION": "0041persistentruntime",
+        }
+        public = self.failed_harness(
+            options=options,
+            mutate=lambda raw: raw.update(
+                stage="persistent_job_release",
+                reason="persistent_status_refused",
+                measurements={"private": "private-canary"},
+                proof={"secret": "private-canary"},
+            ),
+        )
+        self.assertEqual(public["schema"], "vardr.nm2-hosted/3")
+        self.assertEqual(
+            public["harness_failure"],
+            {"stage": "persistent_job_release", "reason": "persistent_status_refused"},
+        )
+        unknown = self.failed_harness(
+            options=options,
+            mutate=lambda raw: raw.update(
+                stage="persistent_private-canary", reason="persistent_private-canary"
+            ),
+        )
+        self.assertEqual(
+            unknown["harness_failure"],
+            {"stage": "unclassified", "reason": "unclassified_refusal"},
+        )
+
+    def test_mismatched_persistent_failure_policy_remains_unobserved(self):
+        public = self.failed_harness(
+            options={
+                "NM2_SCENARIO": "persistent-availability",
+                "NM2_DATABASE_REVISION": "0041persistentruntime",
+            },
+            mutate=lambda raw: raw.update(
+                expected_database_revision="0040runtimesequence"
+            ),
+        )
+        self.assertEqual(
+            public["harness_failure"],
+            {"stage": "unobserved", "reason": "receipt_unavailable_or_invalid"},
+        )
 
     def test_failed_command_preserves_only_safe_inner_http_diagnostic(self):
         def diagnostic(raw):

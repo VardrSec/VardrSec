@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add an explicitly selected Ubuntu persistent-availability counterpart over the
+  same worker fixture and exact four source commits. Recheck compact original
+  receipts before exporting only statuses/counts/hashes; reject duplicate,
+  nonfinite or oversized evidence. Keep finite defaults and all acceptance gates.
+- Give only the selected 35-job controlled fixture its explicit 175-request
+  target ceiling; ordinary fixture traffic retains its existing 60-request cap.
+
 - Add a separately selected persistent-availability fixture: fresh ready idle for
   70 seconds, 35 individually approved jobs and explicit operator stop/reporting
   in one exact incarnation. Preserve finite fixtures, default source-only checks,

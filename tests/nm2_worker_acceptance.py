@@ -114,6 +114,15 @@ def digest(value):
     return hashlib.sha256(value).hexdigest()
 
 
+def target_environment(scenario):
+    require(scenario in SCENARIOS, "fixture_scenario_refused")
+    if scenario == "persistent-availability":
+        return {"NM2_FIXTURE_REQUEST_CEILING": "175"}
+    if scenario != "healthy":
+        return {"NM2_FIXTURE_DELAY_SECONDS": "15"}
+    return {}
+
+
 def command(arguments, *, cwd=None, env=None, stdin=None, timeout=30):
     """Never echo a command's stdout/stderr or secret environment on failure."""
     if isinstance(stdin, str):
@@ -1249,8 +1258,9 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "restart": "no",
             "labels": {"io.vardrsec.nm2-fixture": self.project},
         }
-        if self.scenario not in {"healthy", "persistent-availability"}:
-            target["environment"] = {"NM2_FIXTURE_DELAY_SECONDS": "15"}
+        environment = target_environment(self.scenario)
+        if environment:
+            target["environment"] = environment
         self.overlay["services"]["gate-fixture"] = target
         self.write_overlay()
         self.compose("up", "-d", "--no-build", "--pull", "never", "gate-fixture")
@@ -3351,6 +3361,20 @@ print(json.dumps(result))
             "remaining_local_holds": 0,
             "retirement_receipt_sha256": retirement["receipt_sha256"],
             "runtime_acceptance_scope": "persistent_availability_only",
+            "proof": {
+                "idle": idle,
+                "runtime": runtime,
+                "inventories": [
+                    {
+                        key: value
+                        for key, value in inventory.items()
+                        if key != "runtimes"
+                    }
+                    for inventory in inventories
+                ],
+                "retirement": retirement,
+                "retained": retained,
+            },
         }
 
     def worker(self, runner_id, enrollment_id, *, on_running=None):
