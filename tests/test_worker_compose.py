@@ -22,9 +22,8 @@ class WorkerComposeTests(unittest.TestCase):
 
     def test_only_approved_bootstrap_caps_and_bounded_writable_data_are_declared(self):
         root = Path(__file__).resolve().parents[1]
-        worker = json.loads((root / "compose.worker.json").read_text())["services"][
-            "managed-worker"
-        ]
+        overlay = json.loads((root / "compose.worker.json").read_text(encoding="utf-8"))
+        worker = overlay["services"]["managed-worker"]
         self.assertEqual(worker["user"], "0:0")
         self.assertIs(worker["read_only"], True)
         self.assertEqual(worker["ipc"], "private")
@@ -38,13 +37,27 @@ class WorkerComposeTests(unittest.TestCase):
         mounts = {entry["target"]: entry for entry in worker["volumes"]}
         self.assertEqual(
             set(mounts),
-            {"/home/runner/.vardrmap", "/trust", "/run/vardr-worker-admission"},
+            {
+                "/home/runner/.vardrmap",
+                "/trust",
+                "/run/vardr-worker-admission",
+                "/run/vardr-worker-ready",
+            },
         )
         self.assertTrue(
             mounts["/trust"]["read_only"]
             and mounts["/run/vardr-worker-admission"]["read_only"]
         )
-        self.assertEqual(len(worker["tmpfs"]), 2)
+        self.assertEqual(len(worker["tmpfs"]), 1)
+        self.assertTrue(worker["tmpfs"][0].startswith("/tmp:"))
+        self.assertEqual(mounts["/run/vardr-worker-ready"]["type"], "volume")
+        self.assertEqual(mounts["/run/vardr-worker-ready"]["source"], "worker-ready")
+        self.assertEqual(set(overlay["volumes"]), {"worker-ready"})
+        ready = overlay["volumes"]["worker-ready"]
+        self.assertTrue(ready["name"].startswith("${VARDRSEC_WORKER_READY_VOLUME:?"))
+        self.assertEqual(ready["driver"], "local")
+        self.assertNotIn("driver_opts", ready)
+        self.assertEqual(ready["labels"], {"io.vardrsec.managed-worker-ready": "1"})
         self.assertNotIn("docker.sock", json.dumps(worker))
         self.assertNotIn("ports", worker)
         self.assertNotIn("privileged", worker)

@@ -7,7 +7,8 @@ and Mapless Compose definitions are unchanged.
 `compose.worker.json` is the separate inactive candidate overlay. It declares the
 reviewed worker-only bootstrap, finite resource bounds, retained no-restart state
 and exact writable paths. It requires an explicitly selected local image, enrolled
-key, public admission directory and private worker-only environment file. Existing
+key, public admission directory, private worker-only environment file and a fresh
+per-incarnation `VARDRSEC_WORKER_READY_VOLUME` name. Existing
 API signing configuration, runtime admission, enable/stop/reconciliation commands
 and actual integrated acceptance must be completed before this is a usable worker
 deployment. The overlay is not loaded by ordinary distribution commands.
@@ -29,8 +30,10 @@ at thirty seconds overall, with at most fifteen seconds per command. The daemon
 and trusted host remain part of the trust boundary; this is not attestation.
 
 The caller supplies a protected `WorkerLayout` binding the exact public trust,
-public admission and state-volume sources. Only those data destinations and the
-two reviewed tmpfs destinations are allowed. Code/socket/extra mounts, writable
+public admission, state-volume and separate readiness-volume sources. Only these
+four data destinations and the reviewed `/tmp` tmpfs are allowed. The readiness
+volume uses the default local driver without options and normal Compose ownership
+labels plus `io.vardrsec.managed-worker-ready=1`. Code/socket/extra mounts, writable
 admission, an alternate entrypoint/command, an exec health check, writable image
 root or shared IPC refuse admission and exit proof. Ordinary Compose is unchanged.
 
@@ -39,7 +42,27 @@ bounded `0400`, UID/GID-10000 readiness file through a direct Docker tar stream.
 It never inserts an exec/health process. Strict readiness data must report the
 fixed owner identity, no-new-privileges and five empty capability sets; pre/post
 inspection must retain the same running incarnation. The reviewed image/code and
-private owner tmpfs establish the file's producer; caller JSON does not.
+private owner-only readiness volume establish the file's producer; caller JSON
+does not. The image precreates its empty directory as UID/GID 10000, mode 0700;
+fresh-volume metadata copy needs no additional runtime capability. Every new
+incarnation requires a new unused volume name. Existing files are never overwritten,
+and stopped state is retained.
+
+Two bounded pre-admission trials refused the earlier tmpfs readback. Docker's
+[documented copy limitations](https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases)
+exclude tmpfs resources. Those failed receipts remain unchanged; this small
+metadata-volume correction still needs a fresh committed-image platform proof.
+It introduces no service, Docker socket, exec/health process or raw secret mount.
+The refusals do not establish that the native writer failed to publish its file.
+
+Both volume records must match the selected daemon's default-local data paths,
+project/role labels, exact names and mounts, with no driver options or plugins.
+Host custody resolves actual host binds and private directories strictly. It
+resolves accessible managed data paths too; only an actual permission refusal or
+the separate Windows Docker-VM namespace permits the validated daemon path to be
+compared lexically. Missing paths and other filesystem errors refuse. Windows
+Desktop drive mappings are explicit; arbitrary POSIX bind sources are never
+silently treated as VM volumes.
 
 An observation alone cannot register authority, release a reservation or report
 success. Future protocol composition must require the independently approved,

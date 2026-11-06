@@ -11,6 +11,7 @@
       "restart": "no",
       "read_only": true,
       "ipc": "private",
+      "cgroup": "private",
       "cap_drop": ["ALL"],
       "cap_add": ["SETUID", "SETGID", "SETPCAP"],
       "security_opt": ["no-new-privileges:true"],
@@ -31,14 +32,21 @@
       "env_file": ["${VARDRSEC_WORKER_CREDENTIAL_FILE:?Select an explicit private worker-only environment file}"],
       "volumes": [
         {"type": "volume", "source": "runner-state", "target": "/home/runner/.vardrmap"},
+        {"type": "volume", "source": "worker-ready", "target": "/run/vardr-worker-ready"},
         {"type": "bind", "source": "./trust", "target": "/trust", "read_only": true, "bind": {"create_host_path": false}},
         {"type": "bind", "source": "${VARDRSEC_WORKER_PUBLIC_DIR:?Select the public admission directory}", "target": "/run/vardr-worker-admission", "read_only": true, "bind": {"create_host_path": false}}
       ],
       "tmpfs": [
-        "/tmp:rw,noexec,nosuid,nodev,size=67108864,uid=10001,gid=10001,mode=0700",
-        "/run/vardr-worker-ready:rw,noexec,nosuid,nodev,size=65536,uid=10000,gid=10000,mode=0700"
+        "/tmp:rw,noexec,nosuid,nodev,size=67108864,uid=10001,gid=10001,mode=0700"
       ],
       "networks": ["runner"]
+    }
+  },
+  "volumes": {
+    "worker-ready": {
+      "name": "${VARDRSEC_WORKER_READY_VOLUME:?Select a fresh unused per-incarnation readiness volume}",
+      "driver": "local",
+      "labels": {"io.vardrsec.managed-worker-ready": "1"}
     }
   }
 }

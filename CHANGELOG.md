@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Replace the candidate's unreadable tmpfs readiness path with a fresh, explicit
+  per-incarnation default-local metadata volume. Pin all four data mounts and
+  validate daemon volume metadata without requiring host-root traversal. Keep
+  strict host-bind/private-path checks and preserve the two refused proof receipts;
+  corrected platform acceptance remains pending. Add no service, capability or
+  secret mount, and keep ordinary Full/Mapless startup unchanged.
 - Add an inactive, explicitly selected worker Compose overlay with retained
   no-restart state, finite resource limits and the reviewed writable paths. API
   wiring, enable/stop/recovery commands and actual worker acceptance remain open;

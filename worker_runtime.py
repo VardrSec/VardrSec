@@ -25,6 +25,31 @@ def require(value):
         raise RuntimeRefused("worker_runtime_refused")
 
 
+def host_bind_path(value):
+    """Recognize only literal native paths and documented Desktop drive maps."""
+    require(
+        type(value) is str
+        and 0 < len(value) <= 4096
+        and not any(c in value for c in "\0\r\n")
+    )
+    windows = PureWindowsPath(value)
+    if windows.is_absolute():
+        require(".." not in windows.parts)
+        return windows
+    for prefix in ("/run/desktop/mnt/host/", "/host_mnt/"):
+        if value.startswith(prefix):
+            parts = value[len(prefix) :].split("/")
+            require(
+                len(parts) > 1
+                and re.fullmatch(r"[a-zA-Z]", parts[0])
+                and all(p not in {"", ".", ".."} for p in parts)
+            )
+            return PureWindowsPath(parts[0] + ":/", *parts[1:])
+    path = PurePosixPath(value)
+    require(path.is_absolute() and ".." not in path.parts and path.as_posix() == value)
+    return path
+
+
 _ID = re.compile(r"[0-9a-f]{64}")
 _IMAGE = re.compile(r"sha256:[0-9a-f]{64}")
 _PROOF = object()
@@ -41,6 +66,11 @@ _INSPECT = (
     '"auto_remove":{{json .HostConfig.AutoRemove}},'
     '"readonly_root":{{json .HostConfig.ReadonlyRootfs}},'
     '"ipc":{{json .HostConfig.IpcMode}},"tmpfs":{{json .HostConfig.Tmpfs}},'
+    '"cgroup":{{json .HostConfig.CgroupnsMode}},'
+    '"devices":{{json .HostConfig.Devices}},"device_requests":{{json .HostConfig.DeviceRequests}},'
+    '"port_bindings":{{json .HostConfig.PortBindings}},"publish_all":{{json .HostConfig.PublishAllPorts}},'
+    '"memory":{{json .HostConfig.Memory}},"pids":{{json .HostConfig.PidsLimit}},'
+    '"nano_cpus":{{json .HostConfig.NanoCpus}},"oom_disable":{{json .HostConfig.OomKillDisable}},'
     '"restart":{{json .HostConfig.RestartPolicy.Name}},'
     '"cap_add":{{json .HostConfig.CapAdd}},'
     '"cap_drop":{{json .HostConfig.CapDrop}},'
@@ -90,6 +120,7 @@ class WorkerLayout:
     trust_source: str
     admission_source: str
     state_volume: str
+    readiness_volume: str
 
     def __post_init__(self):
         for value in (self.trust_source, self.admission_source):
@@ -107,10 +138,12 @@ class WorkerLayout:
                 path.is_absolute() and len(path.parts) > 1 and ".." not in path.parts
             )
         require(self.trust_source != self.admission_source)
-        require(
-            type(self.state_volume) is str
-            and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", self.state_volume)
-        )
+        for volume in (self.state_volume, self.readiness_volume):
+            require(
+                type(volume) is str
+                and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", volume)
+            )
+        require(self.state_volume != self.readiness_volume)
 
 
 @dataclass(frozen=True, init=False)
@@ -231,6 +264,18 @@ class LocalDocker:
                 and host["auto_remove"] is False
                 and host["readonly_root"] is True
                 and host["ipc"] == "private"
+                and host["cgroup"] == "private"
+                and host["devices"] in (None, [])
+                and host["device_requests"] in (None, [])
+                and host["port_bindings"] in (None, {})
+                and host["publish_all"] is False
+                and type(host["memory"]) is int
+                and host["memory"] == 536870912
+                and type(host["pids"]) is int
+                and host["pids"] == 64
+                and type(host["nano_cpus"]) is int
+                and host["nano_cpus"] == 1000000000
+                and (host["oom_disable"] is None or host["oom_disable"] is False)
                 and host["restart"] in {"", "no"}
                 and {v.upper().removeprefix("CAP_") for v in host["cap_add"]}
                 == {"SETUID", "SETGID", "SETPCAP"}
@@ -247,14 +292,34 @@ class LocalDocker:
                 and state["Restarting"] is False
                 and state["Paused"] is False
             )
+            self._volume_sources(identity.project, value["mounts"])
         except (KeyError, TypeError, AttributeError):
             raise RuntimeRefused("worker_runtime_refused") from None
         return value
+
+    def _volume_sources(self, project, mounts):
+        # Pure validation is shared with host custody; no host-root traversal or
+        # recursive observation lock is needed inside this already bounded call.
+        import worker_volumes as volumes
+
+        root = volumes.daemon_root(
+            self._command("info", "--format", volumes.DAEMON_FORMAT)
+        )
+        rows = {
+            name: volumes.parse_document(
+                self._command(
+                    "volume", "inspect", "--format", volumes.VOLUME_FORMAT, name
+                )
+            )
+            for name in (self.layout.state_volume, self.layout.readiness_volume)
+        }
+        return volumes.validate_sources(self.layout, project, mounts, root, rows)
 
     def _mounts(self, mounts):
         require(type(mounts) is list)
         expected = {
             "/home/runner/.vardrmap": ("volume", self.layout.state_volume, True),
+            "/run/vardr-worker-ready": ("volume", self.layout.readiness_volume, True),
             "/trust": ("bind", self.layout.trust_source, False),
             "/run/vardr-worker-admission": (
                 "bind",
@@ -268,7 +333,7 @@ class LocalDocker:
             destination = mount.get("Destination")
             require(type(destination) is str and destination not in seen)
             seen.add(destination)
-            if destination in {"/tmp", "/run/vardr-worker-ready"}:
+            if destination == "/tmp":
                 require(mount.get("Type") == "tmpfs" and mount.get("RW") is True)
                 continue
             require(destination in expected)
@@ -276,18 +341,18 @@ class LocalDocker:
             require(
                 mount.get("Type") == kind
                 and mount.get("RW") is writable
-                and mount.get("Name" if kind == "volume" else "Source") == source
+                and (
+                    mount.get("Name") == source
+                    if kind == "volume"
+                    else host_bind_path(mount.get("Source")) == host_bind_path(source)
+                )
             )
         require(set(expected) <= seen)
 
     def _tmpfs(self, definitions):
-        require(
-            type(definitions) is dict
-            and set(definitions) == {"/tmp", "/run/vardr-worker-ready"}
-        )
+        require(type(definitions) is dict and set(definitions) == {"/tmp"})
         for path, uid, size in [
             ("/tmp", "10001", "67108864"),
-            ("/run/vardr-worker-ready", "10000", "65536"),
         ]:
             options = definitions[path]
             require(type(options) is str and len(options) <= 256)
@@ -418,6 +483,28 @@ class LocalDocker:
         try:
             self._deadline = time.monotonic() + 30
             return self._observe_exit(identity)
+        finally:
+            self._deadline = None
+            self._observation_lock.release()
+
+    def confirm_exit(self, proof):
+        """Recheck direct exit immediately before the caller's durable intent."""
+        require(isinstance(proof, ObservedExit))
+        require(self._observation_lock.acquire(blocking=False))
+        try:
+            self._deadline = time.monotonic() + 30
+            value = self._bound(proof.identity)
+            state = value["state"]
+            require(
+                state["Status"] == "exited"
+                and state["Running"] is False
+                and state.get("Dead", False) is False
+                and type(state["ExitCode"]) is int
+                and state["ExitCode"] == proof.exit_code
+                and state["FinishedAt"] == proof.finished_at
+            )
+        except (KeyError, TypeError):
+            raise RuntimeRefused("worker_runtime_refused") from None
         finally:
             self._deadline = None
             self._observation_lock.release()

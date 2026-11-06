@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 import worker_runtime as runtime
+import worker_volumes as volumes
 
 
 class WorkerRuntimeTests(unittest.TestCase):
@@ -23,7 +24,10 @@ class WorkerRuntimeTests(unittest.TestCase):
             "c" * 64,
         )
         self.layout = runtime.WorkerLayout(
-            "/owned/trust", "/owned/admission", "owned-fixture_runner-state"
+            "/owned/trust",
+            "/owned/admission",
+            "owned-fixture_runner-state",
+            "owned-fixture_ready-fresh",
         )
         self.info = {
             "id": self.identity.container_id,
@@ -41,7 +45,19 @@ class WorkerRuntimeTests(unittest.TestCase):
             "mounts": [
                 {
                     "Type": "volume",
+                    "Name": self.layout.readiness_volume,
+                    "Source": "/var/lib/docker/volumes/"
+                    + self.layout.readiness_volume
+                    + "/_data",
+                    "Destination": "/run/vardr-worker-ready",
+                    "RW": True,
+                },
+                {
+                    "Type": "volume",
                     "Name": self.layout.state_volume,
+                    "Source": "/var/lib/docker/volumes/"
+                    + self.layout.state_volume
+                    + "/_data",
                     "Destination": "/home/runner/.vardrmap",
                     "RW": True,
                 },
@@ -75,9 +91,17 @@ class WorkerRuntimeTests(unittest.TestCase):
                 "auto_remove": False,
                 "readonly_root": True,
                 "ipc": "private",
+                "cgroup": "private",
+                "devices": [],
+                "device_requests": [],
+                "port_bindings": {},
+                "publish_all": False,
+                "memory": 536870912,
+                "pids": 64,
+                "nano_cpus": 1000000000,
+                "oom_disable": False,
                 "tmpfs": {
                     "/tmp": "rw,noexec,nosuid,nodev,size=67108864,uid=10001,gid=10001,mode=0700",
-                    "/run/vardr-worker-ready": "rw,noexec,nosuid,nodev,size=65536,uid=10000,gid=10000,mode=0700",
                 },
                 "restart": "no",
                 "cap_add": ["SETUID", "SETGID", "SETPCAP"],
@@ -111,6 +135,22 @@ class WorkerRuntimeTests(unittest.TestCase):
         }
         self.archive_uid, self.archive_mode = 10000, 0o400
         self.archive_type = tarfile.REGTYPE
+        self.volume_rows = {
+            name: {
+                "name": name,
+                "driver": "local",
+                "scope": "local",
+                "options": None,
+                "source": "/var/lib/docker/volumes/" + name + "/_data",
+                "project": self.identity.project,
+                "volume": logical,
+                "ready": "1" if logical == "worker-ready" else None,
+            }
+            for name, logical in (
+                (self.layout.state_volume, "runner-state"),
+                (self.layout.readiness_volume, "worker-ready"),
+            )
+        }
 
     def command(self, argv, **kwargs):
         self.calls.append((argv, kwargs))
@@ -118,7 +158,13 @@ class WorkerRuntimeTests(unittest.TestCase):
         if args[:2] == ["context", "inspect"]:
             value = json.dumps(self.endpoint)
         elif args[0] == "info":
-            value = json.dumps(self.daemon)
+            value = (
+                json.dumps({"root": "/var/lib/docker", "os": "linux"})
+                if args[-1] == volumes.DAEMON_FORMAT
+                else json.dumps(self.daemon)
+            )
+        elif args[:2] == ["volume", "inspect"]:
+            value = json.dumps(self.volume_rows[args[-1]])
         elif args[:2] == ["container", "wait"]:
             value = self.wait
         elif args[:2] == ["container", "cp"]:
@@ -208,6 +254,14 @@ class WorkerRuntimeTests(unittest.TestCase):
             ("host.cap_add", ["SETUID", "SETGID", "SETPCAP", "KILL"]),
             ("host.cap_drop", []),
             ("host.security", []),
+            ("host.security", ["no-new-privileges:true", "seccomp=unconfined"]),
+            ("host.cgroup", "host"),
+            ("host.memory", 0),
+            ("host.pids", -1),
+            ("host.nano_cpus", 0),
+            ("host.oom_disable", True),
+            ("host.devices", [{"PathOnHost": "/dev/mem"}]),
+            ("host.port_bindings", {"80/tcp": [{"HostPort": "8080"}]}),
             ("labels.com.docker.compose.project", "somebody-else"),
         ]
         original = copy.deepcopy(self.info)
@@ -343,9 +397,79 @@ class WorkerRuntimeTests(unittest.TestCase):
                 with self.assertRaises(runtime.RuntimeRefused):
                     self.observe()
         self.info["mounts"] = copy.deepcopy(original)
-        self.info["mounts"][2]["RW"] = True
+        next(
+            m
+            for m in self.info["mounts"]
+            if m["Destination"] == "/run/vardr-worker-admission"
+        )["RW"] = True
         with self.assertRaises(runtime.RuntimeRefused):
             self.observe()
+
+    def test_ready_volume_must_be_distinct_exact_and_not_tmpfs_or_bind(self):
+        with self.assertRaises(runtime.RuntimeRefused):
+            replace(self.layout, readiness_volume=self.layout.state_volume)
+        original = copy.deepcopy(self.info["mounts"])
+        for change in (
+            {"Type": "tmpfs"},
+            {"Type": "bind", "Source": "/untrusted"},
+            {"Name": "stale-other-volume"},
+            {"RW": False},
+        ):
+            with self.subTest(change=change):
+                self.info["mounts"] = copy.deepcopy(original)
+                mount = next(
+                    m
+                    for m in self.info["mounts"]
+                    if m["Destination"] == "/run/vardr-worker-ready"
+                )
+                mount.update(change)
+                with self.assertRaises(runtime.RuntimeRefused):
+                    self.observe()
+        self.info["mounts"] = original
+        self.info["host"]["tmpfs"]["/run/vardr-worker-ready"] = (
+            "rw,noexec,nosuid,nodev,size=65536,uid=10000,gid=10000,mode=0700"
+        )
+        with self.assertRaises(runtime.RuntimeRefused):
+            self.observe()
+
+    def test_nondefault_ready_volume_is_refused_before_copy(self):
+        self.info["state"].update(Status="running", Running=True)
+        self.volume_rows[self.layout.readiness_volume]["options"] = {
+            "type": "none",
+            "o": "bind",
+            "device": "/unreviewed",
+        }
+        with self.assertRaises(runtime.RuntimeRefused):
+            self.capture()
+        self.assertFalse(
+            any(argv[3:5] == ["container", "cp"] for argv, _ in self.calls)
+        )
+
+    def test_only_reviewed_desktop_drive_translation_matches_host_bind(self):
+        self.layout = replace(
+            self.layout,
+            trust_source="C:/owned/trust",
+            admission_source="C:/owned/admission",
+        )
+        for mount in self.info["mounts"]:
+            if mount["Destination"] == "/trust":
+                mount["Source"] = "/run/desktop/mnt/host/c/owned/trust"
+            if mount["Destination"] == "/run/vardr-worker-admission":
+                mount["Source"] = "/host_mnt/c/owned/admission"
+        self.assertEqual(self.observe().identity, self.identity)
+        next(m for m in self.info["mounts"] if m["Destination"] == "/trust")[
+            "Source"
+        ] = "/run/desktop/mnt/host/c/elsewhere"
+        with self.assertRaises(runtime.RuntimeRefused):
+            self.observe()
+
+    def test_direct_recheck_rejects_restart_between_observation_and_report_intent(self):
+        proof = self.observe()
+        with patch.object(runtime.subprocess, "run", self.command):
+            runtime.LocalDocker("desktop-linux", self.layout).confirm_exit(proof)
+            self.info["state"]["StartedAt"] = "2026-11-05T20:01:00Z"
+            with self.assertRaises(runtime.RuntimeRefused):
+                runtime.LocalDocker("desktop-linux", self.layout).confirm_exit(proof)
 
 
 if __name__ == "__main__":
