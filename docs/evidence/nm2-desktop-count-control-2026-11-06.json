@@ -1,0 +1,104 @@
+{
+  "date": "2026-11-06",
+  "independent_projection": {
+    "guard_blocked_count": 0,
+    "reader_sha256": "b26225174bcfcb6c31fed320f177eb2a1cd0b8d9f0ee17d5c3c2a27ed25f2edc",
+    "source_unchanged": true
+  },
+  "limits": [
+    "Windows Docker Desktop Linux containers; max_attempts=1 and no idle timeout only.",
+    "No Linux, unlimited availability, optional idle or remaining failure-matrix acceptance.",
+    "Native and evidence digests correlate trusted producer/host observations; they are not independent attestation.",
+    "Controller Python audit guard and two-file before/after checks are not an operating-system sandbox.",
+    "One empty built-in bridge identity change was admitted by the existing narrow inventory rule; its cause remains unknown.",
+    "No release, component-pin advancement, deployment or NM3 continuation."
+  ],
+  "nm2_closed": false,
+  "nm3_status": "paused_preserved",
+  "operator_profile_files_unchanged": true,
+  "public_receipt_sha256": "c364a7a2cda3f114cdec86480357af2d24a26d13b1887350a2e77c8b260b83cd",
+  "raw_receipt_sha256": "abf95875850b3ad10eaecd2a0057a76952e79a5bb3903c1296e3da2de879deaa",
+  "result": {
+    "cases": {
+      "default_disabled": "passed",
+      "happy_fixed": "not_run",
+      "healthy_sequence": "not_run",
+      "missing_local_grant": "not_run",
+      "persistent_count_limit": "passed",
+      "strict_out_of_scope": "passed"
+    },
+    "container_platform": "linux",
+    "executables": {
+      "gate_sha256": "9822f13ba83ef9b8ba6c73d746e1e16ab025e9879d15fc971199ad19441f236c",
+      "native_owner_sha256": "8880528d5043b89b1e164769ec3b49a2cefe81db3545c5ef9093fe28192ad104"
+    },
+    "inventory_guard": {
+      "after_counts": {
+        "containers": 134,
+        "images": 84,
+        "networks": 56,
+        "volumes": 98
+      },
+      "before_counts": {
+        "containers": 128,
+        "images": 84,
+        "networks": 53,
+        "volumes": 93
+      },
+      "new_stopped_owned_container_count": 6,
+      "semantic_bridge_classification": {
+        "cause": "unknown",
+        "empty_builtin_bridge_id_change_count": 1
+      },
+      "status": "passed"
+    },
+    "measurements": {
+      "admission_sha256": "1af947fec53620cd303eb51e6061417f269ef3c4ea555c0176a4a5a13deccd16",
+      "artifact_sha256": "7a6c90dbef79dd6c356f9cdb6c63a53d9a18cbeb2be43411f58d8b1f59c4a5a1",
+      "case_sha256": "56a9f6ae090fb7b32657d5af7714d19d50c789b069141d5da1964f59773f3c40",
+      "evidence_count": 5,
+      "evidence_sha256": "0c4b76261ed48c8156e2700d818b7d43937390159520aa540ca8b03737a12191",
+      "issued_attempts": 1,
+      "last_sequence": "1",
+      "limits": {
+        "idle_timeout_seconds": null,
+        "max_attempts": "1"
+      },
+      "plan_sha256": [
+        "cc8c27910f3ec3ac2d44ae8f354f75bbec7ee3400d5493d2d37dabca8d8688f5",
+        "0d9ce22e9386160c594ec2d034851dab4033f7b71eb90b64a54e88db59d0ef3d"
+      ],
+      "public_ca_der_sha256": "2789018852202cb97089f32aa3824fb57f70c9a32bc154c6918042e02c5132eb",
+      "remaining_local_holds": 0,
+      "retirement_receipt_sha256": "28cf76f1091ceddc71c989b628b340f1c3dabc1a9799e1f5fac33556a2209c58",
+      "runtime_sha256": "6bf1660522b7cde195f5d5c2e978dabfa3ba186cc176bfa4405d30966bcea7a9",
+      "stopped_owned_container_count": 6,
+      "target_request_count": 5,
+      "unissued_duration_charge": 0,
+      "unissued_target_charge": 0
+    },
+    "nm2_exit_status": "incomplete",
+    "platform": "win32",
+    "remaining_matrix_status": "not_closed",
+    "schema": "vardr.nm2-worker-count-desktop-public/1",
+    "source_inventories": {
+      "map": {
+        "python_file_count": 126,
+        "python_inventory_sha256": "a9b4c57e0fab3b20de25b5156869b04b759c8e0be37bcdb68155719b75b24d9d"
+      },
+      "runner": {
+        "python_file_count": 76,
+        "python_inventory_sha256": "13695806fb85d3b52445ba09416d401a15aa2183a4f26894adfe2c782e75006c"
+      }
+    },
+    "status": "selected_count_control_slice_passed"
+  },
+  "schema": "vardr.nm2-desktop-count-control-evidence/1",
+  "sources": {
+    "distribution": "dc473835dc453bb5f0fa4a8560f41711d57e64ba",
+    "gate": "d80d4730b8486b75be72431b5af88e0ddb45020b",
+    "map": "52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c",
+    "runner": "e8cdec333af0ed721504f3857369a76c8a8a4e06"
+  },
+  "status": "selected_count_control_slice_passed"
+}

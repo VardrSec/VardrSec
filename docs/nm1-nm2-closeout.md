@@ -64,7 +64,8 @@ The host receipt strictness fix and Windows/Ubuntu compatibility checks passed.
 The owner approved the explicit persistent STOP-report lifetime for isolated
 testing on 2026-11-06, retaining its disclosed trusted-host risk. Current Runner,
 Map and Gate component CI gates passed, including Map's PostgreSQL and coupled
-Map/Runner/Gate integration. Persistent availability and the complete physical
-failure matrix remain open. The first Desktop availability attempt held on a
+Map/Runner/Gate integration. The [selected Desktop unlimited/count slices](nm2-worker-acceptance-evidence.md)
+now pass for their exact cohort. Linux availability/count, optional idle,
+zero-job/next-enable and the complete physical failure matrix remain open. The first Desktop availability attempt held on a
 fixture status refusal; its stopped resources and original evidence are retained.
 No component pass closes NM-2 or resumes NM-3.

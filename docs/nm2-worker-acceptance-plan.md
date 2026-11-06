@@ -359,7 +359,7 @@ executable/source inventories and the retained stopped-container count. A failed
 stage remains `held`; raw logs, snapshots, sessions, keys, paths and custody are
 excluded. Hosted success does not establish Desktop/native Windows acceptance.
 
-## Optional persistent count control: development candidate
+## Optional persistent count control: selected Desktop slice verified
 
 The explicitly selected `persistent-count-limit` fixture uses schema
 `0041persistentruntime`, persistent admission with `max_attempts: "1"`, and no
@@ -385,8 +385,10 @@ Hosted execution still requires explicit opt-in and four exact reviewed source
 commits; healthy remains the default scenario. Default platform startup starts no
 worker. Count control does not satisfy the separate unlimited-availability proof:
 70 seconds of ready idle, 35 individually authorized jobs, 175 requests and an
-explicit operator stop remain required. Actual count platform acceptance and the
-remaining NM-2 matrix are open; NM-3 remains paused.
+explicit operator stop remain required. The [selected Desktop count and unlimited
+slices](nm2-worker-acceptance-evidence.md) now pass for the recorded exact cohort;
+Linux remains held. Actual optional idle, zero-job/next-enable and the remaining
+NM-2 matrix stay open; NM-3 remains paused.
 
 Count-only fixture inventory schema4 preserves the existing eight approval
 metadata fields and adds `approval_context_sha256`, keyed by the exact registered

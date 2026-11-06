@@ -5,7 +5,38 @@ paused. These receipts establish specific development slices, not release or
 complete worker acceptance. The [acceptance plan](nm2-worker-acceptance-plan.md)
 and [closeout control record](nm1-nm2-closeout.md) retain the remaining gates.
 
-## Persistent candidate: component evidence only
+## Verified Desktop development slices (2026-11-06)
+
+The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
+passed on actual Docker Desktop with Distribution `dc473835`, Map `52e7b5b`,
+Runner `e8cdec3` and Gate `d80d473`: 70.0003674 seconds of ready idle with zero
+target traffic, 35 separately authorized jobs, 175 target requests and evidence
+records, explicit operator stop, host/original-key reconciliation and zero local
+holds. All six owned containers stopped and were retained. The strict offline
+reader independently checked the original receipt and supplied inventories.
+
+The separate [optional count-one slice](evidence/nm2-desktop-count-control-2026-11-06.json)
+passed for the same source cohort: one original job/five requests, native clean
+exit without operator stop, and a still-eligible second job left unissued with
+zero target/duration charge. It has no unlimited-availability or idle-timeout
+credit. Both guards preserved the approved personal Runner files and unrelated
+resources; the existing rule admitted only empty built-in bridge identity churn,
+whose cause remains unknown. Digests correlate observations, not attestation.
+
+[Linux count run 42284035325](https://github.com/VardrSec/VardrSec/actions/runs/42284035325)
+remained [held at local recapture](evidence/nm2-ubuntu-count-local-capture-held-2026-11-06.json),
+with no completed count proof. Both compatibility jobs passed. The reviewed
+recapture diagnostic correction passed the [complete guarded unit suite](evidence/nm2-distribution-local-capture-units-2026-11-06.json):
+502 tests, including 18 skips, zero failures/errors and zero forbidden attempts.
+It changes fixed diagnostics only; the actual held cause remains unknown.
+
+Linux availability/count, actual optional native-idle 124, genuine zero-issued-job
+stop, same-installation next enablement and the integrated failure/containment
+matrix remain open. The current CLI can admit an already prepared worker but
+has no complete supported stop/retire/prepare-next/enable flow. This stays an
+NM-2 usability gate. No new API, service or infrastructure has been accepted.
+
+## Earlier component and held evidence
 
 The integrated fixture corrections passed the [complete guarded Distribution unit suite](evidence/nm2-distribution-guarded-units-2026-11-06.json): 447 tests run, zero failures/errors and 18 skip entries, with 181 sources, staged index, HEAD and operator files unchanged. All five helper interpreters retained guards and no prohibited operation was attempted. The earlier controller hold remains separate; no physical acceptance is inferred.
 
@@ -248,6 +279,6 @@ for Docker Desktop worker containment.
 ADR 0043's remaining independent review, bootstrap/channel/owner-loss, pressure
 and supported-host clock obligations remain open. Previously stopped adversarial
 experiments stay stopped. Missing proof is neither an accepted risk nor an NM-5
-deferral. The finite worker lifecycle's mapping to the original background
-service-availability requirement also remains unresolved. No new infrastructure,
+deferral. The selected Desktop unlimited-availability slice now has separate
+evidence; Linux, optional idle and checked next enablement remain open. No new infrastructure,
 automatic restart, component pin or release is accepted by this evidence.

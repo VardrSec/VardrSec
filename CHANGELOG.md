@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Record independently checked Docker Desktop persistent availability (70-second
+  idle, 35 authorized jobs, 175 requests/evidence, explicit stop/reconciliation)
+  and optional count-one slices. Keep Linux, optional idle, zero-job/re-enable
+  and the remaining safety matrix open; NM-3 remains paused.
+
 - Preserve closed observer checkpoints during persistent registration recapture,
   distinguishing a changed valid identity from a capture refusal. Keep unknown
   metadata generic and retain all existing captures, deadlines, custody checks
