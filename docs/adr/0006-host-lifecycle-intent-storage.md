@@ -261,3 +261,24 @@ empty before start, including for the real managed profile. A Created slot is
 not a running network identity and cannot satisfy this check. Linux physical
 shape qualification, the supported facade and both-platform lifecycle acceptance
 remain open. No container execution or acceptance credit is added here.
+
+
+## Independent observation of the existing runner network
+
+The same local observer can read one literal named runner network from the
+selected daemon. It requires the project's default local bridge, its full ID and
+its closed public IPAM projection. Engine 29.9.2 reports the default IPv4-on,
+IPv6-off option pair as two literal strings. Keep that exact pair in comparisons;
+older empty forms also qualify. Other options or changed values refuse. The
+observer reads the network by name and then by full
+ID, with the exact context endpoint and daemon ID observed on both sides. Only
+the checked IPAM digest is returned; attached containers, arbitrary labels and
+resolved environment values are excluded. Changing the selected daemon, endpoint
+or network metadata refuses without repair or retry.
+
+This supplies the future launcher with an independent network resource selection.
+It does not prove a container is attached. The actual running-incarnation check
+still requires that exact name and ID before registration. The result is observed
+metadata for the same live controller, not an attestation, permission or a way to
+adopt resources after uncertain effects. Ordinary daemon reads retain their
+request order. No worker is started and no lifecycle acceptance is claimed.

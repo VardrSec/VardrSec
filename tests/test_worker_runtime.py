@@ -951,6 +951,245 @@ class WorkerRuntimeTests(unittest.TestCase):
         )
         self.assertFalse(hasattr(observed, "owner_nonce"))
 
+    def runner_network_fixture(self):
+        return {
+            "id": "f" * 64,
+            "name": "owned_runner",
+            "driver": "bridge",
+            "scope": "local",
+            "internal": False,
+            "options": {},
+            "project": self.identity.project,
+            "logical": "runner",
+            "ipam": {
+                "Driver": "default",
+                "Options": None,
+                "Config": [
+                    {
+                        "Subnet": "192.0.2.0/24",
+                        "IPRange": "192.0.2.128/25",
+                        "Gateway": "192.0.2.1",
+                    },
+                    {
+                        "Subnet": "2001:db8::/64",
+                        "Gateway": "2001:db8::1",
+                        "AuxiliaryAddresses": {"fixture": "2001:db8::2"},
+                    },
+                ],
+            },
+        }
+
+    def runner_network_capture(self, row=None, *, drift=None, raw=None):
+        row = row if row is not None else self.runner_network_fixture()
+        self.net_reads = 0
+        self.net_observer = runtime.LocalDocker("desktop-linux", self.layout)
+        original = self.command
+
+        def command(argv, **options):
+            args = argv[3:]
+            if args[:3] == ["network", "inspect", "--format"]:
+                self.assertEqual(len(args), 5)
+                self.assertEqual(args[3], runtime._NETWORK_RESOURCE)
+                self.net_reads += 1
+                value = copy.deepcopy(row)
+                if self.net_reads == 2 and drift == "ipam":
+                    value["ipam"]["Config"][0]["Gateway"] = "192.0.2.2"
+                if self.net_reads == 2 and drift == "network_id":
+                    value["id"] = "e" * 64
+                self.calls.append((argv, options))
+                return subprocess.CompletedProcess(
+                    argv, 0, raw if raw is not None else json.dumps(value), ""
+                )
+            reply = original(argv, **options)
+            if self.net_reads == 2 and drift == "endpoint" and args[0] == "context":
+                reply.stdout = json.dumps("unix:///owned/changed.sock")
+            if self.net_reads == 2 and drift == "daemon" and args[0] == "info":
+                reply.stdout = json.dumps("other-daemon")
+            return reply
+
+        with patch.object(runtime.subprocess, "run", command):
+            return self.net_observer.capture_runner_network(
+                name="owned_runner", project=self.identity.project
+            )
+
+    def test_resource_capture_binds_name_full_id_local_endpoint_daemon_and_closed_ipam(
+        self,
+    ):
+        from hashlib import sha256
+
+        for endpoint in (
+            "npipe:////./pipe/dockerDesktopLinuxEngine",
+            "unix:///var/run/docker.sock",
+        ):
+            with self.subTest(endpoint=endpoint):
+                self.setUp()
+                self.endpoint = endpoint
+                row = self.runner_network_fixture()
+                if endpoint.startswith("npipe:"):
+                    row["options"] = {
+                        "com.docker.network.enable_ipv4": "true",
+                        "com.docker.network.enable_ipv6": "false",
+                    }
+                    row["ipam"]["Config"] = row["ipam"]["Config"][:1]
+                ipam = row["ipam"]
+                original = copy.deepcopy(row)
+                report = self.runner_network_capture(row)
+                digest = sha256(
+                    json.dumps(ipam, sort_keys=True, separators=(",", ":")).encode()
+                ).hexdigest()
+                expected = {key: row[key] for key in row if key != "ipam"}
+                expected["ipam_sha256"] = digest
+                self.assertEqual(
+                    report,
+                    {
+                        "context": "desktop-linux",
+                        "local_endpoint": endpoint,
+                        "daemon_id": self.daemon,
+                        "network": expected,
+                    },
+                )
+                self.assertEqual(row, original)
+                self.assertEqual(
+                    [argv[3] for argv, _ in self.calls],
+                    ["context", "info", "network", "network", "context", "info"],
+                )
+                self.assertEqual(
+                    [argv[-1] for argv, _ in self.calls if argv[3] == "network"],
+                    ["owned_runner", "f" * 64],
+                )
+                self.assertTrue(
+                    all(0 < kwargs["timeout"] <= 15 for _, kwargs in self.calls)
+                )
+                self.assertNotIn(".Containers", runtime._NETWORK_RESOURCE)
+                self.assertIsNone(self.net_observer._deadline)
+                self.assertFalse(self.net_observer._observation_lock.locked())
+
+    def test_resource_capture_refuses_invalid_selectors_and_busy_observer_before_commands(
+        self,
+    ):
+        observer = runtime.LocalDocker("desktop-linux", self.layout)
+        with patch.object(runtime.subprocess, "run") as command:
+            for name, project in (
+                ("--flag", "owned"),
+                ("", "owned"),
+                (True, "owned"),
+                ("owned", "BadProject"),
+                ("owned", "x" * 64),
+            ):
+                with (
+                    self.subTest(name_type=type(name).__name__),
+                    self.assertRaises(runtime.RuntimeRefused),
+                ):
+                    observer.capture_runner_network(name=name, project=project)
+            observer._observation_lock.acquire()
+            observer._deadline = 17
+            try:
+                with self.assertRaises(runtime.RuntimeRefused):
+                    observer.capture_runner_network(name="owned", project="owned")
+                self.assertEqual(observer._deadline, 17)
+            finally:
+                observer._observation_lock.release()
+            command.assert_not_called()
+
+    def test_resource_capture_requires_exact_owned_default_local_runner_bridge(self):
+        for key, replacement in (
+            ("id", "f" * 12),
+            ("name", "foreign"),
+            ("driver", "overlay"),
+            ("scope", "global"),
+            ("internal", 0),
+            ("internal", True),
+            ("options", {"custom": "private-canary"}),
+            (
+                "options",
+                {
+                    "com.docker.network.enable_ipv4": "false",
+                    "com.docker.network.enable_ipv6": "false",
+                },
+            ),
+            (
+                "options",
+                {
+                    "com.docker.network.enable_ipv4": "true",
+                    "com.docker.network.enable_ipv6": "true",
+                },
+            ),
+            (
+                "options",
+                {
+                    "com.docker.network.enable_ipv4": True,
+                    "com.docker.network.enable_ipv6": "false",
+                },
+            ),
+            ("project", "foreign"),
+            ("logical", "application"),
+            ("extra", "private-canary"),
+        ):
+            with self.subTest(key=key):
+                self.setUp()
+                row = self.runner_network_fixture()
+                row[key] = replacement
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.runner_network_capture(row)
+                self.assertEqual(self.net_reads, 1)
+                self.assertIsNone(self.net_observer._deadline)
+                self.assertFalse(self.net_observer._observation_lock.locked())
+
+    def test_resource_capture_rejects_outside_subnet_or_nonpublic_ipam_shapes(self):
+        changes = (
+            lambda ipam: ipam.update(Driver="foreign"),
+            lambda ipam: ipam.update(Options={"custom": "private-canary"}),
+            lambda ipam: ipam.update(Config=[]),
+            lambda ipam: ipam["Config"][0].update(Subnet=True),
+            lambda ipam: ipam["Config"][0].update(IPRange="198.51.100.0/24"),
+            lambda ipam: ipam["Config"][0].update(Gateway="198.51.100.1"),
+            lambda ipam: ipam["Config"][1].update(Gateway="2001:db8::1%private-canary"),
+            lambda ipam: ipam["Config"][1].update(
+                AuxiliaryAddresses={"foreign": "192.0.2.1"}
+            ),
+            lambda ipam: ipam["Config"][0].update(extra="private-canary"),
+        )
+        for index, mutate in enumerate(changes):
+            with self.subTest(case=index):
+                self.setUp()
+                row = self.runner_network_fixture()
+                mutate(row["ipam"])
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.runner_network_capture(row)
+                self.assertEqual(self.net_reads, 1)
+
+    def test_resource_capture_fails_closed_on_drift_without_another_lookup(self):
+        for drift in ("network_id", "ipam", "endpoint", "daemon"):
+            with self.subTest(drift=drift):
+                self.setUp()
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.runner_network_capture(drift=drift)
+                self.assertEqual(self.net_reads, 2)
+                self.assertIsNone(self.net_observer._deadline)
+                self.assertFalse(self.net_observer._observation_lock.locked())
+
+    def test_resource_capture_refuses_duplicate_or_malformed_network_documents(self):
+        for raw in (
+            '{"id":"f","id":"private-canary"}',
+            '{"ipam":NaN}',
+            "[]",
+            "{broken",
+            "x" * 16385,
+        ):
+            with self.subTest(length=len(raw)):
+                self.setUp()
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.runner_network_capture(raw=raw)
+                self.assertEqual(self.net_reads, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

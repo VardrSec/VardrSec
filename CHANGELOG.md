@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: independently observe one existing runner network by
+  name and full ID, verifying the exact local daemon and public network metadata.
+  This supplies a resource pin without attaching or starting a worker.
+
 - NM-2 private lifecycle: optionally pin the direct observer to one exact Docker
   network name/ID during running capture and registration; bind that selection to
   the existing registration capability. Unallocated Created slots remain distinct.

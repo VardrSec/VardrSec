@@ -6,7 +6,9 @@ attestation and do not authorize execution or release any server reservation.
 
 from dataclasses import dataclass
 from datetime import datetime
+import hashlib
 import io
+import ipaddress
 import json
 from pathlib import PurePosixPath, PureWindowsPath
 import re
@@ -118,14 +120,73 @@ _NETWORK_INSPECT = (
 )
 
 
+_NETWORK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+_NETWORK_RESOURCE = (
+    '{"id":{{json .Id}},"name":{{json .Name}},"driver":{{json .Driver}},'
+    '"scope":{{json .Scope}},"internal":{{json .Internal}},"options":{{json .Options}},'
+    '"ipam":{{json .IPAM}},"project":{{json (index .Labels "com.docker.compose.project")}},'
+    '"logical":{{json (index .Labels "com.docker.compose.network")}}}'
+)
+
+
+def _ipam_sha256(value):
+    """Hash only validated public default-driver address allocation metadata."""
+    require(type(value) is dict and set(value) == {"Driver", "Options", "Config"})
+    require(value["Driver"] == "default" and value["Options"] in (None, {}))
+    config = value["Config"]
+    require(type(config) is list and bool(config))
+    for row in config:
+        require(
+            type(row) is dict
+            and "Subnet" in row
+            and set(row) <= {"Subnet", "IPRange", "Gateway", "AuxiliaryAddresses"}
+        )
+        require(type(row["Subnet"]) is str and "%" not in row["Subnet"])
+        subnet = ipaddress.ip_network(row["Subnet"])
+        if "IPRange" in row:
+            require(type(row["IPRange"]) is str and "%" not in row["IPRange"])
+            selected = ipaddress.ip_network(row["IPRange"])
+            require(selected.version == subnet.version and selected.subnet_of(subnet))
+        if "Gateway" in row:
+            require(
+                type(row["Gateway"]) is str
+                and "%" not in row["Gateway"]
+                and ipaddress.ip_address(row["Gateway"]) in subnet
+            )
+        if "AuxiliaryAddresses" in row:
+            aux = row["AuxiliaryAddresses"]
+            require(type(aux) is dict)
+            for key, address in aux.items():
+                require(type(key) is str and _NETWORK_NAME.fullmatch(key))
+                require(
+                    type(address) is str
+                    and "%" not in address
+                    and ipaddress.ip_address(address) in subnet
+                )
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(raw.encode("ascii")).hexdigest()
+
+
+def _default_runner_network_options(value):
+    """Only older empty forms or the exact observed Docker Engine defaults."""
+    return value is None or (
+        type(value) is dict
+        and (
+            not value
+            or value
+            == {
+                "com.docker.network.enable_ipv4": "true",
+                "com.docker.network.enable_ipv6": "false",
+            }
+        )
+    )
+
+
 def _network_binding(value):
     if value is not None:
         require(type(value) is tuple and len(value) == 2)
         name, network_id = value
-        require(
-            type(name) is str
-            and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", name)
-        )
+        require(type(name) is str and _NETWORK_NAME.fullmatch(name))
         require(type(network_id) is str and _ID.fullmatch(network_id))
     return value
 
@@ -339,7 +400,7 @@ class LocalDocker:
         except (OSError, UnicodeError, subprocess.SubprocessError):
             raise RuntimeRefused("worker_runtime_refused") from None
 
-    def daemon(self):
+    def _daemon_binding(self):
         try:
             endpoint = json.loads(
                 self._command(
@@ -357,9 +418,80 @@ class LocalDocker:
             )
             daemon = json.loads(self._command("info", "--format", "{{json .ID}}"))
             require(type(daemon) is str and 1 <= len(daemon) <= 128)
-            return daemon
+            return endpoint, daemon
         except (ValueError, TypeError):
             raise RuntimeRefused("worker_runtime_refused") from None
+
+    def daemon(self):
+        return self._daemon_binding()[1]
+
+    def _runner_network(self, selection, project):
+        require(type(selection) is str and _NETWORK_NAME.fullmatch(selection))
+        from worker_volumes import parse_document
+
+        value = parse_document(
+            self._command(
+                "network", "inspect", "--format", _NETWORK_RESOURCE, selection
+            )
+        )
+        require(
+            set(value)
+            == {
+                "id",
+                "name",
+                "driver",
+                "scope",
+                "internal",
+                "options",
+                "ipam",
+                "project",
+                "logical",
+            }
+        )
+        _network_binding((value["name"], value["id"]))
+        require(
+            value["driver"] == "bridge"
+            and value["scope"] == "local"
+            and value["internal"] is False
+            and _default_runner_network_options(value["options"])
+            and value["project"] == project
+            and value["logical"] == "runner"
+        )
+        return {
+            **{key: value[key] for key in value if key != "ipam"},
+            "ipam_sha256": _ipam_sha256(value["ipam"]),
+        }
+
+    def capture_runner_network(self, *, name, project):
+        """Observe one existing network resource; never attach, start or authorize."""
+        require(
+            type(name) is str
+            and _NETWORK_NAME.fullmatch(name)
+            and type(project) is str
+            and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project)
+        )
+        require(self._observation_lock.acquire(blocking=False))
+        try:
+            self._deadline = time.monotonic() + 30
+            context = self.context
+            endpoint, daemon = self._daemon_binding()
+            network = self._runner_network(name, project)
+            require(network["name"] == name)
+            require(self._runner_network(network["id"], project) == network)
+            require(
+                self._daemon_binding() == (endpoint, daemon) and self.context == context
+            )
+            return {
+                "context": context,
+                "local_endpoint": endpoint,
+                "daemon_id": daemon,
+                "network": network,
+            }
+        except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
+            raise RuntimeRefused("worker_runtime_refused") from None
+        finally:
+            self._deadline = None
+            self._observation_lock.release()
 
     def inspect(self, container_id):
         require(type(container_id) is str and _ID.fullmatch(container_id))
