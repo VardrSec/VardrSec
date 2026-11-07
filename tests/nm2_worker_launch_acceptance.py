@@ -44,11 +44,13 @@ class LaunchFixture(Fixture):
     def __init__(
         self, selection, *, compose, compose_sha256, docker_config,
         completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
+        revoke_grant=False,
     ):
         super().__init__(
             selection,
             scenario=(
                 "missing-local-grant" if missing_grant
+                else "active-target-grant-revoked" if revoke_grant
                 else "local-emergency-stop" if local_stop
                 else "stop-work" if stop_work else EMPTY_SCENARIO
             ),
@@ -66,13 +68,14 @@ class LaunchFixture(Fixture):
         )
         self.compose_sha256 = compose_sha256
         self.completed = completed
-        self.cancelling = stop_work or local_stop
+        self.cancelling = stop_work or local_stop or revoke_grant
         self.local_stop = local_stop
         self.missing_local_grant = missing_grant
+        self.revoke_grant = revoke_grant
         self.queued_peer = queued_peer
         self.protocol = "persistent-v3"
         self.max_attempts = None
-        require(sum((completed, stop_work, local_stop, missing_grant)) <= 1 and (not queued_peer or stop_work),
+        require(sum((completed, stop_work, local_stop, missing_grant, revoke_grant)) <= 1 and (not queued_peer or stop_work),
                 "launch_fixture_mode_conflict")
         scenario = "persistent-launch-empty"
         scope = "first_and_next_empty_launch"
@@ -86,6 +89,8 @@ class LaunchFixture(Fixture):
             scenario, scope = "persistent-launch-local-stop", "local_stop_then_next_launch"
         elif missing_grant:
             scenario, scope = "persistent-launch-missing-grant", "missing_grant_then_next_launch"
+        elif revoke_grant:
+            scenario, scope = "persistent-launch-grant-revocation", "grant_revocation_then_next_launch"
         self.receipt.update(
             schema="vardr.nm2-worker-launch-acceptance/1",
             scenario=scenario, acceptance_scope=scope, nm2_exit_status="incomplete",
@@ -349,7 +354,7 @@ print(len(directories))
         attempt = runtime["attempts"][0]
         require(
             attempt["binding"] == binding and attempt["job_id"] == job
-            and (self.local_stop or (
+            and (self.local_stop or self.revoke_grant or (
                 pending["contract_id"] == binding["contract_id"]
                 and pending["attempt_id"] == binding["attempt_id"]
             ))
@@ -372,6 +377,7 @@ print(len(directories))
         audit = self.reconcile_original(admission, retired)
         expected_causes = (
             {"local_emergency_stop"} if self.local_stop
+            else {"control_lease_expired"} if self.revoke_grant
             else {"remote_stop_requested", "control_lease_expired"}
         )
         if inventory["results"]:
@@ -422,6 +428,12 @@ print(len(directories))
             proof["local_stop_sha256"] = digest(canonical({
                 "run_id": local["run_id"], "binding": binding, "local_stop_requested": True,
             }))
+        elif self.revoke_grant:
+            self.helper("whoami")
+            revocation = {
+                **action["grant_revocation"], "original_runner_auth": "verified",
+            }
+            proof["grant_revocation_sha256"] = digest(canonical(revocation))
         else:
             proof["cancel_requested_sha256"] = digest(canonical(pending))
         self.receipt["cancelled_job"] = proof
@@ -542,7 +554,12 @@ print(len(directories))
         elif cancelling:
             self.receipt["stage"] = "launch_stop_work_observe"
             action = self.cancellation_action(*case[:3])
-            if not self.local_stop:
+            if self.revoke_grant:
+                self.receipt["stage"] = "launch_grant_revocation_catalog"
+                action["grant_revocation"] = self.verify_grant_revocation(
+                    case[0], self.grant_before, self.grant_snapshot(case[0]),
+                )
+            elif not self.local_stop:
                 self.observe_stop_work(case, action)
         else:
             self.await_completed_job(admission, case)
@@ -703,6 +720,11 @@ print(len(directories))
                     "launch_missing_grant_precondition_failed",
                 )
                 self.helper("whoami")
+            if self.revoke_grant:
+                self.grant_before = self.grant_snapshot(engagement)
+                require(self.grant_before["policy_reason"] == "granted",
+                        "grant_not_initially_active")
+                self.helper("whoami")
             require(
                 before["job_status"] == "pending"
                 and before["execution"] is None
@@ -777,6 +799,7 @@ def main(argv=None):
     workload.add_argument("--stop-work-queued", action="store_true")
     workload.add_argument("--local-stop", action="store_true")
     workload.add_argument("--missing-grant", action="store_true")
+    workload.add_argument("--revoke-grant", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -793,6 +816,7 @@ def main(argv=None):
             queued_peer=args.stop_work_queued,
             local_stop=args.local_stop,
             missing_grant=args.missing_grant,
+            revoke_grant=args.revoke_grant,
         )
         fixture.run()
         return 0 if fixture.receipt["status"] == "selected_launch_slice_passed" else 1

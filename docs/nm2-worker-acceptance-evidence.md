@@ -127,6 +127,27 @@ stopped and were retained. The private receipt SHA-256 is
 `ec33fdb46342dc43f06675881316474f3639f65e3e44cde4d8c8a4bd19b75a61`.
 [Matching Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42384355007)
 
+Ubuntu passed on the same corrected cohort. Physical exit took 1.937 seconds
+after the third request. The sanitized receipt SHA-256 is
+`0793a01f16e661b67cdcaf1225028eb5ddd835b60673e712207b52d9a2129fdc`.
+Runner's [compatibility workflow](https://github.com/VardrSec/VardrRunner/actions/runs/42384354459)
+passed all nine jobs on the corrected revision. The Map queue fix's
+[PostgreSQL workflow](https://github.com/VardrSec/VardrMap/actions/runs/42380823791)
+passed on its second attempt at the same commit. The first attempt timed out
+in the synthetic TLS claim before its intentional response-loss step.
+
+### Approved job with a missing local target grant
+
+Windows passed the missing-grant case on distribution
+`911cc349dd3f7aa7cf7c04ba165ca2e9d0967f03` with the corrected Runner and Map
+sources. The worker discovered the approved job seven times. Both workers
+retired at sequence zero. Map retained the original approval with no issued
+contract, attempt, reservation, or budget charge. The target recorded zero
+requests and the original Runner journal recorded no job association. The
+private receipt SHA-256 is
+`c36ec3f9227b6b305797ad21ed2b17f6d73a5892081692973e323ed72cc23713`.
+[Matching Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42385472389)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)

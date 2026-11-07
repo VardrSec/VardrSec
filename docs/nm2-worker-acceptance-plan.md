@@ -1,12 +1,11 @@
 # Coupled NM-2 worker acceptance plan
 
-Status: the earlier one-attempt and frozen two-job Windows Docker Desktop slices
-passed. The [two-job evidence](nm2-worker-acceptance-evidence.md) preserves their
-exact scope. Separate [current platform receipts](acceptance.md#linux-availability-and-later-held-desktop-idle-2026-11-06)
-now verify selected persistent availability and count controls on Linux and
-Desktop. Dedicated idle, true zero-job stop, re-enable and the remaining failure
-and containment matrix stay open. No result establishes another platform or
-source cohort. NM-3 remains paused; its evidence and component pins are preserved.
+Windows Docker Desktop and Ubuntu have verified selected persistent
+availability, optional finite controls, zero-job stop, first and subsequent
+startup, and active Map and local emergency cancellation. The
+[installed receipts](nm2-worker-acceptance-evidence.md) record the exact
+sources and scope. The [closeout control record](nm1-nm2-closeout.md) tracks
+the remaining failure and containment gates. NM-3 remains paused.
 
 `tests/nm2_worker_acceptance.py` now prepares the first coupled slice: default
 disabled, owner/CSRF transport denial, Strict out-of-scope approval refusal, and

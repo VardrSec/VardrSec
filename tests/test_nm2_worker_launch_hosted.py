@@ -104,6 +104,16 @@ class HostedLaunchTests(unittest.TestCase):
             (hosted.LAUNCH_MISSING_GRANT_SCENARIO, "0041persistentruntime"),
         )
 
+    def test_active_grant_revocation_requires_explicit_persistent_revision(self):
+        selection = {"NM2_SCENARIO": hosted.LAUNCH_GRANT_REVOKE_SCENARIO}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(selection)
+        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        self.assertEqual(
+            hosted.execution_options(selection),
+            (hosted.LAUNCH_GRANT_REVOKE_SCENARIO, "0041persistentruntime"),
+        )
+
     def test_stop_work_uses_the_engine_exit_event_and_rejects_clock_disagreement(self):
         from calendar import timegm
 
@@ -321,3 +331,16 @@ class HostedLaunchTests(unittest.TestCase):
         unissued["unissued_job"]["unissued_discoveries"] = 0
         with self.assertRaises(hosted.HostedRefused):
             hosted.public_projection(unissued, selection)
+        grant_proof = {
+            key: value for key, value in stopped["cancelled_job"].items()
+            if key != "cancel_requested_sha256"
+        }
+        grant_proof.update(grant_revocation_sha256="a" * 64, terminal_cause="control_lease_expired")
+        revoked = {
+            **stopped, "scenario": hosted.LAUNCH_GRANT_REVOKE_SCENARIO,
+            "acceptance_scope": "grant_revocation_then_next_launch", "cancelled_job": grant_proof,
+        }
+        self.assertEqual(hosted.public_projection(revoked, selection)["cancelled_job"], grant_proof)
+        grant_proof["terminal_cause"] = "remote_stop_requested"
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(revoked, selection)
