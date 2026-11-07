@@ -94,6 +94,39 @@ and Map `bdc5d70c58c004bfc9193d0eeb5ef3ed7baea347`. The Map change excludes
 stopped engagements and stale approval revisions from discovery. Claims still
 recheck authority and budgets. [Matching Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42380671226)
 
+Ubuntu passed the queued-job scenario on the same exact component revisions.
+The first worker exited after 10.753 seconds, the approved second job remained
+unclaimed, and the successor made no additional target requests. The Ubuntu
+sanitized receipt SHA-256 is
+`c25e32bd07db39d23cab527974c3208b362abc0d8b1e10bd8e9d109181d48491`.
+
+### Local emergency stop
+
+On the previous Runner revision, Ubuntu completed local emergency stop and
+admitted the successor after 2.575 seconds from the third request to the first
+worker's physical exit. The sanitized receipt SHA-256 is
+`2c09411e4acad86f8912ecc586437ebc95128435665088abdebf1b250e6219bb`.
+[Installed Ubuntu baseline](https://github.com/VardrSec/VardrSec/actions/runs/42381620562)
+
+The Windows baseline stopped the same kind of approved job and Map recorded
+the native cancellation. Runner held original-key reconciliation. Both the
+installation and its stopped worker were retained, and the operator profile
+hashes matched. The private receipt SHA-256 is
+`5e40244686390408bc3413c6c5b06f052d57fd5bd6568d5717605a285ccfe1c4`.
+The focused Runner regression reproduced a terminal stop with a historical
+PID and a temporary claim hold. The correction requires the exact native stop
+and original physical retirement, and preserves the stopped process's audit
+record.
+
+Windows passed on Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` with
+distribution `450ea4df6f426597e8a9b8c8ea2e9d440a1927be`. Physical exit took
+3.128 seconds after the third request. Map retained the exact native
+`local_emergency_stop` cancellation, Runner cleared the temporary claim
+hold, and the successor started on the original volume. Both workers
+stopped and were retained. The private receipt SHA-256 is
+`ec33fdb46342dc43f06675881316474f3639f65e3e44cde4d8c8a4bd19b75a61`.
+[Matching Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42384355007)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)

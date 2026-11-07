@@ -94,6 +94,16 @@ class HostedLaunchTests(unittest.TestCase):
             (hosted.LAUNCH_LOCAL_STOP_SCENARIO, "0041persistentruntime"),
         )
 
+    def test_missing_grant_requires_explicit_persistent_revision(self):
+        selection = {"NM2_SCENARIO": hosted.LAUNCH_MISSING_GRANT_SCENARIO}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(selection)
+        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        self.assertEqual(
+            hosted.execution_options(selection),
+            (hosted.LAUNCH_MISSING_GRANT_SCENARIO, "0041persistentruntime"),
+        )
+
     def test_stop_work_uses_the_engine_exit_event_and_rejects_clock_disagreement(self):
         from calendar import timegm
 
@@ -295,3 +305,19 @@ class HostedLaunchTests(unittest.TestCase):
         )
         with self.assertRaises(hosted.HostedRefused):
             hosted.public_projection({**stopped, "cancelled_job": local_proof}, selection)
+        unissued = {
+            **raw, "scenario": hosted.LAUNCH_MISSING_GRANT_SCENARIO,
+            "acceptance_scope": "missing_grant_then_next_launch",
+            "unissued_job": {
+                "job_id": "ddd8e594-dfcb-4ca2-83f8-abfda598e1a7",
+                "retirement_sha256": first["retirement_sha256"],
+                "audit_sha256": "e" * 64, "unissued_discoveries": 1,
+            },
+        }
+        self.assertEqual(
+            hosted.public_projection(unissued, selection)["unissued_job"],
+            unissued["unissued_job"],
+        )
+        unissued["unissued_job"]["unissued_discoveries"] = 0
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(unissued, selection)

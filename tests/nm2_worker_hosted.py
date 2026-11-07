@@ -31,6 +31,7 @@ LAUNCH_COMPLETED_SCENARIO = "persistent-launch-completed"
 LAUNCH_STOP_WORK_SCENARIO = "persistent-launch-stop-work"
 LAUNCH_STOP_WORK_QUEUED_SCENARIO = "persistent-launch-stop-work-queued"
 LAUNCH_LOCAL_STOP_SCENARIO = "persistent-launch-local-stop"
+LAUNCH_MISSING_GRANT_SCENARIO = "persistent-launch-missing-grant"
 LAUNCH_CANCELLATION_SCENARIOS = {
     LAUNCH_STOP_WORK_SCENARIO, LAUNCH_STOP_WORK_QUEUED_SCENARIO, LAUNCH_LOCAL_STOP_SCENARIO
 }
@@ -40,6 +41,7 @@ LAUNCH_SCOPES = {
     LAUNCH_STOP_WORK_SCENARIO: "stop_work_then_next_launch",
     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "stop_work_excludes_queued_job",
     LAUNCH_LOCAL_STOP_SCENARIO: "local_stop_then_next_launch",
+    LAUNCH_MISSING_GRANT_SCENARIO: "missing_grant_then_next_launch",
 }
 LAUNCH_SCENARIOS = set(LAUNCH_SCOPES)
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
@@ -714,6 +716,7 @@ def failure_projection(raw, selection):
         "launch_stop_work_exit", "launch_stop_work_retirement",
         "launch_stop_work_inventory", "launch_stop_work_local_attempt",
         "launch_stop_work_partial_evidence",
+        "launch_missing_grant_observe",
         "selected_launch_complete",
         "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
         "empty_stop_reconciliation", "selected_empty_stop_complete",
@@ -764,6 +767,8 @@ def failure_projection(raw, selection):
         "launch_stop_work_terminal_not_proven", "cancellation_stop_work_not_recorded",
         "launch_stop_work_active_cancellation_not_observed",
         "launch_stop_work_queued_job_changed", "launch_stop_work_enrollment_changed",
+        "launch_missing_grant_not_observed", "launch_missing_grant_issued_or_changed",
+        "launch_missing_grant_history_changed", "launch_missing_grant_precondition_failed",
         "cancellation_dispatch_advanced_before_action", "cancellation_request_binding_mismatch",
         "cancellation_original_run_not_active", "cancellation_resource_not_observed",
         "cancelled_partial_identity_binding_invalid", "cancelled_partial_result_not_proven",
@@ -1060,6 +1065,20 @@ def launch_projection(raw, selection):
         result["unclaimed_job"] = unclaimed
     else:
         require("unclaimed_job" not in raw)
+    if scenario == LAUNCH_MISSING_GRANT_SCENARIO:
+        unissued = raw.get("unissued_job")
+        require(
+            type(unissued) is dict
+            and set(unissued) == {"job_id", "retirement_sha256", "audit_sha256", "unissued_discoveries"}
+            and type(unissued["unissued_discoveries"]) is int
+            and 0 < unissued["unissued_discoveries"] <= 40
+            and unissued["retirement_sha256"] == first["retirement_sha256"]
+        )
+        _uuid(unissued["job_id"])
+        _hash(unissued["audit_sha256"])
+        result["unissued_job"] = unissued
+    else:
+        require("unissued_job" not in raw)
     return result
 
 
@@ -1481,6 +1500,7 @@ class Hosted:
                 LAUNCH_STOP_WORK_SCENARIO: ["--stop-work"],
                 LAUNCH_STOP_WORK_QUEUED_SCENARIO: ["--stop-work-queued"],
                 LAUNCH_LOCAL_STOP_SCENARIO: ["--local-stop"],
+                LAUNCH_MISSING_GRANT_SCENARIO: ["--missing-grant"],
             }[self.scenario],
             "--execute",
         ]
@@ -1623,12 +1643,14 @@ class Hosted:
                     LAUNCH_STOP_WORK_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_LOCAL_STOP_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_MISSING_GRANT_SCENARIO: LAUNCH_SCHEMA,
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
             verified_case = {
                 LAUNCH_STOP_WORK_QUEUED_SCENARIO: "engagement_stop_work",
                 LAUNCH_LOCAL_STOP_SCENARIO: "local_emergency_stop",
+                LAUNCH_MISSING_GRANT_SCENARIO: "missing_local_grant",
             }.get(self.scenario)
             if verified_case is not None:
                 self.receipt["remaining_required_cases"][verified_case] = "verified_selected_cohort"
@@ -1644,6 +1666,7 @@ class Hosted:
                     LAUNCH_STOP_WORK_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_LOCAL_STOP_SCENARIO: "vardr.nm2-hosted/7",
+                    LAUNCH_MISSING_GRANT_SCENARIO: "vardr.nm2-hosted/7",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],

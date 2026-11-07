@@ -43,11 +43,15 @@ def stop_exit_elapsed_ns(request, after, finished_at):
 class LaunchFixture(Fixture):
     def __init__(
         self, selection, *, compose, compose_sha256, docker_config,
-        completed=False, stop_work=False, queued_peer=False, local_stop=False,
+        completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
     ):
         super().__init__(
             selection,
-            scenario="local-emergency-stop" if local_stop else "stop-work" if stop_work else EMPTY_SCENARIO,
+            scenario=(
+                "missing-local-grant" if missing_grant
+                else "local-emergency-stop" if local_stop
+                else "stop-work" if stop_work else EMPTY_SCENARIO
+            ),
             database_revision="0041persistentruntime",
         )
         self.compose_executable = compose.resolve(strict=True)
@@ -64,10 +68,11 @@ class LaunchFixture(Fixture):
         self.completed = completed
         self.cancelling = stop_work or local_stop
         self.local_stop = local_stop
+        self.missing_local_grant = missing_grant
         self.queued_peer = queued_peer
         self.protocol = "persistent-v3"
         self.max_attempts = None
-        require(sum((completed, stop_work, local_stop)) <= 1 and (not queued_peer or stop_work),
+        require(sum((completed, stop_work, local_stop, missing_grant)) <= 1 and (not queued_peer or stop_work),
                 "launch_fixture_mode_conflict")
         scenario = "persistent-launch-empty"
         scope = "first_and_next_empty_launch"
@@ -79,6 +84,8 @@ class LaunchFixture(Fixture):
                 scenario, scope = "persistent-launch-stop-work-queued", "stop_work_excludes_queued_job"
         elif local_stop:
             scenario, scope = "persistent-launch-local-stop", "local_stop_then_next_launch"
+        elif missing_grant:
+            scenario, scope = "persistent-launch-missing-grant", "missing_grant_then_next_launch"
         self.receipt.update(
             schema="vardr.nm2-worker-launch-acceptance/1",
             scenario=scenario, acceptance_scope=scope, nm2_exit_status="incomplete",
@@ -226,6 +233,62 @@ class LaunchFixture(Fixture):
             "launch_completed_audit_not_observed",
         )
         return audit
+
+    def managed_output_count(self):
+        source = """import re
+from vardrrunner import config
+root=config.runs_dir()
+directories=[]
+if root.exists():
+    for path in root.iterdir():
+        if re.fullmatch(r'managed-[0-9a-f]{32}', path.name):
+            assert path.is_dir() and not path.is_symlink() and not any(path.iterdir())
+            directories.append(path)
+print(len(directories))
+"""
+        return int(self.helper("-I", "-c", source, python=True))
+
+    def await_missing_grant_denial(self, admission, case):
+        engagement, _, _, _ = case
+        self.receipt["stage"] = "launch_missing_grant_observe"
+        self.persistent_idle(admission, 0)
+        deadline = time.monotonic() + 30
+        while self.managed_output_count() == 0:
+            require(time.monotonic() < deadline, "launch_missing_grant_not_observed")
+            time.sleep(0.2)
+        stopped = self.api.request(
+            f"/engagements/{engagement}/stop-work",
+            {"reason": "Freeze the unissued missing-grant test cohort"},
+        )
+        require(stopped.get("stop_work_at") is not None, "cancellation_stop_work_not_recorded")
+        self.persistent_idle(admission, 0)
+        audit = self.empty_worker_state(admission)
+        directories = self.managed_output_count()
+        require(0 < directories <= 40, "launch_missing_grant_not_observed")
+        return audit, directories
+
+    def verify_missing_grant_launch(self, admission, retired, case, prior):
+        engagement, job, _, before = case
+        after = self.verify_unclaimed_peer((engagement, job), targets=0, duration=0)
+        require(
+            before["approvals"] == [after]
+            and self.traffic() == []
+            and self.grant_snapshot(engagement) == {
+                "grants": [], "policy_reason": "grant_missing_or_replaced",
+            },
+            "launch_missing_grant_issued_or_changed",
+        )
+        audit = self.empty_worker_state(admission)
+        before_audit, directories = prior
+        require(
+            audit == before_audit and self.managed_output_count() == directories,
+            "launch_missing_grant_history_changed",
+        )
+        self.receipt["unissued_job"] = {
+            "job_id": job, "retirement_sha256": retired["receipt_sha256"],
+            "audit_sha256": digest(canonical(audit)),
+            "unissued_discoveries": directories,
+        }
 
     def completed_reconciliation(self, physical, admission, retired, case):
         engagement, job, stored, before = case
@@ -460,8 +523,9 @@ class LaunchFixture(Fixture):
             == ([] if predecessor is None else [predecessor["container_id"]]),
             "launch_durable_chain_not_observed",
         )
-        if predecessor is not None and (self.completed or self.cancelling):
-            proof = self.receipt["cancelled_job" if self.cancelling else "completed_job"]
+        if predecessor is not None and (self.completed or self.cancelling or self.missing_local_grant):
+            key = "unissued_job" if self.missing_local_grant else "cancelled_job" if self.cancelling else "completed_job"
+            proof = self.receipt[key]
             require(
                 row["predecessors"][0]["original_local_audit_sha256"]
                 == proof["audit_sha256"],
@@ -473,6 +537,8 @@ class LaunchFixture(Fixture):
             before = self.verify_empty_worker_state(
                 self.empty_worker_state(admission), admission
             )
+        elif self.missing_local_grant:
+            unissued = self.await_missing_grant_denial(admission, case)
         elif cancelling:
             self.receipt["stage"] = "launch_stop_work_observe"
             action = self.cancellation_action(*case[:3])
@@ -509,7 +575,7 @@ class LaunchFixture(Fixture):
         retired = self.report_exit(physical)
         reconciled = self.worker_action("reconcile", selected, timeout=120)
         require(
-            retired["last_sequence"] == ("0" if case is None else "1")
+            retired["last_sequence"] == ("0" if case is None or self.missing_local_grant else "1")
             and retired["runtime_sequence"] == ("1" if cancelling else None)
             and retired["retired"] is True
             and (retired["attempt_receipt"] is not None) == cancelling
@@ -525,6 +591,8 @@ class LaunchFixture(Fixture):
                 ),
                 "launch_empty_retirement_not_observed",
             )
+        elif self.missing_local_grant:
+            self.verify_missing_grant_launch(admission, retired, case, unissued)
         elif cancelling:
             self.cancelled_reconciliation(physical, admission, retired, case, action, after)
         else:
@@ -571,6 +639,9 @@ class LaunchFixture(Fixture):
     def cancelled_http(self):
         self.launch_pair()
 
+    def missing_grant(self):
+        self.launch_pair()
+
     def persistent_empty_stop(self):
         self.launch_pair()
 
@@ -579,7 +650,7 @@ class LaunchFixture(Fixture):
 
         self.receipt["stage"] = "launch_prepare"
         require(self.traffic() == [], "launch_unexpected_target_traffic")
-        if not self.cancelling:
+        if not (self.cancelling or self.missing_local_grant):
             self.empty_engagements()
         self.helper("init", "--non-interactive", "--no-install-tools")
         binding = self.enroll_runner()
@@ -599,8 +670,8 @@ class LaunchFixture(Fixture):
         config, signing = self.launch_config(observer, initial)
         case = None
         peer = None
-        if self.completed or self.cancelling:
-            name = "launch-" + (self.scenario if self.cancelling else "completed")
+        if self.completed or self.cancelling or self.missing_local_grant:
+            name = "launch-" + (self.scenario if not self.completed else "completed")
             engagement, authorization, job, stored = self.new_job(name, marker=True)
             if self.queued_peer:
                 peer_name = "launch-stop-work-peer"
@@ -608,7 +679,8 @@ class LaunchFixture(Fixture):
                     peer_name, engagement, marker=True
                 )
             require(
-                self.approve(name, engagement, authorization, job, stored)
+                self.approve(name, engagement, authorization, job, stored,
+                             local_grants=not self.missing_local_grant)
                 == binding,
                 "launch_completed_enrollment_changed",
             )
@@ -623,6 +695,14 @@ class LaunchFixture(Fixture):
                 peer = (engagement, peer_job)
                 peer_before = self.verify_unclaimed_peer(peer, targets=0, duration=0)
             before = self.inventory(engagement, job)
+            if self.missing_local_grant:
+                require(
+                    self.managed_output_count() == 0 and self.grant_snapshot(engagement) == {
+                        "grants": [], "policy_reason": "grant_missing_or_replaced",
+                    },
+                    "launch_missing_grant_precondition_failed",
+                )
+                self.helper("whoami")
             require(
                 before["job_status"] == "pending"
                 and before["execution"] is None
@@ -638,6 +718,13 @@ class LaunchFixture(Fixture):
         baseline = self.traffic()
         second, _, _ = self.launch_and_retire(config, signing, binding, 2, first)
         old_observer.confirm_exit(old_exit)
+        if self.missing_local_grant:
+            require(
+                self.managed_output_count() == self.receipt["unissued_job"]["unissued_discoveries"]
+                and [self.verify_unclaimed_peer(case[:2], targets=0, duration=0)]
+                == case[3]["approvals"],
+                "launch_missing_grant_issued_or_changed",
+            )
         if peer is not None:
             peer_after = self.verify_unclaimed_peer(peer, targets=1, duration=30)
             require(peer_after == peer_before, "launch_stop_work_queued_job_changed")
@@ -655,7 +742,7 @@ class LaunchFixture(Fixture):
             and self.traffic() == baseline,
             "launch_preservation_or_traffic_not_observed",
         )
-        if not (self.completed or self.cancelling):
+        if not (self.completed or self.cancelling or self.missing_local_grant):
             self.empty_engagements()
         self.receipt["launch_pair"] = [first, second]
         self.receipt["status"] = "selected_launch_slice_passed"
@@ -689,6 +776,7 @@ def main(argv=None):
     workload.add_argument("--stop-work", action="store_true")
     workload.add_argument("--stop-work-queued", action="store_true")
     workload.add_argument("--local-stop", action="store_true")
+    workload.add_argument("--missing-grant", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -704,6 +792,7 @@ def main(argv=None):
             stop_work=args.stop_work or args.stop_work_queued,
             queued_peer=args.stop_work_queued,
             local_stop=args.local_stop,
+            missing_grant=args.missing_grant,
         )
         fixture.run()
         return 0 if fixture.receipt["status"] == "selected_launch_slice_passed" else 1

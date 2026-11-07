@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add an opt-in installed case for an approved job with a missing local target
+  grant. Verify zero issuance, target requests and charges through a successor.
+
 - Add an opt-in installed case that invokes Runner's existing local emergency
   stop on the exact active run and checks retirement before the next launch.
 
