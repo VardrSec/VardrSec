@@ -30,6 +30,8 @@ BOOTSTRAP_SCENARIO = "bootstrap-configurations"
 BOOTSTRAP_RUNNER = "5ecc869d80f53ae7fdbca25b971838976a6c41e9"
 BOOTSTRAP_GATE = "d80d4730b8486b75be72431b5af88e0ddb45020b"
 LAUNCH_SCENARIO = "persistent-launch-empty"
+LAUNCH_PRECLAIM_SCENARIO = "persistent-launch-preclaim-recovery"
+PRECLAIM_HOSTED = "vardr.nm2-hosted/17"
 LAUNCH_STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
 STOPPED_PREDECESSOR_HOSTED = "vardr.nm2-hosted/11"
 LAUNCH_MAP_DISCONNECT_SCENARIO = "persistent-launch-map-disconnect"
@@ -65,6 +67,7 @@ LAUNCH_CANCELLATION_SCENARIOS = {
 }
 LAUNCH_SCOPES = {
     LAUNCH_SCENARIO: "first_and_next_empty_launch",
+    LAUNCH_PRECLAIM_SCENARIO: "trusted_synthetic_closed_preclaim_parent0",
     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: "stopped_predecessor_then_next_launch",
     LAUNCH_MAP_DISCONNECT_SCENARIO: "ordinary_map_api_outage",
     LAUNCH_COMPLETED_SCENARIO: "completed_then_next_launch",
@@ -129,6 +132,7 @@ REMAINING_REQUIRED_CASES = (
     "lost_claim_consume_bind_reply",
     "restart_duplicate_claim",
     "lost_terminal_reply",
+    "persisted_preclaim_recovery",
 )
 STAGES = {
     "host",
@@ -667,6 +671,10 @@ def execution_options(env):
     require(scenario not in PERSISTENT_SCENARIOS or revision == "0041persistentruntime")
     if scenario in LAUNCH_BUDGETS:
         _require_budget_source(LAUNCH_BUDGETS[scenario], env.get("NM2_MAP_SHA"))
+    if scenario == LAUNCH_PRECLAIM_SCENARIO:
+        require(env.get("NM2_RUNNER_SHA") == "5ecc869d80f53ae7fdbca25b971838976a6c41e9"
+                and env.get("NM2_MAP_SHA") == "05dc78cf9a385255de459c8a5b833842d6528a63"
+                and env.get("NM2_GATE_SHA") == "d80d4730b8486b75be72431b5af88e0ddb45020b")
     if scenario == STRICT_REVIEW_SCENARIO:
         require(env.get("NM2_MAP_SHA") == STRICT_REVIEW_MAP)
     if scenario == STALE_CLAIM_SCENARIO:
@@ -795,6 +803,7 @@ def failure_projection(raw, selection):
                 and raw.get("expected_database_revision") == "0041persistentruntime")
     stages = {
         "launch_prepare", "launch_1", "launch_2", "launch_stop_1", "launch_stop_2",
+        "launch_preclaim_setup", "launch_preclaim_refuse_successor", "launch_preclaim_reconcile",
         "launch_predecessor_active", "launch_predecessor_unreported",
         "launch_refuse_unresolved_predecessor", "launch_report_predecessor",
         "launch_host_exit_verification",
@@ -863,6 +872,10 @@ def failure_projection(raw, selection):
     }
     reasons = {
         "launch_preexisting_worker", "launch_unexpected_target_traffic",
+        "launch_preclaim_predecessor_binding_changed", "launch_preclaim_enrollment_changed",
+        "launch_preclaim_source_changed", "launch_preclaim_server_changed", "launch_preclaim_exit_not_bound",
+        "launch_preclaim_setup_invalid", "launch_preclaim_parent_not_held", "launch_preclaim_refusal_changed_state",
+        "launch_preclaim_retirement_invalid", "launch_preclaim_original_reconciliation_missing",
         "launch_active_predecessor_identity_changed", "launch_active_predecessor_exit_missing",
         "launch_predecessor_capacity_not_held", "launch_predecessor_unreported_runtime_changed",
         "launch_predecessor_original_attempt_missing", "launch_predecessor_original_run_not_held",
@@ -926,6 +939,7 @@ def failure_projection(raw, selection):
         "cancellation_original_run_not_active", "cancellation_resource_not_observed",
         "cancelled_partial_identity_binding_invalid", "cancelled_partial_result_not_proven",
         "cancelled_partial_files_missing", "cancelled_partial_receipt_mismatch",
+        "cancelled_partial_witness_unobserved",
         "cancelled_partial_assessment_mismatch", "cancelled_partial_evidence_mismatch",
         "cancellation_host_report_not_bound",
         "empty_audit_volume_not_bound", "empty_audit_volume_changed",
@@ -1428,6 +1442,33 @@ def _stopped_predecessor_projection(raw, selection, first, second, inventories, 
     return result
 
 
+def _preclaim_projection(raw, selection, first, second, inventories, *, desktop):
+    from nm2_worker_launch_acceptance import MAP_DISCONNECT_SOURCES
+
+    require(all(selection["sources"][name]["commit"] == commit for name, commit in MAP_DISCONNECT_SOURCES.items()))
+    counts = {"new_resources": 0, "target_requests": 0, "targets_spent": 0, "duration_allocated": 0,
+              "capacity_before": 0, "capacity_after": 0, "issued_attempts": 0,
+              "retained_tombstones": 1, "remaining_local_holds": 0}
+    hashes = ("tombstone_before_sha256", "tombstone_after_sha256", "audit_sha256", "retirement_sha256", "host_retirement_sha256")
+    proof = raw.get("preclaim_recovery")
+    require(type(proof) is dict and set(proof) == set(counts) | set(hashes) | {
+        "setup_kind", "marker", "failure_phase", "failure_code", "refused_runtime_id", "last_sequence", "reconciliation_state",
+    } and all(type(proof[key]) is int and proof[key] == value for key, value in counts.items())
+        and proof["setup_kind"] == "trusted_synthetic" and proof["marker"] == "local_preclaim_denied_before_rpc"
+        and proof["failure_phase"] == "launch_catalog" and proof["failure_code"] == "validation_refused"
+        and proof["refused_runtime_id"] == second["runtime_id"] and proof["last_sequence"] == "0"
+        and proof["reconciliation_state"] == "terminal_preclaim_parent_retired"
+        and proof["tombstone_before_sha256"] == proof["tombstone_after_sha256"]
+        and proof["retirement_sha256"] == first["retirement_sha256"])
+    for key in hashes:
+        _hash(proof[key])
+    owned, admitted = _launch_retention(raw, selection, (first, second), inventories, desktop=desktop)
+    return {"preclaim_recovery": {**{key: proof[key] for key in (*counts, *hashes, "setup_kind", "marker", "failure_phase", "failure_code", "last_sequence", "reconciliation_state")},
+            "same_runner_state_volume": True, "owned_stopped_container_count": owned},
+            "platform": "win32" if desktop else "linux", "container_platform": "linux",
+            "empty_builtin_bridge_id_change_count": admitted, "nm2_exit_status": "incomplete", "resources_retained": True}
+
+
 def _map_disconnect_projection(raw, selection, inventories, *, desktop):
     from nm2_worker_launch_acceptance import (
         MAP_DISCONNECT_LEASE_NS, MAP_DISCONNECT_SOURCES, engine_timestamp_ns,
@@ -1514,6 +1555,40 @@ def _map_disconnect_projection(raw, selection, inventories, *, desktop):
     }
 
 
+def _cancelled_partial_retention(value, proof, selection):
+    fields = {
+        "artifact_sha256", "result_receipt_sha256", "terminal_receipt_sha256",
+        "evidence_count", "evidence_sha256", "assessment_status", "binding", "case_sha256",
+    }
+    witness = _fields(value, fields)
+    binding = _fields(witness["binding"], _BINDING)
+    require(
+        binding["job_id"] == proof["job_id"]
+        and binding["origin"] == f"https://vardrsec.localhost:{selection['https_port']}/backend"
+        and type(binding["fence"]) is int and 1 <= binding["fence"] <= 2**53 - 1
+        and type(witness["evidence_count"]) is int and witness["evidence_count"] == 5
+        and witness["assessment_status"] == "inconclusive"
+    )
+    for key in ("runner_id", "contract_id", "attempt_id"):
+        _uuid(binding[key])
+    _hash(binding["contract_sha256"])
+    for key in ("artifact_sha256", "result_receipt_sha256", "terminal_receipt_sha256",
+                "evidence_sha256", "case_sha256"):
+        _hash(witness[key])
+    result_sha = _digest({
+        "schema": "vardr.managed-result/1", **binding,
+        "artifact_sha256": witness["artifact_sha256"], "case_sha256": witness["case_sha256"],
+    })
+    require(
+        witness["result_receipt_sha256"] == result_sha
+        and witness["terminal_receipt_sha256"] == proof["terminal_sha256"] == _digest({
+            "schema": "vardr.managed-completion/1", **binding,
+            "receipt_sha256": result_sha, "outcome": "failed", "capacity_reserved": False,
+        })
+    )
+    return {key: witness[key] for key in fields - {"binding"}}
+
+
 def launch_projection(raw, selection, *, inventories=(), desktop=False):
     scenario = raw.get("scenario")
     require(
@@ -1521,7 +1596,7 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
         and type(desktop) is bool
         and (not desktop or scenario in {
             LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_CONCURRENCY_SCENARIO,
-            LAUNCH_MAP_DISCONNECT_SCENARIO,
+            LAUNCH_MAP_DISCONNECT_SCENARIO, LAUNCH_GRANT_REVOKE_SCENARIO, LAUNCH_PRECLAIM_SCENARIO,
         })
     )
     budget = LAUNCH_BUDGETS.get(scenario)
@@ -1591,7 +1666,7 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
             fields.add("grant_expiry_elapsed_ns")
         require(
             type(proof) is dict
-            and set(proof) == fields
+            and set(proof) in (fields, fields | {"partial_retention"})
             and type(proof["target_requests"]) is int and proof["target_requests"] == 3
             and type(proof["physical_exit_elapsed_ns"]) is int
             and 0 < proof["physical_exit_elapsed_ns"] < 15_000_000_000
@@ -1610,7 +1685,11 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
                 type(expiry) is int and 1_000_000_000 <= expiry <= 14_000_000_000
                 and earliest_offset <= proof["physical_exit_elapsed_ns"] - expiry <= 2_500_000_000
             )
-        result["cancelled_job"] = proof
+        result["cancelled_job"] = {key: value for key, value in proof.items() if key != "partial_retention"}
+        if "partial_retention" in proof:
+            result["cancelled_job"]["partial_retention"] = _cancelled_partial_retention(
+                proof["partial_retention"], proof, selection
+            )
     else:
         require("cancelled_job" not in raw)
     if scenario == LAUNCH_STOP_WORK_QUEUED_SCENARIO:
@@ -1643,11 +1722,31 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
         result["unissued_job"] = unissued
     else:
         require("unissued_job" not in raw)
+    if scenario == LAUNCH_PRECLAIM_SCENARIO:
+        return _preclaim_projection(raw, selection, first, second, inventories, desktop=desktop)
     if scenario == LAUNCH_STOPPED_PREDECESSOR_SCENARIO:
         return _stopped_predecessor_projection(
             raw, selection, first, second, inventories, desktop=desktop
         )
     return result
+
+
+def grant_revocation_desktop_projection(raw, selection, *, inventories):
+    """Read the existing Desktop revocation case, including optional C01 witness."""
+    require(
+        type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA
+        and raw.get("scenario") == LAUNCH_GRANT_REVOKE_SCENARIO
+    )
+    try:
+        result = launch_projection(raw, selection, desktop=True)
+        owned, admitted = _launch_retention(
+            raw, selection, tuple(raw["launch_pair"]), inventories, desktop=True
+        )
+        return {**result, "platform": "win32", "container_platform": "linux",
+                "owned_stopped_container_count": owned,
+                "empty_builtin_bridge_id_change_count": admitted}
+    except (KeyError, TypeError, IndexError, ValueError):
+        raise HostedRefused("nm2_desktop_grant_revocation_receipt_refused") from None
 
 
 def concurrency_desktop_projection(raw, selection):
@@ -1712,6 +1811,8 @@ def public_projection(raw, selection, *, inventories=()):
                 return launch_projection(raw, selection, inventories=inventories)
             except (KeyError, TypeError, IndexError, ValueError):
                 raise HostedRefused("nm2_hosted_map_disconnect_receipt_refused") from None
+        if raw.get("scenario") == LAUNCH_PRECLAIM_SCENARIO:
+            return launch_projection(raw, selection, inventories=inventories)
         if raw.get("scenario") == LAUNCH_STOPPED_PREDECESSOR_SCENARIO:
             try:
                 return launch_projection(raw, selection, inventories=inventories)
@@ -1946,6 +2047,9 @@ class Hosted:
                 expected_database_revision=self.database_revision,
                 scope=LAUNCH_SCOPES[self.scenario],
             )
+        elif self.scenario == LAUNCH_PRECLAIM_SCENARIO:
+            self.receipt.update(schema=PRECLAIM_HOSTED, scenario=self.scenario,
+                expected_database_revision=self.database_revision, scope=LAUNCH_SCOPES[self.scenario])
         elif self.scenario == LAUNCH_STOPPED_PREDECESSOR_SCENARIO:
             self.receipt.update(
                 schema=STOPPED_PREDECESSOR_HOSTED, scenario=self.scenario,
@@ -2281,6 +2385,7 @@ class Hosted:
             *{
                 LAUNCH_SCENARIO: [],
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO: ["--stopped-predecessor"],
+                LAUNCH_PRECLAIM_SCENARIO: ["--preclaim-recovery"],
                 LAUNCH_MAP_DISCONNECT_SCENARIO: ["--map-disconnect"],
                 LAUNCH_COMPLETED_SCENARIO: ["--completed-job"],
                 LAUNCH_STOP_WORK_SCENARIO: ["--stop-work"],
@@ -2416,6 +2521,7 @@ class Hosted:
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
                     LAUNCH_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_PRECLAIM_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_MAP_DISCONNECT_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_COMPLETED_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_SCENARIO: LAUNCH_SCHEMA,
@@ -2435,7 +2541,7 @@ class Hosted:
             )
             if self.scenario in {
                 STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO,
-                LAUNCH_STOPPED_PREDECESSOR_SCENARIO,
+                LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_PRECLAIM_SCENARIO,
                 LAUNCH_MAP_DISCONNECT_SCENARIO,
             }:
                 inventories = []
@@ -2459,6 +2565,8 @@ class Hosted:
                     self.receipt["remaining_required_cases"]["map_disconnect"] = (
                         "ordinary_api_outage_verified_selected_cohort"
                     )
+                elif self.scenario == LAUNCH_PRECLAIM_SCENARIO:
+                    self.receipt["remaining_required_cases"]["persisted_preclaim_recovery"] = "trusted_synthetic_closed_parent0_verified"
                 else:
                     self.receipt["remaining_required_cases"]["worker_crash_stop"] = (
                         "ordinary_operator_stop_verified_crash_open"
@@ -2508,6 +2616,7 @@ class Hosted:
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
                     LAUNCH_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: STOPPED_PREDECESSOR_HOSTED,
+                    LAUNCH_PRECLAIM_SCENARIO: PRECLAIM_HOSTED,
                     LAUNCH_MAP_DISCONNECT_SCENARIO: MAP_DISCONNECT_HOSTED,
                     LAUNCH_COMPLETED_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_SCENARIO: "vardr.nm2-hosted/7",

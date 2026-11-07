@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Retain and validate the emitted artifact/result witness in cancellation
+  receipts, and add the closed-preclaim recovery acceptance scenario.
+
 - Add a bootstrap-only Ubuntu check that qualifies the selected Runner image
   and runs the two existing configuration-refusal cases.
 

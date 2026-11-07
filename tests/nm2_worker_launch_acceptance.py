@@ -16,6 +16,7 @@ import uuid
 
 from nm2_worker_acceptance import (
     EMPTY_SCENARIO,
+    EXECUTION,
     ORIGIN,
     AcceptanceRefused,
     Fixture,
@@ -30,6 +31,8 @@ from nm2_worker_acceptance import (
 
 SECOND_NS = 1_000_000_000
 STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
+PRECLAIM_SCENARIO = "persistent-launch-preclaim-recovery"
+PRECLAIM_SCOPE = "trusted_synthetic_closed_preclaim_parent0"
 MAP_DISCONNECT_SCENARIO = "persistent-launch-map-disconnect"
 MAP_DISCONNECT_PASS = "selected_map_disconnect_slice_passed"
 MAP_DISCONNECT_SCOPE = "ordinary_map_api_outage"
@@ -244,7 +247,7 @@ class LaunchFixture(Fixture):
         completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
         revoke_grant=False, expire_grant=False, expire_active_grant=False,
         duration_exhaustion=False, target_exhaustion=False, stopped_predecessor=False,
-        concurrency_exhaustion=False, map_disconnect=False,
+        concurrency_exhaustion=False, map_disconnect=False, preclaim_recovery=False,
     ):
         super().__init__(
             selection,
@@ -272,6 +275,7 @@ class LaunchFixture(Fixture):
         self.completed = completed or self.budget_exhaustion is not None
         self.stopped_predecessor = stopped_predecessor
         self.map_disconnect = map_disconnect
+        self.preclaim_recovery = preclaim_recovery
         self.concurrency_exhaustion = concurrency_exhaustion
         self.cancelling = stop_work or local_stop or revoke_grant or expire_active_grant
         self.local_stop = local_stop
@@ -285,7 +289,7 @@ class LaunchFixture(Fixture):
         require(
             sum((completed, stop_work, local_stop, missing_grant, revoke_grant,
                  expire_grant, expire_active_grant, duration_exhaustion, target_exhaustion,
-                 stopped_predecessor, concurrency_exhaustion, map_disconnect)) <= 1
+                 stopped_predecessor, concurrency_exhaustion, map_disconnect, preclaim_recovery)) <= 1
             and (not queued_peer or stop_work),
             "launch_fixture_mode_conflict",
         )
@@ -312,6 +316,8 @@ class LaunchFixture(Fixture):
             scenario, scope = CONCURRENCY_SCENARIO, "shared_engagement_concurrency_exhaustion"
         elif stopped_predecessor:
             scenario, scope = STOPPED_PREDECESSOR_SCENARIO, "stopped_predecessor_then_next_launch"
+        elif preclaim_recovery:
+            scenario, scope = PRECLAIM_SCENARIO, PRECLAIM_SCOPE
         elif map_disconnect:
             require(
                 all(selection["sources"][name]["commit"] == commit
@@ -912,6 +918,7 @@ print(len(directories))
             expected_causes = {
                 "authorization_deadline", "control_lease_expired", "local_emergency_stop", "tool_timeout",
             }
+        partial_retention = None
         if inventory["results"]:
             self.receipt["stage"] = "launch_stop_work_partial_evidence"
             cause = local.get("failure_reason")
@@ -932,10 +939,14 @@ print(len(directories))
             else:
                 require(cause in expected_causes,
                         "launch_stop_work_terminal_not_proven")
-            self.verify_failed_partial(
-                engagement, job, stored, binding, terminal, inventory, retained,
-                completion_event=completion_event,
-            )
+            partial_retention = {
+                **self.verify_failed_partial(
+                    engagement, job, stored, binding, terminal, inventory, retained,
+                    completion_event=completion_event,
+                ),
+                "binding": binding,
+                "case_sha256": digest(canonical(stored["spec"])),
+            }
         else:
             cause = terminal.get("cause")
             require(
@@ -979,6 +990,13 @@ print(len(directories))
             )
         else:
             proof["cancel_requested_sha256"] = digest(canonical(pending))
+        # C01 observes retained evidence in this existing graceful-revocation case.
+        # Forced exit without an emitted artifact stays valid stop evidence, but
+        # cannot satisfy this retained-artifact acceptance witness.
+        require(not self.revoke_grant or partial_retention is not None,
+                "cancelled_partial_witness_unobserved")
+        if partial_retention is not None:
+            proof["partial_retention"] = partial_retention
         self.receipt["cancelled_job"] = proof
 
     def unreported_attempt(self, admission, case, identity, *, disabled):
@@ -1354,7 +1372,7 @@ print(len(directories))
 
         runner, _ = binding
         self.receipt["stage"] = f"launch_{ordinal}"
-        selected_id = self.successor_id if self.stopped_predecessor and ordinal == 2 else None
+        selected_id = self.successor_id if (self.stopped_predecessor or self.preclaim_recovery) and ordinal == 2 else None
         enabled = json.loads(
             worker_cli_command(
                 self.launch_arguments(config, signing, binding, selected_id),
@@ -1410,6 +1428,12 @@ print(len(directories))
             == ([] if predecessor is None else [predecessor["container_id"]]),
             "launch_durable_chain_not_observed",
         )
+        if predecessor is not None and self.preclaim_recovery:
+            require(
+                row["predecessors"][0]["original_local_audit_sha256"] == self.receipt["preclaim_recovery"]["audit_sha256"]
+                and row["predecessors"][0]["host_retirement_sha256"] == self.receipt["preclaim_recovery"]["host_retirement_sha256"],
+                "launch_preclaim_predecessor_binding_changed",
+            )
         if predecessor is not None and self.stopped_predecessor:
             require(
                 row["predecessors"][0]["original_local_audit_sha256"]
@@ -1536,6 +1560,8 @@ print(len(directories))
             self.receipt["stage"] = "launch_report_predecessor"
         if disconnecting:
             self.receipt["stage"] = "launch_map_disconnect_report_exit"
+        if self.preclaim_recovery and ordinal == 1:
+            self.prepare_preclaim_recovery(observer, exit_proof, admission, config, signing, binding)
         retired = self.report_exit(physical)
         reconciled = self.worker_action("reconcile", selected, timeout=120)
         require(
@@ -1549,7 +1575,9 @@ print(len(directories))
             and reconciled["receipt"]["retirement"] == retired,
             "launch_retirement_not_observed",
         )
-        if case is None:
+        if case is None and self.preclaim_recovery and ordinal == 1:
+            self.reconcile_preclaim_recovery(admission, retired)
+        elif case is None:
             require(
                 before
                 == self.verify_empty_worker_state(
@@ -1715,8 +1743,15 @@ print(len(directories))
             self.disconnect_core = initial["core"]
         case = None
         peer = None
-        if self.stopped_predecessor:
+        if self.stopped_predecessor or self.preclaim_recovery:
             self.successor_id = str(uuid.uuid4())
+        if self.preclaim_recovery:
+            engagement, authorization, job, stored = self.new_job("launch-closed-preclaim", marker=True)
+            require(self.approve("launch-closed-preclaim", engagement, authorization, job, stored, local_grants=False) == binding,
+                    "launch_preclaim_enrollment_changed")
+            self.preclaim_case = engagement, job, stored
+            self.preclaim_inventory = self.preclaim_unissued()
+
         if (
             self.completed or self.cancelling or self.local_grant_denial
             or self.stopped_predecessor or self.concurrency_exhaustion or self.map_disconnect
@@ -1915,11 +1950,115 @@ print(len(directories))
                 and _timestamp(first["finished_at"]) < _timestamp(second["started_at"]),
                 "launch_host_exit_predecessor_history_changed",
             )
-        if not (self.completed or self.cancelling or self.local_grant_denial or self.stopped_predecessor):
+        if self.preclaim_recovery:
+            require(second["runtime_id"] == self.successor_id
+                    and canonical(self.preclaim_unissued()) == canonical(self.preclaim_inventory)
+                    and self.read_preclaim_snapshot()["tombstone_sha256"] == self.preclaim_tombstone,
+                    "launch_preclaim_source_changed")
+        if not (self.completed or self.cancelling or self.local_grant_denial or self.stopped_predecessor or self.preclaim_recovery):
             self.empty_engagements()
         self.receipt["launch_pair"] = [first, second]
         self.receipt["status"] = "selected_launch_slice_passed"
         self.receipt["stage"] = "selected_launch_complete"
+
+    def preclaim_unissued(self):
+        engagement, job = self.preclaim_case[:2]
+        self.verify_unclaimed_peer((engagement, job), targets=0, duration=0)
+        value = self.inventory(engagement, job, include_capacity=True)
+        require(type(value["capacity_reserved_count"]) is int and value["capacity_reserved_count"] == 0
+                and self.traffic() == [], "launch_preclaim_server_changed")
+        return value
+
+    def read_preclaim_snapshot(self):
+        source = (self.install / "tests/nm2_worker_preclaim_fixture.py").read_text(encoding="utf-8")
+        return json.loads(self.helper("-I", "-c", source, "snapshot", python=True,
+                                      stdin=canonical({"run_id": self.preclaim_run_id})))
+
+    def prepare_preclaim_recovery(self, observer, proof, admission, config, signing, binding):
+        from worker_cli import records_for
+        from worker_launch import _public_inventory
+        from worker_lifecycle_intent import IntentStore
+        from worker_runtime import ObservedExit
+
+        self.receipt["stage"] = "launch_preclaim_setup"
+        require(isinstance(proof, ObservedExit) and asdict(proof.identity) == admission["identity"],
+                "launch_preclaim_exit_not_bound")
+        observer.confirm_exit(proof)
+        require(canonical(self.preclaim_unissued()) == canonical(self.preclaim_inventory), "launch_preclaim_server_changed")
+        source = (self.install / "tests/nm2_worker_preclaim_fixture.py").read_text(encoding="utf-8")
+        engagement, job, stored = self.preclaim_case
+        setup = json.loads(self.helper("-I", "-c", source, python=True, stdin=canonical({
+            "admission": admission, "engagement_id": engagement, "job_id": job,
+            "case": stored["spec"], "execution": EXECUTION,
+        })))
+        require(set(setup) == {"schema", "kind", "selected", "closed"}
+                and setup["schema"] == "vardr.nm2-preclaim-setup/1" and setup["kind"] == "trusted_synthetic",
+                "launch_preclaim_setup_invalid")
+        closed = setup["closed"]
+        require(closed["phase"] == "failed" and closed["status"] == "not_claimed"
+                and closed["claim_state"] == closed["selection_state"] == "preclaim_retired"
+                and closed["failure_reason"] == "local_preclaim_denied_before_rpc"
+                and re.fullmatch(r"[0-9a-f]{32}", closed["run_id"]) is not None
+                and re.fullmatch(r"[0-9a-f]{64}", closed["tombstone_sha256"]) is not None,
+                "launch_preclaim_setup_invalid")
+        self.preclaim_run_id, self.preclaim_tombstone = closed["run_id"], closed["tombstone_sha256"]
+        audit = self.worker_state(admission)
+        require(audit["status"] == "held" and audit["reason"] == "runtime_unretired"
+                and audit["complete"] is True and audit["global_holds"] == 0
+                and audit["parent"] == {"state": "idle", "last_sequence": "0", "head_sequence": None, "active_sequence": None}
+                and audit["counts"] == {"attempts": 0, "selections": 1, "associated_runs": 1, "associated_claims": 1},
+                "launch_preclaim_parent_not_held")
+        records = records_for(self.install, str(self.private), existing=True)
+        store = IntentStore(records)
+        def catalog():
+            with records.operation() as operation:
+                value = store.inventory(operation=operation)
+                _public_inventory(self.public_root, value)
+            return value
+        original, resources = catalog(), self.snapshot()
+        self.receipt["stage"] = "launch_preclaim_refuse_successor"
+        expect_unresolved_launch(self.launch_arguments(config, signing, binding, self.successor_id),
+                                 self.successor_id, cwd=self.install, env=self.environment, stdin=self.password + "\n")
+        observer.confirm_exit(proof)
+        require(canonical(catalog()) == canonical(original) and canonical(self.snapshot()) == canonical(resources)
+                and self.read_preclaim_snapshot()["tombstone_sha256"] == self.preclaim_tombstone
+                and canonical(self.preclaim_unissued()) == canonical(self.preclaim_inventory),
+                "launch_preclaim_refusal_changed_state")
+        self.receipt["preclaim_recovery"] = {
+            "setup_kind": "trusted_synthetic", "marker": "local_preclaim_denied_before_rpc",
+            "failure_phase": "launch_catalog", "failure_code": "validation_refused",
+            "refused_runtime_id": self.successor_id, "new_resources": 0, "target_requests": 0,
+            "targets_spent": 0, "duration_allocated": 0, "capacity_before": 0, "capacity_after": 0,
+            "issued_attempts": 0, "retained_tombstones": 1, "last_sequence": "0",
+            "tombstone_before_sha256": self.preclaim_tombstone,
+        }
+
+    def reconcile_preclaim_recovery(self, admission, retired):
+        self.receipt["stage"] = "launch_preclaim_reconcile"
+        require(retired["last_sequence"] == "0" and retired["runtime_sequence"] is None
+                and retired["binding"] is None and retired["attempt_receipt"] is None, "launch_preclaim_retirement_invalid")
+        binding = {key: admission[key] for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256")}
+        selectors = [value for key, item in binding.items() for value in ("--" + key.replace("_", "-"), item)]
+        reply = json.loads(self.helper("worker-reconcile", "--journal", "/home/runner/.vardrmap/runner-journal.sqlite3",
+                                      "--identity", "/home/runner/.vardrmap/runner-identity.json", *selectors))
+        require(reply["schema"] == "vardr.worker-reconciliation/1" and reply["status"] == "reconciled"
+                and reply["complete"] is True and reply["binding"] == binding
+                and reply["selected_run_id"] == self.preclaim_run_id and reply["selected_sequence"] == "1"
+                and reply["reconciliation_state"] == "terminal_preclaim_parent_retired"
+                and reply["remaining_local_holds"] == 0 and reply["retirement_receipt_sha256"] == retired["receipt_sha256"],
+                "launch_preclaim_original_reconciliation_missing")
+        audit = self.worker_state(admission)
+        require(audit["status"] == "retired" and audit["complete"] is True and audit["binding"] == binding
+                and audit["global_holds"] == 0 and audit["retirement_receipt_sha256"] == retired["receipt_sha256"]
+                and audit["parent"] == {"state": "retired", "last_sequence": "0", "head_sequence": None, "active_sequence": None}
+                and audit["counts"] == {"attempts": 0, "selections": 1, "associated_runs": 1, "associated_claims": 1}
+                and self.read_preclaim_snapshot()["tombstone_sha256"] == self.preclaim_tombstone
+                and canonical(self.preclaim_unissued()) == canonical(self.preclaim_inventory), "launch_preclaim_source_changed")
+        self.receipt["preclaim_recovery"].update(
+            tombstone_after_sha256=self.preclaim_tombstone, audit_sha256=digest(canonical(audit)),
+            retirement_sha256=retired["receipt_sha256"], host_retirement_sha256=digest(canonical(retired)),
+            remaining_local_holds=0, reconciliation_state=reply["reconciliation_state"],
+        )
 
     def verify_unclaimed_peer(self, peer, *, targets, duration):
         inventory = self.inventory(*peer)
@@ -1958,6 +2097,7 @@ def main(argv=None):
     workload.add_argument("--concurrency-exhaustion", action="store_true")
     workload.add_argument("--stopped-predecessor", action="store_true")
     workload.add_argument("--map-disconnect", action="store_true")
+    workload.add_argument("--preclaim-recovery", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -1982,6 +2122,7 @@ def main(argv=None):
             concurrency_exhaustion=args.concurrency_exhaustion,
             stopped_predecessor=args.stopped_predecessor,
             map_disconnect=args.map_disconnect,
+            preclaim_recovery=args.preclaim_recovery,
         )
         fixture.run()
         expected = (

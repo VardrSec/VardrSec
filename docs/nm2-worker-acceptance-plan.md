@@ -541,3 +541,22 @@ current Windows configuration evidence supplies the other platform's credit.
 C07–C10 retain the remaining runtime and review obligations in the
 [fixed checklist](nm1-nm2-closeout.md#fixed-nm-2-closeout-checklist).
 Hosted execution uses the existing explicit controls.
+
+## Fixed checklist C01 and C02 acceptance cases
+
+C01 uses the existing `persistent-launch-grant-revocation` case. Its receipt
+retains the already validated partial artifact, result and terminal hashes.
+The reader recomputes the result/completion relationship and exports safe
+hashes and counts. C01 requires an emitted witness. An ordinary forced stop
+with no emitted artifact keeps its earlier stop credit and leaves C01 open.
+
+C02 uses `persistent-launch-preclaim-recovery` and hosted receipt version 17.
+After the real first worker stops, a separate helper uses the pinned Runner
+SDK to seed one closed no-send preclaim state for the original approved job.
+The job has no local target grant. The original authenticated retirement and
+reconciliation must preserve the tombstone, retire the idle parent at sequence
+zero, reach zero holds and permit the next worker on the same state volume.
+The successor is refused before reporting and reconciliation. Target traffic,
+issued attempts and charges must remain zero throughout. This verifies
+recovery of trusted synthetic durable state. An actual crash or late grant
+race retains its own declared scope.
