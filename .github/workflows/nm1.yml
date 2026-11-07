@@ -32,19 +32,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrMap
-          ref: 6c06315fd1ee4ad2649afdfeb0363b421b6e7c54
+          ref: aad63c8151789cd9bf56864456b5fdf1fdcfde41
           path: .nm1/map
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrRunner
-          ref: ab5f23f87fa765038f70f3d91a16470bd05d73e2
+          ref: 9a27417c45fd5347c4d1d6de3c23c2904fe079a7
           path: .nm1/runner
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrGate
-          ref: e99714b8567d1bc415c8feeeef4c7454e13aa905
+          ref: f50f9a2b725ab8a90339d53cbc72c1444601950a
           path: .nm1/gate
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -121,19 +121,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrMap
-          ref: 6c06315fd1ee4ad2649afdfeb0363b421b6e7c54
+          ref: aad63c8151789cd9bf56864456b5fdf1fdcfde41
           path: .nm1/map
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrRunner
-          ref: ab5f23f87fa765038f70f3d91a16470bd05d73e2
+          ref: 9a27417c45fd5347c4d1d6de3c23c2904fe079a7
           path: .nm1/runner
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: VardrSec/VardrGate
-          ref: e99714b8567d1bc415c8feeeef4c7454e13aa905
+          ref: f50f9a2b725ab8a90339d53cbc72c1444601950a
           path: .nm1/gate
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
@@ -168,6 +168,7 @@ jobs:
           PY
       - name: Prepare the existing PostgreSQL integration fixture
         if: matrix.database == 'postgres'
+        working-directory: .nm1/map/backend
         run: |
           python - <<'PY'
           import os, psycopg
@@ -176,7 +177,7 @@ jobs:
               conn.execute('CREATE DATABASE vardrmap_test_integration')
               conn.execute("ALTER DATABASE vardrmap_test_integration SET timezone TO 'America/Chicago'")
           PY
-          python -m pytest .nm1/map/backend/postgres_tests -q
+          python -m pytest postgres_tests -q
       - name: Complete existing backend suite on the selected database
         working-directory: .nm1/map/backend
         run: python -m pytest tests -q
@@ -185,9 +186,9 @@ jobs:
         run: >-
           python .nm1/map/scripts/integration/run.py --postgres --semantic-evidence --platform-readiness
           --runner .nm1/runner --gate .nm1/gate --runner-python "$(command -v python)"
-          --map-ref 6c06315fd1ee4ad2649afdfeb0363b421b6e7c54
-          --runner-ref ab5f23f87fa765038f70f3d91a16470bd05d73e2
-          --gate-ref e99714b8567d1bc415c8feeeef4c7454e13aa905
+          --map-ref aad63c8151789cd9bf56864456b5fdf1fdcfde41
+          --runner-ref 9a27417c45fd5347c4d1d6de3c23c2904fe079a7
+          --gate-ref f50f9a2b725ab8a90339d53cbc72c1444601950a
           --output "$RUNNER_TEMP"
       - name: Retain allowlisted integration verdict and source manifest
         if: always()
