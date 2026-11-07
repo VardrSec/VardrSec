@@ -49,3 +49,34 @@ files. Native credential/MoveFileEx calls are mocked or denied before imports;
 native publication durability therefore remains untested by these models. Full
 ordinary tests, qualified immutable images and fresh Linux/Desktop lifecycle
 acceptance remain required. NM-2 and release gates remain open.
+
+## Schema/2: bind reviewed public registration policy
+
+The current format is `vardr.worker-lifecycle-intent/2` with a separate `/2` MAC
+domain. An immutable `registration_policy` has exactly seven mandatory fields:
+`origin`, `enrollment_id`, `runner_id`, `protocol`, `expires_in_seconds`, `limits`
+and `reporting_authority`. Limits always has exactly `max_attempts` and
+`idle_timeout_seconds`; unused fields are explicitly null, never inferred.
+
+Use existing named modes `legacy-v1`, `finite-v2` and `persistent-v3`. Persistent
+mode requires null lifetime, the existing strict persistent limits validator and
+the exact STOP-only reporting declaration. Legacy/finite modes require an integer
+lifetime60..604800, null idle/reporting fields, and respectively null max or an
+integer max1..32. No strings/booleans/floats are coerced. Origins/IDs reuse the
+existing validators. The policy contains only reviewed public settings: no key,
+password, target credential, environment contents or digest of those values.
+
+Public registration defaults remain unchanged. In the existing generic call,
+`protocol=None` is interpreted by its already validated registration shape:
+`max_attempts` present identifies finite-v2; absent identifies legacy-v1. The
+durable policy must explicitly name that selected mode; policy null or a new
+alias is refused. This schema increment adds no registration/fence invocation.
+
+Old intent/1 records are held before key access, never migrated, overwritten or
+replayed. Creation also refuses a colliding existing file or orphan purpose key.
+The fixed `LifecycleIntent/v1` custody namespace and `.intent-key` remain unchanged:
+their version describes the format-independent MAC-only key purpose, not the data
+schema. A new data domain prevents an old MAC authenticating relabelled bytes.
+No key rotation/deletion or future-runtime STOP-slot reservation is introduced.
+`observations.host_record_sha256` remains reserved for the acknowledged record;
+it must not be consumed by a prepared-record digest in a later registration fence.

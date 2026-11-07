@@ -16,8 +16,8 @@ import worker_host as host
 import worker_runtime as runtime
 
 
-SCHEMA = "vardr.worker-lifecycle-intent/1"
-_DOMAIN = b"vardr.worker-lifecycle-intent/1\0"
+SCHEMA = "vardr.worker-lifecycle-intent/2"
+_DOMAIN = b"vardr.worker-lifecycle-intent/2\0"
 _LIMIT = 65536
 _MAX_REVISION = 9223372036854775807
 _FLAGS = frozenset(
@@ -49,6 +49,7 @@ _IMMUTABLE = frozenset(
         "binding",
         "predecessors",
         "resources",
+        "registration_policy",
     }
 )
 
@@ -86,6 +87,57 @@ def image(value):
     require(type(value) is str and re.fullmatch(r"sha256:[0-9a-f]{64}", value))
 
 
+def registration_policy(value):
+    """Reviewed public registration inputs; no defaults, credentials or coercion."""
+    fields(
+        value,
+        {
+            "origin",
+            "enrollment_id",
+            "runner_id",
+            "protocol",
+            "expires_in_seconds",
+            "limits",
+            "reporting_authority",
+        },
+    )
+    host._url(value["origin"], external=True)
+    host._identifier(value["enrollment_id"])
+    host._uuid(value["runner_id"])
+    protocol = value["protocol"]
+    require(
+        type(protocol) is str
+        and protocol in {"legacy-v1", "finite-v2", "persistent-v3"}
+    )
+    if protocol == "persistent-v3":
+        import worker_host_persistent
+
+        require(value["expires_in_seconds"] is None)
+        worker_host_persistent.limits(value["limits"])
+        fields(value["reporting_authority"], {"purpose", "expires_at"})
+        require(
+            value["reporting_authority"] == worker_host_persistent.REPORTING_AUTHORITY
+        )
+    else:
+        require(
+            type(value["expires_in_seconds"]) is int
+            and 60 <= value["expires_in_seconds"] <= 604800
+        )
+        limits = fields(value["limits"], {"max_attempts", "idle_timeout_seconds"})
+        require(
+            limits["idle_timeout_seconds"] is None
+            and value["reporting_authority"] is None
+        )
+        if protocol == "finite-v2":
+            require(
+                type(limits["max_attempts"]) is int
+                and 1 <= limits["max_attempts"] <= 32
+            )
+        else:
+            require(limits["max_attempts"] is None)
+    return value
+
+
 def _checked(payload):
     fields(
         payload,
@@ -93,6 +145,7 @@ def _checked(payload):
         | {"revision", "previous_sha256", "effects", "observations", "disposition"},
     )
     host._uuid(payload["operation_id"])
+    registration_policy(payload["registration_policy"])
     host._uuid(payload["future_runtime_id"])
     require(payload["operation_id"] != payload["future_runtime_id"])
     for name in ("installation", "storage_root"):

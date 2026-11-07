@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Bind lifecycle intent/2 to an immutable, explicitly reviewed public registration
+  policy and separate MAC data domain. Keep the existing MAC-only key purpose;
+  hold old records/collisions without migration, overwrite or replay. Preserve
+  existing registration defaults; this adds no capability, send/publication fence
+  or launcher.
+
+
 - Factor worker enable setup and its existing locked body into private helpers.
   Require the exact live HostRecords operation before private-body effects;
   preserve public argument/default/diagnostic order and reply construction after

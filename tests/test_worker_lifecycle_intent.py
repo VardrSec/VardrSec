@@ -3,6 +3,8 @@
 from contextlib import contextmanager
 import copy
 import ctypes
+import hashlib
+import hmac
 import json
 import os
 import sys
@@ -31,6 +33,23 @@ def exclusive_test_publish(source, target, **_kwargs):
         os.link(source, target)
 
 
+def reviewed_policy(protocol):
+    return {
+        "origin": "https://issuer.example",
+        "enrollment_id": "reviewed-enrollment",
+        "runner_id": "44444444-4444-4444-8444-444444444444",
+        "protocol": protocol,
+        "expires_in_seconds": None if protocol == "persistent-v3" else 900,
+        "limits": {
+            "max_attempts": 2 if protocol == "finite-v2" else None,
+            "idle_timeout_seconds": None,
+        },
+        "reporting_authority": {"purpose": "worker-stop-only", "expires_at": None}
+        if protocol == "persistent-v3"
+        else None,
+    }
+
+
 class SyntheticBackend:
     def __init__(self):
         self.intents, self.stops, self.calls = {}, {}, []
@@ -56,6 +75,7 @@ def payload(records):
     return {
         "operation_id": OPERATION,
         "future_runtime_id": FUTURE,
+        "registration_policy": reviewed_policy("persistent-v3"),
         "installation": str(records.installation.resolve()),
         "storage_root": str(records.private_root.resolve()),
         "revision": 1,
@@ -511,7 +531,7 @@ class LifecycleIntentTests(unittest.TestCase):
                 original.replace(b'"schema":', b'"schema":"duplicate","schema":', 1),
                 original.replace(b'"revision":1', b'"revision":NaN'),
                 original.replace(
-                    b'"vardr.worker-lifecycle-intent/1"',
+                    b'"vardr.worker-lifecycle-intent/2"',
                     b'"vardr.worker-host-record/3"',
                 ),
                 original.replace(b'"mac":"', b'"mac":"0', 1),
@@ -743,6 +763,172 @@ class LifecycleIntentTests(unittest.TestCase):
                     with self.assertRaises(intent.IntentRefused):
                         self.store.read(OPERATION, operation=operation)
                 self.assertEqual(len(self.backend.calls), before)
+
+    def test_old_intent1_is_held_before_key_access_without_migration_or_overwrite(self):
+        with self.records.operation() as operation:
+            self.store.create(self.row, operation=operation)
+            old = copy.deepcopy(self.row)
+            del old["registration_policy"]
+            key = self.backend.intents[OPERATION]
+            raw = host.canonical(
+                {
+                    "schema": "vardr.worker-lifecycle-intent/1",
+                    "payload": old,
+                    "mac": hmac.new(
+                        bytes.fromhex(key),
+                        b"vardr.worker-lifecycle-intent/1\0" + host.canonical(old),
+                        hashlib.sha256,
+                    ).hexdigest(),
+                }
+            )
+            self.path.write_bytes(raw)
+            self.backend.calls.clear()
+            advanced = copy.deepcopy(self.row)
+            advanced.update(revision=2, previous_sha256=host.digest(old))
+            for action in (
+                lambda: self.store.read(OPERATION, operation=operation),
+                lambda: self.store.create(self.row, operation=operation),
+                lambda: self.store.advance(
+                    advanced,
+                    expected_revision=1,
+                    expected_sha256=host.digest(old),
+                    operation=operation,
+                ),
+            ):
+                with self.assertRaises(intent.IntentRefused):
+                    action()
+                self.assertEqual(self.path.read_bytes(), raw)
+            self.assertEqual(self.backend.calls, [])
+            self.assertEqual(self.backend.intents, {OPERATION: key})
+
+    def test_old_mac_domain_cannot_authenticate_relabelled_intent2(self):
+        with self.records.operation() as operation:
+            self.store.create(self.row, operation=operation)
+            key = self.backend.intents[OPERATION]
+            raw = host.canonical(
+                {
+                    "schema": intent.SCHEMA,
+                    "payload": self.row,
+                    "mac": hmac.new(
+                        bytes.fromhex(key),
+                        b"vardr.worker-lifecycle-intent/1\0" + host.canonical(self.row),
+                        hashlib.sha256,
+                    ).hexdigest(),
+                }
+            )
+            self.path.write_bytes(raw)
+            self.backend.calls.clear()
+            with self.assertRaises(intent.IntentRefused):
+                self.store.read(OPERATION, operation=operation)
+            self.assertEqual(self.backend.calls, [("read_intent", OPERATION)])
+            self.assertEqual(self.path.read_bytes(), raw)
+
+    def test_three_reviewed_named_modes_preserve_explicit_types_and_nulls(self):
+        policies = [
+            reviewed_policy(name)
+            for name in ("legacy-v1", "finite-v2", "persistent-v3")
+        ]
+        bounded = reviewed_policy("persistent-v3")
+        bounded["limits"] = {"max_attempts": "1", "idle_timeout_seconds": 60}
+        policies.append(bounded)
+        with self.records.operation() as operation:
+            for policy in policies:
+                row = copy.deepcopy(self.row)
+                row.update(operation_id=str(uuid.uuid4()), registration_policy=policy)
+                saved = self.store.create(row, operation=operation)
+                self.assertEqual(saved["registration_policy"], policy)
+                self.assertEqual(
+                    self.store.read(row["operation_id"], operation=operation), saved
+                )
+        self.assertEqual(self.backend.stops, {})
+
+    def test_policy_missing_extra_mixed_or_coerced_values_refuse_before_key_creation(
+        self,
+    ):
+        changes = [
+            lambda p: p.pop("runner_id"),
+            lambda p: p.update(unexpected=True),
+            lambda p: p.update(protocol=None),
+            lambda p: p.update(protocol="sequence-v2"),
+            lambda p: p.update(expires_in_seconds=900),
+            lambda p: p["limits"].update(max_attempts=1),
+            lambda p: p["limits"].update(max_attempts="01"),
+            lambda p: p["limits"].update(idle_timeout_seconds=True),
+            lambda p: p["limits"].update(idle_timeout_seconds=86401),
+            lambda p: p["limits"].update(extra=None),
+            lambda p: p.update(reporting_authority=None),
+            lambda p: p["reporting_authority"].update(purpose="execution"),
+            lambda p: p["reporting_authority"].update(
+                expires_at="2027-01-01T00:00:00Z"
+            ),
+            lambda p: p.update(origin="http://issuer.example"),
+            lambda p: p.update(runner_id="wrong"),
+            lambda p: p.update(enrollment_id="wrong\n"),
+        ]
+        with self.records.operation() as operation:
+            for change in changes:
+                row = copy.deepcopy(self.row)
+                change(row["registration_policy"])
+                with (
+                    self.subTest(line=change.__code__.co_firstlineno),
+                    self.assertRaises(intent.IntentRefused),
+                ):
+                    self.store.create(row, operation=operation)
+            for mode, expiry in (
+                ("finite-v2", True),
+                ("finite-v2", None),
+                ("legacy-v1", 59),
+            ):
+                row = copy.deepcopy(self.row)
+                row["registration_policy"] = reviewed_policy(mode)
+                row["registration_policy"]["expires_in_seconds"] = expiry
+                with self.assertRaises(intent.IntentRefused):
+                    self.store.create(row, operation=operation)
+            for mode, limits in (
+                ("finite-v2", {"max_attempts": "2", "idle_timeout_seconds": None}),
+                ("finite-v2", {"max_attempts": 2, "idle_timeout_seconds": 60}),
+                ("legacy-v1", {"max_attempts": 1, "idle_timeout_seconds": None}),
+            ):
+                row = copy.deepcopy(self.row)
+                row["registration_policy"] = reviewed_policy(mode)
+                row["registration_policy"]["limits"] = limits
+                with self.assertRaises(intent.IntentRefused):
+                    self.store.create(row, operation=operation)
+        self.assertEqual(self.backend.calls, [])
+        self.assertEqual(self.backend.intents, {})
+        self.assertFalse(self.path.exists())
+
+    def test_valid_but_changed_public_registration_policy_is_immutable_under_cas(self):
+        with self.records.operation() as operation:
+            old = self.store.create(self.row, operation=operation)
+            before = self.path.read_bytes()
+            changed = [reviewed_policy("finite-v2"), reviewed_policy("legacy-v1")]
+            different_origin = reviewed_policy("persistent-v3")
+            different_origin["origin"] = "https://different.example"
+            changed.append(different_origin)
+            bounded = reviewed_policy("persistent-v3")
+            bounded["limits"] = {"max_attempts": "2", "idle_timeout_seconds": 60}
+            changed.append(bounded)
+            for policy in changed:
+                with self.assertRaises(intent.IntentRefused):
+                    self.next(
+                        old,
+                        operation,
+                        lambda row: row.update(registration_policy=policy),
+                    )
+                self.assertEqual(self.path.read_bytes(), before)
+
+    def test_schema2_never_adopts_existing_purpose_key_when_intent_file_is_absent(self):
+        self.backend.intents[OPERATION] = "a" * 64
+        with (
+            self.records.operation() as operation,
+            self.assertRaises(intent.IntentRefused),
+        ):
+            self.store.create(self.row, operation=operation)
+        self.assertEqual(self.backend.calls, [("read_intent", OPERATION)])
+        self.assertEqual(self.backend.intents, {OPERATION: "a" * 64})
+        self.assertEqual(self.backend.stops, {})
+        self.assertFalse(self.path.exists())
 
 
 if __name__ == "__main__":
