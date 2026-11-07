@@ -3,6 +3,7 @@
 import argparse
 from calendar import timegm
 from dataclasses import asdict
+from datetime import datetime, timedelta
 import json
 from pathlib import Path
 import shutil
@@ -21,6 +22,30 @@ from nm2_worker_acceptance import (
     require,
     worker_cli_command,
 )
+
+SECOND_NS = 1_000_000_000
+
+
+def grant_time_ns(value):
+    stamp = datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
+    require(stamp.utcoffset() == timedelta(0), "launch_active_grant_expiry_timing")
+    return timegm(stamp.utctimetuple()) * SECOND_NS + stamp.microsecond * 1000
+
+
+def active_expiry_elapsed_ns(request, observed, expiry_ns, physical_elapsed):
+    request_ns = request["received_utc_ns"]
+    active_elapsed = observed["observed_utc_ns"] - request_ns
+    monotonic_elapsed = observed["observed_monotonic_ns"] - request["received_monotonic_ns"]
+    grant_elapsed = expiry_ns - request_ns
+    require(
+        0 <= active_elapsed <= grant_elapsed - SECOND_NS
+        and abs(active_elapsed - monotonic_elapsed) < 50_000_000
+        and grant_elapsed <= 14 * SECOND_NS
+        and 0 <= physical_elapsed - grant_elapsed <= 2_500_000_000,
+        "launch_active_grant_expiry_timing",
+    )
+    return grant_elapsed
+
 
 def stop_exit_elapsed_ns(request, after, finished_at):
     from worker_runtime import _timestamp
@@ -45,7 +70,7 @@ class LaunchFixture(Fixture):
     def __init__(
         self, selection, *, compose, compose_sha256, docker_config,
         completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
-        revoke_grant=False, expire_grant=False,
+        revoke_grant=False, expire_grant=False, expire_active_grant=False,
     ):
         super().__init__(
             selection,
@@ -53,7 +78,7 @@ class LaunchFixture(Fixture):
                 "missing-local-grant" if missing_grant or expire_grant
                 else "active-target-grant-revoked" if revoke_grant
                 else "local-emergency-stop" if local_stop
-                else "stop-work" if stop_work else EMPTY_SCENARIO
+                else "stop-work" if stop_work or expire_active_grant else EMPTY_SCENARIO
             ),
             database_revision="0041persistentruntime",
         )
@@ -69,16 +94,18 @@ class LaunchFixture(Fixture):
         )
         self.compose_sha256 = compose_sha256
         self.completed = completed
-        self.cancelling = stop_work or local_stop or revoke_grant
+        self.cancelling = stop_work or local_stop or revoke_grant or expire_active_grant
         self.local_stop = local_stop
         self.local_grant_denial = missing_grant or expire_grant
         self.expire_grant = expire_grant
         self.revoke_grant = revoke_grant
+        self.expire_active_grant = expire_active_grant
         self.queued_peer = queued_peer
         self.protocol = "persistent-v3"
         self.max_attempts = None
         require(
-            sum((completed, stop_work, local_stop, missing_grant, revoke_grant, expire_grant)) <= 1
+            sum((completed, stop_work, local_stop, missing_grant, revoke_grant,
+                 expire_grant, expire_active_grant)) <= 1
             and (not queued_peer or stop_work),
             "launch_fixture_mode_conflict",
         )
@@ -98,6 +125,9 @@ class LaunchFixture(Fixture):
             scenario, scope = "persistent-launch-grant-revocation", "grant_revocation_then_next_launch"
         elif expire_grant:
             scenario, scope = "persistent-launch-expired-grant", "expired_grant_then_next_launch"
+        elif expire_active_grant:
+            scenario = "persistent-launch-active-grant-expiry"
+            scope = "active_grant_expiry_then_next_launch"
         self.receipt.update(
             schema="vardr.nm2-worker-launch-acceptance/1",
             scenario=scenario, acceptance_scope=scope, nm2_exit_status="incomplete",
@@ -260,10 +290,7 @@ print(len(directories))
 """
         return int(self.helper("-I", "-c", source, python=True))
 
-    def prepare_expired_grant(self, engagement):
-        self.receipt["stage"] = "launch_expired_grant_prepare"
-        self.approve_local_grant(engagement, "peer", 600)
-        self.approve_local_grant(engagement, "owner", 10)
+    def grant_pair_snapshot(self, engagement):
         before = self.grant_snapshot(engagement)
         grants = {row["name"]: row for row in before["grants"]}
         require(
@@ -274,19 +301,66 @@ print(len(directories))
                     and row["status"] == "active" for row in grants.values()),
             "launch_expired_grant_not_proven",
         )
+        return before, grants["FIXTURE_OWNER_TOKEN"]
+
+    def verify_expired_catalog(self, engagement, before, after):
+        peer = self.grant_snapshot(engagement, peer_only=True)
+        require(
+            after == {**before, "policy_reason": "grant_expired_or_revoked"} and peer == before,
+            "launch_expired_grant_not_proven",
+        )
+        return digest(canonical({"before": before, "after": after, "peer": peer}))
+
+    def prepare_expired_grant(self, engagement):
+        self.receipt["stage"] = "launch_expired_grant_prepare"
+        self.approve_local_grant(engagement, "peer", 600)
+        self.approve_local_grant(engagement, "owner", 10)
+        before, _ = self.grant_pair_snapshot(engagement)
         self.receipt["stage"] = "launch_expired_grant_observe"
         deadline = time.monotonic() + 20
         after = self.grant_snapshot(engagement)
         while after == before and time.monotonic() < deadline:
             time.sleep(0.2)
             after = self.grant_snapshot(engagement)
-        peer = self.grant_snapshot(engagement, peer_only=True)
-        require(
-            after == {**before, "policy_reason": "grant_expired_or_revoked"} and peer == before,
-            "launch_expired_grant_not_proven",
-        )
-        self.grant_expiry_sha256 = digest(canonical({"before": before, "after": after, "peer": peer}))
+        self.grant_expiry_sha256 = self.verify_expired_catalog(engagement, before, after)
         return after
+
+    def await_active_grant_expiry(self, admission, case):
+        engagement, job, stored, _ = case
+        self.receipt["stage"] = "launch_active_grant_expiry_window"
+        self.persistent_idle(admission, 0)
+        self.approve_local_grant(engagement, "peer", 600)
+        self.approve_local_grant(engagement, "owner", 60)
+        self.grant_before, owner = self.grant_pair_snapshot(engagement)
+        expiry_ns = grant_time_ns(owner["expires_at"])
+        review = self.expiry_review
+        signed_ends = [
+            review["expires_at"], review["testing_end"],
+            *(row["expires_at"] for row in review["credential_grants"]),
+        ]
+        require(
+            expiry_ns - grant_time_ns(owner["issued_at"]) == 60 * SECOND_NS
+            and len(signed_ends) == 4
+            and min(map(grant_time_ns, signed_ends)) > expiry_ns + 5 * SECOND_NS,
+            "launch_active_grant_expiry_window",
+        )
+        deadline = time.monotonic() + 65
+        while True:
+            observed = self.timed_traffic()
+            require(not observed["requests"] and time.monotonic() < deadline,
+                    "launch_active_grant_expiry_window")
+            remaining = expiry_ns - observed["observed_utc_ns"]
+            if remaining <= 14 * SECOND_NS:
+                break
+            time.sleep(min(5, max(0.05, remaining / SECOND_NS - 14)))
+        require(12 * SECOND_NS <= remaining, "launch_active_grant_expiry_window")
+        self.api.request(f"/jobs/{job}/managed/approval/register", self.pending_approval)
+        self.receipt["stage"] = "launch_stop_work_observe"
+        run_id, observed = self.observe_active_run(engagement, job, stored)
+        return {
+            "run_id": run_id, "requests": observed["requests"],
+            "observed": observed, "expiry_ns": expiry_ns,
+        }
 
     def await_local_grant_denial(self, admission, case):
         engagement, _, _, _ = case
@@ -356,6 +430,10 @@ print(len(directories))
         require(requests == action["requests"] and len(requests) == 3,
                 "launch_stop_work_traffic_changed")
         stop_elapsed = stop_exit_elapsed_ns(requests[-1], after, physical["finished_at"])
+        if self.expire_active_grant:
+            grant_elapsed = active_expiry_elapsed_ns(
+                requests[-1], action["observed"], action["expiry_ns"], stop_elapsed
+            )
         inventory = self.inventory(engagement, job)
         require(
             inventory["job_status"] == "failed"
@@ -389,7 +467,7 @@ print(len(directories))
         attempt = runtime["attempts"][0]
         require(
             attempt["binding"] == binding and attempt["job_id"] == job
-            and (self.local_stop or self.revoke_grant or (
+            and (self.local_stop or self.revoke_grant or self.expire_active_grant or (
                 pending["contract_id"] == binding["contract_id"]
                 and pending["attempt_id"] == binding["attempt_id"]
             ))
@@ -416,6 +494,8 @@ print(len(directories))
             {"local_emergency_stop"} if self.local_stop or self.revoke_grant
             else {"remote_stop_requested", "control_lease_expired"}
         )
+        if self.expire_active_grant:
+            expected_causes = {"authorization_deadline", "control_lease_expired", "local_emergency_stop"}
         if inventory["results"]:
             self.receipt["stage"] = "launch_stop_work_partial_evidence"
             cause = local.get("failure_reason")
@@ -471,6 +551,13 @@ print(len(directories))
                 **action["grant_revocation"], "original_runner_auth": "verified",
             }
             proof["grant_revocation_sha256"] = digest(canonical(revocation))
+        elif self.expire_active_grant:
+            self.receipt["stage"] = "launch_active_grant_expiry_catalog"
+            self.helper("whoami")
+            proof["grant_expiry_sha256"] = self.verify_expired_catalog(
+                engagement, self.grant_before, self.grant_snapshot(engagement)
+            )
+            proof["grant_expiry_elapsed_ns"] = grant_elapsed
         else:
             proof["cancel_requested_sha256"] = digest(canonical(pending))
         self.receipt["cancelled_job"] = proof
@@ -588,6 +675,8 @@ print(len(directories))
             )
         elif self.local_grant_denial:
             unissued = self.await_local_grant_denial(admission, case)
+        elif cancelling and self.expire_active_grant:
+            action = self.await_active_grant_expiry(admission, case)
         elif cancelling:
             self.receipt["stage"] = "launch_stop_work_observe"
             action = self.cancellation_action(*case[:3])
@@ -726,6 +815,7 @@ print(len(directories))
         peer = None
         if self.completed or self.cancelling or self.local_grant_denial:
             name = "launch-" + (
+                "active-grant-expiry" if self.expire_active_grant else
                 "expired-grant" if self.expire_grant else "completed" if self.completed else self.scenario
             )
             engagement, authorization, job, stored = self.new_job(name, marker=True)
@@ -734,10 +824,14 @@ print(len(directories))
                 peer_job, peer_case = self.job_in_engagement(
                     peer_name, engagement, marker=True
                 )
+            self.pending_approval = {} if self.expire_active_grant else None
+            self.expiry_review = {} if self.expire_active_grant else None
             require(
-                self.approve(name, engagement, authorization, job, stored,
-                             local_grants=not self.local_grant_denial)
-                == binding,
+                self.approve(
+                    name, engagement, authorization, job, stored,
+                    local_grants=not (self.local_grant_denial or self.expire_active_grant),
+                    deferred_registration=self.pending_approval, review_context=self.expiry_review,
+                ) == binding,
                 "launch_completed_enrollment_changed",
             )
             if self.queued_peer:
@@ -751,6 +845,8 @@ print(len(directories))
                 peer = (engagement, peer_job)
                 peer_before = self.verify_unclaimed_peer(peer, targets=0, duration=0)
             before = self.inventory(engagement, job)
+            if self.expire_active_grant:
+                require(before["approvals"] == [], "launch_active_grant_expiry_window")
             if self.local_grant_denial:
                 self.denied_grant_snapshot = (
                     self.prepare_expired_grant(engagement) if self.expire_grant
@@ -794,6 +890,13 @@ print(len(directories))
                 self.grant_snapshot(case[0]) == self.denied_grant_snapshot
                 and self.grant_snapshot(case[0], peer_only=True)
                 == {**self.denied_grant_snapshot, "policy_reason": "granted"},
+                "launch_expired_grant_not_proven",
+            )
+            self.helper("whoami")
+        if self.expire_active_grant:
+            require(
+                self.verify_expired_catalog(case[0], self.grant_before, self.grant_snapshot(case[0]))
+                == self.receipt["cancelled_job"]["grant_expiry_sha256"],
                 "launch_expired_grant_not_proven",
             )
             self.helper("whoami")
@@ -851,6 +954,7 @@ def main(argv=None):
     workload.add_argument("--missing-grant", action="store_true")
     workload.add_argument("--revoke-grant", action="store_true")
     workload.add_argument("--expire-grant", action="store_true")
+    workload.add_argument("--expire-active-grant", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -869,6 +973,7 @@ def main(argv=None):
             missing_grant=args.missing_grant,
             revoke_grant=args.revoke_grant,
             expire_grant=args.expire_grant,
+            expire_active_grant=args.expire_active_grant,
         )
         fixture.run()
         return 0 if fixture.receipt["status"] == "selected_launch_slice_passed" else 1

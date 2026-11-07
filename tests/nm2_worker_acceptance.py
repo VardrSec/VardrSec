@@ -1740,6 +1740,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
         review_snapshot=None,
         review_context=None,
         review_authority=None,
+        deferred_registration=None,
     ):
         from vardrrunner.authorization.contracts import approve
         from vardrrunner.authorization.plan import compile_gate_plan
@@ -1793,10 +1794,11 @@ print(json.dumps({'files':hashes,'executables':executables}))
             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             self.operator_key,
         )
-        self.api.request(
-            f"/jobs/{job}/managed/approval/register",
-            {**selection, "approval": approval},
-        )
+        registration = {**selection, "approval": approval}
+        if deferred_registration is None:
+            self.api.request(f"/jobs/{job}/managed/approval/register", registration)
+        else:
+            deferred_registration.update(registration)
         if review_snapshot is not None:
             review_snapshot.update(review_input)
         if review_context is not None:
@@ -2599,7 +2601,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             "selected_failure_complete",
         )
 
-    def cancellation_action(self, engagement, job, case):
+    def observe_active_run(self, engagement, job, case):
         until = time.monotonic() + 25
         marker = parse_qs(urlsplit(case["spec"]["request"]["url"]).query)["nm2_case"]
         while True:
@@ -2636,6 +2638,10 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             re.fullmatch(r"[0-9a-f]{32}", run_id) is not None,
             "cancellation_run_id_invalid",
         )
+        return run_id, observed
+
+    def cancellation_action(self, engagement, job, case):
+        run_id, observed = self.observe_active_run(engagement, job, case)
         self.receipt["stage"] = "cancellation_request"
         if self.scenario == "local-emergency-stop":
             self.helper("jobs", "stop", run_id)
@@ -2662,7 +2668,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 stopped.get("stop_work_at") is not None,
                 "cancellation_stop_work_not_recorded",
             )
-        return {"run_id": run_id, "requests": requests}
+        return {"run_id": run_id, "requests": observed["requests"]}
 
     def verify_failed_partial(
         self, engagement, job, case, binding, terminal, inventory, local, *,

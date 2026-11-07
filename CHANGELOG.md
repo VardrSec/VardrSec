@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an opt-in installed case for natural grant expiry during active work,
+  with guest-clock timing, the original attempt audit, and a successor on the
+  same Runner state volume.
+
 - Add an opt-in installed case for a synthetic target grant that expires before
   an approved job can claim. Check that the peer grant and API enrollment remain
   usable through the next worker launch.

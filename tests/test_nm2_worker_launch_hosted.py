@@ -6,8 +6,8 @@ import unittest
 from unittest.mock import Mock, call
 
 import nm2_worker_hosted as hosted
-from nm2_worker_launch_acceptance import LaunchFixture, stop_exit_elapsed_ns
 from nm2_worker_acceptance import AcceptanceRefused, ORIGIN
+from nm2_worker_launch_acceptance import LaunchFixture, active_expiry_elapsed_ns, stop_exit_elapsed_ns
 
 
 class HostedLaunchTests(unittest.TestCase):
@@ -162,6 +162,42 @@ class HostedLaunchTests(unittest.TestCase):
                 AcceptanceRefused, "launch_stop_work_exit_not_observed"
             ):
                 stop_exit_elapsed_ns(request, sample, exit_at)
+
+    def test_active_grant_expiry_requires_consistent_pre_expiry_and_exit_timing(self):
+        second = 1_000_000_000
+        start = 1_800_000_000 * second
+        request = {"received_utc_ns": start, "received_monotonic_ns": 2 * second}
+
+        def observed(elapsed, *, skew=0):
+            return {
+                "observed_utc_ns": start + elapsed,
+                "observed_monotonic_ns": request["received_monotonic_ns"] + elapsed + skew,
+            }
+
+        for grant, sample, physical in (
+            (12 * second, observed(11 * second), 12 * second),
+            (12 * second, observed(11 * second, skew=49_999_999), 14_500_000_000),
+            (14 * second, observed(13 * second), 14 * second),
+        ):
+            with self.subTest(grant=grant, sample=sample, physical=physical):
+                self.assertEqual(
+                    active_expiry_elapsed_ns(request, sample, start + grant, physical),
+                    grant,
+                )
+
+        for grant, sample, physical in (
+            (12 * second, observed(-1), 12 * second),
+            (12 * second, observed(11 * second + 1), 12 * second),
+            (12 * second, observed(11 * second, skew=50_000_000), 12 * second),
+            (14 * second + 1, observed(13 * second), 14 * second + 1),
+            (12 * second, observed(11 * second), 12 * second - 1),
+            (12 * second, observed(11 * second), 14_500_000_001),
+        ):
+            with (
+                self.subTest(grant=grant, sample=sample, physical=physical),
+                self.assertRaisesRegex(AcceptanceRefused, "launch_active_grant_expiry_timing"),
+            ):
+                active_expiry_elapsed_ns(request, sample, start + grant, physical)
 
     def test_stop_work_failure_reports_fixed_partial_evidence_diagnostics(self):
         selection = {"project": "fixture", "sources": {}, "images": {}}
@@ -385,3 +421,49 @@ class HostedLaunchTests(unittest.TestCase):
             with self.subTest(other_cause=other_cause), self.assertRaises(hosted.HostedRefused):
                 grant_proof["terminal_cause"] = other_cause
                 hosted.public_projection(revoked, selection)
+
+        expiry_proof = {
+            key: value for key, value in stopped["cancelled_job"].items()
+            if key != "cancel_requested_sha256"
+        }
+        expiry_proof.update(
+            grant_expiry_sha256="a" * 64,
+            grant_expiry_elapsed_ns=12_000_000_000,
+            physical_exit_elapsed_ns=14_500_000_000,
+        )
+        active_expiry = {
+            **stopped, "scenario": hosted.LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO,
+            "acceptance_scope": "active_grant_expiry_then_next_launch",
+            "launch_pair": [
+                {**first, "finished_at": "2026-11-07T01:00:20Z"},
+                {**second, "started_at": "2026-11-07T01:00:21Z", "finished_at": "2026-11-07T01:00:22Z"},
+            ],
+        }
+        for cause in (
+            "authorization_deadline", "control_lease_expired",
+            "local_emergency_stop", "observed_exit",
+        ):
+            proof = {**expiry_proof, "terminal_cause": cause}
+            active_expiry["cancelled_job"] = proof
+            with self.subTest(cause=cause):
+                self.assertEqual(
+                    hosted.public_projection(active_expiry, selection)["cancelled_job"], proof
+                )
+
+        for changed in (
+            {"physical_exit_elapsed_ns": 11_999_999_999},
+            {"physical_exit_elapsed_ns": 14_500_000_001},
+            {"grant_expiry_elapsed_ns": 14_000_000_001, "physical_exit_elapsed_ns": 14_000_000_001},
+            {"grant_expiry_elapsed_ns": 14_000_000_000, "physical_exit_elapsed_ns": 15_000_000_000},
+            {"grant_expiry_elapsed_ns": 12_000_000_000.0},
+            {"terminal_cause": "remote_stop_requested"},
+            {"grant_expiry_sha256": "invalid"},
+        ):
+            bad = {**active_expiry, "cancelled_job": {**expiry_proof, **changed}}
+            with self.subTest(changed=changed), self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection(bad, selection)
+        active_expiry["cancelled_job"] = {
+            key: value for key, value in expiry_proof.items() if key != "grant_expiry_sha256"
+        }
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(active_expiry, selection)
