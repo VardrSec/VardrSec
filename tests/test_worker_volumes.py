@@ -251,6 +251,165 @@ class ManagedVolumeTests(unittest.TestCase):
             ):
                 volumes.managed_sources(self.observer(), self.identity)
 
+    def created_observer(self):
+        observer = self.observer()
+        observer._created = Mock(
+            side_effect=[{"mounts": copy.deepcopy(self.mounts)}] * 2
+        )
+        observer.daemon = Mock(return_value=self.identity.daemon_id)
+        # Explicit synthetic direct-observation model, never loaded from JSON.
+        created = runtime.ObservedCreated(
+            self.identity.daemon_id,
+            self.identity.container_id,
+            self.identity.image_id,
+            self.identity.project,
+            self.layout,
+            _proof=runtime._CREATED_PROOF,
+        )
+        return observer, created
+
+    def test_created_custody_reuses_volume_guards_without_running_identity(self):
+        observer, created = self.created_observer()
+        self.calls = []
+        with (
+            patch.object(runtime.subprocess, "run", self.command),
+            patch("pathlib.Path.resolve") as resolve,
+            patch("pathlib.Path.stat") as stat,
+        ):
+            result = volumes.managed_sources(observer, created)
+        self.assertEqual(result, tuple(PurePosixPath(m["Source"]) for m in self.mounts))
+        resolve.assert_not_called()
+        stat.assert_not_called()
+        observer._bound.assert_not_called()
+        self.assertEqual(observer.daemon.call_count, 2)
+        self.assertEqual(
+            observer._created.call_args_list,
+            [
+                ((created.container_id, created.image_id, created.project),),
+                ((created.container_id, created.image_id, created.project),),
+            ],
+        )
+        self.assertEqual(len(self.calls), 4)
+        self.assertTrue(all(0 < options["timeout"] <= 15 for _, options in self.calls))
+        self.assertIsNone(observer._deadline)
+        self.assertFalse(observer._observation_lock.locked())
+
+    def test_created_serialized_lookalike_or_subclass_is_refused_before_observation(
+        self,
+    ):
+        from types import SimpleNamespace
+
+        class CreatedSubclass(runtime.ObservedCreated):
+            pass
+
+        observer, created = self.created_observer()
+        fields = vars(created)
+        subclass = CreatedSubclass(**fields, _proof=runtime._CREATED_PROOF)
+        for value in (fields, SimpleNamespace(**fields), subclass):
+            with self.subTest(kind=type(value).__name__):
+                with patch.object(runtime.subprocess, "run") as command:
+                    with self.assertRaises(runtime.RuntimeRefused):
+                        volumes.managed_sources(observer, value)
+                command.assert_not_called()
+        observer._created.assert_not_called()
+        observer.daemon.assert_not_called()
+        observer._bound.assert_not_called()
+        self.assertIsNone(observer._deadline)
+        self.assertFalse(observer._observation_lock.locked())
+
+    def test_created_layout_or_daemon_mismatch_stops_before_profile_and_volume_reads(
+        self,
+    ):
+        for changed in ("layout", "daemon"):
+            with self.subTest(changed=changed):
+                observer, created = self.created_observer()
+                if changed == "layout":
+                    observer.layout = runtime.WorkerLayout(
+                        "/foreign/trust",
+                        "/foreign/admission",
+                        "other-state",
+                        "other-ready",
+                    )
+                else:
+                    observer.daemon.return_value = "other-daemon"
+                with patch.object(runtime.subprocess, "run") as command:
+                    with self.assertRaises(runtime.RuntimeRefused):
+                        volumes.managed_sources(observer, created)
+                command.assert_not_called()
+                observer._created.assert_not_called()
+                observer._bound.assert_not_called()
+                self.assertIsNone(observer._deadline)
+                self.assertFalse(observer._observation_lock.locked())
+
+    def test_created_second_read_rejects_profile_state_or_daemon_drift(self):
+        for changed in ("profile", "state", "daemon"):
+            with self.subTest(changed=changed):
+                observer, created = self.created_observer()
+                self.calls = []
+                if changed == "profile":
+                    observer._created.side_effect = [
+                        {"mounts": self.mounts},
+                        {"mounts": self.mounts, "changed": True},
+                    ]
+                elif changed == "state":
+                    observer._created.side_effect = [
+                        {"mounts": self.mounts},
+                        runtime.RuntimeRefused("worker_runtime_refused"),
+                    ]
+                else:
+                    observer.daemon.side_effect = [created.daemon_id, "other-daemon"]
+                with patch.object(runtime.subprocess, "run", self.command):
+                    with self.assertRaisesRegex(
+                        runtime.RuntimeRefused, "^worker_runtime_refused$"
+                    ):
+                        volumes.managed_sources(observer, created)
+                self.assertEqual(len(self.calls), 3)
+                observer._bound.assert_not_called()
+                self.assertIsNone(observer._deadline)
+                self.assertFalse(observer._observation_lock.locked())
+
+    def test_created_still_refuses_remote_volumes_and_changed_daemon_root(self):
+        for changed in ("volume", "root"):
+            with self.subTest(changed=changed):
+                observer, created = self.created_observer()
+                self.calls = []
+                row = self.rows[self.layout.state_volume]
+                if changed == "volume":
+                    row["options"] = {"type": "nfs", "device": ":/private"}
+                original = self.command
+
+                def changing(argv, **options):
+                    reply = original(argv, **options)
+                    if changed == "root" and len(self.calls) == 4:
+                        reply.stdout = json.dumps(
+                            {"root": "/other/docker", "os": "linux"}
+                        )
+                    return reply
+
+                with patch.object(runtime.subprocess, "run", changing):
+                    with self.assertRaises(runtime.RuntimeRefused):
+                        volumes.managed_sources(observer, created)
+                row["options"] = None
+                observer._bound.assert_not_called()
+                self.assertIsNone(observer._deadline)
+                self.assertFalse(observer._observation_lock.locked())
+
+    def test_created_failure_preserves_fixed_checkpoint_and_releases_lock(self):
+        observer, created = self.created_observer()
+        error = runtime.RuntimeRefused("synthetic_do_not_echo")
+        error.checkpoint = "volume_metadata"
+        observer._created.side_effect = error
+        with patch.object(runtime.subprocess, "run") as command:
+            with self.assertRaisesRegex(
+                runtime.RuntimeRefused, "^worker_runtime_refused$"
+            ) as caught:
+                volumes.managed_sources(observer, created)
+        self.assertEqual(caught.exception.checkpoint, "volume_metadata")
+        command.assert_not_called()
+        self.assertEqual(observer._created.call_count, 1)
+        self.assertIsNone(observer._deadline)
+        self.assertFalse(observer._observation_lock.locked())
+
 
 if __name__ == "__main__":
     unittest.main()

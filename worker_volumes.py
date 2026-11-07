@@ -121,18 +121,33 @@ def validate_sources(layout, project, mounts, docker_root_dir, volume_rows):
     return tuple(result)
 
 
+def _observed_profile(observer, identity):
+    if type(identity) is runtime.ObservedCreated:
+        runtime.require(identity.layout == observer.layout)
+        runtime.require(observer.daemon() == identity.daemon_id)
+        return observer._created(
+            identity.container_id, identity.image_id, identity.project
+        )
+    return observer._bound(identity)
+
+
 def managed_sources(observer, identity):
     """Return exact default-local state/ready mountpoints without traversing them.
 
     No custom local-driver options, plugin/remote volumes or subpaths qualify.
     The selected daemon, full incarnation and attachments must remain unchanged.
+    A direct Created observation uses the same custody checks before startup;
+    retained JSON is refused and no never-sent or execution proof is inferred.
     """
     runtime.require(isinstance(observer, runtime.LocalDocker))
-    runtime.require(isinstance(identity, runtime.RuntimeIdentity))
+    runtime.require(
+        isinstance(identity, runtime.RuntimeIdentity)
+        or type(identity) is runtime.ObservedCreated
+    )
     runtime.require(observer._observation_lock.acquire(blocking=False))
     try:
         observer._deadline = time.monotonic() + 30
-        before = observer._bound(identity)
+        before = _observed_profile(observer, identity)
         root = daemon_root(observer._command("info", "--format", DAEMON_FORMAT))
         volumes = {
             name: parse_document(
@@ -143,7 +158,7 @@ def managed_sources(observer, identity):
         result = validate_sources(
             observer.layout, identity.project, before["mounts"], root, volumes
         )
-        runtime.require(observer._bound(identity) == before)
+        runtime.require(_observed_profile(observer, identity) == before)
         runtime.require(
             daemon_root(observer._command("info", "--format", DAEMON_FORMAT)) == root
         )
@@ -153,8 +168,13 @@ def managed_sources(observer, identity):
         if isinstance(error, runtime.RuntimeRefused):
             try:
                 attributes = object.__getattribute__(error, "__dict__")
-                checkpoint = attributes.get("checkpoint") if type(attributes) is dict else None
-                if type(checkpoint) is str and checkpoint in runtime.CAPTURE_CHECKPOINTS:
+                checkpoint = (
+                    attributes.get("checkpoint") if type(attributes) is dict else None
+                )
+                if (
+                    type(checkpoint) is str
+                    and checkpoint in runtime.CAPTURE_CHECKPOINTS
+                ):
                     refused.checkpoint = checkpoint
             except BaseException:
                 # Optional diagnostic attributes cannot replace the fixed refusal.

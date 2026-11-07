@@ -221,3 +221,20 @@ order; protocol parsing is reused for future pre-start preparation.
 No Docker action or supported create/start command is added by this increment.
 Real same-installation lifecycle, ambiguity/recovery and platform acceptance
 remain required on Linux and Windows Docker Desktop.
+
+
+## Mount custody before startup
+
+The existing `HostRecords.outside_mounts` engine can now check a direct live
+`ObservedCreated` as well as its original running-incarnation identity. Its
+managed-volume producer uses one fixed typed dispatcher: Created requires the
+same selected daemon and exact layout, and re-observes that actual Created CID
+and profile before and after the same default-local volume/root checks. Running
+calls keep their original observations and request order. No second custody
+engine, callback, caller flag or JSON-to-proof conversion is added.
+
+This permits a future launcher to prove host records and custody files remain
+outside the new mounts before a PID1 can start. A Created observation still
+proves neither an unsent start nor permission to start. Durable effect fences,
+complete predecessor/resource checks and actual post-start network identity
+remain separate requirements. No launcher or platform acceptance is claimed.

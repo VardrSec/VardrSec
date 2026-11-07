@@ -88,6 +88,44 @@ class CustodyFixture:
 
 
 class MountDiagnostics(unittest.TestCase):
+    def test_created_custody_uses_actual_volume_reader_and_both_private_ancestries(
+        self,
+    ):
+        # Actual host/volume functions, synthetic profile and Docker replies only.
+        from test_worker_volumes import ManagedVolumeTests
+
+        model = ManagedVolumeTests()
+        model.setUp()
+        model.layout = runtime.WorkerLayout(
+            "/bind/trust", "/bind/admission", "fixture-state", "fixture-ready-fresh"
+        )
+        observer, created = model.created_observer()
+        fixture = CustodyFixture()
+        fixture.observer, fixture.identity = observer, created
+        for location in (
+            "/private/records",
+            "/bind/trust/private",
+            "/bind",
+            "/bind/admission/private",
+        ):
+            with self.subTest(location=location):
+                fixture.records.directory = fixture.path(location)
+                observer, created = model.created_observer()
+                model.calls = []
+                with (
+                    patch.object(host, "Path", side_effect=fixture.path),
+                    patch.object(host, "os", SimpleNamespace(name="posix")),
+                    patch.object(runtime.subprocess, "run", model.command),
+                ):
+                    if location == "/private/records":
+                        fixture.records.outside_mounts(observer, created)
+                    else:
+                        with self.assertRaises(host.HostRefused):
+                            fixture.records.outside_mounts(observer, created)
+                self.assertEqual(len(model.calls), 4)
+                observer._bound.assert_not_called()
+                self.assertFalse(observer._observation_lock.locked())
+
     def test_each_actual_block_has_a_fixed_subcheckpoint(self):
         for point in POINTS:
             with self.subTest(point=point):

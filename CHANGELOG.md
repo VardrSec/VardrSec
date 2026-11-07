@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: reuse mount/volume custody checks with a directly
+  observed Created worker before startup. Recheck daemon, layout and profile;
+  retained JSON supplies no start authority. Ordinary running checks are unchanged.
+
 - NM-2 private lifecycle: authenticate through the existing local session before
   a future start, lend it once to fenced registration, and close it before
   publication. No new API, credential source or launcher is enabled.
