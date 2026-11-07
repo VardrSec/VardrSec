@@ -15,6 +15,7 @@ from worker_volumes import parse_document
 _MODEL_SHA256 = "a7fff3bd476360ce713c02dc123c8d1d5e5ea985244b4e27cd06b7b2bf45a32d"
 _VERSION = "5.6.1"
 _MAX_OUTPUT = 65536
+_MAX_EXECUTABLE = 512 * 1024 * 1024
 _PLATFORM_ENV = frozenset(
     {
         "SYSTEMROOT",
@@ -89,9 +90,15 @@ def _regular(path, maximum):
 
 def _hash_executable(path, digest):
     _matches(digest, r"[0-9a-f]{64}")
-    path = _regular(path, 512 * 1024 * 1024)
+    path = _regular(path, _MAX_EXECUTABLE)
+    current = hashlib.sha256()
+    total = 0
     with path.open("rb") as file:
-        _require(hashlib.file_digest(file, "sha256").hexdigest() == digest)
+        for block in iter(lambda: file.read(1024 * 1024), b""):
+            total += len(block)
+            _require(total <= _MAX_EXECUTABLE)
+            current.update(block)
+    _require(current.hexdigest() == digest)
     return path
 
 
