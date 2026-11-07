@@ -2,7 +2,9 @@
 
 Windows Docker Desktop and Ubuntu have verified selected persistent
 availability, optional finite controls, zero-job stop, first and subsequent
-startup, and active Map and local emergency cancellation. The
+startup, active Map and local emergency cancellation, and refusal of approved
+jobs with a missing local target grant. Active target grant revocation and
+natural expiry before claim also passed on both platforms. The
 [installed receipts](nm2-worker-acceptance-evidence.md) record the exact
 sources and scope. The [closeout control record](nm1-nm2-closeout.md) tracks
 the remaining failure and containment gates. NM-3 remains paused.
@@ -189,7 +191,7 @@ always needs fresh admission.
 | 1 | Missing local grant | Worker refuses before claim/target traffic; job stays unissued; any known zero-RPC local marker retires only by its explicit local rule. |
 | 2 | Local emergency stop | A separate ordinary helper invokes existing `jobs stop RUN_ID`; bounded graceful/forced handling is measured, partial artifacts remain, and no new target dispatch follows confirmed termination. |
 | 2 | Engagement stop-work | Real owner/CSRF stop-work change prevents new claims and stops an active ordinary delayed HTTP case within the existing permission bounds. |
-| 2 | Target grant expiry/revocation | Keep original Runner enrollment/key active. Revoke/expire the exact target credential grant and measure refusal/stop with no grant widening or fallback. |
+| 2 | Target grant expiry/revocation | Keep original Runner enrollment/key active. Verify exact grant revocation during active work, expiry before claim and expiry during active work. Check the original grant binding, bounded stop or refusal, and retained peer authority. |
 | 2 | Budget exhaustion | Concurrency/represented-origin/allocated-duration limits prevent excess claims; one-use approvals, spent targets and allocated duration never reset after failure. |
 | 3 | Map disconnect | Stop only this project's API during an already observed bounded slow HTTP resource request. The independent owner stops the incarnation by its last valid lease/hard ceiling; API restart starts no worker. |
 | 3 | Ordinary worker crash/stop | Stop only the exact owned container. Direct wait/inspect proves its exit; host capability reports only the exact atomic runtime-associated failure, never success or permission renewal. |
@@ -404,10 +406,9 @@ Hosted execution still requires explicit opt-in and four exact reviewed source
 commits; healthy remains the default scenario. Default platform startup starts no
 worker. Count control does not satisfy the separate unlimited-availability proof:
 70 seconds of ready idle, 35 individually authorized jobs, 175 requests and an
-explicit operator stop remain required. The [selected Desktop count and unlimited
-slices](nm2-worker-acceptance-evidence.md) now pass for the recorded exact cohort;
-Linux remains held. Actual optional idle, zero-job/next-enable and the remaining
-NM-2 matrix stay open; NM-3 remains paused.
+explicit operator stop remain required. The [installed evidence](nm2-worker-acceptance-evidence.md)
+records separate Linux and Desktop results for the count and unlimited
+availability cases.
 
 Count-only fixture inventory schema4 preserves the existing eight approval
 metadata fields and adds `approval_context_sha256`, keyed by the exact registered
@@ -419,7 +420,7 @@ second job's original approval and catalog grants must precede worker start;
 post-exit eligibility alone is insufficient. Physical exit ordering retains all
 Docker nanoseconds with the existing runtime timestamp validator.
 
-### Optional native idle control (implementation; platform proof open)
+### Optional native idle control
 
 The explicit `persistent-idle-limit` acceptance scenario selects the existing
 60-second idle option with no count limit. It issues one reviewed five-GET job,
@@ -433,12 +434,11 @@ exact-incarnation exit observation keeps the existing15-second Docker wait.
 Normal persistent startup still has neither finite-session option; the35-job
 availability and optional count-one scenarios retain their separate criteria.
 The optional idle receipt gives neither of those scenarios acceptance credit.
-Actual Linux/Desktop idle proof remains open until the reviewed Runner idle-return
-fix, its normal validation/CI and the matching image are accepted. No runtime/API,
-capture deadline, retry, credential provider or infrastructure is introduced.
-Zero-issued-job retirement and stop/re-enable remain separate open gates.
+The [platform ledger](acceptance.md#accepted-optional-idle-and-zero-issued-job-slices-2026-11-06)
+records the passing Linux and Desktop idle cohorts. Zero-issued-job retirement
+and subsequent startup have separate receipts.
 
-### Explicit zero-issued-job stop (implementation; platform proof open)
+### Explicit zero-issued-job stop
 
 The separately selected `persistent-empty-stop` scenario branches after managed
 setup and before strict-scope job creation. It reuses identity/enrollment without
@@ -488,6 +488,6 @@ it supplies neither physical exit nor Map retirement. No synthetic RunRecord or
 The independent reader has separate Linux and Desktop public schemas and the
 hosted wrapper uses schema6 only for this explicit scenario. It checks the same
 admission, source/image/incarnation, fresh status, offline state, positive host
-receipt, empty traffic/inventory and stopped-resource joins. Mocked regressions
-are component evidence only. Actual zero-job acceptance, a subsequent enablement,
-native optional idle and the remaining NM-2 matrix stay open; NM-3 stays paused.
+receipt, empty traffic/inventory and stopped-resource joins. The
+[installed startup receipts](nm2-worker-acceptance-evidence.md#installed-first-and-subsequent-startup-2026-11-07)
+verify both ordinal-one and ordinal-two launch after exact zero-job retirement.

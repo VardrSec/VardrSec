@@ -148,6 +148,75 @@ private receipt SHA-256 is
 `c36ec3f9227b6b305797ad21ed2b17f6d73a5892081692973e323ed72cc23713`.
 [Matching Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42385472389)
 
+Ubuntu passed the same scenario on the exact matching revisions. It observed
+one unissued discovery, zero target requests and charges, sequence-zero
+retirement, and a successor with the original state volume. The sanitized
+receipt SHA-256 is
+`c636dc9a1f3c0db3f5ac0299ef4698256546a16c02658ffeffa4e242c37aeb99`.
+
+### Active target grant revocation
+
+The first Windows run at distribution
+`c6eaae8f14665156de6c9b20a2df23f1c51adf3b` revoked only the synthetic owner
+grant, observed the worker exit before the delayed response, and retired
+the original attempt. The fixture held after the original Runner audit
+because its expectation was control-lease expiry. The native terminal
+receipt recorded `local_emergency_stop`, which Runner also uses when its
+local grant recheck denies execution. The Runner journal showed no operator
+stop request. The stopped fixture remains retained. The private held receipt
+SHA-256 is
+`65e0d68a5d791568e5c23e2c33308a22a77796f05948ada9e1282c57eda7d49b`.
+
+The first Ubuntu run held at `launch_stop_work_partial_evidence` with
+`launch_stop_work_terminal_not_proven`. The public receipt does not expose the
+underlying local cause. The sanitized held receipt SHA-256 is
+`a64a3519dab95ed85f74a6f561bf908007e480ce5a1bc1fafe352c46acacfded`.
+[Original Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42386625453)
+
+The fixture correction at distribution
+`975c158e3aab3204c850b022db1a96ccc257e5f3` requires that native cause
+and the separate original journal and grant-catalog evidence. A lease
+expiry, remote stop, or generic observed exit does not satisfy the
+revocation check.
+
+Windows Docker Desktop passed the corrected fixture with Map
+`bdc5d70c58c004bfc9193d0eeb5ef3ed7baea347` and Runner
+`5ecc869d80f53ae7fdbca25b971838976a6c41e9`. The worker exited
+2.791 seconds after the third request began. The native cancellation, original
+Runner audit and exact physical retirement bound a successor on the same
+state volume. Both containers stopped and were retained. The operator profile
+hashes matched. The Windows private receipt SHA-256 is
+`a85803d8d48f7edfb710564fac399f82254449116e27456d53ec22ad30993010`.
+[Matching Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42387479347)
+
+Ubuntu 24.04 passed on the same four component revisions. The worker exited
+2.179 seconds after the third request began. Its selected acceptance receipt
+bound the grant-catalog change, the original audit and the successor
+retirement chain. The Ubuntu sanitized receipt SHA-256 is
+`a64118b422c408322a8480403f36b63e048de477373ec2b25fb8c6dac4ef3bcf`.
+
+### Natural target grant expiry before claim
+
+The opt-in expiry case uses the normal Runner grant command to set a short
+owner-grant lifetime. It observes the same catalog before and after the
+expiry, independently verifies that the peer grant still works, and keeps
+the original Runner API enrollment. The approved job is discovered with
+zero issuance, target requests or charges. The first worker and successor
+retire at sequence zero and use the same Runner state volume.
+
+Windows Docker Desktop passed at distribution
+`4ed1871d74dce8118c3a98c056217b01afab1e5a` with the same Gate, Map and Runner
+revisions as the active revocation case. It observed
+7 unissued discoveries. Both worker containers were stopped and retained.
+The Windows private receipt SHA-256 is
+`88d8e56db1f8e9198023845208694fa47f83c8de1cee6ad07f030dac0753c6b5`.
+[Matching Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42388704333)
+
+Ubuntu 24.04 passed on the same exact revisions and observed one unissued
+discovery. Both platforms preserved the peer grant and original API enrollment
+through the next launch. The Ubuntu sanitized receipt SHA-256 is
+`1f6145ff86412a88d7ed5de61e1d091cdaa945da71a8826422f41bae2b3f88e8`.
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
@@ -413,25 +482,18 @@ both cases. No test result here establishes physical failure-path acceptance.
 
 ## Open phase gates
 
-The integrated cancellation, emergency stop, partial evidence, grant
-expiry/revocation, budgets, disconnect, crash/restart, duplicate/lost-reply and
-reconciliation matrix remains incomplete on both required platforms. Actual
-native Windows fallback has separate retained evidence; it does not substitute
-for Docker Desktop worker containment.
+The installed evidence above covers first and subsequent startup, selected
+cancellation paths, active grant revocation and expiry before claim. The full
+matrix still includes grant expiry during active work, budget exhaustion,
+remaining strict denials, retained partial evidence, disconnect, crash and
+restart, duplicate and lost replies, and persisted preclaim recovery.
 
-ADR 0043's remaining independent review, bootstrap/channel/owner-loss, pressure
-and supported-host clock obligations remain open. Previously stopped adversarial
-experiments stay stopped. Missing proof is neither an accepted risk nor an NM-5
-deferral. The selected Desktop unlimited-availability slice now has separate
-evidence; Linux, optional idle and checked next enablement remain open. No new infrastructure,
-automatic restart, component pin or release is accepted by this evidence.
+ADR 0043's independent containment review and bootstrap, channel, owner-loss,
+credential-isolation, pressure and supported-host clock obligations remain open.
+Previously blocked adversarial experiments stay stopped. Native Windows fallback
+has its own retained evidence. Both the integrated Docker Desktop gate and NM-2
+remain open. NM-3 remains paused.
 
-### Later selected-control evidence
-
-The open-gate paragraph above is the earlier evidence snapshot. The
-[current ledger](acceptance.md#accepted-optional-idle-and-zero-issued-job-slices-2026-11-06)
-records separate accepted Linux/Desktop optional-idle and normal zero-issued-job
-stop slices, with the earlier held/unobserved receipts preserved. Cancellation,
-native containment, durable recovery, a matching new image and checked
-same-installation next enable remain separate open gates. NM-2 stays incomplete
-and NM-3 stays paused; none of the historical receipts is rewritten.
+The [current platform ledger](acceptance.md#accepted-optional-idle-and-zero-issued-job-slices-2026-11-06)
+retains separate Linux and Desktop optional-idle and zero-issued-job receipts.
+The historical held and unobserved receipts retain their original scopes.
