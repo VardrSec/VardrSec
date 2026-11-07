@@ -1781,7 +1781,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
         job, stored = self.job_in_engagement(name, engagement, marker=marker)
         return engagement, authorization, job, stored
 
-    def job_in_engagement(self, name, engagement, *, marker=False):
+    def job_in_engagement(self, name, engagement, *, marker=False, contract_required=True):
         from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
 
         base = "/engagements/" + engagement
@@ -1817,7 +1817,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                     "test_case_id": stored["id"],
                     "timeout": EXECUTION["timeout_seconds"],
                 },
-                "authorization_contract_required": True,
+                "authorization_contract_required": contract_required,
             },
         )["id"]
         return job, stored

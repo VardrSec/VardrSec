@@ -39,12 +39,19 @@ LAUNCH_EXPIRED_GRANT_SCENARIO = "persistent-launch-expired-grant"
 LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO = "persistent-launch-active-grant-expiry"
 LAUNCH_DURATION_SCENARIO = "persistent-launch-duration-exhaustion"
 LAUNCH_TARGET_SCENARIO = "persistent-launch-target-exhaustion"
+LAUNCH_CONCURRENCY_SCENARIO = "persistent-launch-concurrency-exhaustion"
 DURATION_MAP_COMMIT = "40bf4e37076d6a85648f817dd8b6bc69104bd863"
 TARGET_MAP_COMMIT = "41635f9a75598c84192b4b53be95e025bf0b9b9d"
-LAUNCH_BUDGETS = {LAUNCH_DURATION_SCENARIO: "duration", LAUNCH_TARGET_SCENARIO: "target"}
+CONCURRENCY_MAP_COMMIT = "05dc78cf9a385255de459c8a5b833842d6528a63"
+LAUNCH_BUDGETS = {
+    LAUNCH_DURATION_SCENARIO: "duration",
+    LAUNCH_TARGET_SCENARIO: "target",
+    LAUNCH_CONCURRENCY_SCENARIO: "concurrency",
+}
 LAUNCH_BUDGET_SCHEMAS = {
     LAUNCH_DURATION_SCENARIO: "vardr.nm2-hosted/8",
     LAUNCH_TARGET_SCENARIO: "vardr.nm2-hosted/10",
+    LAUNCH_CONCURRENCY_SCENARIO: "vardr.nm2-hosted/12",
 }
 LAUNCH_GRANT_DENIAL_SCENARIOS = {LAUNCH_MISSING_GRANT_SCENARIO, LAUNCH_EXPIRED_GRANT_SCENARIO}
 LAUNCH_CANCELLATION_SCENARIOS = {
@@ -64,6 +71,7 @@ LAUNCH_SCOPES = {
     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: "active_grant_expiry_then_next_launch",
     LAUNCH_DURATION_SCENARIO: "allocated_duration_exhaustion",
     LAUNCH_TARGET_SCENARIO: "represented_origin_exhaustion",
+    LAUNCH_CONCURRENCY_SCENARIO: "shared_engagement_concurrency_exhaustion",
 }
 LAUNCH_SCENARIOS = set(LAUNCH_SCOPES)
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
@@ -623,7 +631,11 @@ def cohort(env):
 
 
 def _require_budget_source(budget, commit):
-    expected = {"duration": DURATION_MAP_COMMIT, "target": TARGET_MAP_COMMIT}[budget]
+    expected = {
+        "duration": DURATION_MAP_COMMIT,
+        "target": TARGET_MAP_COMMIT,
+        "concurrency": CONCURRENCY_MAP_COMMIT,
+    }[budget]
     require(expected is not None and commit == expected)
 
 
@@ -769,6 +781,8 @@ def failure_projection(raw, selection):
         "selected_duration_exhaustion_complete",
         "launch_target_prepare_second", "launch_target_observe_refusal",
         "launch_target_verify_retired", "selected_target_exhaustion_complete",
+        "launch_concurrency_reserve", "launch_concurrency_observe_refusal",
+        "launch_concurrency_finish", "selected_concurrency_exhaustion_complete",
         "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
         "empty_stop_reconciliation", "selected_empty_stop_complete",
         "image_sources",
@@ -840,6 +854,12 @@ def failure_projection(raw, selection):
         "launch_target_original_hold_required", "launch_target_unbound_reconciliation_required",
         "launch_target_exit_changed", "launch_target_original_history_changed",
         "launch_target_api_identity_required", "launch_target_policy_required",
+        "launch_concurrency_witness_source_required", "launch_concurrency_holder_required",
+        "launch_concurrency_hold_changed", "launch_concurrency_release_required",
+        "launch_concurrency_exact_refusal_required", "launch_concurrency_original_hold_required",
+        "launch_concurrency_unbound_reconciliation_required", "launch_concurrency_exit_changed",
+        "launch_concurrency_api_identity_required", "launch_concurrency_approval_required",
+        "launch_concurrency_baseline_required",
         "launch_stop_work_exit_not_observed", "launch_stop_work_traffic_changed",
         "launch_stop_work_capacity_not_released", "launch_stop_work_runtime_not_retired",
         "launch_stop_work_attempt_reused", "launch_stop_work_original_run_not_preserved",
@@ -1112,7 +1132,7 @@ def _budget_projection(raw, selection, budget):
     _require_budget_source(budget, sources["map"].get("commit"))
     other = "target_exhaustion" if budget == "duration" else "duration_exhaustion"
     require(not any(key in raw for key in (
-        "launch_pair", "cancelled_job", "unclaimed_job", "unissued_job", other,
+        "launch_pair", "cancelled_job", "unclaimed_job", "unissued_job", other, "concurrency_exhaustion",
     )))
     launch = raw.get("launch")
     _launch_row(launch, 1)
@@ -1156,6 +1176,63 @@ def _budget_projection(raw, selection, budget):
         proof_key: dict(proof),
         "nm2_exit_status": "incomplete",
         "resources_retained": True,
+    }
+
+
+def _concurrency_projection(raw, selection):
+    sources = selection["sources"]
+    require(type(sources) is dict and type(sources.get("map")) is dict)
+    _require_budget_source("concurrency", sources["map"].get("commit"))
+    require(not any(key in raw for key in (
+        "launch_pair", "completed_job", "cancelled_job", "unclaimed_job", "unissued_job",
+        "duration_exhaustion", "target_exhaustion", "stopped_predecessor",
+    )))
+    launch = raw.get("launch")
+    _launch_row(launch, 1)
+    require(launch["predecessor_cids"] == [])
+    _hash(launch["bootstrap_audit_sha256"])
+    counts = {
+        "marker_count": 1, "targets_spent": 1, "duration_allocated": 30, "concurrency_limit": 1,
+        "capacity_before": 1, "capacity_after_refusal": 1, "capacity_before_finish": 1,
+        "capacity_after_finish": 0, "target_requests": 0, "issued_attempts": 0,
+        "remaining_local_holds": 0,
+    }
+    proof = raw.get("concurrency_exhaustion")
+    require(
+        type(proof) is dict and set(proof) == set(counts) | {
+            "marker", "legacy_job_id", "managed_job_id", "legacy_finish_state",
+            "selected_sequence", "last_issued_sequence", "natural_exit_code",
+            "retirement_sha256", "audit_sha256",
+        }
+        and all(type(proof[key]) is int and proof[key] == value for key, value in counts.items())
+        and proof["marker"] == "managed_claim_concurrency_exhausted"
+        and proof["legacy_job_id"] != proof["managed_job_id"]
+        and proof["legacy_finish_state"] == "failed"
+        and proof["selected_sequence"] == "1"
+        and proof["last_issued_sequence"] == "0"
+        and type(proof["natural_exit_code"]) is int and 1 <= proof["natural_exit_code"] <= 255
+        and proof["retirement_sha256"] == launch["retirement_sha256"]
+    )
+    _uuid(proof["legacy_job_id"])
+    _uuid(proof["managed_job_id"])
+    _hash(proof["audit_sha256"])
+    stopped = raw.get("fixture_stop")
+    require(
+        type(stopped) is dict and set(stopped) == {"status", "container_ids", "stop_requested_ids"}
+        and stopped["status"] == "stopped_retained"
+        and type(stopped["container_ids"]) is list and len(stopped["container_ids"]) == 6
+        and all(type(cid) is str for cid in stopped["container_ids"])
+        and len(set(stopped["container_ids"])) == 6
+        and launch["container_id"] in stopped["container_ids"]
+        and stopped["stop_requested_ids"] == sorted(
+            set(stopped["container_ids"]) - {launch["container_id"]}
+        )
+    )
+    for cid in stopped["container_ids"]:
+        _hash(cid)
+    return {
+        "launch": dict(launch), "concurrency_exhaustion": dict(proof),
+        "owned_stopped_container_count": 6, "nm2_exit_status": "incomplete", "resources_retained": True,
     }
 
 
@@ -1290,7 +1367,7 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
     require(
         type(scenario) is str and scenario in LAUNCH_SCENARIOS
         and type(desktop) is bool
-        and (not desktop or scenario == LAUNCH_STOPPED_PREDECESSOR_SCENARIO)
+        and (not desktop or scenario in {LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_CONCURRENCY_SCENARIO})
     )
     budget = LAUNCH_BUDGETS.get(scenario)
     status = f"selected_{budget}_exhaustion_slice_passed" if budget else "selected_launch_slice_passed"
@@ -1307,9 +1384,13 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
         and raw.get("images") == selection["images"]
         and raw.get("project") == selection["project"]
     )
+    if scenario == LAUNCH_CONCURRENCY_SCENARIO:
+        return _concurrency_projection(raw, selection)
     if budget:
         return _budget_projection(raw, selection, budget)
-    require(not any(key in raw for key in ("launch", "duration_exhaustion", "target_exhaustion")))
+    require(not any(key in raw for key in (
+        "launch", "duration_exhaustion", "target_exhaustion", "concurrency_exhaustion",
+    )))
     pair = raw["launch_pair"]
     require(type(pair) is list and len(pair) == 2)
     for ordinal, row in enumerate(pair, 1):
@@ -1410,9 +1491,24 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
     return result
 
 
+def concurrency_desktop_projection(raw, selection):
+    """Read only the Windows Desktop shared-capacity fixture evidence."""
+    require(
+        type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA
+        and raw.get("scenario") == LAUNCH_CONCURRENCY_SCENARIO
+    )
+    try:
+        return launch_projection(raw, selection, desktop=True)
+    except (KeyError, TypeError, IndexError, ValueError):
+        raise HostedRefused("nm2_desktop_concurrency_receipt_refused") from None
+
+
 def stopped_predecessor_desktop_projection(raw, selection, *, inventories):
     """Read only the Windows Desktop stopped-predecessor fixture evidence."""
-    require(type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA)
+    require(
+        type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA
+        and raw.get("scenario") == LAUNCH_STOPPED_PREDECESSOR_SCENARIO
+    )
     try:
         return launch_projection(raw, selection, inventories=inventories, desktop=True)
     except (KeyError, TypeError, IndexError, ValueError):
@@ -1867,6 +1963,7 @@ class Hosted:
                 LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: ["--expire-active-grant"],
                 LAUNCH_DURATION_SCENARIO: ["--duration-exhaustion"],
                 LAUNCH_TARGET_SCENARIO: ["--target-exhaustion"],
+                LAUNCH_CONCURRENCY_SCENARIO: ["--concurrency-exhaustion"],
             }[self.scenario],
             "--execute",
         ]
@@ -2016,6 +2113,7 @@ class Hosted:
                     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_DURATION_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_TARGET_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_CONCURRENCY_SCENARIO: LAUNCH_SCHEMA,
                     STRICT_DRIFT_SCENARIO: STRICT_DRIFT_SCHEMA,
                 }[self.scenario]
             )
@@ -2064,6 +2162,10 @@ class Hosted:
             if self.scenario == LAUNCH_TARGET_SCENARIO:
                 self.receipt["remaining_required_cases"]["budget_exhaustion"] = (
                     "represented_origin_exhaustion_verified_selected_cohort"
+                )
+            if self.scenario == LAUNCH_CONCURRENCY_SCENARIO:
+                self.receipt["remaining_required_cases"]["budget_exhaustion"] = (
+                    "shared_concurrency_exhaustion_verified_selected_cohort"
                 )
             self.receipt.update(
                 schema={

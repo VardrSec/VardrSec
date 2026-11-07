@@ -35,9 +35,13 @@ DURATION_MAP_COMMIT = "40bf4e37076d6a85648f817dd8b6bc69104bd863"
 TARGET_SCENARIO = "persistent-launch-target-exhaustion"
 TARGET_PASS = "selected_target_exhaustion_slice_passed"
 TARGET_MAP_COMMIT = "41635f9a75598c84192b4b53be95e025bf0b9b9d"
+CONCURRENCY_SCENARIO = "persistent-launch-concurrency-exhaustion"
+CONCURRENCY_PASS = "selected_concurrency_exhaustion_slice_passed"
+CONCURRENCY_MAP_COMMIT = "05dc78cf9a385255de459c8a5b833842d6528a63"
 BUDGET_LIMITS = {
     "duration": {"concurrency": 1, "targets": 5, "duration": 30},
     "target": {"concurrency": 1, "targets": 1, "duration": 120},
+    "concurrency": {"concurrency": 1, "targets": 5, "duration": 120},
 }
 _BUDGET_WARNINGS = {
     budget: re.compile(
@@ -198,6 +202,7 @@ class LaunchFixture(Fixture):
         completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
         revoke_grant=False, expire_grant=False, expire_active_grant=False,
         duration_exhaustion=False, target_exhaustion=False, stopped_predecessor=False,
+        concurrency_exhaustion=False,
     ):
         super().__init__(
             selection,
@@ -224,6 +229,7 @@ class LaunchFixture(Fixture):
         self.budget_exhaustion = "duration" if duration_exhaustion else "target" if target_exhaustion else None
         self.completed = completed or self.budget_exhaustion is not None
         self.stopped_predecessor = stopped_predecessor
+        self.concurrency_exhaustion = concurrency_exhaustion
         self.cancelling = stop_work or local_stop or revoke_grant or expire_active_grant
         self.local_stop = local_stop
         self.local_grant_denial = missing_grant or expire_grant
@@ -236,7 +242,7 @@ class LaunchFixture(Fixture):
         require(
             sum((completed, stop_work, local_stop, missing_grant, revoke_grant,
                  expire_grant, expire_active_grant, duration_exhaustion, target_exhaustion,
-                 stopped_predecessor)) <= 1
+                 stopped_predecessor, concurrency_exhaustion)) <= 1
             and (not queued_peer or stop_work),
             "launch_fixture_mode_conflict",
         )
@@ -255,6 +261,12 @@ class LaunchFixture(Fixture):
                 "launch_target_witness_source_required",
             )
             scenario, scope = TARGET_SCENARIO, "represented_origin_exhaustion"
+        elif concurrency_exhaustion:
+            require(
+                selection["sources"]["map"]["commit"] == CONCURRENCY_MAP_COMMIT,
+                "launch_concurrency_witness_source_required",
+            )
+            scenario, scope = CONCURRENCY_SCENARIO, "shared_engagement_concurrency_exhaustion"
         elif stopped_predecessor:
             scenario, scope = STOPPED_PREDECESSOR_SCENARIO, "stopped_predecessor_then_next_launch"
         elif completed:
@@ -378,11 +390,11 @@ class LaunchFixture(Fixture):
         self.verify_persistent_local(local, admission, 1)
         return local
 
-    def budget_witnesses(self):
+    def budget_witnesses(self, *, budget=None):
         raw = self.docker(
             "container", "logs", "--tail", "100", self.budget_api_id, timeout=8
         )
-        return budget_witness_count(raw, self.budget_exhaustion)
+        return budget_witness_count(raw, budget if budget is not None else self.budget_exhaustion)
 
     def observe_budget_exhaustion(self, observer, identity, admission, case, binding, local):
         budget = self.budget_exhaustion
@@ -432,12 +444,18 @@ class LaunchFixture(Fixture):
                 for key in first_inventory if key != "runtimes"),
             f"launch_{budget}_refusal_mutated_inventory",
         )
+        run_id = self.unissued_claim_run(
+            engagement, job, {first_job, job}, f"launch_{budget}_original_hold_required",
+        )
+        return exited, peer, approval, run_id, local["attempt"], first_inventory
+
+    def unissued_claim_run(self, engagement, job, job_ids, reason):
         rows = json.loads(self.helper("audit", "list", "--engagement", engagement,
                                       "--limit", "3", "--json"))
         require(
-            type(rows) is list and len(rows) == 2
-            and {row["job_id"] for row in rows} == {first_job, job},
-            f"launch_{budget}_original_hold_required",
+            type(rows) is list and len(rows) == len(job_ids)
+            and {row["job_id"] for row in rows} == job_ids,
+            reason,
         )
         run = next(row for row in rows if row["job_id"] == job)
         metadata = self.local_metadata(run["run_id"], engagement, job)
@@ -448,11 +466,14 @@ class LaunchFixture(Fixture):
             and canonical([metadata["consumption_sent"], metadata["consumption_acknowledged"]])
             == b"[0,0]"
             and metadata["partial_files"] == [] and metadata["partial_result"] is None,
-            f"launch_{budget}_original_hold_required",
+            reason,
         )
-        return exited, peer, approval, run["run_id"], local["attempt"], first_inventory
+        return run["run_id"]
 
-    def reconcile_original(self, admission, retired, *, unissued_run_id=None, host_exit_run_id=None):
+    def reconcile_original(
+        self, admission, retired, *, unissued_run_id=None, host_exit_run_id=None,
+        unissued_parent_zero=False,
+    ):
         binding = {
             key: admission[key]
             for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256")
@@ -484,10 +505,12 @@ class LaunchFixture(Fixture):
         if unissued_run_id is not None:
             require(
                 reconciled["selected_run_id"] == unissued_run_id
-                and reconciled["selected_sequence"] == "2"
+                and reconciled["selected_sequence"] == ("1" if unissued_parent_zero else "2")
                 and reconciled["reconciliation_state"] == "terminal_runtime_unbound_retired"
-                and retired["last_sequence"] == "1" and retired["binding"] is None,
-                f"launch_{self.budget_exhaustion}_unbound_reconciliation_required",
+                and retired["last_sequence"] == ("0" if unissued_parent_zero else "1")
+                and retired["binding"] is None,
+                "launch_concurrency_unbound_reconciliation_required" if unissued_parent_zero
+                else f"launch_{self.budget_exhaustion}_unbound_reconciliation_required",
             )
         if host_exit_run_id is not None:
             require(
@@ -506,10 +529,120 @@ class LaunchFixture(Fixture):
             and type(audit["global_holds"]) is int
             and audit["global_holds"] == 0
             and audit["retirement_receipt_sha256"] == retired["receipt_sha256"]
-            and audit["counts"]["attempts"] == 1,
+            and audit["counts"]["attempts"] == (0 if unissued_parent_zero else 1),
             "launch_completed_audit_not_observed",
         )
+        if unissued_parent_zero:
+            require(
+                unissued_run_id is not None
+                and canonical(audit["parent"]) == canonical({
+                    "state": "retired", "last_sequence": "0", "head_sequence": None,
+                    "active_sequence": None,
+                })
+                and canonical(audit["counts"]) == canonical({
+                    "attempts": 0, "selections": 1, "associated_runs": 1, "associated_claims": 1,
+                }),
+                "launch_concurrency_unbound_reconciliation_required",
+            )
         return audit
+
+    def concurrency_post(self, path, body):
+        from vardrrunner.api import VardrMapClient
+
+        require(digest(self.api.ca.read_bytes()) == self.api.ca_sha256, "fixture_ca_changed")
+        client = VardrMapClient(self.url + "/backend", self.key["token"], retries=0)
+        client.session.trust_env = False
+        client.session.verify = str(self.api.ca)
+        try:
+            return client.managed_post(path, body)
+        finally:
+            client.session.close()
+
+    def reserve_legacy_capacity(self, engagement, contender, runner):
+        self.receipt["stage"] = "launch_concurrency_reserve"
+        holder, stored = self.job_in_engagement(
+            "launch-concurrency-holder", engagement, contract_required=False,
+        )
+        require(holder != contender and self.traffic() == [], "launch_concurrency_holder_required")
+        holder_runner = str(uuid.uuid4())
+        require(holder_runner != runner, "launch_concurrency_holder_required")
+        body = {
+            "runner_id": holder_runner, "origin": self.issuer_origin,
+            "concurrency_budget": True, "duration_seconds": 30,
+            "target_binding": {
+                "profile": "gate-fixed-http/1",
+                "case_sha256": digest(canonical(stored["spec"])), "origins": [ORIGIN],
+            },
+        }
+        reply = self.concurrency_post(f"/jobs/{holder}/claim", body)
+        owned = reply["execution_control"]
+        token = owned["token"]
+        require(
+            reply["id"] == holder and reply["status"] == "running"
+            and type(token) is str and 32 <= len(token) <= 100
+            and canonical({key: value for key, value in owned.items() if key != "token"})
+            == canonical({
+                "job_id": holder, "runner_id": holder_runner, "origin": self.issuer_origin,
+                "capacity_reserved": True, "lease_seconds": 10,
+                "target_budget": {"binding": body["target_binding"], "charged": 1, "spent": 1, "limit": 5},
+                "duration_budget": {
+                    "allocated_seconds": 30, "total_allocated_seconds": 30, "limit_seconds": 120,
+                },
+            }),
+            "launch_concurrency_holder_required",
+        )
+        inventory = self.inventory(engagement, holder, include_capacity=True)
+        require(
+            canonical([inventory[key] for key in (
+                "targets_spent", "duration_allocated", "capacity_reserved_count", "concurrency_limit",
+            )]) == b"[1,30,1,1]"
+            and inventory["job_status"] == "running"
+            and canonical(inventory["execution"]) == canonical({
+                "state": "active", "capacity_reserved": True, "target_charge": 1, "duration_seconds": 30,
+            })
+            and all(inventory[key] == [] for key in ("approvals", "contracts", "runtimes", "results", "stops"))
+            and self.traffic() == [],
+            "launch_concurrency_holder_required",
+        )
+        self.concurrency_holder = holder, inventory
+        return {**body, "token": token, "outcome": "failed"}
+
+    def verify_concurrency_held(self, case):
+        engagement, job, _, before = case
+        holder, original = self.concurrency_holder
+        held = self.inventory(engagement, holder, include_capacity=True)
+        approval = self.verify_unclaimed_peer((engagement, job), targets=1, duration=30)
+        require(
+            canonical(held) == canonical(original)
+            and canonical([approval]) == canonical(before["approvals"])
+            and self.traffic() == [],
+            "launch_concurrency_hold_changed",
+        )
+        return held["capacity_reserved_count"]
+
+    def finish_legacy_capacity(self, case, body):
+        self.receipt["stage"] = "launch_concurrency_finish"
+        engagement, job, _, before = case
+        holder, original = self.concurrency_holder
+        capacity_before = self.verify_concurrency_held(case)
+        reply = self.concurrency_post(f"/jobs/{holder}/execution-finish", body)
+        final = self.inventory(engagement, holder, include_capacity=True)
+        expected = {
+            **original, "job_status": "failed", "capacity_reserved_count": 0,
+            "execution": {**original["execution"], "state": "failed", "capacity_reserved": False},
+        }
+        approval = self.verify_unclaimed_peer((engagement, job), targets=1, duration=30)
+        require(
+            reply == {"state": "failed"}
+            and canonical(final) == canonical(expected)
+            and canonical([approval]) == canonical(before["approvals"])
+            and self.traffic() == []
+            and all(self.api.request(f"/engagements/{engagement}/evidence?job_id={selected}")["evidence"]
+                    == [] for selected in (holder, job))
+            and self.budget_witnesses(budget="concurrency") == 1,
+            "launch_concurrency_release_required",
+        )
+        return capacity_before, final
 
     def managed_output_count(self):
         source = """import re
@@ -1077,11 +1210,25 @@ print(len(directories))
         cancelling = self.cancelling and case is not None
         stopping_predecessor = self.stopped_predecessor and case is not None
         exhausted = None
+        concurrency_refused = None
         if case is None:
             self.persistent_idle(admission, 0)
             before = self.verify_empty_worker_state(
                 self.empty_worker_state(admission), admission
             )
+        elif self.concurrency_exhaustion:
+            self.receipt["stage"] = "launch_concurrency_observe_refusal"
+            natural = observer.observe_exit(identity)
+            require(
+                type(natural.exit_code) is int and natural.exit_code != 0
+                and self.budget_witnesses(budget="concurrency") == 1,
+                "launch_concurrency_exact_refusal_required",
+            )
+            refused_capacity = self.verify_concurrency_held(case)
+            run_id = self.unissued_claim_run(
+                *case[:2], {case[1]}, "launch_concurrency_original_hold_required",
+            )
+            concurrency_refused = natural, run_id, refused_capacity
         elif self.local_grant_denial:
             unissued = self.await_local_grant_denial(admission, case)
         elif stopping_predecessor:
@@ -1135,6 +1282,14 @@ print(len(directories))
                 and exit_proof.finished_at == natural.finished_at,
                 f"launch_{self.budget_exhaustion}_exit_changed",
             )
+        if concurrency_refused is not None:
+            natural = concurrency_refused[0]
+            require(
+                exit_proof.identity == natural.identity
+                and exit_proof.exit_code == natural.exit_code
+                and exit_proof.finished_at == natural.finished_at,
+                "launch_concurrency_exit_changed",
+            )
         physical = {
             "identity": asdict(identity),
             "runtime_id": selected,
@@ -1155,7 +1310,9 @@ print(len(directories))
         retired = self.report_exit(physical)
         reconciled = self.worker_action("reconcile", selected, timeout=120)
         require(
-            retired["last_sequence"] == ("0" if case is None or self.local_grant_denial else "1")
+            retired["last_sequence"] == (
+                "0" if case is None or self.local_grant_denial or concurrency_refused is not None else "1"
+            )
             and retired["runtime_sequence"] == ("1" if cancelling or stopping_predecessor else None)
             and retired["retired"] is True
             and (retired["attempt_receipt"] is not None) == (cancelling or stopping_predecessor)
@@ -1171,6 +1328,20 @@ print(len(directories))
                 ),
                 "launch_empty_retirement_not_observed",
             )
+        elif concurrency_refused is not None:
+            natural, run_id, refused_capacity = concurrency_refused
+            audit = self.reconcile_original(
+                admission, retired, unissued_run_id=run_id, unissued_parent_zero=True,
+            )
+            self.concurrency_retirement = {
+                "natural_exit_code": natural.exit_code,
+                "retirement_sha256": retired["receipt_sha256"],
+                "audit_sha256": digest(canonical(audit)),
+                "last_issued_sequence": audit["parent"]["last_sequence"],
+                "issued_attempts": audit["counts"]["attempts"],
+                "remaining_local_holds": audit["global_holds"],
+                "capacity_after_refusal": refused_capacity,
+            }
         elif self.local_grant_denial:
             self.verify_grant_denial_launch(admission, retired, case, unissued)
         elif stopping_predecessor:
@@ -1311,16 +1482,28 @@ print(len(directories))
         peer = None
         if self.stopped_predecessor:
             self.successor_id = str(uuid.uuid4())
-        if self.completed or self.cancelling or self.local_grant_denial or self.stopped_predecessor:
+        if (
+            self.completed or self.cancelling or self.local_grant_denial
+            or self.stopped_predecessor or self.concurrency_exhaustion
+        ):
             name = "launch-" + (
                 "stopped-predecessor" if self.stopped_predecessor else
+                "concurrency-contender" if self.concurrency_exhaustion else
                 "active-grant-expiry" if self.expire_active_grant else
                 "expired-grant" if self.expire_grant else "completed" if self.completed else self.scenario
             )
             engagement, authorization, job, stored = self.new_job(name, marker=True)
             if self.budget_exhaustion:
                 self.configure_budget_exhaustion(initial, engagement, authorization)
-            first_authority = {} if self.budget_exhaustion == "target" else None
+            if self.concurrency_exhaustion:
+                api = next(row for row in initial["core"] if row["service"] == "api")
+                require(
+                    api["image_id"] == self.images["api"]
+                    and re.fullmatch(r"[0-9a-f]{64}", api["container_id"]) is not None,
+                    "launch_concurrency_api_identity_required",
+                )
+                self.budget_api_id = api["container_id"]
+            first_authority = {} if self.budget_exhaustion == "target" or self.concurrency_exhaustion else None
             if self.queued_peer:
                 peer_name = "launch-stop-work-peer"
                 peer_job, peer_case = self.job_in_engagement(
@@ -1339,8 +1522,11 @@ print(len(directories))
             )
             if first_authority is not None:
                 require(
-                    canonical(first_authority["limits"]) == canonical(BUDGET_LIMITS["target"]),
-                    "launch_target_first_approval_required",
+                    canonical(first_authority["limits"]) == canonical(BUDGET_LIMITS[
+                        "concurrency" if self.concurrency_exhaustion else "target"
+                    ]),
+                    "launch_concurrency_approval_required" if self.concurrency_exhaustion
+                    else "launch_target_first_approval_required",
                 )
             if self.queued_peer:
                 require(
@@ -1380,9 +1566,41 @@ print(len(directories))
                 "launch_completed_job_not_pending",
             )
             case = engagement, job, stored, before
+        if self.concurrency_exhaustion:
+            require(self.budget_witnesses(budget="concurrency") == 0, "launch_concurrency_baseline_required")
+            finish_body = self.reserve_legacy_capacity(*case[:2], binding[0])
+            capacity_before = self.verify_concurrency_held(case)
         first, old_observer, old_exit = self.launch_and_retire(
             config, signing, binding, 1, None, case=case
         )
+        if self.concurrency_exhaustion:
+            old_observer.confirm_exit(old_exit)
+            final = observer.capture_project_containers(self.project)
+            require(
+                final["all_worker_ids"] == [first["container_id"]]
+                and final["core"] == initial["core"] and self.traffic() == [],
+                "launch_preservation_or_traffic_not_observed",
+            )
+            held_capacity, released = self.finish_legacy_capacity(case, finish_body)
+            self.receipt.update(
+                launch=first,
+                concurrency_exhaustion={
+                    **self.concurrency_retirement,
+                    "marker": "managed_claim_concurrency_exhausted", "marker_count": 1,
+                    "legacy_job_id": self.concurrency_holder[0], "managed_job_id": case[1],
+                    "legacy_finish_state": released["execution"]["state"],
+                    "target_requests": len(self.traffic()),
+                    "targets_spent": released["targets_spent"],
+                    "duration_allocated": released["duration_allocated"],
+                    "concurrency_limit": released["concurrency_limit"],
+                    "capacity_before": capacity_before,
+                    "capacity_before_finish": held_capacity,
+                    "capacity_after_finish": released["capacity_reserved_count"],
+                    "selected_sequence": "1",
+                },
+                status=CONCURRENCY_PASS, stage="selected_concurrency_exhaustion_complete",
+            )
+            return
         if self.budget_exhaustion:
             old_observer.confirm_exit(old_exit)
             final = observer.capture_project_containers(self.project)
@@ -1487,6 +1705,7 @@ def main(argv=None):
     workload.add_argument("--expire-active-grant", action="store_true")
     workload.add_argument("--duration-exhaustion", action="store_true")
     workload.add_argument("--target-exhaustion", action="store_true")
+    workload.add_argument("--concurrency-exhaustion", action="store_true")
     workload.add_argument("--stopped-predecessor", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
@@ -1509,12 +1728,14 @@ def main(argv=None):
             expire_active_grant=args.expire_active_grant,
             duration_exhaustion=args.duration_exhaustion,
             target_exhaustion=args.target_exhaustion,
+            concurrency_exhaustion=args.concurrency_exhaustion,
             stopped_predecessor=args.stopped_predecessor,
         )
         fixture.run()
         expected = (
             DURATION_PASS if args.duration_exhaustion else
-            TARGET_PASS if args.target_exhaustion else "selected_launch_slice_passed"
+            TARGET_PASS if args.target_exhaustion else
+            CONCURRENCY_PASS if args.concurrency_exhaustion else "selected_launch_slice_passed"
         )
         return 0 if fixture.receipt["status"] == expected else 1
     except Exception:

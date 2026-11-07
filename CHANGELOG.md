@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add an opt-in installed witness for engagement concurrency exhaustion. An
+  owned API reservation holds capacity while an approved persistent worker
+  claim is refused. Confirm unbound retirement and the original owner's
+  explicit release without target traffic or refunded charges.
+
 - Add an opt-in installed witness for exhaustion of one represented-origin
   attempt. Verify the second approved job remains unissued through physical
   retirement and original-key reconciliation.
