@@ -1434,6 +1434,19 @@ def _map_disconnect_projection(raw, selection, inventories, *, desktop):
             "concurrency_exhaustion",
         ))
     )
+    if "map_disconnect_audit" in raw:
+        audit = raw["map_disconnect_audit"]
+        keys = {
+            "started_monotonic_ns", "finished_monotonic_ns",
+            "api_stop_call_monotonic_ns", "exit_observed_monotonic_ns",
+        }
+        require(
+            type(audit) is dict and set(audit) == keys
+            and all(type(audit[key]) is int and audit[key] >= 0 for key in keys)
+            and audit["started_monotonic_ns"] <= audit["finished_monotonic_ns"]
+            and audit["started_monotonic_ns"] <= audit["api_stop_call_monotonic_ns"]
+            <= audit["exit_observed_monotonic_ns"]
+        )
     launch = raw["launch"]
     _launch_row(launch, 1)
     require(launch["predecessor_cids"] == [])

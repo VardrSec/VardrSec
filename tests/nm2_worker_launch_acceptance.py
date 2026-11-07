@@ -2,6 +2,7 @@
 
 import argparse
 from calendar import timegm
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime, timedelta
 import json
@@ -1192,49 +1193,72 @@ print(len(directories))
         # A matching dispatched prefix makes the exact pre-cut Map inventory
         # meaningful without polling intermediate claim states.
         prefix, _ = self.observe_target_prefix(stored, minimum=1)
-        original = self.unreported_attempt(admission, case, identity, disabled=False)
-        observed, sample_started_ns = self.observe_target_prefix(stored)
-        requests = observed["requests"]
-        require(
-            len(requests) == 3 and requests[:len(prefix["requests"])] == prefix["requests"],
-            "launch_map_disconnect_target_changed",
-        )
-        self.receipt["stage"] = "launch_map_disconnect_stop_api"
-        cid = api["container_id"]
-        require_fresh_map_disconnect_sample(observed, sample_started_ns, time.monotonic_ns())
-        self.docker("--config", str(self.docker_config), "container", "stop", "--time", "10", cid,
-                    timeout=20)
-        stopped = self.disconnect_core_state(api)
-        require(
-            stopped["Status"] == "exited" and stopped["Running"] is False
-            and stopped["StartedAt"] == prior["StartedAt"]
-            and type(stopped["ExitCode"]) is int and stopped["ExitCode"] in {0, 143},
-            "launch_map_disconnect_api_exit_missing",
-        )
-        self.receipt["stage"] = "launch_map_disconnect_observe_worker"
-        exit_proof = observer.observe_exit(identity)
-        after = self.timed_traffic()
-        still_stopped = self.disconnect_core_state(api)
-        require(exit_proof.exit_code == 125, "launch_map_disconnect_worker_exit_code")
-        require(
-            len(after["requests"]) == len(requests),
-            "launch_map_disconnect_target_count_changed",
-        )
-        require(after["requests"] == requests, "launch_map_disconnect_target_rows_changed")
-        require(
-            all(still_stopped[key] == stopped[key] for key in (
-                "Status", "Running", "StartedAt", "FinishedAt", "ExitCode",
-            )),
-            "launch_map_disconnect_api_exit_changed",
-        )
-        elapsed, cut_to_exit = map_disconnect_timing(
-            requests[-1], after, stopped["FinishedAt"], exit_proof.finished_at
-        )
-        # Corroborate the original persisted executing record after the exact
-        # physical exit and cutoff checks, before API restart or host reporting.
-        self.receipt["stage"] = "launch_map_disconnect_journal_after_exit"
-        run_id = self.observe_executing_run_id(engagement, job)
-        observer.confirm_exit(exit_proof)
+        def audit_original_run():
+            started_ns = time.monotonic_ns()
+            run_id = self.observe_executing_run_id(engagement, job)
+            return run_id, started_ns, time.monotonic_ns()
+
+        # One unchanged audit runs beside the positive Map check and final sample.
+        # Join it on every path; its helper retains the existing 60-second timeout.
+        with ThreadPoolExecutor(max_workers=1) as audit_pool:
+            audit_future = audit_pool.submit(audit_original_run)
+            original = self.unreported_attempt(admission, case, identity, disabled=False)
+            observed, sample_started_ns = self.observe_target_prefix(stored)
+            requests = observed["requests"]
+            require(
+                len(requests) == 3 and requests[:len(prefix["requests"])] == prefix["requests"],
+                "launch_map_disconnect_target_changed",
+            )
+            self.receipt["stage"] = "launch_map_disconnect_stop_api"
+            cid = api["container_id"]
+            require_fresh_map_disconnect_sample(observed, sample_started_ns, time.monotonic_ns())
+            api_stop_call_ns = time.monotonic_ns()
+            self.docker("--config", str(self.docker_config), "container", "stop", "--time", "10", cid,
+                        timeout=20)
+            stopped = self.disconnect_core_state(api)
+            require(
+                stopped["Status"] == "exited" and stopped["Running"] is False
+                and stopped["StartedAt"] == prior["StartedAt"]
+                and type(stopped["ExitCode"]) is int and stopped["ExitCode"] in {0, 143},
+                "launch_map_disconnect_api_exit_missing",
+            )
+            self.receipt["stage"] = "launch_map_disconnect_observe_worker"
+            exit_proof = observer.observe_exit(identity)
+            exit_observed_ns = time.monotonic_ns()
+            after = self.timed_traffic()
+            still_stopped = self.disconnect_core_state(api)
+            require(exit_proof.exit_code == 125, "launch_map_disconnect_worker_exit_code")
+            require(
+                len(after["requests"]) == len(requests),
+                "launch_map_disconnect_target_count_changed",
+            )
+            require(after["requests"] == requests, "launch_map_disconnect_target_rows_changed")
+            require(
+                all(still_stopped[key] == stopped[key] for key in (
+                    "Status", "Running", "StartedAt", "FinishedAt", "ExitCode",
+                )),
+                "launch_map_disconnect_api_exit_changed",
+            )
+            elapsed, cut_to_exit = map_disconnect_timing(
+                requests[-1], after, stopped["FinishedAt"], exit_proof.finished_at
+            )
+            # Require the original strict audit after physical exit and cutoff
+            # checks, before API restart or host reporting.
+            self.receipt["stage"] = "launch_map_disconnect_journal_after_exit"
+            run_id, audit_started_ns, audit_finished_ns = audit_future.result()
+            require(
+                0 <= audit_started_ns <= audit_finished_ns
+                and audit_started_ns <= api_stop_call_ns <= exit_observed_ns,
+                "launch_map_disconnect_timing_refused",
+            )
+            # Raw scheduling interval only; not the exact SQLite snapshot instant.
+            self.receipt["map_disconnect_audit"] = {
+                "started_monotonic_ns": audit_started_ns,
+                "finished_monotonic_ns": audit_finished_ns,
+                "api_stop_call_monotonic_ns": api_stop_call_ns,
+                "exit_observed_monotonic_ns": exit_observed_ns,
+            }
+            observer.confirm_exit(exit_proof)
 
         self.receipt["stage"] = "launch_map_disconnect_start_api"
         require(observer.daemon() == identity.daemon_id, "launch_map_disconnect_api_identity")

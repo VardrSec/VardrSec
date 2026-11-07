@@ -1,9 +1,11 @@
 """Inert exact-service Map outage fixture and public receipt checks."""
 
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Event, current_thread
 import time
 from types import SimpleNamespace
 import unittest
@@ -146,6 +148,50 @@ class MapDisconnectHostedTests(unittest.TestCase):
                     retained.PRIVATE_CANARY,
                 ):
                     self.assertNotIn(private.encode(), canonical(result))
+
+    def test_optional_raw_audit_interval_is_strict_and_never_public(self):
+        interval = {
+            "started_monotonic_ns": 1,
+            "finished_monotonic_ns": 5,
+            "api_stop_call_monotonic_ns": 3,
+            "exit_observed_monotonic_ns": 4,
+        }
+        for desktop in (False, True):
+            raw, selection, inventories = evidence(desktop=desktop)
+            project = (
+                hosted.map_disconnect_desktop_projection
+                if desktop
+                else hosted.public_projection
+            )
+            legacy = project(raw, selection, inventories=inventories)
+            self.assertEqual(
+                project(
+                    {**raw, "map_disconnect_audit": interval},
+                    selection,
+                    inventories=inventories,
+                ),
+                legacy,
+            )
+            self.assertNotIn(b"map_disconnect_audit", canonical(legacy))
+            for bad in (
+                None,
+                {},
+                {**interval, "raw": retained.PRIVATE_CANARY},
+                {**interval, "started_monotonic_ns": True},
+                {**interval, "finished_monotonic_ns": 0},
+                {**interval, "started_monotonic_ns": 4},
+                {**interval, "exit_observed_monotonic_ns": 2},
+                {**interval, "api_stop_call_monotonic_ns": -1},
+            ):
+                with (
+                    self.subTest(desktop=desktop, bad=bad),
+                    self.assertRaises(hosted.HostedRefused),
+                ):
+                    project(
+                        {**raw, "map_disconnect_audit": bad},
+                        selection,
+                        inventories=inventories,
+                    )
 
     def test_false_disconnect_or_restart_evidence_is_rejected(self):
         raw, selection, inventories = evidence()
@@ -307,6 +353,29 @@ class MapDisconnectLocalTests(unittest.TestCase):
             ("audit", fixture.observe_executing_run_id),
         ):
             history.attach_mock(child, name)
+
+        def executor_factory(*args, **kwargs):
+            self.assertEqual(args, ())
+            self.assertEqual(kwargs, {"max_workers": 1})
+            pool = ThreadPoolExecutor(*args, **kwargs)
+            submit = pool.submit
+
+            def coordinated_submit(*args, **kwargs):
+                future = submit(*args, **kwargs)
+                # Instant main-thread mocks must not race the fast default audit.
+                # Deliberate delay/refusal cases supply their own event ordering.
+                if fixture.observe_executing_run_id.side_effect is None:
+                    future.result(timeout=2)
+                return future
+
+            pool.submit = history.audit_submit = Mock(side_effect=coordinated_submit)
+            return pool
+
+        executor_patch = patch.object(
+            local, "ThreadPoolExecutor", side_effect=executor_factory
+        )
+        executor_patch.start()
+        self.addCleanup(executor_patch.stop)
         fixture.docker = history.docker
         observer.observe_exit.return_value = proof
         return fixture, observer, identity, requests, history
@@ -334,7 +403,7 @@ class MapDisconnectLocalTests(unittest.TestCase):
         fixture, observer, identity, _, history = self.fixture()
         run_id, _, _ = fixture.observe_map_disconnect(observer, identity, {}, CASE)
         self.assertEqual(run_id, "f" * 32)
-        before_cut = [entry[0] for entry in history.mock_calls]
+        before_cut = [entry[0] for entry in history.mock_calls if entry[0] != "audit"]
         self.assertEqual(
             before_cut[: before_cut.index("docker")],
             [
@@ -345,6 +414,7 @@ class MapDisconnectLocalTests(unittest.TestCase):
                 "observer.daemon",
                 "register",
                 "target",
+                "audit_submit",
                 "map_read",
                 "target",
             ],
@@ -359,15 +429,13 @@ class MapDisconnectLocalTests(unittest.TestCase):
         calls = [
             (name, args[3] if name == "docker" else None)
             for name, args, _ in history.mock_calls
-            if name
-            in {"docker", "observer.observe_exit", "audit", "observer.confirm_exit"}
+            if name in {"docker", "observer.observe_exit", "observer.confirm_exit"}
         ]
         self.assertEqual(
             calls,
             [
                 ("docker", "stop"),
                 ("observer.observe_exit", None),
-                ("audit", None),
                 ("observer.confirm_exit", None),
                 ("docker", "start"),
                 ("observer.confirm_exit", None),
@@ -401,10 +469,118 @@ class MapDisconnectLocalTests(unittest.TestCase):
         fixture.observe_executing_run_id.assert_called_once_with("engagement", "job")
         observer.confirm_exit.assert_not_called()
         fixture.report_exit.assert_not_called()
-        self.assertLess(
-            [entry[0] for entry in history.mock_calls].index("observer.observe_exit"),
-            [entry[0] for entry in history.mock_calls].index("audit"),
+        history.audit_submit.assert_called_once()
+        self.assertNotIn("map_disconnect", fixture.receipt)
+
+    def test_audit_can_finish_after_exit_without_delaying_cut(self):
+        fixture, observer, identity, _, history = self.fixture()
+        started, release, finished = Event(), Event(), Event()
+        threads = []
+
+        def audit(*args):
+            threads.append(current_thread())
+            started.set()
+            self.assertTrue(release.wait(2))
+            finished.set()
+            return "f" * 32
+
+        prefix = fixture.observe_target_prefix.side_effect
+
+        def target(*args, **kwargs):
+            if kwargs.get("minimum", 3) == 3:
+                self.assertTrue(started.wait(2))
+                self.assertFalse(finished.is_set())
+            return prefix(*args, **kwargs)
+
+        proof = observer.observe_exit.return_value
+
+        def exited(_):
+            self.assertFalse(finished.is_set())
+            release.set()
+            return proof
+
+        fixture.observe_executing_run_id.side_effect = audit
+        fixture.observe_target_prefix.side_effect = target
+        observer.observe_exit.side_effect = exited
+        fixture.observe_map_disconnect(observer, identity, {}, CASE)
+        self.assertTrue(finished.is_set())
+        self.assertEqual(len(threads), 1)
+        self.assertIsNot(threads[0], current_thread())
+        self.assertFalse(threads[0].is_alive())
+        history.audit_submit.assert_called_once()
+        interval = fixture.receipt["map_disconnect_audit"]
+        self.assertEqual(
+            set(interval),
+            {
+                "started_monotonic_ns",
+                "finished_monotonic_ns",
+                "api_stop_call_monotonic_ns",
+                "exit_observed_monotonic_ns",
+            },
         )
+        self.assertLessEqual(
+            interval["started_monotonic_ns"], interval["api_stop_call_monotonic_ns"]
+        )
+        self.assertLessEqual(
+            interval["api_stop_call_monotonic_ns"],
+            interval["exit_observed_monotonic_ns"],
+        )
+        self.assertLessEqual(
+            interval["started_monotonic_ns"], interval["finished_monotonic_ns"]
+        )
+
+    def test_pending_audit_is_joined_when_fresh_sample_refuses(self):
+        fixture, observer, identity, _, _ = self.fixture()
+        started, release, finished = Event(), Event(), Event()
+        threads = []
+
+        def audit(*args):
+            threads.append(current_thread())
+            started.set()
+            self.assertTrue(release.wait(2))
+            finished.set()
+            return "f" * 32
+
+        prefix = fixture.observe_target_prefix.side_effect
+
+        def target(*args, **kwargs):
+            if kwargs.get("minimum", 3) == 3:
+                self.assertTrue(started.wait(2))
+                release.set()
+            return prefix(*args, **kwargs)
+
+        fixture.observe_executing_run_id.side_effect = audit
+        fixture.observe_target_prefix.side_effect = target
+        fixture.final_sample["observed_monotonic_ns"] = (
+            local.MAP_DISCONNECT_CUT_WINDOW_NS + 1
+        )
+        with self.assertRaisesRegex(
+            local.AcceptanceRefused, "^launch_map_disconnect_sample_stale$"
+        ):
+            fixture.observe_map_disconnect(observer, identity, {}, CASE)
+        self.assertTrue(finished.is_set())
+        self.assertEqual(len(threads), 1)
+        self.assertFalse(threads[0].is_alive())
+        fixture.docker.assert_not_called()
+        observer.observe_exit.assert_not_called()
+
+    def test_audit_start_after_cut_refuses_before_restart(self):
+        fixture, observer, identity, _, _ = self.fixture()
+        main_thread = current_thread()
+
+        def clock():
+            return 50 if current_thread() is main_thread else 100
+
+        with (
+            patch.object(local.time, "monotonic_ns", side_effect=clock),
+            self.assertRaisesRegex(
+                local.AcceptanceRefused, "^launch_map_disconnect_timing_refused$"
+            ),
+        ):
+            fixture.observe_map_disconnect(observer, identity, {}, CASE)
+        fixture.docker.assert_called_once()
+        self.assertEqual(fixture.docker.call_args.args[3], "stop")
+        observer.confirm_exit.assert_not_called()
         self.assertNotIn("map_disconnect", fixture.receipt)
 
     def test_freshness_accounts_for_target_age_and_entire_host_sample(self):
@@ -435,7 +611,7 @@ class MapDisconnectLocalTests(unittest.TestCase):
         fixture.docker.assert_not_called()
         fixture.api.request.assert_called_once()
         fixture.unreported_attempt.assert_called_once()
-        fixture.observe_executing_run_id.assert_not_called()
+        fixture.observe_executing_run_id.assert_called_once_with("engagement", "job")
         observer.observe_exit.assert_not_called()
 
     def test_wrong_daemon_refuses_before_registration_or_stop(self):
@@ -497,7 +673,7 @@ class MapDisconnectLocalTests(unittest.TestCase):
             fixture.observe_map_disconnect(observer, identity, {}, CASE)
         fixture.docker.assert_called_once()
         self.assertEqual(fixture.docker.call_args.args[3], "stop")
-        fixture.observe_executing_run_id.assert_not_called()
+        fixture.observe_executing_run_id.assert_called_once_with("engagement", "job")
         self.assertNotIn("map_disconnect", fixture.receipt)
 
     def test_observation_refusals_are_distinct_and_never_restart_api(self):
@@ -533,7 +709,9 @@ class MapDisconnectLocalTests(unittest.TestCase):
                     fixture.observe_map_disconnect(observer, identity, {}, CASE)
                 fixture.docker.assert_called_once()
                 self.assertEqual(fixture.docker.call_args.args[3], "stop")
-                fixture.observe_executing_run_id.assert_not_called()
+                fixture.observe_executing_run_id.assert_called_once_with(
+                    "engagement", "job"
+                )
                 self.assertNotIn("map_disconnect", fixture.receipt)
 
     def test_core_identity_refuses_foreign_service_before_mutation(self):
