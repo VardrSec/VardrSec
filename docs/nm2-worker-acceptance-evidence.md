@@ -382,6 +382,28 @@ Windows receipt SHA-256 `13a6c3c4050b60b7cce893392a6c8f5e512be3e5c165be62d294aa8
 Ubuntu sanitized receipt SHA-256 `60b278e123af9a7a0b60ebfeb897c1689117e6bbad574443c62d8c1dbc084a6f`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42406589467)
 
+### Shared engagement concurrency exhaustion
+
+Distribution `61c335e3c895152acff1495cb6a552c8ad200c2d`,
+Map `05dc78cf9a385255de459c8a5b833842d6528a63`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` passed on Windows Docker Desktop
+and Ubuntu 24.04. One authorized legacy API claim reserved the only slot
+in an isolated engagement without dispatching a tool. A separate managed
+claim was refused with the exact concurrency exhaustion marker.
+
+One target, 30 seconds and one slot remained charged or reserved before
+the refusal, after the refusal, and through the contender's retirement and
+reconciliation. The contender issued zero attempts and made zero target
+requests. Its original Runner reconciliation left zero holds. Only the
+original job's owned finish released the slot, with a failed terminal
+state and the same target and duration charges. The fixture retained six
+stopped containers on each platform.
+
+Windows receipt SHA-256 `991bd4fa9364d01b3ed0750486434baa90a2dc43a4671c871d31ae3e4eb6cae3`.
+Ubuntu sanitized receipt SHA-256 `ed389544450e6128ee24185e6049a47c8f1ece217ac6e41ae8db224030276987`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42409178298)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
@@ -651,8 +673,8 @@ The installed evidence above covers first and subsequent startup, selected
 cancellation paths, active grant revocation, expiry before claim and expiry
 during active work, allocated duration and represented-origin exhaustion, and
 Strict registration refusal after an authority change. The ordinary
-stopped-predecessor recovery check also passed. The open cases include
-concurrency exhaustion, the remaining Strict denials,
+stopped-predecessor recovery check and shared concurrency exhaustion also
+passed. The open cases include the remaining Strict denials,
 retained partial evidence, disconnect, crash and restart, duplicate and lost
 replies, and persisted preclaim recovery.
 
