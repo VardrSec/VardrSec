@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import secrets
 import stat
+import time
 import uuid
 
 import worker_host as host
@@ -454,10 +455,118 @@ def _write(path, raw, *, create, records, operation):
     # On failure partial private artifacts are retained; no effect is retried.
 
 
+def _inventory_entries(directory, deadline):
+    """Classify every name before any key read; unknown or linked files hold."""
+    entries = {}
+    for path in directory.iterdir():
+        require(time.monotonic() < deadline and path.name not in entries)
+        selected, separator, suffix = path.name.partition(".")
+        require(separator == ".")
+        host._uuid(selected)
+        ordinal = None
+        if suffix == "json":
+            kind = "record"
+        elif suffix == "intent.json":
+            kind = "intent"
+        else:
+            report = re.fullmatch(r"report-v3-([0-9]{2})\.json", suffix)
+            require(report is not None)
+            kind, ordinal = "report", int(report[1])
+            require(0 <= ordinal <= 64)
+        info = path.lstat()
+        require(
+            stat.S_ISREG(info.st_mode)
+            and info.st_nlink == 1
+            and not getattr(info, "st_file_attributes", 0) & 0x400
+            and 0 < info.st_size <= _LIMIT
+        )
+        entries[path.name] = (
+            kind,
+            selected,
+            ordinal,
+            info.st_dev,
+            info.st_ino,
+            info.st_size,
+            info.st_mtime_ns,
+            info.st_mode,
+        )
+    return entries
+
+
 class IntentStore:
     def __init__(self, records):
         # Inert: neither provider construction nor path/key/file access.
         self.records = records
+
+    def inventory(self, *, operation):
+        """Read original protected records and intents; no proof or effect is minted."""
+        try:
+            require(type(self.records) is host.HostRecords)
+            directory = self.records._intent_access(operation)
+            deadline = time.monotonic() + 30
+            before = _inventory_entries(directory, deadline)
+            available = {entry[1] for entry in before.values() if entry[0] == "record"}
+            require(
+                all(
+                    entry[1] in available
+                    for entry in before.values()
+                    if entry[0] == "report"
+                )
+            )
+            records, intents, reports = {}, {}, []
+            for kind, selected, ordinal, *_ in sorted(before.values()):
+                require(time.monotonic() < deadline)
+                if kind == "record":
+                    records[selected] = self.records.read(selected)
+                elif kind == "intent":
+                    intents[selected] = self.read(selected, operation=operation)
+                else:
+                    import worker_host_persistent
+
+                    row = worker_host_persistent._load_report(
+                        self.records, selected, ordinal
+                    )
+                    reports.append(
+                        {
+                            "runtime_id": selected,
+                            "ordinal": ordinal,
+                            "state": row["state"],
+                        }
+                    )
+            future_ids = set()
+            for row in intents.values():
+                require(time.monotonic() < deadline)
+                selected = row["future_runtime_id"]
+                require(selected not in future_ids)
+                future_ids.add(selected)
+                if row["disposition"] == "enabled":
+                    record = records[selected]
+                    observed = row["observations"]
+                    require(
+                        record["registration_state"] == "acknowledged"
+                        and record["admission"] is not None
+                        and record["registration"]["identity"] == observed["running"]
+                        and host.digest(record["registration"])
+                        == observed["registration_sha256"]
+                        and host.digest(record["admission"])
+                        == observed["admission_sha256"]
+                    )
+            require(
+                self.records._intent_access(operation) == directory
+                and _inventory_entries(directory, deadline) == before
+                and time.monotonic() < deadline
+            )
+            return {"records": records, "intents": intents, "reports": reports}
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OverflowError,
+            RecursionError,
+        ):
+            raise IntentRefused() from None
 
     def registration_capability(
         self,

@@ -940,5 +940,230 @@ class LifecycleIntentTests(unittest.TestCase):
         self.assertFalse(self.path.exists())
 
 
+class HostLifecycleInventoryTests(unittest.TestCase):
+    def setUp(self):
+        self.f = LifecycleIntentTests()
+        self.f.setUp()
+        self.addCleanup(self.f.doCleanups)
+
+    def record(self):
+        import worker_host_persistent as persistent
+
+        layout = self.f.row["resources"]
+        identity = self.f.created()
+        identity = {
+            key: identity[key]
+            for key in ("daemon_id", "container_id", "image_id", "project")
+        }
+        identity.update(started_at="2026-11-06T01:00:00Z", owner_nonce="7" * 64)
+        policy = self.f.row["registration_policy"]
+        value = {
+            "runtime_id": FUTURE,
+            "installation": str(self.f.records.installation.resolve()),
+            "storage_root": str(self.f.records.private_root.resolve()),
+            "context": self.f.row["binding"]["context"],
+            "layout": {
+                "trust_source": layout["trust_source"],
+                "admission_source": layout["public_directory"],
+                "state_volume": layout["runner_state"]["name"],
+                "readiness_volume": layout["readiness_volume"],
+            },
+            "registration": {
+                "enrollment_id": policy["enrollment_id"],
+                "runner_id": policy["runner_id"],
+                "origin": policy["origin"],
+                "mode": "persistent",
+                "limits": policy["limits"],
+                "reporting_authority": policy["reporting_authority"],
+                "identity": identity,
+                "capability_sha256": "a" * 64,
+            },
+            "registration_state": "acknowledged",
+            "stop_state": "none",
+            "revocation_state": "none",
+            "disable_state": "none",
+            "receipt": None,
+            "disable_intent": None,
+            "disable_receipt": None,
+        }
+        value["admission"] = persistent.expected_admission(value)
+        return value
+
+    def write_record(self, value):
+        self.f.backend.stops[value["runtime_id"]] = "b" * 64
+        self.f.records.write(value, create=True)
+
+    def enabled(self, operation, record):
+        current = self.f.store.create(self.f.row, operation=operation)
+
+        def created(value):
+            value["effects"].update(
+                public_directory_may_have_been_created=True,
+                readiness_may_have_been_created=True,
+                container_create_may_have_sent=True,
+            )
+            value["observations"]["created"] = self.f.created()
+
+        def running(value):
+            value["effects"]["start_may_have_sent"] = True
+            value["observations"]["running"] = record["registration"]["identity"]
+
+        def registered(value):
+            value["effects"]["registration_may_have_sent"] = True
+            value["observations"]["registration_sha256"] = host.digest(
+                record["registration"]
+            )
+
+        def published(value):
+            value["effects"]["publication_may_have_happened"] = True
+            value["observations"].update(
+                host_record_sha256=host.digest(record),
+                admission_sha256=host.digest(record["admission"]),
+            )
+
+        for step in (
+            created,
+            running,
+            registered,
+            published,
+            lambda value: value.update(disposition="enabled"),
+        ):
+            current = self.f.next(current, operation, step)
+        return current
+
+    def test_inventory_empty_only_inside_exact_live_owner_operation(self):
+        with self.f.records.operation() as operation:
+            self.assertEqual(
+                self.f.store.inventory(operation=operation),
+                {"records": {}, "intents": {}, "reports": []},
+            )
+        with patch.object(
+            self.f.records, "_directory", side_effect=AssertionError("no I/O")
+        ):
+            for stale in (operation, None, object()):
+                with self.assertRaises(intent.IntentRefused):
+                    self.f.store.inventory(operation=stale)
+        self.assertEqual(self.f.backend.calls, [])
+
+    def test_inventory_preserves_active_intent_and_authenticated_unknown_report(self):
+        import worker_host_persistent as persistent
+
+        record = self.record()
+        self.write_record(record)
+        with self.f.records.operation() as operation:
+            current = self.f.store.create(self.f.row, operation=operation)
+            persistent._store_report(
+                self.f.records,
+                {
+                    "runtime_id": FUTURE,
+                    "ordinal": 0,
+                    "cursor": {"last_sequence": "0", "phase": "idle"},
+                    "intent": None,
+                    "state": "unknown",
+                    "receipt": None,
+                },
+                create=True,
+            )
+            self.f.backend.calls.clear()
+            value = self.f.store.inventory(operation=operation)
+            self.assertEqual(
+                value,
+                {
+                    "records": {FUTURE: record},
+                    "intents": {OPERATION: current},
+                    "reports": [
+                        {"runtime_id": FUTURE, "ordinal": 0, "state": "unknown"}
+                    ],
+                },
+            )
+            self.assertEqual(
+                [name for name, _ in self.f.backend.calls],
+                ["read_intent", "read_stop", "read_stop"],
+            )
+
+    def test_unknown_or_orphaned_inventory_names_refuse_before_any_key_reads(self):
+        for name in (
+            "unknown.json",
+            PREVIOUS + ".report-v3-00.json",
+            PREVIOUS + ".report-v3-99.json",
+            PREVIOUS + ".json.tmp",
+        ):
+            with self.subTest(name=name):
+                path = self.f.records.directory / name
+                path.write_bytes(b"{}")
+                with self.f.records.operation() as operation:
+                    with self.assertRaises(intent.IntentRefused):
+                        self.f.store.inventory(operation=operation)
+                self.assertEqual(self.f.backend.calls, [])
+                path.unlink()
+
+    def test_inventory_refuses_bad_original_mac_without_partial_result(self):
+        record = self.record()
+        self.write_record(record)
+        path = self.f.records._path(FUTURE)
+        wrapped = host._json(path.read_bytes())
+        wrapped["mac"] = "0" * 64
+        path.write_bytes(host.canonical(wrapped))
+        with self.f.records.operation() as operation:
+            with self.assertRaisesRegex(
+                intent.IntentRefused, "^worker_lifecycle_intent_refused$"
+            ):
+                self.f.store.inventory(operation=operation)
+
+    def test_inventory_rejects_changed_directory_after_authentic_record_read(self):
+        record = self.record()
+        self.write_record(record)
+        original = self.f.records.read
+        changed = self.f.records.directory / (PREVIOUS + ".json")
+
+        def read(selected):
+            value = original(selected)
+            changed.write_bytes(b"{}")
+            return value
+
+        with (
+            self.f.records.operation() as operation,
+            patch.object(self.f.records, "read", side_effect=read),
+        ):
+            with self.assertRaises(intent.IntentRefused):
+                self.f.store.inventory(operation=operation)
+        self.assertEqual(changed.read_bytes(), b"{}")
+
+    def test_enabled_intent_uses_immutable_registration_not_old_mutable_record_digest(
+        self,
+    ):
+        import worker_host_persistent as persistent
+
+        record = self.record()
+        self.write_record(record)
+        with self.f.records.operation() as operation:
+            enabled = self.enabled(operation, record)
+            record["stop_state"] = "prepared"
+            self.f.records.write(record)
+            value = self.f.store.inventory(operation=operation)
+            self.assertEqual(value["intents"][OPERATION], enabled)
+            self.assertEqual(value["records"][FUTURE]["stop_state"], "prepared")
+            self.assertNotEqual(
+                host.digest(record), enabled["observations"]["host_record_sha256"]
+            )
+            record["registration"]["identity"]["owner_nonce"] = "8" * 64
+            record["admission"] = persistent.expected_admission(record)
+            self.f.records.write(record)
+            with self.assertRaises(intent.IntentRefused):
+                self.f.store.inventory(operation=operation)
+
+    def test_orphan_enabled_and_duplicate_future_ids_refuse(self):
+        with self.f.records.operation() as operation:
+            self.enabled(operation, self.record())
+            with self.assertRaises(intent.IntentRefused):
+                self.f.store.inventory(operation=operation)
+            self.write_record(self.record())
+            duplicate = copy.deepcopy(self.f.row)
+            duplicate["operation_id"] = "77777777-7777-4777-8777-777777777777"
+            self.f.store.create(duplicate, operation=operation)
+            with self.assertRaises(intent.IntentRefused):
+                self.f.store.inventory(operation=operation)
+
+
 if __name__ == "__main__":
     unittest.main()

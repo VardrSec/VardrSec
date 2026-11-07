@@ -336,3 +336,22 @@ retain original direct `worker-state` output, exact protected record, fresh
 authenticated Map observation and actual exit. A serialized match is no start,
 recovery or execution authority. This is for known predecessors; it does not
 authorize the first worker from an empty inventory.
+
+
+## Complete protected inventory
+
+Inside the exact live installation operation, enumerate the whole dedicated
+host directory before reading any record keys. Accept only original record,
+intent and persistent report names, regular unlinked bounded files, and reports
+with an original host record. Reuse their existing MAC readers. Preserve every
+intent disposition and report state for the caller; any unknown file, orphan,
+MAC failure, ambiguous future ID or changing inventory refuses. For an enabled
+intent, the retained host record must still have its exact immutable
+registration, admission and running identity. Its mutable stop/retirement
+fields may have advanced since the original acknowledgement.
+
+This closed snapshot supports preflight without opening secret data for unknown
+files. It does not prove no history from an empty directory, physical exit or
+Map/local retirement. Pending, held and abandoned resources cannot be skipped
+by a future successor; they need their own recovery or preservation decision.
+The reader makes no writes or external request and grants no execution authority.

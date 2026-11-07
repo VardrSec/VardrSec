@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: read the complete protected record, intent and report
+  inventory under its existing live operation; retain all unfinished states.
+
 - NM-2 private lifecycle: join original Runner state to the exact host and Map
   retirement, keeping zero-issued and locally retired predecessors distinct.
 
