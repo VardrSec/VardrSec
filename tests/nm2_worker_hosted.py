@@ -27,6 +27,8 @@ SOURCE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
 LAUNCH_SCENARIO = "persistent-launch-empty"
+LAUNCH_STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
+STOPPED_PREDECESSOR_HOSTED = "vardr.nm2-hosted/11"
 LAUNCH_COMPLETED_SCENARIO = "persistent-launch-completed"
 LAUNCH_STOP_WORK_SCENARIO = "persistent-launch-stop-work"
 LAUNCH_STOP_WORK_QUEUED_SCENARIO = "persistent-launch-stop-work-queued"
@@ -51,6 +53,7 @@ LAUNCH_CANCELLATION_SCENARIOS = {
 }
 LAUNCH_SCOPES = {
     LAUNCH_SCENARIO: "first_and_next_empty_launch",
+    LAUNCH_STOPPED_PREDECESSOR_SCENARIO: "stopped_predecessor_then_next_launch",
     LAUNCH_COMPLETED_SCENARIO: "completed_then_next_launch",
     LAUNCH_STOP_WORK_SCENARIO: "stop_work_then_next_launch",
     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "stop_work_excludes_queued_job",
@@ -747,6 +750,9 @@ def failure_projection(raw, selection):
                 and raw.get("expected_database_revision") == "0041persistentruntime")
     stages = {
         "launch_prepare", "launch_1", "launch_2", "launch_stop_1", "launch_stop_2",
+        "launch_predecessor_active", "launch_predecessor_unreported",
+        "launch_refuse_unresolved_predecessor", "launch_report_predecessor",
+        "launch_host_exit_verification",
         "launch_reconcile_original", "launch_audit_retired",
         "launch_stop_work_observe", "cancellation_request",
         "launch_stop_work_exit", "launch_stop_work_retirement",
@@ -801,6 +807,14 @@ def failure_projection(raw, selection):
     }
     reasons = {
         "launch_preexisting_worker", "launch_unexpected_target_traffic",
+        "launch_active_predecessor_identity_changed", "launch_active_predecessor_exit_missing",
+        "launch_predecessor_capacity_not_held", "launch_predecessor_unreported_runtime_changed",
+        "launch_predecessor_original_attempt_missing", "launch_predecessor_original_run_not_held",
+        "launch_predecessor_already_reported", "launch_successor_volume_exists",
+        "launch_unresolved_predecessor_refusal_missing", "launch_unresolved_refusal_changed_state",
+        "launch_host_exit_original_reconciliation_missing", "launch_host_exit_terminal_not_proven",
+        "launch_host_exit_budget_or_history_changed", "launch_host_exit_predecessor_history_changed",
+        "launch_host_exit_predecessor_binding_changed", "launch_successor_identity_changed",
         "launch_enable_not_observed", "launch_admission_not_bound",
         "launch_intent_not_observed", "launch_durable_chain_not_observed",
         "launch_exact_exit_not_observed", "launch_empty_retirement_not_observed",
@@ -1134,9 +1148,139 @@ def _budget_projection(raw, selection, budget):
     }
 
 
-def launch_projection(raw, selection):
+def _stopped_predecessor_projection(raw, selection, first, second, inventories, *, desktop):
+    from nm2_worker_acceptance import AcceptanceRefused, canonical, digest, unchanged_inventory
+
+    counts = {
+        "new_resources": 0, "target_requests": 3, "capacity_before": 1,
+        "capacity_after": 0, "targets_spent": 1, "duration_allocated": 30,
+        "remaining_local_holds": 0,
+    }
+    hashes = ("retirement_sha256", "host_retirement_sha256", "audit_sha256", "terminal_sha256")
+    proof = raw.get("stopped_predecessor")
+    require(
+        type(proof) is dict and set(proof) == set(counts) | set(hashes) | {
+            "refused_runtime_id", "failure_phase", "failure_code",
+            "physical_exit_elapsed_ns", "terminal_cause",
+        }
+        and all(type(proof[key]) is int and proof[key] == value for key, value in counts.items())
+        and proof["refused_runtime_id"] == second["runtime_id"]
+        and proof["retirement_sha256"] == first["retirement_sha256"]
+        and proof["failure_phase"] == "launch_catalog"
+        and proof["failure_code"] == "validation_refused"
+        and proof["terminal_cause"] == "observed_exit"
+        and type(proof["physical_exit_elapsed_ns"]) is int
+        and 0 < proof["physical_exit_elapsed_ns"] < 15_000_000_000
+    )
+    for key in hashes:
+        _hash(proof[key])
+
+    admit_bridge = selection["allow_empty_builtin_bridge_id_change"]
+    require(
+        selection["docker_context"] == ("desktop-linux" if desktop else "default")
+        and type(admit_bridge) is bool and (desktop or not admit_bridge)
+        and len(inventories) == 2
+    )
+    kinds = {"containers", "images", "networks", "volumes"}
+    for snapshot, key in zip(inventories, ("before_sha256", "after_sha256")):
+        require(type(snapshot) is dict and set(snapshot) == kinds
+                and all(type(snapshot[kind]) is dict for kind in kinds))
+        document = canonical(snapshot)
+        require(len(document) <= 4 * 1024 * 1024 and digest(document) == raw[key])
+    before, after = inventories
+    project = selection["project"]
+    try:
+        admitted = unchanged_inventory(before, after, project, admit_bridge=admit_bridge)
+    except AcceptanceRefused:
+        raise HostedRefused("nm2_hosted_stopped_predecessor_inventory_refused") from None
+    require(
+        len(admitted) <= 1
+        and canonical(admitted) == canonical(raw["admitted_inventory_diffs"])
+        and canonical(before["images"]) == canonical(after["images"])
+    )
+    replacements = {entry["before"]: entry["after"] for entry in admitted}
+    for kind in kinds:
+        for key, prior in before[kind].items():
+            selected_id = replacements.get(key, key) if kind == "networks" else key
+            current = after[kind][selected_id]
+            if selected_id != key:
+                require(
+                    key not in after["networks"] and selected_id not in before["networks"]
+                    and prior["driver"] == "bridge" and prior["scope"] == "local"
+                    and prior["containers"] == current["containers"] == {}
+                )
+                current = {**current, "id": key}
+            require(canonical(prior) == canonical(current))
+    state_volume = project + "_runner-state"
+    expected_volumes = {state_volume, *(
+        f"{project}_worker-ready-{row['runtime_id']}" for row in (first, second)
+    )}
+    require(
+        not expected_volumes & before["volumes"].keys()
+        and expected_volumes <= after["volumes"].keys()
+        and all(after["volumes"][name]["id"] == name for name in expected_volumes)
+    )
+    owned = set(after["containers"]) - set(before["containers"])
+    workers = {row["container_id"]: row for row in (first, second)}
+    stopped = raw["fixture_stop"]
+    require(
+        type(stopped) is dict and set(stopped) == {"status", "container_ids", "stop_requested_ids"}
+        and stopped["status"] == "stopped_retained"
+        and len(owned) == 7 and workers.keys() <= owned
+        and stopped["container_ids"] == sorted(owned)
+        and stopped["stop_requested_ids"] == sorted(owned - workers.keys())
+    )
+    images = selection["images"]
+    services = {name: images[name] for name in ("api", "db", "proxy", "web")}
+    services["gate-fixture"] = images["worker"]
+    for cid in sorted(owned):
+        row = after["containers"][cid]
+        _hash(cid)
+        require(
+            row["id"] == cid and row["labels"]["com.docker.compose.project"] == project
+            and all(row["state"][name] is False for name in ("running", "paused", "restarting", "dead"))
+        )
+        service = row["labels"]["com.docker.compose.service"]
+        if cid in workers:
+            launch = workers[cid]
+            require(
+                service == "managed-worker" and row["image"] == images["worker"]
+                and row["labels"]["com.docker.compose.container-number"] == str(launch["ordinal"])
+                and type(row["restarts"]) is int and row["restarts"] == 0
+                and row["state"]["started_at"] == launch["started_at"]
+                and row["state"]["finished_at"] == launch["finished_at"]
+                and (launch["ordinal"] != 1 or row["state"]["exit_code"] == 125)
+            )
+            mounts = [item for item in row["mounts"] if item["Destination"] == "/home/runner/.vardrmap"]
+            require(
+                len(mounts) == 1 and mounts[0]["Type"] == "volume"
+                and mounts[0]["Name"] == state_volume and mounts[0]["RW"] is True
+            )
+        else:
+            require(service in services and row["image"] == services.pop(service))
+    require(not services)
+    result = {
+        "stopped_predecessor": {
+            **{key: proof[key] for key in (*counts, *hashes, "failure_phase", "failure_code",
+                                          "terminal_cause", "physical_exit_elapsed_ns")},
+            "same_runner_state_volume": True,
+            "owned_stopped_container_count": len(owned),
+        },
+        "nm2_exit_status": "incomplete", "resources_retained": True,
+    }
+    if desktop:
+        result.update(platform="win32", container_platform="linux",
+                      empty_builtin_bridge_id_change_count=len(admitted))
+    return result
+
+
+def launch_projection(raw, selection, *, inventories=(), desktop=False):
     scenario = raw.get("scenario")
-    require(type(scenario) is str and scenario in LAUNCH_SCENARIOS)
+    require(
+        type(scenario) is str and scenario in LAUNCH_SCENARIOS
+        and type(desktop) is bool
+        and (not desktop or scenario == LAUNCH_STOPPED_PREDECESSOR_SCENARIO)
+    )
     budget = LAUNCH_BUDGETS.get(scenario)
     status = f"selected_{budget}_exhaustion_slice_passed" if budget else "selected_launch_slice_passed"
     stage = f"selected_{budget}_exhaustion_complete" if budget else "selected_launch_complete"
@@ -1145,7 +1289,8 @@ def launch_projection(raw, selection):
         and raw.get("acceptance_scope") == LAUNCH_SCOPES[scenario]
         and raw.get("status") == status
         and raw.get("stage") == stage
-        and raw.get("retained") is True and raw.get("platform") == "linux"
+        and raw.get("retained") is True
+        and raw.get("platform") == ("win32" if desktop else "linux")
         and raw.get("nm2_exit_status") == "incomplete"
         and raw.get("sources") == selection["sources"]
         and raw.get("images") == selection["images"]
@@ -1247,7 +1392,20 @@ def launch_projection(raw, selection):
         result["unissued_job"] = unissued
     else:
         require("unissued_job" not in raw)
+    if scenario == LAUNCH_STOPPED_PREDECESSOR_SCENARIO:
+        return _stopped_predecessor_projection(
+            raw, selection, first, second, inventories, desktop=desktop
+        )
     return result
+
+
+def stopped_predecessor_desktop_projection(raw, selection, *, inventories):
+    """Read only the Windows Desktop stopped-predecessor fixture evidence."""
+    require(type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA)
+    try:
+        return launch_projection(raw, selection, inventories=inventories, desktop=True)
+    except (KeyError, TypeError, IndexError, ValueError):
+        raise HostedRefused("nm2_desktop_stopped_predecessor_receipt_refused") from None
 
 
 def public_projection(raw, selection, *, inventories=()):
@@ -1260,6 +1418,11 @@ def public_projection(raw, selection, *, inventories=()):
         except (ValueError, TypeError, KeyError, IndexError):
             raise HostedRefused("nm2_hosted_strict_drift_receipt_refused") from None
     if type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA:
+        if raw.get("scenario") == LAUNCH_STOPPED_PREDECESSOR_SCENARIO:
+            try:
+                return launch_projection(raw, selection, inventories=inventories)
+            except (KeyError, TypeError, IndexError, ValueError):
+                raise HostedRefused("nm2_hosted_stopped_predecessor_receipt_refused") from None
         return launch_projection(raw, selection)
     if type(raw) is dict and raw.get("schema") == "vardr.nm2-worker-empty-acceptance/1":
         from nm2_worker_empty_projection import project
@@ -1475,6 +1638,12 @@ class Hosted:
             self.receipt.update(schema=STRICT_DRIFT_HOSTED, scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope="Strict authority drift only; other Strict denials and NM2 remain incomplete")
+        elif self.scenario == LAUNCH_STOPPED_PREDECESSOR_SCENARIO:
+            self.receipt.update(
+                schema=STOPPED_PREDECESSOR_HOSTED, scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope=LAUNCH_SCOPES[self.scenario],
+            )
         elif self.scenario in LAUNCH_SCENARIOS:
             self.receipt.update(
                 schema=LAUNCH_BUDGET_SCHEMAS.get(self.scenario, "vardr.nm2-hosted/7"),
@@ -1676,6 +1845,7 @@ class Hosted:
             "--compose-sha256", COMPOSE_SHA256, "--docker-config", str(config),
             *{
                 LAUNCH_SCENARIO: [],
+                LAUNCH_STOPPED_PREDECESSOR_SCENARIO: ["--stopped-predecessor"],
                 LAUNCH_COMPLETED_SCENARIO: ["--completed-job"],
                 LAUNCH_STOP_WORK_SCENARIO: ["--stop-work"],
                 LAUNCH_STOP_WORK_QUEUED_SCENARIO: ["--stop-work-queued"],
@@ -1824,6 +1994,7 @@ class Hosted:
                     "persistent-idle-limit": "vardr.nm2-worker-idle-acceptance/1",
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
                     LAUNCH_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_STOPPED_PREDECESSOR_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_COMPLETED_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: LAUNCH_SCHEMA,
@@ -1837,15 +2008,23 @@ class Hosted:
                     STRICT_DRIFT_SCENARIO: STRICT_DRIFT_SCHEMA,
                 }[self.scenario]
             )
-            if self.scenario == STRICT_DRIFT_SCENARIO:
+            if self.scenario in {STRICT_DRIFT_SCENARIO, LAUNCH_STOPPED_PREDECESSOR_SCENARIO}:
                 inventories = []
                 for name in ("before", "after"):
                     with (self.root / f"installation/nm2-inventory-{name}.json").open("rb") as handle:
                         inventories.append(decode_receipt(handle.read(4 * 1024 * 1024 + 1)))
                 self.receipt.update(public_projection(observed, selection, inventories=inventories))
-                self.receipt["remaining_required_cases"]["strict_other_denials"] = (
-                    "authority_drift_verified_other_strict_denials_open"
-                )
+                if self.scenario == STRICT_DRIFT_SCENARIO:
+                    self.receipt["remaining_required_cases"]["strict_other_denials"] = (
+                        "authority_drift_verified_other_strict_denials_open"
+                    )
+                else:
+                    self.receipt["remaining_required_cases"]["worker_crash_stop"] = (
+                        "ordinary_operator_stop_verified_crash_open"
+                    )
+                    self.receipt["remaining_required_cases"]["restart_duplicate_claim"] = (
+                        "stopped_predecessor_verified_duplicate_claim_open"
+                    )
             else:
                 self.receipt.update(public_projection(observed, selection))
             verified_case = {
@@ -1883,6 +2062,7 @@ class Hosted:
                     "persistent-idle-limit": "vardr.nm2-hosted/5",
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
                     LAUNCH_SCENARIO: "vardr.nm2-hosted/7",
+                    LAUNCH_STOPPED_PREDECESSOR_SCENARIO: STOPPED_PREDECESSOR_HOSTED,
                     LAUNCH_COMPLETED_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "vardr.nm2-hosted/7",

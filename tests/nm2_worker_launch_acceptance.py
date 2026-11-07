@@ -8,12 +8,15 @@ import json
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 import time
+import uuid
 
 from nm2_worker_acceptance import (
     EMPTY_SCENARIO,
     ORIGIN,
+    AcceptanceRefused,
     Fixture,
     canonical,
     command,
@@ -25,6 +28,7 @@ from nm2_worker_acceptance import (
 )
 
 SECOND_NS = 1_000_000_000
+STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
 DURATION_SCENARIO = "persistent-launch-duration-exhaustion"
 DURATION_PASS = "selected_duration_exhaustion_slice_passed"
 DURATION_MAP_COMMIT = "40bf4e37076d6a85648f817dd8b6bc69104bd863"
@@ -51,6 +55,27 @@ def budget_witness_count(raw, budget):
 
 def duration_witness_count(raw):
     return budget_witness_count(raw, "duration")
+
+
+def expect_unresolved_launch(arguments, runtime_id, *, cwd, env, stdin):
+    """Require the exact refusal from one ordinary launch invocation."""
+    try:
+        result = subprocess.run(
+            arguments, cwd=cwd, env=env, input=stdin.encode(), capture_output=True,
+            timeout=240, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise AcceptanceRefused("launch_unresolved_predecessor_refusal_missing") from None
+    expected = {
+        "schema": "vardr.worker-cli/1", "state": "held", "runtime_id": runtime_id,
+        "failure_phase": "launch_catalog", "failure_code": "validation_refused",
+    }
+    require(
+        result.returncode == 1 and type(result.stdout) is bytes
+        and len(result.stdout) <= 4096
+        and result.stdout.splitlines() == [json.dumps(expected, sort_keys=True).encode()],
+        "launch_unresolved_predecessor_refusal_missing",
+    )
 
 
 def grant_time_ns(value):
@@ -101,7 +126,7 @@ class LaunchFixture(Fixture):
         self, selection, *, compose, compose_sha256, docker_config,
         completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
         revoke_grant=False, expire_grant=False, expire_active_grant=False,
-        duration_exhaustion=False, target_exhaustion=False,
+        duration_exhaustion=False, target_exhaustion=False, stopped_predecessor=False,
     ):
         super().__init__(
             selection,
@@ -109,7 +134,8 @@ class LaunchFixture(Fixture):
                 "missing-local-grant" if missing_grant or expire_grant
                 else "active-target-grant-revoked" if revoke_grant
                 else "local-emergency-stop" if local_stop
-                else "stop-work" if stop_work or expire_active_grant else EMPTY_SCENARIO
+                else "stop-work" if stop_work or expire_active_grant or stopped_predecessor
+                else EMPTY_SCENARIO
             ),
             database_revision="0041persistentruntime",
         )
@@ -126,6 +152,7 @@ class LaunchFixture(Fixture):
         self.compose_sha256 = compose_sha256
         self.budget_exhaustion = "duration" if duration_exhaustion else "target" if target_exhaustion else None
         self.completed = completed or self.budget_exhaustion is not None
+        self.stopped_predecessor = stopped_predecessor
         self.cancelling = stop_work or local_stop or revoke_grant or expire_active_grant
         self.local_stop = local_stop
         self.local_grant_denial = missing_grant or expire_grant
@@ -137,7 +164,8 @@ class LaunchFixture(Fixture):
         self.max_attempts = None
         require(
             sum((completed, stop_work, local_stop, missing_grant, revoke_grant,
-                 expire_grant, expire_active_grant, duration_exhaustion, target_exhaustion)) <= 1
+                 expire_grant, expire_active_grant, duration_exhaustion, target_exhaustion,
+                 stopped_predecessor)) <= 1
             and (not queued_peer or stop_work),
             "launch_fixture_mode_conflict",
         )
@@ -156,6 +184,8 @@ class LaunchFixture(Fixture):
                 "launch_target_witness_source_required",
             )
             scenario, scope = TARGET_SCENARIO, "represented_origin_exhaustion"
+        elif stopped_predecessor:
+            scenario, scope = STOPPED_PREDECESSOR_SCENARIO, "stopped_predecessor_then_next_launch"
         elif completed:
             scenario, scope = "persistent-launch-completed", "completed_then_next_launch"
         elif stop_work:
@@ -180,7 +210,7 @@ class LaunchFixture(Fixture):
 
     def target_environment(self):
         environment = super().target_environment()
-        if self.cancelling:
+        if self.cancelling or self.stopped_predecessor:
             environment["NM2_FIXTURE_UTC_TIMING"] = "1"
         return environment
 
@@ -351,7 +381,7 @@ class LaunchFixture(Fixture):
         )
         return exited, peer, approval, run["run_id"], local["attempt"], first_inventory
 
-    def reconcile_original(self, admission, retired, *, unissued_run_id=None):
+    def reconcile_original(self, admission, retired, *, unissued_run_id=None, host_exit_run_id=None):
         binding = {
             key: admission[key]
             for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256")
@@ -387,6 +417,13 @@ class LaunchFixture(Fixture):
                 and reconciled["reconciliation_state"] == "terminal_runtime_unbound_retired"
                 and retired["last_sequence"] == "1" and retired["binding"] is None,
                 f"launch_{self.budget_exhaustion}_unbound_reconciliation_required",
+            )
+        if host_exit_run_id is not None:
+            require(
+                reconciled["selected_run_id"] == host_exit_run_id
+                and reconciled["selected_sequence"] == "1"
+                and reconciled["reconciliation_state"] == "terminal_host_exit_observed",
+                "launch_host_exit_original_reconciliation_missing",
             )
         self.receipt["stage"] = "launch_audit_retired"
         audit = self.worker_state(admission)
@@ -690,52 +727,208 @@ print(len(directories))
             proof["cancel_requested_sha256"] = digest(canonical(pending))
         self.receipt["cancelled_job"] = proof
 
+    def verify_unresolved_predecessor(
+        self, observer, exit_proof, admission, case, run_id, observed, arguments
+    ):
+        from worker_cli import records_for
+        from worker_launch import _public_inventory
+        from worker_lifecycle_intent import IntentStore
+
+        self.receipt["stage"] = "launch_predecessor_unreported"
+        observer.confirm_exit(exit_proof)
+        requests = observed["requests"]
+        after = self.timed_traffic()
+        require(
+            exit_proof.exit_code == 125 and requests == after["requests"] and len(requests) == 3,
+            "launch_active_predecessor_exit_missing",
+        )
+        elapsed = stop_exit_elapsed_ns(requests[-1], after, exit_proof.finished_at)
+        engagement, job = case[:2]
+        inventory = self.inventory(engagement, job, include_capacity=True)
+        require(
+            inventory["job_status"] == "running"
+            and canonical(inventory["execution"]) == canonical({
+                "state": "active", "capacity_reserved": True,
+                "target_charge": 1, "duration_seconds": 30,
+            })
+            and type(inventory["capacity_reserved_count"]) is int
+            and inventory["capacity_reserved_count"] == 1
+            and inventory["targets_spent"] == 1 and inventory["duration_allocated"] == 30
+            and len(inventory["contracts"]) == len(inventory["runtimes"]) == 1
+            and inventory["stops"] == inventory["results"] == [],
+            "launch_predecessor_capacity_not_held",
+        )
+        runtime, contract = inventory["runtimes"][0], inventory["contracts"][0]
+        require(
+            runtime["id"] == admission["runtime_id"]
+            and runtime["runtime_sha256"] == admission["runtime_sha256"]
+            and runtime["admission_sha256"] == admission["admission_sha256"]
+            and runtime["identity"] == asdict(exit_proof.identity)
+            and runtime["active_sequence"] == runtime["last_sequence"] == "1"
+            and runtime["new_work_disabled"] is True
+            and runtime["retired"] is False and runtime["report_sha256"] is None
+            and len(runtime["attempts"]) == 1,
+            "launch_predecessor_unreported_runtime_changed",
+        )
+        attempt = runtime["attempts"][0]
+        require(
+            attempt["runtime_id"] == runtime["id"] and attempt["runtime_sequence"] == "1"
+            and attempt["job_id"] == job and attempt["confirmed_at"] is not None
+            and contract["consumed"] is True
+            and canonical(attempt["binding"]) == canonical({
+                "origin": admission["origin"], "runner_id": admission["runner_id"],
+                "job_id": job, "contract_id": contract["id"],
+                **{key: contract[key] for key in ("attempt_id", "fence", "contract_sha256")},
+            })
+            and all(attempt[key] is None for key in (
+                "released_at", "terminal_receipt", "terminal_receipt_sha256",
+                "native_done_sha256", "release_receipt",
+            )),
+            "launch_predecessor_original_attempt_missing",
+        )
+        local = self.local_metadata(run_id, engagement, job)
+        require(
+            local["phase"] == "executing" and local["claim_state"] == "consume_acknowledged"
+            and local["consumption_sent"] == local["consumption_acknowledged"] == 1
+            and local["local_stop_requested"] is False and local["failure_reason"] is None,
+            "launch_predecessor_original_run_not_held",
+        )
+
+        records = records_for(self.install, str(self.private), existing=True)
+        store = IntentStore(records)
+
+        def catalog():
+            with records.operation() as operation:
+                value = store.inventory(operation=operation)
+                _public_inventory(self.public_root, value)
+            return value
+
+        old = catalog()
+        selected = admission["runtime_id"]
+        require(
+            set(old["records"]) == {selected} and len(old["intents"]) == 1
+            and old["reports"] == []
+            and old["records"][selected]["admission"] == admission
+            and old["records"][selected]["stop_state"] == "none"
+            and old["records"][selected]["receipt"] is None
+            and self.successor_id != selected,
+            "launch_predecessor_already_reported",
+        )
+        before = self.snapshot()
+        ready_name = f"{self.project}_worker-ready-{self.successor_id}"
+        require(ready_name not in before["volumes"], "launch_successor_volume_exists")
+
+        self.receipt["stage"] = "launch_refuse_unresolved_predecessor"
+        expect_unresolved_launch(
+            arguments, self.successor_id, cwd=self.install, env=self.environment,
+            stdin=self.password + "\n",
+        )
+        observer.confirm_exit(exit_proof)
+        require(
+            canonical(catalog()) == canonical(old)
+            and canonical(self.snapshot()) == canonical(before)
+            and canonical(self.inventory(engagement, job, include_capacity=True))
+            == canonical(inventory)
+            and canonical(self.local_metadata(run_id, engagement, job)) == canonical(local)
+            and self.traffic() == requests,
+            "launch_unresolved_refusal_changed_state",
+        )
+        self.receipt["stopped_predecessor"] = {
+            "refused_runtime_id": self.successor_id,
+            "failure_phase": "launch_catalog", "failure_code": "validation_refused",
+            "new_resources": 0, "target_requests": len(requests),
+            "physical_exit_elapsed_ns": elapsed,
+        }
+        return inventory
+
+    def verify_host_exit_reconciliation(self, admission, retired, case, run_id, before):
+        from worker_host import _terminal
+
+        self.receipt["stage"] = "launch_host_exit_verification"
+        runtime = before["runtimes"][0]
+        binding = runtime["attempts"][0]["binding"]
+        terminal = _terminal(binding, retired["attempt_receipt"])
+        require(
+            retired["admission_sha256"] == admission["admission_sha256"]
+            and canonical(retired["binding"]) == canonical(binding)
+            and terminal["schema"] == "vardr.managed-stop-receipt/1"
+            and terminal["cause"] == "observed_exit" and terminal["outcome"] == "failed",
+            "launch_host_exit_terminal_not_proven",
+        )
+        expected = {
+            **before, "job_status": "failed", "capacity_reserved_count": 0,
+            "execution": {**before["execution"], "state": "failed", "capacity_reserved": False},
+            "runtimes": [{**runtime, "retired": True, "report_sha256": retired["report_sha256"]}],
+            "stops": [{key: terminal[key] for key in ("contract_id", "receipt_sha256", "outcome", "cause")}],
+        }
+        after = self.inventory(*case[:2], include_capacity=True)
+        require(canonical(after) == canonical(expected), "launch_host_exit_budget_or_history_changed")
+        audit = self.reconcile_original(admission, retired, host_exit_run_id=run_id)
+        self.retired_predecessor_inventory = after
+        self.receipt["stopped_predecessor"].update(
+            audit_sha256=digest(canonical(audit)), retirement_sha256=retired["receipt_sha256"],
+            host_retirement_sha256=digest(canonical(retired)),
+            terminal_sha256=digest(canonical(terminal)), terminal_cause="observed_exit",
+            capacity_before=before["capacity_reserved_count"],
+            capacity_after=after["capacity_reserved_count"],
+            targets_spent=after["targets_spent"], duration_allocated=after["duration_allocated"],
+            remaining_local_holds=audit["global_holds"],
+        )
+
+    def launch_arguments(self, config, signing, binding, runtime_id):
+        runner, enrollment = binding
+        arguments = [
+            sys.executable,
+            str(self.install / "vardrsec.py"),
+            "worker",
+            "launch",
+            "--api-url",
+            self.url + "/backend",
+            "--ca",
+            str(self.install / "trust" / "root.crt"),
+            "--private-root",
+            str(self.private),
+            "--context",
+            self.m["docker_context"],
+            "--image-id",
+            self.images["worker"],
+            "--project",
+            self.project,
+            "--state-volume",
+            self.project + "_runner-state",
+            "--runner-network",
+            self.project + "_runner",
+            "--enrollment-id",
+            enrollment,
+            "--runner-id",
+            runner,
+            "--origin",
+            self.issuer_origin,
+            "--public-trust",
+            str(signing),
+            "--admission-root",
+            str(self.public_root),
+            "--launch-config",
+            str(config),
+            "--username",
+            "operator",
+            "--password-stdin",
+        ]
+        if runtime_id is not None:
+            arguments.extend(("--runtime-id", runtime_id))
+        return arguments
+
     def launch_and_retire(
         self, config, signing, binding, ordinal, predecessor, *, case=None
     ):
         from worker_runtime import LocalDocker, RuntimeIdentity, WorkerLayout
 
-        runner, enrollment = binding
+        runner, _ = binding
         self.receipt["stage"] = f"launch_{ordinal}"
+        selected_id = self.successor_id if self.stopped_predecessor and ordinal == 2 else None
         enabled = json.loads(
             worker_cli_command(
-                [
-                    sys.executable,
-                    str(self.install / "vardrsec.py"),
-                    "worker",
-                    "launch",
-                    "--api-url",
-                    self.url + "/backend",
-                    "--ca",
-                    str(self.install / "trust" / "root.crt"),
-                    "--private-root",
-                    str(self.private),
-                    "--context",
-                    self.m["docker_context"],
-                    "--image-id",
-                    self.images["worker"],
-                    "--project",
-                    self.project,
-                    "--state-volume",
-                    self.project + "_runner-state",
-                    "--runner-network",
-                    self.project + "_runner",
-                    "--enrollment-id",
-                    enrollment,
-                    "--runner-id",
-                    runner,
-                    "--origin",
-                    self.issuer_origin,
-                    "--public-trust",
-                    str(signing),
-                    "--admission-root",
-                    str(self.public_root),
-                    "--launch-config",
-                    str(config),
-                    "--username",
-                    "operator",
-                    "--password-stdin",
-                ],
+                self.launch_arguments(config, signing, binding, selected_id),
                 cwd=self.install,
                 env=self.environment,
                 stdin=self.password + "\n",
@@ -744,6 +937,7 @@ print(len(directories))
         )
         require(enabled["state"] == "enabled", "launch_enable_not_observed")
         selected = enabled["runtime_id"]
+        require(selected_id is None or selected == selected_id, "launch_successor_identity_changed")
         identity = RuntimeIdentity(**enabled["identity"])
         public = self.public_root / selected
         ready = f"{self.project}_worker-ready-{selected}"
@@ -787,6 +981,16 @@ print(len(directories))
             == ([] if predecessor is None else [predecessor["container_id"]]),
             "launch_durable_chain_not_observed",
         )
+        if predecessor is not None and self.stopped_predecessor:
+            require(
+                row["predecessors"][0]["original_local_audit_sha256"]
+                == self.receipt["stopped_predecessor"]["audit_sha256"]
+                and row["predecessors"][0]["host_retirement_sha256"]
+                == self.receipt["stopped_predecessor"]["host_retirement_sha256"]
+                and row["resources"]["runner_state"]["metadata_sha256"]
+                == predecessor["runner_state_sha256"],
+                "launch_host_exit_predecessor_binding_changed",
+            )
         if predecessor is not None and (self.completed or self.cancelling or self.local_grant_denial):
             key = "unissued_job" if self.local_grant_denial else "cancelled_job" if self.cancelling else "completed_job"
             proof = self.receipt[key]
@@ -796,6 +1000,7 @@ print(len(directories))
                 "launch_completed_audit_changed",
             )
         cancelling = self.cancelling and case is not None
+        stopping_predecessor = self.stopped_predecessor and case is not None
         exhausted = None
         if case is None:
             self.persistent_idle(admission, 0)
@@ -804,6 +1009,16 @@ print(len(directories))
             )
         elif self.local_grant_denial:
             unissued = self.await_local_grant_denial(admission, case)
+        elif stopping_predecessor:
+            self.receipt["stage"] = "launch_predecessor_active"
+            require(
+                observer.capture_running(
+                    container_id=identity.container_id, image_id=identity.image_id,
+                    project=identity.project,
+                ) == identity,
+                "launch_active_predecessor_identity_changed",
+            )
+            run_id, observed = self.observe_active_run(*case[:3])
         elif cancelling and self.expire_active_grant:
             action = self.await_active_grant_expiry(admission, case)
         elif cancelling:
@@ -856,13 +1071,19 @@ print(len(directories))
         }
         if cancelling:
             self.receipt["stage"] = "launch_stop_work_retirement"
+        if stopping_predecessor:
+            before_report = self.verify_unresolved_predecessor(
+                observer, exit_proof, admission, case, run_id, observed,
+                self.launch_arguments(config, signing, binding, self.successor_id),
+            )
+            self.receipt["stage"] = "launch_report_predecessor"
         retired = self.report_exit(physical)
         reconciled = self.worker_action("reconcile", selected, timeout=120)
         require(
             retired["last_sequence"] == ("0" if case is None or self.local_grant_denial else "1")
-            and retired["runtime_sequence"] == ("1" if cancelling else None)
+            and retired["runtime_sequence"] == ("1" if cancelling or stopping_predecessor else None)
             and retired["retired"] is True
-            and (retired["attempt_receipt"] is not None) == cancelling
+            and (retired["attempt_receipt"] is not None) == (cancelling or stopping_predecessor)
             and reconciled["state"] == "terminal_observed"
             and reconciled["receipt"]["retirement"] == retired,
             "launch_retirement_not_observed",
@@ -877,6 +1098,8 @@ print(len(directories))
             )
         elif self.local_grant_denial:
             self.verify_grant_denial_launch(admission, retired, case, unissued)
+        elif stopping_predecessor:
+            self.verify_host_exit_reconciliation(admission, retired, case, run_id, before_report)
         elif cancelling:
             self.cancelled_reconciliation(physical, admission, retired, case, action, after)
         elif exhausted is not None:
@@ -987,11 +1210,11 @@ print(len(directories))
         require(canonical(policy) == canonical(expected), f"launch_{budget}_policy_required")
 
     def launch_pair(self):
-        from worker_runtime import LocalDocker, WorkerLayout
+        from worker_runtime import LocalDocker, WorkerLayout, _timestamp
 
         self.receipt["stage"] = "launch_prepare"
         require(self.traffic() == [], "launch_unexpected_target_traffic")
-        if not (self.cancelling or self.local_grant_denial):
+        if not (self.cancelling or self.local_grant_denial or self.stopped_predecessor):
             self.empty_engagements()
         self.helper("init", "--non-interactive", "--no-install-tools")
         binding = self.enroll_runner()
@@ -1011,8 +1234,11 @@ print(len(directories))
         config, signing = self.launch_config(observer, initial)
         case = None
         peer = None
-        if self.completed or self.cancelling or self.local_grant_denial:
+        if self.stopped_predecessor:
+            self.successor_id = str(uuid.uuid4())
+        if self.completed or self.cancelling or self.local_grant_denial or self.stopped_predecessor:
             name = "launch-" + (
+                "stopped-predecessor" if self.stopped_predecessor else
                 "active-grant-expiry" if self.expire_active_grant else
                 "expired-grant" if self.expire_grant else "completed" if self.completed else self.scenario
             )
@@ -1138,7 +1364,15 @@ print(len(directories))
             and self.traffic() == baseline,
             "launch_preservation_or_traffic_not_observed",
         )
-        if not (self.completed or self.cancelling or self.local_grant_denial):
+        if self.stopped_predecessor:
+            require(
+                canonical(self.inventory(*case[:2], include_capacity=True))
+                == canonical(self.retired_predecessor_inventory)
+                and second["runtime_id"] == self.successor_id
+                and _timestamp(first["finished_at"]) < _timestamp(second["started_at"]),
+                "launch_host_exit_predecessor_history_changed",
+            )
+        if not (self.completed or self.cancelling or self.local_grant_denial or self.stopped_predecessor):
             self.empty_engagements()
         self.receipt["launch_pair"] = [first, second]
         self.receipt["status"] = "selected_launch_slice_passed"
@@ -1178,6 +1412,7 @@ def main(argv=None):
     workload.add_argument("--expire-active-grant", action="store_true")
     workload.add_argument("--duration-exhaustion", action="store_true")
     workload.add_argument("--target-exhaustion", action="store_true")
+    workload.add_argument("--stopped-predecessor", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -1199,6 +1434,7 @@ def main(argv=None):
             expire_active_grant=args.expire_active_grant,
             duration_exhaustion=args.duration_exhaustion,
             target_exhaustion=args.target_exhaustion,
+            stopped_predecessor=args.stopped_predecessor,
         )
         fixture.run()
         expected = (
