@@ -72,6 +72,33 @@ def fields(value, names):
     return value
 
 
+def bootstrap_audit(*, runner_id, output, returncode):
+    """Decode Runner's explicit offline audit; no observation or authority is minted."""
+    try:
+        selected = host._uuid(runner_id)
+        require(type(returncode) is int and returncode == 0)
+        require(type(output) is bytes and 0 < len(output) <= _LIMIT)
+        audit = host._json(output)
+        require(
+            audit
+            == {
+                "schema": "vardr.worker-bootstrap-audit/1",
+                "status": "clear",
+                "reason": None,
+                "complete": True,
+                "runner_id": selected,
+                "worker_history": False,
+                "global_holds": 0,
+            }
+            and audit["complete"] is True
+            and audit["worker_history"] is False
+            and type(audit["global_holds"]) is int
+        )
+        return {"runner_id": selected, "sha256": host.digest(audit)}
+    except (ValueError, TypeError, KeyError, OverflowError, RecursionError):
+        raise IntentRefused() from None
+
+
 def text(value, maximum=4096):
     require(
         type(value) is str
@@ -497,6 +524,29 @@ class IntentStore:
     def __init__(self, records):
         # Inert: neither provider construction nor path/key/file access.
         self.records = records
+
+    def first_enable_evidence(self, *, operation, runner_id, output, returncode):
+        """Join offline Runner audit bytes with the original protected catalog.
+
+        The caller owns the exact existing volume/image audit and independent
+        Engine/Compose checks. This evidence alone cannot create an intent or
+        distinguish an untouched installation from a restored old snapshot.
+        """
+        try:
+            require(
+                type(self) is IntentStore and type(self.records) is host.HostRecords
+            )
+            self.records._require_operation(operation)
+            audit = bootstrap_audit(
+                runner_id=runner_id, output=output, returncode=returncode
+            )
+            require(
+                self.inventory(operation=operation)
+                == {"records": {}, "intents": {}, "reports": []}
+            )
+            return audit
+        except (ValueError, TypeError, AttributeError):
+            raise IntentRefused() from None
 
     def inventory(self, *, operation):
         """Read original protected records and intents; no proof or effect is minted."""

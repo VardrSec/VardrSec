@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: join the selected Runner's clear offline bootstrap
+  audit to an empty protected catalog under the same live host operation.
+
 - NM-2 private lifecycle: read worker visibility through an exact Compose
   executable and the reviewed worker model with synthetic interpolation values.
 

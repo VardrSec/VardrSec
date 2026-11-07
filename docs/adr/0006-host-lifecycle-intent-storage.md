@@ -376,3 +376,22 @@ or start a worker. An empty Compose view does not prove initial eligibility.
 
 Sources: [Docker CLI plugin discovery](https://github.com/docker/cli/blob/v29.9.2/cli/command/system/info.go#L78-L97)
 and [pinned Compose standalone flag handling](https://github.com/docker/compose/blob/6cbc19a3fd59e305fb814dca4d854a4fb67d2941/cmd/compatibility/convert.go#L41-L102).
+
+## Initial state evidence
+
+An initialized installation can qualify for an ordinal-one plan only with
+the selected Runner's complete offline `worker-bootstrap-state` audit,
+no previous managed worker history, no global holds, and an authenticated
+empty host catalog. The host decoder refuses missing or nonzero exits,
+ambiguous JSON, a wrong UUID, and type coercion. The join runs under the
+same live host operation and returns a public audit digest. It does not
+create an intent, initialize state, or authorize a start. The caller still
+needs the exact image and state-volume identity, independent Engine and
+Compose lists, and unchanged installation resources.
+
+For a clean installation, the existing manual Runner setup path
+(`python vardrsec.py runner init --non-interactive --no-install-tools` with
+the enrolled credential configured) is a candidate to establish the journal
+in the original Full installation volume before this inspection. Qualify
+that path in the actual installed cohort; a missing journal stays held.
+Do not substitute an empty container list or create a replacement volume.
