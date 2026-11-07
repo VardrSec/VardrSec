@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Accept the omitted Docker Desktop image Volumes key during offline worker
+  inspection. Continue refusing any image that declares a volume.
+
 - Distinguish the worker launch inventory and offline audit failure stages.
   Preserve the existing native credential name range in launch inputs.
 

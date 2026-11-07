@@ -359,3 +359,25 @@ class WorkerLaunchTests(unittest.TestCase):
         path = self.private / "config.json"
         path.write_bytes(host.canonical(config))
         self.assertEqual(launcher._config(str(path))["credential_names"], names)
+
+    def test_audit_refuses_a_declared_image_volume_before_running_the_image(self):
+        self.engine._command.return_value = json.dumps(
+            {
+                "id": self.identity.image_id,
+                "volumes": {"/unexpected": {}},
+            }
+        )
+        with patch.object(
+            launcher.volumes, "capture_volume_resource", return_value=self.state
+        ):
+            with self.assertRaises(cli.CLIRefused):
+                launcher._audit(
+                    self.engine,
+                    SimpleNamespace(name="fixture"),
+                    self.state,
+                    self.identity.image_id,
+                    "worker-bootstrap-state",
+                    ("--runner-id", cases.PREVIOUS),
+                    SimpleNamespace(),
+                )
+        self.engine.worker_state.assert_not_called()

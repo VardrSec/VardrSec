@@ -24,6 +24,14 @@ _JOURNAL = "/home/runner/.vardrmap/runner-journal.sqlite3"
 _IDENTITY = "/home/runner/.vardrmap/runner-identity.json"
 _VOLUME_TARGET = "/home/runner/.vardrmap"
 _CONFIG_LIMIT = 16384
+# Docker retries templates on the raw JSON map when a typed field differs.
+# A map lookup must tolerate the omitted Volumes key without emitting Config.Env.
+_AUDIT_IMAGE_FORMAT = (
+    '{"id":{{json .Id}},"volumes":'
+    '{{if eq (printf "%T" .Config) "map[string]interface {}"}}'
+    '{{json (index .Config "Volumes")}}'
+    "{{else}}{{json .Config.Volumes}}{{end}}}"
+)
 
 
 class _Engine(runtime.LocalDocker):
@@ -252,7 +260,7 @@ def _audit(engine, project, volume, image, command, selectors, args):
             "image",
             "inspect",
             "--format",
-            '{"id":{{json .Id}},"volumes":{{json .Config.Volumes}}}',
+            _AUDIT_IMAGE_FORMAT,
             image,
         )
     )
