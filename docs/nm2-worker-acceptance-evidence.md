@@ -861,6 +861,31 @@ current Runner source. Ubuntu verification remains open. Descendant absence was
 not independently observed. The wider bootstrap and containment matrix remains
 open, and previously blocked probes remain stopped.
 
+## Current Runner Ubuntu bootstrap configuration refusals (2026-11-07)
+
+Checklist C06 is closed. Existing Windows evidence above is paired with the
+Ubuntu-only `bootstrap-configurations` run at Distribution
+`377eea6138bcb8b816ceff25175bd590e00634c1`, Runner
+`5ecc869d80f53ae7fdbca25b971838976a6c41e9` and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`.
+
+The fresh Ubuntu worker image is
+`sha256:419875ca5bab07b54009aa7b5bd63eef6cc501ddeee401efb308b6d06a23e33d`.
+Its measured owner executable SHA-256 is
+`8880528d5043b89b1e164769ec3b49a2cefe81db3545c5ef9093fe28192ad104`,
+matching the owner executable in the existing Windows proof. Genuine source
+inventory, dependency and binary measurements preceded the existing two-case
+fixture. Both unprivileged-user and missing-SETPCAP configurations exited 125
+before readiness, and both owned stopped containers were retained.
+
+The sanitized receipt SHA-256 is
+`1ee64a3c2862f073195c797f2f78fe95ad78d22e8a9a004cfa165a2ea89f3755`.
+Independent verification checked its closed fields, exact commits and trees,
+image/owner hashes, both typed exit/status results and stopped-container count.
+The two compatibility jobs also passed. C07–C09 retain the physical isolation,
+drain, unexpected-loss and supported-host clock/pressure requirements.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42421042804)
+
 ## Cancellation work in progress
 
 The first local emergency-stop fixture was held before sending its stop command:
