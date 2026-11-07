@@ -449,6 +449,41 @@ Windows held receipt SHA-256 `6e46666dabe6cf926f50d8d03cc2e504ec89d76f56a97feeb5
 Ubuntu sanitized receipt SHA-256 `650d3b9ada4d7f7ba4cf0c35fe303609176e55e205e291b1282dc0ee31549100`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42410862666)
 
+### Ordinary Map API outage, initial serial cohort
+
+Distribution `24f64f52c07a52af5e87d6455f523596bf723378`,
+Map `05dc78cf9a385255de459c8a5b833842d6528a63`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` verified the ordinary
+API-outage check on Ubuntu 24.04. The exact worker exited 8.278477334 seconds
+after the API exited and 11.656861407 seconds after the third delayed
+request. Exactly three requests were retained. Restarting the same API started
+no worker and preserved the original reservation. Authenticated exit reporting
+and original Runner reconciliation released capacity from one to zero with
+zero local holds, one target spent and 30 seconds allocated. All six owned
+containers were stopped and retained.
+
+The matching Windows attempt held at `launch_map_disconnect_stop_api` with
+`launch_map_disconnect_sample_stale`, before stopping the API. All six owned
+containers were stopped and retained. The controller operator-profile guard
+remained unchanged. Its child recorded zero blocked operations. Windows outage
+acceptance and the cause of the stale sample remained open for this cohort.
+
+The serial fixture registered the signed approval after readiness and the
+API/daemon checks. It retained the positive consumed, confirmed Map binding
+and the original controlled executing journal check before its final target
+sample. The five-second sample freshness check, 15-second response delay and
+10-second configured lease ceiling remained enforced. A later fixture
+chronology correction and any later paired result belong in a separate record.
+The exact last native lease acknowledgement remains unverified. NM-2 remains
+open and all previously blocked probes remain stopped.
+
+Windows held receipt SHA-256
+`df52da2c77ab73e303bd1847e428a8b75a1c1da6097995fc3ce20e633cfc5860`.
+Ubuntu sanitized receipt SHA-256
+`e5490a4809c981931cf1e67d2100efd12e0b55aa681f9bf2d4b573334de0b5f3`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42413451198)
+
 ### Strict claim against a stale registered approval
 
 Distribution `59f43c3b37730604788be1c02d3e95578c6eb732`,
