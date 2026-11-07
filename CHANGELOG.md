@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Exercise one approved job and the original Runner reconciliation before
+  the next managed worker launch in the installed fixture.
+
 - Accept the omitted Docker Desktop image Volumes key during offline worker
   inspection. Continue refusing any image that declares a volume.
 

@@ -32,8 +32,7 @@ inside the operator's restricted directory on Windows.
 A subsequent launch requires each prior worker from this command to be
 physically exited, retired in Map, and locally reconciled. A held result
 preserves the resources and durable intent for inspection. Follow the
-original report and reconciliation flow for an admitted worker. Installed
-first and subsequent acceptance on Windows and Linux is still pending.
+original report and reconciliation flow for an admitted worker.
 
 The opt-in `persistent-launch-empty` CI case verifies first and next launch
 in one Full installation. The same installed fixture accepts an explicitly
@@ -41,6 +40,9 @@ selected Compose 5.6.1 binary and local Docker context on Docker Desktop.
 It retains both exact exited containers and checks zero issued jobs, physical
 stop, Map retirement and local Runner audit for each. This slice is separate
 from the required completed-job, cancellation and containment checks.
+The opt-in `persistent-launch-completed` case runs one approved local fixture
+job, checks its result evidence, retires and reconciles the first worker,
+then verifies that the next worker joins that exact retired audit.
 
 ## Admission of a prepared worker
 

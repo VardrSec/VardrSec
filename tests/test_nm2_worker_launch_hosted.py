@@ -16,6 +16,11 @@ class HostedLaunchTests(unittest.TestCase):
             hosted.execution_options(selected),
             (hosted.LAUNCH_SCENARIO, "0041persistentruntime"),
         )
+        selected["NM2_SCENARIO"] = hosted.LAUNCH_COMPLETED_SCENARIO
+        self.assertEqual(
+            hosted.execution_options(selected),
+            (hosted.LAUNCH_COMPLETED_SCENARIO, "0041persistentruntime"),
+        )
 
     def test_launch_receipt_checks_the_preserved_predecessor_and_only_projects_closed_fields(
         self,
@@ -75,3 +80,22 @@ class HostedLaunchTests(unittest.TestCase):
             bad["launch_pair"][1].update(changed)
             with self.subTest(changed=changed), self.assertRaises(hosted.HostedRefused):
                 hosted.public_projection(bad, selection)
+        completed = {
+            **raw,
+            "scenario": hosted.LAUNCH_COMPLETED_SCENARIO,
+            "acceptance_scope": "completed_then_next_launch",
+            "completed_job": {
+                "job_id": "ddd8e594-dfcb-4ca2-83f8-abfda598e1a7",
+                "retirement_sha256": first["retirement_sha256"],
+                "audit_sha256": "e" * 64,
+                "target_requests": 5,
+                "fixed_evidence_sha256": "f" * 64,
+            },
+        }
+        self.assertEqual(
+            hosted.public_projection(completed, selection)["completed_job"],
+            completed["completed_job"],
+        )
+        completed["completed_job"]["retirement_sha256"] = "0" * 64
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(completed, selection)

@@ -27,11 +27,13 @@ SOURCE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
 LAUNCH_SCENARIO = "persistent-launch-empty"
+LAUNCH_COMPLETED_SCENARIO = "persistent-launch-completed"
+LAUNCH_SCENARIOS = {LAUNCH_SCENARIO, LAUNCH_COMPLETED_SCENARIO}
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
 COMPOSE_ASSET = "https://github.com/docker/compose/releases/download/v5.6.1/docker-compose-linux-x86_64"
 COMPOSE_SHA256 = "47737f4236e6d3ccea7291995203f8f018058783b4c3a9469119811a0b5db8c0"
 COMPOSE_BYTES = 32676477
-PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit", "persistent-idle-limit", "persistent-empty-stop", LAUNCH_SCENARIO}
+PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit", "persistent-idle-limit", "persistent-empty-stop", *LAUNCH_SCENARIOS}
 REPOSITORIES = {
     name: "VardrSec/" + repo
     for name, repo in (
@@ -690,7 +692,7 @@ def failure_projection(raw, selection):
         require(raw.get("scenario") == "persistent-empty-stop"
                 and raw.get("expected_database_revision") == "0041persistentruntime")
     if raw["schema"] == LAUNCH_SCHEMA:
-        require(raw.get("scenario") == LAUNCH_SCENARIO
+        require(raw.get("scenario") in LAUNCH_SCENARIOS
                 and raw.get("expected_database_revision") == "0041persistentruntime")
     stages = {
         "launch_prepare", "launch_1", "launch_2", "launch_stop_1", "launch_stop_2",
@@ -734,6 +736,9 @@ def failure_projection(raw, selection):
         "launch_intent_not_observed", "launch_durable_chain_not_observed",
         "launch_exact_exit_not_observed", "launch_empty_retirement_not_observed",
         "launch_preservation_or_traffic_not_observed",
+        "launch_retirement_not_observed", "launch_completed_job_not_done",
+        "launch_completed_reconciliation_not_observed", "launch_completed_enrollment_changed",
+        "launch_completed_job_not_pending", "launch_completed_audit_changed",
         "empty_audit_volume_not_bound", "empty_audit_volume_changed",
         "empty_local_state_not_proven", "empty_map_inventory_not_empty",
         "empty_target_traffic_not_empty", "empty_operator_stop_not_proven",
@@ -934,10 +939,13 @@ def failure_projection(raw, selection):
 
 
 def launch_projection(raw, selection):
+    scenario = raw.get("scenario")
+    require(type(scenario) is str and scenario in LAUNCH_SCENARIOS)
+    completed = scenario == LAUNCH_COMPLETED_SCENARIO
+    scope = "completed_then_next_launch" if completed else "first_and_next_empty_launch"
     require(
-        raw.get("scenario") == LAUNCH_SCENARIO
-        and raw.get("expected_database_revision") == "0041persistentruntime"
-        and raw.get("acceptance_scope") == "first_and_next_empty_launch"
+        raw.get("expected_database_revision") == "0041persistentruntime"
+        and raw.get("acceptance_scope") == scope
         and raw.get("status") == "selected_launch_slice_passed"
         and raw.get("stage") == "selected_launch_complete"
         and raw.get("retained") is True and raw.get("platform") == "linux"
@@ -969,7 +977,23 @@ def launch_projection(raw, selection):
         and first["runner_state_sha256"] == second["runner_state_sha256"]
         and _physical_time(first["finished_at"]) < _physical_time(second["started_at"])
     )
-    return {"launch_pair": pair, "nm2_exit_status": "incomplete", "resources_retained": True}
+    result = {"launch_pair": pair, "nm2_exit_status": "incomplete", "resources_retained": True}
+    if completed:
+        proof = raw.get("completed_job")
+        require(
+            type(proof) is dict
+            and set(proof) == {"job_id", "retirement_sha256", "audit_sha256",
+                               "target_requests", "fixed_evidence_sha256"}
+            and type(proof["target_requests"]) is int and proof["target_requests"] == 5
+            and proof["retirement_sha256"] == first["retirement_sha256"]
+        )
+        _uuid(proof["job_id"])
+        _hash(proof["audit_sha256"])
+        _hash(proof["fixed_evidence_sha256"])
+        result["completed_job"] = proof
+    else:
+        require("completed_job" not in raw)
+    return result
 
 
 def public_projection(raw, selection):
@@ -1186,11 +1210,15 @@ class Hosted:
             self.receipt.update(schema="vardr.nm2-hosted/6", scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope="Explicit zero-issued-job stop with offline empty audit; NM2 remains incomplete")
-        elif self.scenario == LAUNCH_SCENARIO:
+        elif self.scenario in LAUNCH_SCENARIOS:
             self.receipt.update(
                 schema="vardr.nm2-hosted/7", scenario=self.scenario,
                 expected_database_revision=self.database_revision,
-                scope="First and next worker launch, physical stop and zero-job reconciliation",
+                scope=(
+                    "Complete and reconcile one approved job before subsequent launch"
+                    if self.scenario == LAUNCH_COMPLETED_SCENARIO
+                    else "First and next worker launch, physical stop and zero-job reconciliation"
+                ),
             )
         elif self.scenario == "persistent-idle-limit":
             self.receipt.update(schema="vardr.nm2-hosted/5", scenario=self.scenario,
@@ -1384,6 +1412,7 @@ class Hosted:
             str(SOURCE / "tests/nm2_worker_launch_acceptance.py"),
             "--cohort", str(path), "--compose-executable", str(compose),
             "--compose-sha256", COMPOSE_SHA256, "--docker-config", str(config),
+            *(["--completed-job"] if self.scenario == LAUNCH_COMPLETED_SCENARIO else []),
             "--execute",
         ]
 
@@ -1471,7 +1500,7 @@ class Hosted:
             path.chmod(0o600)
             harness = (
                 self.launch_harness(path)
-                if self.scenario == LAUNCH_SCENARIO
+                if self.scenario in LAUNCH_SCENARIOS
                 else [
                     str(SOURCE / "tests/nm2_worker_acceptance.py"),
                     "--cohort", str(path), "--scenario", self.scenario,
@@ -1506,6 +1535,8 @@ class Hosted:
                 raw = handle.read(4 * 1024 * 1024 + 1)
             require(len(raw) <= 4 * 1024 * 1024)
             observed = decode_receipt(raw)
+            if self.scenario in LAUNCH_SCENARIOS:
+                require(observed.get("scenario") == self.scenario)
             require(
                 observed.get("expected_database_revision", "0040runtimesequence")
                 == self.database_revision
@@ -1519,6 +1550,7 @@ class Hosted:
                     "persistent-idle-limit": "vardr.nm2-worker-idle-acceptance/1",
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
                     LAUNCH_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_COMPLETED_SCENARIO: LAUNCH_SCHEMA,
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
@@ -1530,6 +1562,7 @@ class Hosted:
                     "persistent-idle-limit": "vardr.nm2-hosted/5",
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
                     LAUNCH_SCENARIO: "vardr.nm2-hosted/7",
+                    LAUNCH_COMPLETED_SCENARIO: "vardr.nm2-hosted/7",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],
