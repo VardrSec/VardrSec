@@ -28,11 +28,14 @@ def request_ceiling(value):
 class ControlledTarget(Target):
     delay = response_delay(os.environ.get("NM2_FIXTURE_DELAY_SECONDS", "0"))
     ceiling = request_ceiling(os.environ.get("NM2_FIXTURE_REQUEST_CEILING", "60"))
+    utc_timing = os.environ.get("NM2_FIXTURE_UTC_TIMING") == "1"
 
     def record(self, who, changed=None):
         super().record(who, changed)
         # The parent records no headers or credential values.
         REQUESTS[-1]["received_monotonic_ns"] = time.monotonic_ns()
+        if self.utc_timing:
+            REQUESTS[-1]["received_utc_ns"] = time.time_ns()
         return len(REQUESTS) > self.ceiling
 
     def reply(self, status, body):

@@ -42,6 +42,16 @@ receipt. The next launch used that audit and retained the state volume.
 
 Active cancellation and containment acceptance have separate requirements.
 
+The first Windows stop-work fixture at `9778e18efe76d624b6395fc1c32b01ee5e97fc10`
+reported the exact exited runtime to Map and retained the installation. The test
+held because it used the time of the later target observation as the exit time.
+Its private receipt SHA-256 is
+`2d537bd7e31e03f815dd1d46ecf76a329970b89552ec26400cd07409b3b8d077`.
+The corrected fixture measures Docker's exit event against the target's clock,
+checks for clock disagreement, and verifies Map's `cancel_requested` state
+while the exact contract still holds capacity. This earlier run receives no
+active cancellation or successor credit.
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)

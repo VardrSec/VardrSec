@@ -1577,7 +1577,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "restart": "no",
             "labels": {"io.vardrsec.nm2-fixture": self.project},
         }
-        environment = target_environment(self.scenario)
+        environment = self.target_environment()
         if environment:
             target["environment"] = environment
         self.overlay["services"]["gate-fixture"] = target
@@ -1605,6 +1605,9 @@ print(json.dumps({'files':hashes,'executables':executables}))
         self.receipt["doctor_sha256"] = digest(
             self.helper("doctor", "--platform", "--offline", "--json")
         )
+
+    def target_environment(self):
+        return target_environment(self.scenario)
 
     def new_job(self, name, *, in_scope=True, marker=False):
         from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
@@ -2209,7 +2212,8 @@ print(json.dumps({'files':hashes,'executables':executables}))
         source = (
             "import json,time,urllib.request;"
             "data=json.load(urllib.request.urlopen('http://localhost:8080/observations',timeout=3));"
-            "print(json.dumps({'requests':data['requests'],'observed_monotonic_ns':time.monotonic_ns()}))"
+            "print(json.dumps({'requests':data['requests'],'observed_monotonic_ns':time.monotonic_ns(),"
+            "'observed_utc_ns':time.time_ns()}))"
         )
         return json.loads(
             self.compose(

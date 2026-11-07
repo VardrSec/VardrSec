@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Bind the stop-work fixture to Map's active cancellation and the Engine's
+  physical exit time. Preserve the failed receipt from the earlier test.
+
 - Add an opt-in installed test for Map stop-work during an approved job,
   retirement and offline audit, and a subsequent worker launch.
 

@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock
 
 import nm2_worker_hosted as hosted
-from nm2_worker_launch_acceptance import LaunchFixture
+from nm2_worker_launch_acceptance import LaunchFixture, stop_exit_elapsed_ns
 from nm2_worker_acceptance import AcceptanceRefused
 
 
@@ -83,6 +83,26 @@ class HostedLaunchTests(unittest.TestCase):
             hosted.execution_options(selection),
             (hosted.LAUNCH_STOP_WORK_SCENARIO, "0041persistentruntime"),
         )
+
+    def test_stop_work_uses_the_engine_exit_event_and_rejects_clock_disagreement(self):
+        from calendar import timegm
+
+        start = timegm((2026, 11, 7, 1, 0, 0)) * 1_000_000_000
+        request = {"received_utc_ns": start, "received_monotonic_ns": 2_000_000_000}
+        after = {"observed_utc_ns": start + 21_000_000_000,
+                 "observed_monotonic_ns": 23_000_000_000}
+        self.assertEqual(
+            stop_exit_elapsed_ns(request, after, "2026-11-07T01:00:09.000000001Z"),
+            9_000_000_001,
+        )
+        for sample, exit_at in (
+            (after, "2026-11-07T01:00:15Z"),
+            ({**after, "observed_monotonic_ns": 21_000_000_000}, "2026-11-07T01:00:09Z"),
+        ):
+            with self.subTest(exit_at=exit_at), self.assertRaisesRegex(
+                AcceptanceRefused, "launch_stop_work_exit_not_observed"
+            ):
+                stop_exit_elapsed_ns(request, sample, exit_at)
 
     def test_launch_receipt_checks_the_preserved_predecessor_and_only_projects_closed_fields(
         self,
@@ -171,7 +191,9 @@ class HostedLaunchTests(unittest.TestCase):
                 "audit_sha256": "e" * 64,
                 "target_requests": 3,
                 "terminal_sha256": "f" * 64,
-                "exit_observed_within_ns": 2_000_000_000,
+                "terminal_cause": "observed_exit",
+                "cancel_requested_sha256": "9" * 64,
+                "physical_exit_elapsed_ns": 2_000_000_000,
             },
         }
         self.assertEqual(
@@ -181,7 +203,8 @@ class HostedLaunchTests(unittest.TestCase):
         for changed in (
             {"retirement_sha256": "0" * 64},
             {"target_requests": 4},
-            {"exit_observed_within_ns": 15_000_000_000},
+            {"physical_exit_elapsed_ns": 15_000_000_000},
+            {"terminal_cause": "tool_timeout"},
             {"credential": "discard this"},
         ):
             bad = copy.deepcopy(stopped)

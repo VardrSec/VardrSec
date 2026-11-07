@@ -752,6 +752,7 @@ def failure_projection(raw, selection):
         "launch_stop_work_capacity_not_released", "launch_stop_work_runtime_not_retired",
         "launch_stop_work_attempt_reused", "launch_stop_work_original_run_not_preserved",
         "launch_stop_work_terminal_not_proven", "cancellation_stop_work_not_recorded",
+        "launch_stop_work_active_cancellation_not_observed",
         "cancellation_dispatch_advanced_before_action", "cancellation_request_binding_mismatch",
         "cancellation_original_run_not_active", "cancellation_resource_not_observed",
         "empty_audit_volume_not_bound", "empty_audit_volume_changed",
@@ -1011,15 +1012,21 @@ def launch_projection(raw, selection):
         require(
             type(proof) is dict
             and set(proof) == {"job_id", "retirement_sha256", "audit_sha256",
-                               "target_requests", "terminal_sha256", "exit_observed_within_ns"}
+                               "target_requests", "terminal_sha256", "terminal_cause",
+                               "cancel_requested_sha256", "physical_exit_elapsed_ns"}
             and type(proof["target_requests"]) is int and proof["target_requests"] == 3
-            and type(proof["exit_observed_within_ns"]) is int
-            and 0 < proof["exit_observed_within_ns"] < 15_000_000_000
+            and type(proof["physical_exit_elapsed_ns"]) is int
+            and 0 < proof["physical_exit_elapsed_ns"] < 15_000_000_000
+            and type(proof["terminal_cause"]) is str
+            and proof["terminal_cause"] in {
+                "remote_stop_requested", "control_lease_expired", "observed_exit"
+            }
             and proof["retirement_sha256"] == first["retirement_sha256"]
         )
         _uuid(proof["job_id"])
         _hash(proof["audit_sha256"])
         _hash(proof["terminal_sha256"])
+        _hash(proof["cancel_requested_sha256"])
         result["cancelled_job"] = proof
     else:
         require("cancelled_job" not in raw)
