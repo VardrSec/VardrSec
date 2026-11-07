@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: authenticate through the existing local session before
+  a future start, lend it once to fenced registration, and close it before
+  publication. No new API, credential source or launcher is enabled.
+
 - NM-2 private lifecycle: bind canonical public signing trust separately from TLS
   CA trust, fence the existing public writer with original-call ACK custody and
   durable publication uncertainty, refuse partial writes and retain unknown states.

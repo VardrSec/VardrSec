@@ -191,8 +191,8 @@ class World:
                 return None
         tree = ast.parse((SOURCE/"worker_cli.py").read_text(encoding="utf-8"))
         nodes = [n for n in tree.body if isinstance(n,ast.FunctionDef)
-            and n.name in {"_enable_setup", "_enable_owned", "enable"}]
-        assert {n.name for n in nodes} == {"_enable_setup", "_enable_owned", "enable"}
+            and n.name in {"_enable_options", "_enable_setup", "_enable_owned", "enable"}]
+        assert {n.name for n in nodes} == {"_enable_options", "_enable_setup", "_enable_owned", "enable"}
         cg["worker_host_persistent"] = SimpleNamespace(limits=lambda value:value)
         exec(compile(ast.fix_missing_locations(ast.Module(body=[SupplyLimits().visit(node) for node in nodes],type_ignores=[])),
             str(SOURCE/"worker_cli.py"),"exec"),cg)

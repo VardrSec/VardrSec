@@ -366,6 +366,16 @@ class HostClient:
             "ca_sha256": self.ca_sha256,
         }
 
+    def _owner_transport(self):
+        # Bind both the durable public pin and the actual in-memory route/TLS
+        # context. The latter is never serialized or added to HostRecords.
+        return (canonical(self.pin()), self.origin, self.host, self.port,
+                self.prefix, self._tls)
+
+    def _require_owner_transport(self, expected):
+        if expected is not None:
+            require(self._owner_transport() == expected)
+
     def _request(self, method, path, body=None, headers=None):
         require(method in {"GET", "POST"} and path.startswith("/") and "?" not in path)
         raw = None if body is None else canonical(body)
@@ -456,17 +466,21 @@ class HostClient:
                 secure.close()
 
     @contextmanager
-    def owner_session(self, username, password):
+    def owner_session(self, username, password, *, expected_transport=None):
         require(type(username) is str and 0 < len(username) <= 64)
         require(type(password) is str and 0 < len(password) <= 128)
         cookie, csrf, owner = None, None, None
         try:
-            reply, headers = self._request(
-                "POST",
-                "/auth/local/login",
-                {"username": username, "password": password},
-                {"Origin": self.origin},
-            )
+            try:
+                self._require_owner_transport(expected_transport)
+                reply, headers = self._request(
+                    "POST",
+                    "/auth/local/login",
+                    {"username": username, "password": password},
+                    {"Origin": self.origin},
+                )
+            finally:
+                password = None
             require(reply == {"authenticated": True})
             values = [value for key, value in headers if key.lower() == "set-cookie"]
             require(len(values) == 1)
@@ -482,6 +496,7 @@ class HostClient:
             )
             require(re.fullmatch(r"[A-Za-z0-9_-]{32,256}", entry.value))
             cookie = _COOKIE + "=" + entry.value
+            self._require_owner_transport(expected_transport)
             session, _ = self._request(
                 "GET", "/auth/local/session", headers={"Cookie": cookie}
             )
@@ -490,21 +505,27 @@ class HostClient:
                 and session["authMethod"] == "local"
             )
             csrf = _hash(session["csrfToken"])
-            owner = OwnerSession(self, cookie, csrf)
+            owner = OwnerSession(
+                self, cookie, csrf,
+                **({} if expected_transport is None else {"expected_transport": expected_transport}),
+            )
             yield owner
         finally:
-            if cookie is not None and csrf is not None:
-                try:
-                    self._request(
-                        "POST",
-                        "/auth/local/logout",
-                        {},
-                        {"Cookie": cookie, "Origin": self.origin, "X-CSRF-Token": csrf},
-                    )
-                except HostRefused:
-                    pass
-            if owner is not None:
-                owner._cookie, owner._csrf = None, None
+            try:
+                if cookie is not None and csrf is not None:
+                    try:
+                        self._require_owner_transport(expected_transport)
+                        self._request(
+                            "POST",
+                            "/auth/local/logout",
+                            {},
+                            {"Cookie": cookie, "Origin": self.origin, "X-CSRF-Token": csrf},
+                        )
+                    except HostRefused:
+                        pass
+            finally:
+                if owner is not None:
+                    owner._cookie, owner._csrf = None, None
 
     def receipt(self, runtime_id, runtime_sha256, secret, *, admission_sha256=None):
         return self._request(
@@ -579,11 +600,14 @@ class HostClient:
 
 
 class OwnerSession:
-    def __init__(self, client, cookie, csrf):
+    def __init__(self, client, cookie, csrf, *, expected_transport=None):
         self.client, self._cookie, self._csrf = client, cookie, csrf
+        self._expected_transport = expected_transport
 
     def _post(self, runtime_id, action, body):
         require(self._cookie is not None and self._csrf is not None)
+        if self._expected_transport is not None:
+            self.client._require_owner_transport(self._expected_transport)
         return self.client._request(
             "POST",
             f"/managed/runtimes/{_uuid(runtime_id)}/{action}",

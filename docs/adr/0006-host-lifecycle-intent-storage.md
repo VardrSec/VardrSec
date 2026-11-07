@@ -195,3 +195,29 @@ Owner authentication before startup, actual create/start orchestration and sourc
 resource inventories, abandoned preparation and ambiguous recovery, a matched
 immutable image and fresh same-installation Linux/Desktop acceptance remain open.
 No requirement is moved to NM-3, and no release or deployment is authorized.
+
+
+## Existing authenticated session before startup
+
+The future launcher can authenticate the existing local session before any
+create/start effect, while retaining the same installation operation and pinned
+client. This is the existing login and session readback; there is no new API,
+login implementation or credential source. Map's enrollment ownership, origin,
+key and revocation checks still run in its existing registration transaction.
+Local session authentication alone grants neither an enrollment nor work authority.
+
+One private noncopyable scope binds the exact records, operation/thread, client,
+public TLS pin, in-memory route/TLS context and live session. Only the fenced already-owned enable path
+may borrow it. Borrow transfers the original context's logout into the existing
+registration scope once, so the owner session closes before any publication.
+Early failure closes an unused scope once. The original transport is rechecked
+before credentials are sent, including logout; drift refuses the request and
+clears the local session fields. Logout interruption also clears those fields;
+the original error remains observable and publication is held.
+The existing login references to the passphrase are dropped before yielding.
+Ordinary enable retains its input, login, registration, logout and publication
+order; protocol parsing is reused for future pre-start preparation.
+
+No Docker action or supported create/start command is added by this increment.
+Real same-installation lifecycle, ambiguity/recovery and platform acceptance
+remain required on Linux and Windows Docker Desktop.

@@ -228,13 +228,86 @@ def password(use_stdin):
 
 
 @contextmanager
-def owner(client, args):
+def owner(client, args, *, expected_transport=None):
     value = password(args.password_stdin)
     try:
-        with client.owner_session(args.username, value) as session:
+        with client.owner_session(
+            args.username, value,
+            **({} if expected_transport is None else {"expected_transport": expected_transport}),
+        ) as session:
+            value = None
             yield session
     finally:
         value = None
+
+
+
+_PREPARED_ENABLE_OWNER = object()
+
+
+class _PreparedEnableOwner:
+    """One existing authenticated session, bound to its live host operation."""
+
+    __slots__ = ("_records", "_operation", "_client", "_pin", "_session", "_stack", "_active", "_used")
+
+    def __init__(self, records, operation, client, pin, session, stack, proof):
+        require(proof is _PREPARED_ENABLE_OWNER)
+        for name, value in (("_records", records), ("_operation", operation),
+                            ("_client", client), ("_pin", pin), ("_session", session),
+                            ("_stack", stack), ("_active", True), ("_used", False)):
+            object.__setattr__(self, name, value)
+
+    def __setattr__(self, name, value):
+        raise CLIRefused("worker_cli_refused")
+
+    def __copy__(self):
+        raise CLIRefused("worker_cli_refused")
+
+    def __deepcopy__(self, memo):
+        raise CLIRefused("worker_cli_refused")
+
+    def __reduce_ex__(self, protocol):
+        raise CLIRefused("worker_cli_refused")
+
+    def _match(self, records, operation, client):
+        require(self._active and not self._used and records is self._records
+                and operation is self._operation and client is self._client)
+        records._require_operation(operation)
+        require(client._owner_transport() == self._pin
+                and type(self._session) is host.OwnerSession
+                and self._session.client is client
+                and self._session._cookie is not None and self._session._csrf is not None)
+
+    @contextmanager
+    def _take(self, records, operation, client):
+        self._match(records, operation, client)
+        object.__setattr__(self, "_used", True)
+        # Close the original stack in the existing registration scope. The
+        # outer context still owns cleanup if borrowing never reaches this body.
+        try:
+            yield self._session
+            require(client._owner_transport() == self._pin)
+        finally:
+            self._stack.close()
+
+
+@contextmanager
+def _preauthenticate_enable_owner(records, operation, client, args):
+    """Authenticate via the existing local session before a future start effect."""
+    require(type(records) is host.HostRecords and type(client) is host.HostClient)
+    records._require_operation(operation)
+    pin = client._owner_transport()
+    args._failure_phase = "enable_owner_auth"
+    with host.ExitStack() as stack:
+        session = stack.enter_context(owner(client, args, expected_transport=pin))
+        selected = _PreparedEnableOwner(records, operation, client, pin, session, stack,
+                                       _PREPARED_ENABLE_OWNER)
+        try:
+            selected._match(records, operation, client)
+            yield selected
+        finally:
+            object.__setattr__(selected, "_active", False)
+            object.__setattr__(selected, "_session", None)
 
 
 def public_trust(path):
@@ -379,9 +452,8 @@ def components(record, *, client=True):
     return api, observer, identity
 
 
-def _enable_setup(args):
-    """Keep the existing enable setup prefix; never acquire custody or a lock."""
-    args._failure_phase = "enable_inputs"
+def _enable_options(args):
+    """Validate the original registration options before an incarnation exists."""
     protocol = getattr(args, "protocol", "persistent-v3")
     maximum = getattr(args, "max_attempts", None)
     idle = getattr(args, "idle_timeout_seconds", None)
@@ -414,6 +486,13 @@ def _enable_setup(args):
             "protocol": protocol,
             **({"max_attempts": maximum} if maximum is not None else {}),
         }
+    return admission_options, observer_options
+
+
+def _enable_setup(args):
+    """Keep the existing enable setup prefix; never acquire custody or a lock."""
+    args._failure_phase = "enable_inputs"
+    admission_options, observer_options = _enable_options(args)
     require(
         re.fullmatch(r"[0-9a-f]{64}", args.container_id or "")
         and re.fullmatch(r"sha256:[0-9a-f]{64}", args.image_id or "")
@@ -445,15 +524,25 @@ def _enable_setup(args):
     return observer, client, public, trust, admission_options
 
 
-def _enable_owned(args, records, operation, setup, *, registration_capability=None):
+def _enable_owned(
+    args, records, operation, setup, *, registration_capability=None,
+    preauthenticated_owner=None,
+):
     """Continue enablement only inside this exact records owner's live operation."""
     records._require_operation(operation)
     observer, client, public, trust, admission_options = setup
+    if preauthenticated_owner is not None:
+        require(registration_capability is not None
+                and type(preauthenticated_owner) is _PreparedEnableOwner)
+        preauthenticated_owner._match(records, operation, client)
     with records.locked(operation=operation):
         require(not (records.installation / updater.STATE).exists())
         require(not (public / "admission.json").exists())
     args._failure_phase = "enable_owner_auth"
-    with owner(client, args) as session:
+    with (
+        owner(client, args) if preauthenticated_owner is None
+        else preauthenticated_owner._take(records, operation, client)
+    ) as session:
         args._failure_phase = "enable_capture"
         identity = observer.capture_running(
             container_id=args.container_id, image_id=args.image_id, project=args.project
