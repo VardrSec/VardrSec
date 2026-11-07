@@ -355,3 +355,24 @@ files. It does not prove no history from an empty directory, physical exit or
 Map/local retirement. Pending, held and abandoned resources cannot be skipped
 by a future successor; they need their own recovery or preservation decision.
 The reader makes no writes or external request and grants no execution authority.
+
+## Independent Compose visibility
+
+Run the reviewed Compose executable directly. Docker's plugin discovery runs
+plugin metadata commands and therefore cannot verify an executable before it
+runs. The pinned Compose standalone entry point accepts the same named
+context. The observer checks both executable hashes, the Compose version,
+the unchanged worker-only model, the closed external network/state override,
+and the explicitly empty dotenv file. Its only Compose project command is
+`ps --all --no-trunc --quiet managed-worker`. Interpolation uses a synthetic
+value and never forwards the operator's key, an environment file containing
+credentials, or inherited Docker/Compose overrides.
+
+The before and after context reads must report the exact selected local
+endpoint. The future caller must surround this view with independent live
+Engine inventory and daemon/resource checks under the same host operation.
+This adapter does not create the planned public directory, attach a network,
+or start a worker. An empty Compose view does not prove initial eligibility.
+
+Sources: [Docker CLI plugin discovery](https://github.com/docker/cli/blob/v29.9.2/cli/command/system/info.go#L78-L97)
+and [pinned Compose standalone flag handling](https://github.com/docker/compose/blob/6cbc19a3fd59e305fb814dca4d854a4fb67d2941/cmd/compatibility/convert.go#L41-L102).

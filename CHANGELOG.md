@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: read worker visibility through an exact Compose
+  executable and the reviewed worker model with synthetic interpolation values.
+
 - NM-2 private lifecycle: read the complete protected record, intent and report
   inventory under its existing live operation; retain all unfinished states.
 
