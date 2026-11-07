@@ -217,6 +217,50 @@ discovery. Both platforms preserved the peer grant and original API enrollment
 through the next launch. The Ubuntu sanitized receipt SHA-256 is
 `1f6145ff86412a88d7ed5de61e1d091cdaa945da71a8826422f41bae2b3f88e8`.
 
+### Natural target grant expiry during active work
+
+The fixture keeps approval registration pending while the exact worker becomes
+idle. It creates one expiring synthetic target grant through Runner's normal
+command and registers the reviewed job with 12 to 14 seconds remaining. The
+owned target must observe the delayed resource request before grant expiry.
+The fixture verifies physical exit before the delayed response, exact original
+retirement, retained charges, the still-valid peer grant and the original
+Runner API enrollment. It then checks the same-volume successor.
+
+The first Windows run at `7c58b69c709c3ec24636afd651d9cea56fbd939c` held at
+the active expiry timing assertion. Map's retained attempt receipt records
+`tool_timeout`. The stopped fixture and its original receipt are retained.
+The private receipt SHA-256 is
+`0af9c5f208416d8e5528a628656bb28cc0f9884eb20f61aa3f6153083d9d77a1`.
+The first Ubuntu run held at the same timing assertion. Its sanitized
+receipt does not record the native stop cause. The receipt SHA-256 is
+`ce74fd9fac334f5053e6ebb6142fc6d2b6a6c297a4b274f166c468dee52dacf1`.
+[First Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42395910348)
+
+Runner's existing launcher rounds the grant-bound tool timeout down to
+whole seconds. Distribution `954572986943d66c6f0dfc25c54cc15b5d53390c` checks
+that a `tool_timeout` exit may precede expiry by up to one second.
+Other terminal causes require exit at or after expiry. Every case retains
+the existing delayed-response and late-exit checks.
+[Corrected Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42396887879)
+
+Windows Docker Desktop passed on the corrected fixture with Map
+`bdc5d70c58c004bfc9193d0eeb5ef3ed7baea347` and Runner
+`5ecc869d80f53ae7fdbca25b971838976a6c41e9`. The worker exited
+10.139 seconds after the third request and 0.522 seconds before the grant deadline,
+with the terminal cause `tool_timeout`. The original retirement and
+audit bound the successor, and both stopped workers were retained. The
+operator profile hashes matched. The Windows private receipt SHA-256 is
+`74b7fde72beb932ac36de5762e8957dca230862dad0556ea3edb2fdcfa9736e7`.
+
+Ubuntu 24.04 passed on the same four component revisions. The worker exited
+12.069 seconds after the third request and 0.777 seconds before the grant deadline.
+Both runs recorded the existing `tool_timeout` cause. The cutoff proof
+combines that cause with the measured grant window, the unchanged grant
+catalog, the peer policy check and the exact original attempt receipt.
+The Ubuntu sanitized receipt SHA-256 is
+`86f8df6abdd67007a0ccff3772c3a4b678f255915cfa5c439855e1adba894611`.
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
@@ -483,8 +527,8 @@ both cases. No test result here establishes physical failure-path acceptance.
 ## Open phase gates
 
 The installed evidence above covers first and subsequent startup, selected
-cancellation paths, active grant revocation and expiry before claim. The full
-matrix still includes grant expiry during active work, budget exhaustion,
+cancellation paths, active grant revocation, expiry before claim and expiry
+during active work. The full matrix still includes budget exhaustion,
 remaining strict denials, retained partial evidence, disconnect, crash and
 restart, duplicate and lost replies, and persisted preclaim recovery.
 

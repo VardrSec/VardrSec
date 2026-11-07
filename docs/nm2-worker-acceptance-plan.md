@@ -4,7 +4,7 @@ Windows Docker Desktop and Ubuntu have verified selected persistent
 availability, optional finite controls, zero-job stop, first and subsequent
 startup, active Map and local emergency cancellation, and refusal of approved
 jobs with a missing local target grant. Active target grant revocation and
-natural expiry before claim also passed on both platforms. The
+natural expiry before claim and during active work passed on both platforms. The
 [installed receipts](nm2-worker-acceptance-evidence.md) record the exact
 sources and scope. The [closeout control record](nm1-nm2-closeout.md) tracks
 the remaining failure and containment gates. NM-3 remains paused.
