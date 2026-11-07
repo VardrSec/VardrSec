@@ -107,10 +107,11 @@ after an authority change. Fresh signed registration for the same job passed
 with no execution or charges.
 [Installed Strict evidence](nm2-worker-acceptance-evidence.md#strict-approval-after-an-authority-change)
 
-Stopped-predecessor recovery reached the successor-refusal check on both
-platforms and remains held. The retained Windows inventory has one
-stopped worker and its original readiness volume.
-[Held evidence](nm2-worker-acceptance-evidence.md#stopped-predecessor-recovery-held)
+Windows Docker Desktop and Ubuntu passed ordinary stopped-predecessor
+recovery. A successor was refused before exact exit reporting and launched
+on the same state volume after original Runner reconciliation. The first
+two held receipts remain in the record.
+[Installed recovery evidence](nm2-worker-acceptance-evidence.md#stopped-predecessor-recovery-after-exact-exit-reporting)
 
 The open NM-2 exit requirements stay in NM-2. NM-3's independent
 Runner, Full/Mapless, Docker, Windows and cross-platform objectives remain required

@@ -349,11 +349,38 @@ physical exit and one reserved slot on the unreported original attempt.
 The stopped Windows fixture retained one worker, one readiness volume,
 one launch intent and no exit report. The original checkout captures no
 raw child stdout or stderr. The mismatched CLI response category remains
-unknown in these two runs. The stopped-predecessor gate stays open.
+unknown in those two runs. Both initial attempts remain held.
 
 Windows held receipt SHA-256 `59838357b4f27785a0be0186b7b003f02485a2b980a91682b274253cf6f23594`.
 Ubuntu sanitized held receipt SHA-256 `f214f0f7b2a671b1736786ae9e1df333c67bf9e453fafc69dcd7387f7bcf8541`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42404296385)
+
+### Stopped predecessor recovery after exact exit reporting
+
+A Windows diagnostic on `155f76b7666ca1853b8576ca757d53a118903c1b` confirmed the response
+had the expected exit status, selected runtime, failure phase and code. The
+initial fixture had compared JSON bytes. The corrected fixture strictly
+decodes the same bounded envelope and verifies its complete contents.
+The diagnostic receipt SHA-256 is `40ade827dbbf04b35dd6d468728a5440a0130a79786ee762056955adf1eb4173`.
+
+Distribution `ca93558951ca5ff191f66caf2a8974afa500d322`,
+Map `41635f9a75598c84192b4b53be95e025bf0b9b9d`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` passed on Windows Docker Desktop
+and Ubuntu 24.04. The fixture invoked the normal operator stop and observed
+the exact worker exit during a delayed third request. One successor launch was refused while
+the original exit was unreported, with the original slot still reserved
+and zero new resources or target requests.
+
+Authenticated exit reporting produced a failed observed-exit receipt. The
+original Runner reconciled to zero holds. The reserved slot was released,
+and the original charge of one target and 30 seconds remained. The same
+successor command then started a distinct worker on the original state
+volume. Both exited workers and their fixture were retained.
+
+Windows receipt SHA-256 `13a6c3c4050b60b7cce893392a6c8f5e512be3e5c165be62d294aa86fcdaf1c8`.
+Ubuntu sanitized receipt SHA-256 `60b278e123af9a7a0b60ebfeb897c1689117e6bbad574443c62d8c1dbc084a6f`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42406589467)
 
 ## Verified Desktop development slices (2026-11-06)
 
@@ -623,7 +650,8 @@ both cases. No test result here establishes physical failure-path acceptance.
 The installed evidence above covers first and subsequent startup, selected
 cancellation paths, active grant revocation, expiry before claim and expiry
 during active work, allocated duration and represented-origin exhaustion, and
-Strict registration refusal after an authority change. The open cases include
+Strict registration refusal after an authority change. The ordinary
+stopped-predecessor recovery check also passed. The open cases include
 concurrency exhaustion, the remaining Strict denials,
 retained partial evidence, disconnect, crash and restart, duplicate and lost
 replies, and persisted preclaim recovery.

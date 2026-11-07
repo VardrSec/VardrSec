@@ -10,7 +10,9 @@ target charge, 30 seconds allocated and zero capacity reservations through
 refusal and reconciliation. Represented-origin exhaustion also passed on
 both platforms, with one target charged, 30 seconds allocated and zero
 capacity reservations through refusal and reconciliation. Concurrency
-exhaustion remains open.
+exhaustion remains open. Both platforms passed ordinary stopped-predecessor
+recovery, including successor refusal before exit reporting and same-volume
+startup after original Runner reconciliation.
 Both platforms also passed the Strict authority-change check. A stale
 signed registration was refused, and a fresh one stayed unissued and
 uncharged. The [installed receipts](nm2-worker-acceptance-evidence.md) record the exact
