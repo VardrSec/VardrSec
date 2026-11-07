@@ -84,6 +84,16 @@ class HostedLaunchTests(unittest.TestCase):
             (hosted.LAUNCH_STOP_WORK_SCENARIO, "0041persistentruntime"),
         )
 
+    def test_local_stop_requires_explicit_persistent_revision(self):
+        selection = {"NM2_SCENARIO": hosted.LAUNCH_LOCAL_STOP_SCENARIO}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(selection)
+        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        self.assertEqual(
+            hosted.execution_options(selection),
+            (hosted.LAUNCH_LOCAL_STOP_SCENARIO, "0041persistentruntime"),
+        )
+
     def test_stop_work_uses_the_engine_exit_event_and_rejects_clock_disagreement(self):
         from calendar import timegm
 
@@ -271,3 +281,17 @@ class HostedLaunchTests(unittest.TestCase):
         queued["unclaimed_job"]["job_id"] = queued["cancelled_job"]["job_id"]
         with self.assertRaises(hosted.HostedRefused):
             hosted.public_projection(queued, selection)
+        local_proof = {
+            key: value for key, value in stopped["cancelled_job"].items()
+            if key != "cancel_requested_sha256"
+        }
+        local_proof.update(local_stop_sha256="a" * 64, terminal_cause="local_emergency_stop")
+        local = {
+            **stopped, "scenario": hosted.LAUNCH_LOCAL_STOP_SCENARIO,
+            "acceptance_scope": "local_stop_then_next_launch", "cancelled_job": local_proof,
+        }
+        self.assertEqual(
+            hosted.public_projection(local, selection)["cancelled_job"], local_proof
+        )
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection({**stopped, "cancelled_job": local_proof}, selection)

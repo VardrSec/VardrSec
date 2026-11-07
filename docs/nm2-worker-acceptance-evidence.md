@@ -65,6 +65,35 @@ unclassified assertion. Its sanitized receipt SHA-256 is
 `a726428e0113b737354cedf3b27fd3272d222c5971d06562c94eefa54066371b`.
 [Installed Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42378261446)
 
+The single-job stop-work sequence then passed on Windows Docker Desktop and
+Ubuntu 24.04 at distribution `18b4f83b1d63477546318a4ebbc16b373daa4119`.
+Map marked the consumed attempt `cancel_requested`, the first worker exited
+before the delayed response could return, and Map retired that exact attempt
+and released capacity. Runner's original reconciliation and independent
+offline audit admitted a successor on the same state volume. Each target
+observed three requests in total.
+
+- Ubuntu observed physical exit 10.607 seconds after the third request.
+  The sanitized receipt SHA-256 is
+  `1f2646c9ed09ecca03c711e818e389a37cf9c76891aaf820088224105d601b72`.
+  [Installed Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42379728874)
+
+- Windows observed physical exit 13.359 seconds after the third request.
+  The private receipt SHA-256 is
+  `055921012d8337f4bb84523fdcb16042a4248700a6d4242ba62bda1ffbe452f5`.
+  Both owned worker containers stopped and were retained. The operator
+  profile hashes matched before and after.
+
+The queued-job scenario adds a second, separately approved job in the stopped
+engagement. On Windows it retained its original approval, zero issued attempts,
+and the same target and duration counters across the successor launch. The
+first worker exited in 13.038 seconds. The private receipt SHA-256 is
+`c86886ef563a24f03f5099acfd93e71711607e2737c964f108dfcc73656b9e85`.
+This scenario uses distribution `8e3c0dd6c5db00ec21cfbdb22a8783ab6610805c`
+and Map `bdc5d70c58c004bfc9193d0eeb5ef3ed7baea347`. The Map change excludes
+stopped engagements and stale approval revisions from discovery. Claims still
+recheck authority and budgets. [Matching Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42380671226)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)

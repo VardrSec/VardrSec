@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add an opt-in installed case that invokes Runner's existing local emergency
+  stop on the exact active run and checks retirement before the next launch.
+
 - Exercise an approved job that remains queued in a stopped engagement through
   the next managed worker launch. Verify its approval, counters, and absence of
   a claim or target request.

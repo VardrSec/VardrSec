@@ -43,11 +43,11 @@ def stop_exit_elapsed_ns(request, after, finished_at):
 class LaunchFixture(Fixture):
     def __init__(
         self, selection, *, compose, compose_sha256, docker_config,
-        completed=False, stop_work=False, queued_peer=False,
+        completed=False, stop_work=False, queued_peer=False, local_stop=False,
     ):
         super().__init__(
             selection,
-            scenario="stop-work" if stop_work else EMPTY_SCENARIO,
+            scenario="local-emergency-stop" if local_stop else "stop-work" if stop_work else EMPTY_SCENARIO,
             database_revision="0041persistentruntime",
         )
         self.compose_executable = compose.resolve(strict=True)
@@ -62,11 +62,12 @@ class LaunchFixture(Fixture):
         )
         self.compose_sha256 = compose_sha256
         self.completed = completed
-        self.stop_work = stop_work
+        self.cancelling = stop_work or local_stop
+        self.local_stop = local_stop
         self.queued_peer = queued_peer
         self.protocol = "persistent-v3"
         self.max_attempts = None
-        require(not (completed and stop_work) and (not queued_peer or stop_work),
+        require(sum((completed, stop_work, local_stop)) <= 1 and (not queued_peer or stop_work),
                 "launch_fixture_mode_conflict")
         scenario = "persistent-launch-empty"
         scope = "first_and_next_empty_launch"
@@ -76,6 +77,8 @@ class LaunchFixture(Fixture):
             scenario, scope = "persistent-launch-stop-work", "stop_work_then_next_launch"
             if queued_peer:
                 scenario, scope = "persistent-launch-stop-work-queued", "stop_work_excludes_queued_job"
+        elif local_stop:
+            scenario, scope = "persistent-launch-local-stop", "local_stop_then_next_launch"
         self.receipt.update(
             schema="vardr.nm2-worker-launch-acceptance/1",
             scenario=scenario, acceptance_scope=scope, nm2_exit_status="incomplete",
@@ -83,7 +86,7 @@ class LaunchFixture(Fixture):
 
     def target_environment(self):
         environment = super().target_environment()
-        if self.stop_work:
+        if self.cancelling:
             environment["NM2_FIXTURE_UTC_TIMING"] = "1"
         return environment
 
@@ -279,12 +282,14 @@ class LaunchFixture(Fixture):
         persistent.retirement(record, retired)
         binding = retired["binding"]
         terminal = retired["attempt_receipt"]
-        pending = action["cancel_requested"]
+        pending = action.get("cancel_requested")
         attempt = runtime["attempts"][0]
         require(
             attempt["binding"] == binding and attempt["job_id"] == job
-            and pending["contract_id"] == binding["contract_id"]
-            and pending["attempt_id"] == binding["attempt_id"]
+            and (self.local_stop or (
+                pending["contract_id"] == binding["contract_id"]
+                and pending["attempt_id"] == binding["attempt_id"]
+            ))
             and attempt["runtime_sequence"] == "1"
             and attempt["runtime_id"] == runtime["id"]
             and attempt["confirmed_at"] is not None
@@ -298,10 +303,14 @@ class LaunchFixture(Fixture):
         local = self.local_metadata(action["run_id"], engagement, job)
         require(
             local["consumption_sent"] == local["consumption_acknowledged"] == 1
-            and local["local_stop_requested"] is False,
+            and local["local_stop_requested"] is self.local_stop,
             "launch_stop_work_original_run_not_preserved",
         )
         audit = self.reconcile_original(admission, retired)
+        expected_causes = (
+            {"local_emergency_stop"} if self.local_stop
+            else {"remote_stop_requested", "control_lease_expired"}
+        )
         if inventory["results"]:
             self.receipt["stage"] = "launch_stop_work_partial_evidence"
             cause = local.get("failure_reason")
@@ -320,7 +329,7 @@ class LaunchFixture(Fixture):
                 completion_event = "managed_failed_completion_receipt"
                 cause = "observed_exit"
             else:
-                require(cause in {"remote_stop_requested", "control_lease_expired"},
+                require(cause in expected_causes,
                         "launch_stop_work_terminal_not_proven")
             self.verify_failed_partial(
                 engagement, job, stored, binding, terminal, inventory, retained,
@@ -329,7 +338,7 @@ class LaunchFixture(Fixture):
         else:
             cause = terminal.get("cause")
             require(
-                cause in {"remote_stop_requested", "control_lease_expired", "observed_exit"}
+                cause in expected_causes | {"observed_exit"}
                 and inventory["stops"][0] == {
                     "contract_id": binding["contract_id"],
                     "receipt_sha256": terminal["receipt_sha256"],
@@ -339,14 +348,20 @@ class LaunchFixture(Fixture):
                 "launch_stop_work_terminal_not_proven",
             )
         require(self.timed_traffic()["requests"] == requests, "launch_stop_work_traffic_changed")
-        self.receipt["cancelled_job"] = {
+        proof = {
             "job_id": job, "retirement_sha256": retired["receipt_sha256"],
             "audit_sha256": digest(canonical(audit)), "target_requests": len(requests),
             "terminal_sha256": digest(canonical(terminal)),
             "terminal_cause": cause,
-            "cancel_requested_sha256": digest(canonical(pending)),
             "physical_exit_elapsed_ns": stop_elapsed,
         }
+        if self.local_stop:
+            proof["local_stop_sha256"] = digest(canonical({
+                "run_id": local["run_id"], "binding": binding, "local_stop_requested": True,
+            }))
+        else:
+            proof["cancel_requested_sha256"] = digest(canonical(pending))
+        self.receipt["cancelled_job"] = proof
 
     def launch_and_retire(
         self, config, signing, binding, ordinal, predecessor, *, case=None
@@ -445,14 +460,14 @@ class LaunchFixture(Fixture):
             == ([] if predecessor is None else [predecessor["container_id"]]),
             "launch_durable_chain_not_observed",
         )
-        if predecessor is not None and (self.completed or self.stop_work):
-            proof = self.receipt["cancelled_job" if self.stop_work else "completed_job"]
+        if predecessor is not None and (self.completed or self.cancelling):
+            proof = self.receipt["cancelled_job" if self.cancelling else "completed_job"]
             require(
                 row["predecessors"][0]["original_local_audit_sha256"]
                 == proof["audit_sha256"],
                 "launch_completed_audit_changed",
             )
-        cancelling = self.stop_work and case is not None
+        cancelling = self.cancelling and case is not None
         if case is None:
             self.persistent_idle(admission, 0)
             before = self.verify_empty_worker_state(
@@ -461,25 +476,8 @@ class LaunchFixture(Fixture):
         elif cancelling:
             self.receipt["stage"] = "launch_stop_work_observe"
             action = self.cancellation_action(*case[:3])
-            pending_stop = self.inventory(*case[:2])
-            require(
-                pending_stop["job_status"] == "running"
-                and pending_stop["execution"] == {
-                    "state": "cancel_requested",
-                    "capacity_reserved": True,
-                    "target_charge": 1,
-                    "duration_seconds": 30,
-                }
-                and len(pending_stop["contracts"]) == 1
-                and pending_stop["contracts"][0]["consumed"] is True,
-                "launch_stop_work_active_cancellation_not_observed",
-            )
-            contract = pending_stop["contracts"][0]
-            action["cancel_requested"] = {
-                **pending_stop["execution"],
-                "contract_id": contract["id"],
-                "attempt_id": contract["attempt_id"],
-            }
+            if not self.local_stop:
+                self.observe_stop_work(case, action)
         else:
             self.await_completed_job(admission, case)
         self.receipt["stage"] = "launch_stop_work_exit" if cancelling else f"launch_stop_{ordinal}"
@@ -552,6 +550,24 @@ class LaunchFixture(Fixture):
             exit_proof,
         )
 
+    def observe_stop_work(self, case, action):
+        pending = self.inventory(*case[:2])
+        require(
+            pending["job_status"] == "running"
+            and pending["execution"] == {
+                "state": "cancel_requested", "capacity_reserved": True,
+                "target_charge": 1, "duration_seconds": 30,
+            }
+            and len(pending["contracts"]) == 1 and pending["contracts"][0]["consumed"] is True,
+            "launch_stop_work_active_cancellation_not_observed",
+        )
+        contract = pending["contracts"][0]
+        action["cancel_requested"] = {
+            **pending["execution"],
+            "contract_id": contract["id"],
+            "attempt_id": contract["attempt_id"],
+        }
+
     def cancelled_http(self):
         self.launch_pair()
 
@@ -563,7 +579,7 @@ class LaunchFixture(Fixture):
 
         self.receipt["stage"] = "launch_prepare"
         require(self.traffic() == [], "launch_unexpected_target_traffic")
-        if not self.stop_work:
+        if not self.cancelling:
             self.empty_engagements()
         self.helper("init", "--non-interactive", "--no-install-tools")
         binding = self.enroll_runner()
@@ -583,8 +599,8 @@ class LaunchFixture(Fixture):
         config, signing = self.launch_config(observer, initial)
         case = None
         peer = None
-        if self.completed or self.stop_work:
-            name = "launch-stop-work" if self.stop_work else "launch-completed"
+        if self.completed or self.cancelling:
+            name = "launch-" + (self.scenario if self.cancelling else "completed")
             engagement, authorization, job, stored = self.new_job(name, marker=True)
             if self.queued_peer:
                 peer_name = "launch-stop-work-peer"
@@ -639,7 +655,7 @@ class LaunchFixture(Fixture):
             and self.traffic() == baseline,
             "launch_preservation_or_traffic_not_observed",
         )
-        if not (self.completed or self.stop_work):
+        if not (self.completed or self.cancelling):
             self.empty_engagements()
         self.receipt["launch_pair"] = [first, second]
         self.receipt["status"] = "selected_launch_slice_passed"
@@ -672,6 +688,7 @@ def main(argv=None):
     workload.add_argument("--completed-job", action="store_true")
     workload.add_argument("--stop-work", action="store_true")
     workload.add_argument("--stop-work-queued", action="store_true")
+    workload.add_argument("--local-stop", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -686,6 +703,7 @@ def main(argv=None):
             completed=args.completed_job,
             stop_work=args.stop_work or args.stop_work_queued,
             queued_peer=args.stop_work_queued,
+            local_stop=args.local_stop,
         )
         fixture.run()
         return 0 if fixture.receipt["status"] == "selected_launch_slice_passed" else 1

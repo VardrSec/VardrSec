@@ -30,12 +30,16 @@ LAUNCH_SCENARIO = "persistent-launch-empty"
 LAUNCH_COMPLETED_SCENARIO = "persistent-launch-completed"
 LAUNCH_STOP_WORK_SCENARIO = "persistent-launch-stop-work"
 LAUNCH_STOP_WORK_QUEUED_SCENARIO = "persistent-launch-stop-work-queued"
-LAUNCH_STOP_WORK_SCENARIOS = {LAUNCH_STOP_WORK_SCENARIO, LAUNCH_STOP_WORK_QUEUED_SCENARIO}
+LAUNCH_LOCAL_STOP_SCENARIO = "persistent-launch-local-stop"
+LAUNCH_CANCELLATION_SCENARIOS = {
+    LAUNCH_STOP_WORK_SCENARIO, LAUNCH_STOP_WORK_QUEUED_SCENARIO, LAUNCH_LOCAL_STOP_SCENARIO
+}
 LAUNCH_SCOPES = {
     LAUNCH_SCENARIO: "first_and_next_empty_launch",
     LAUNCH_COMPLETED_SCENARIO: "completed_then_next_launch",
     LAUNCH_STOP_WORK_SCENARIO: "stop_work_then_next_launch",
     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "stop_work_excludes_queued_job",
+    LAUNCH_LOCAL_STOP_SCENARIO: "local_stop_then_next_launch",
 }
 LAUNCH_SCENARIOS = set(LAUNCH_SCOPES)
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
@@ -1018,26 +1022,30 @@ def launch_projection(raw, selection):
         result["completed_job"] = proof
     else:
         require("completed_job" not in raw)
-    if scenario in LAUNCH_STOP_WORK_SCENARIOS:
+    if scenario in LAUNCH_CANCELLATION_SCENARIOS:
         proof = raw.get("cancelled_job")
+        local_stop = scenario == LAUNCH_LOCAL_STOP_SCENARIO
+        authority_key = "local_stop_sha256" if local_stop else "cancel_requested_sha256"
+        allowed_causes = {"observed_exit"} | (
+            {"local_emergency_stop"} if local_stop
+            else {"remote_stop_requested", "control_lease_expired"}
+        )
         require(
             type(proof) is dict
             and set(proof) == {"job_id", "retirement_sha256", "audit_sha256",
                                "target_requests", "terminal_sha256", "terminal_cause",
-                               "cancel_requested_sha256", "physical_exit_elapsed_ns"}
+                               authority_key, "physical_exit_elapsed_ns"}
             and type(proof["target_requests"]) is int and proof["target_requests"] == 3
             and type(proof["physical_exit_elapsed_ns"]) is int
             and 0 < proof["physical_exit_elapsed_ns"] < 15_000_000_000
             and type(proof["terminal_cause"]) is str
-            and proof["terminal_cause"] in {
-                "remote_stop_requested", "control_lease_expired", "observed_exit"
-            }
+            and proof["terminal_cause"] in allowed_causes
             and proof["retirement_sha256"] == first["retirement_sha256"]
         )
         _uuid(proof["job_id"])
         _hash(proof["audit_sha256"])
         _hash(proof["terminal_sha256"])
-        _hash(proof["cancel_requested_sha256"])
+        _hash(proof[authority_key])
         result["cancelled_job"] = proof
     else:
         require("cancelled_job" not in raw)
@@ -1472,6 +1480,7 @@ class Hosted:
                 LAUNCH_COMPLETED_SCENARIO: ["--completed-job"],
                 LAUNCH_STOP_WORK_SCENARIO: ["--stop-work"],
                 LAUNCH_STOP_WORK_QUEUED_SCENARIO: ["--stop-work-queued"],
+                LAUNCH_LOCAL_STOP_SCENARIO: ["--local-stop"],
             }[self.scenario],
             "--execute",
         ]
@@ -1613,9 +1622,16 @@ class Hosted:
                     LAUNCH_COMPLETED_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_LOCAL_STOP_SCENARIO: LAUNCH_SCHEMA,
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
+            verified_case = {
+                LAUNCH_STOP_WORK_QUEUED_SCENARIO: "engagement_stop_work",
+                LAUNCH_LOCAL_STOP_SCENARIO: "local_emergency_stop",
+            }.get(self.scenario)
+            if verified_case is not None:
+                self.receipt["remaining_required_cases"][verified_case] = "verified_selected_cohort"
             self.receipt.update(
                 schema={
                     "healthy": "vardr.nm2-hosted/2",
@@ -1627,6 +1643,7 @@ class Hosted:
                     LAUNCH_COMPLETED_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "vardr.nm2-hosted/7",
+                    LAUNCH_LOCAL_STOP_SCENARIO: "vardr.nm2-hosted/7",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],
