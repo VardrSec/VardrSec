@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Distinguish the worker launch inventory and offline audit failure stages.
+  Preserve the existing native credential name range in launch inputs.
+
 - Add an opt-in installed NM-2 fixture for first and next worker launch,
   physical retirement, and unchanged Runner state on one installation.
 

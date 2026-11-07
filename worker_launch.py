@@ -176,16 +176,13 @@ def _config(path):
     names = config["credential_names"]
     cli.require(
         type(names) is list
-        and len(names) <= 16
+        and len(names) <= 32
         and all(
-            type(name) is str
-            and re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", name)
-            and not name.startswith(
-                ("VARDR", "PYTHON", "LD_", "DYLD_", "DOCKER", "COMPOSE")
-            )
+            type(name) is str and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", name)
             for name in names
         )
         and len(set(names)) == len(names)
+        and len(",".join(names)) <= 4096
     )
     port = config["https_port"]
     cli.require(type(port) is int and 1 <= port <= 65535)
@@ -196,13 +193,18 @@ def _binding(observation):
     return {key: observation[key] for key in ("context", "local_endpoint", "daemon_id")}
 
 
-def _inventory(engine, selected, project, config):
+def _inventory(engine, selected, project, config, args):
+    args._failure_phase = "launch_core_inventory"
     first = engine.capture_project_containers(project.name)
+    args._failure_phase = "launch_state_inventory"
     state = volumes.capture_volume_resource(engine, project.name, "runner-state")
+    args._failure_phase = "launch_network_inventory"
     network = engine.capture_runner_network(
         name=project.runner_network, project=project.name
     )
+    args._failure_phase = "launch_readiness_inventory"
     readiness = volumes.capture_readiness_inventory(engine, project.name)
+    args._failure_phase = "launch_compose_inventory"
     visible = compose.capture_visible_workers(selected, project)
     binding = {
         "context": selected.context,
@@ -240,7 +242,8 @@ def _ordinal(engine, cid, *, created):
     return int(number)
 
 
-def _audit(engine, project, volume, image, command, selectors):
+def _audit(engine, project, volume, image, command, selectors, args):
+    args._failure_phase = "launch_audit_image"
     cli.require(
         volumes.capture_volume_resource(engine, project.name, "runner-state") == volume
     )
@@ -258,14 +261,16 @@ def _audit(engine, project, volume, image, command, selectors):
         and layout["id"] == image
         and layout["volumes"] in (None, {})
     )
+    args._failure_phase = "launch_audit_run"
     output = engine.worker_state(image, command, selectors)
+    args._failure_phase = "launch_audit_recheck"
     cli.require(
         volumes.capture_volume_resource(engine, project.name, "runner-state") == volume
     )
     return output
 
 
-def _retired(engine, selected, project, records, catalog, snapshot, api, runner_id):
+def _retired(engine, selected, project, records, catalog, snapshot, api, args):
     inventory, state, network, ready = snapshot
     old = catalog["records"]
     intents = catalog["intents"]
@@ -288,7 +293,7 @@ def _retired(engine, selected, project, records, catalog, snapshot, api, runner_
             and identity.daemon_id == inventory["daemon_id"]
             and identity.project == project.name
             and record["context"] == engine.context
-            and registration["runner_id"] == runner_id
+            and registration["runner_id"] == args.runner_id
             and previous["binding"] == {**_binding(inventory), "project": project.name}
             and prior["runner_state"]["metadata_sha256"] == host.digest(state["volume"])
             and prior["runner_network"]["metadata_sha256"] == host.digest(net)
@@ -327,7 +332,7 @@ def _retired(engine, selected, project, records, catalog, snapshot, api, runner_
         for name in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256"):
             selectors.extend(("--" + name.replace("_", "-"), admission[name]))
         output = _audit(
-            observer, project, state, identity.image_id, "worker-state", selectors
+            observer, project, state, identity.image_id, "worker-state", selectors, args
         )
         local = persistent.original_local_audit(
             record, observed, output=output, returncode=0
@@ -599,7 +604,8 @@ def launch(installation, args):
         cli.require(
             engine._daemon_binding() == (selected.endpoint, config["daemon_id"])
         )
-        before = _inventory(engine, selected, project, config)
+        before = _inventory(engine, selected, project, config, args)
+        args._failure_phase = "launch_catalog"
         core, state, network, _ = before
         cli.require(not public.exists() and not public.is_symlink())
         volume_names = engine._command("volume", "ls", "--format", "{{json .Name}}")
@@ -609,7 +615,7 @@ def launch(installation, args):
         catalog = store.inventory(operation=operation)
         _public_inventory(public_root, catalog)
         predecessors, exits = _retired(
-            engine, selected, project, records, catalog, before, api, args.runner_id
+            engine, selected, project, records, catalog, before, api, args
         )
         ordinal = len(predecessors) + 1
         cli.require(ordinal <= 256)
@@ -622,6 +628,7 @@ def launch(installation, args):
                 args.image_id,
                 "worker-bootstrap-state",
                 ("--runner-id", args.runner_id),
+                args,
             )
         payload = {
             "operation_id": operation_id,
@@ -649,10 +656,11 @@ def launch(installation, args):
             args._failure_phase = "launch_intent"
             cli.require(
                 store.inventory(operation=operation) == catalog
-                and _inventory(engine, selected, project, config) == before
+                and _inventory(engine, selected, project, config, args) == before
                 and _read(ca_path, 65536) == ca
             )
             _public_inventory(public_root, catalog)
+            args._failure_phase = "launch_intent"
             current = store.create(payload, operation=operation, first_audit=audit)
 
             def record(effect=None, **observations):
@@ -694,7 +702,7 @@ def launch(installation, args):
             )
             _next_resources(
                 before,
-                _inventory(engine, selected, project, config),
+                _inventory(engine, selected, project, config, args),
                 ready,
                 new_container=False,
             )
@@ -719,7 +727,8 @@ def launch(installation, args):
                 port=config["https_port"],
                 before_send=fence_create,
             )
-            after = _inventory(engine, selected, project, config)
+            after = _inventory(engine, selected, project, config, args)
+            args._failure_phase = "launch_create"
             cid = _next_resources(before, after, ready, new_container=True)
             net = network["network"]
             engine.network_binding = (net["name"], net["id"])

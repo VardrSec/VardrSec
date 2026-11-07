@@ -327,3 +327,35 @@ class WorkerLaunchTests(unittest.TestCase):
         self.assertEqual(self.calls, ["volume", "create", "start"])
         self.assertTrue(self.on_disk()["effects"]["start_may_have_sent"])
         self.assertIsNone(self.on_disk()["observations"]["running"])
+
+    def test_offline_audit_refusal_identifies_the_runner_step(self):
+        args = SimpleNamespace()
+        project = SimpleNamespace(name="fixture")
+        self.engine._command.return_value = json.dumps(
+            {"id": self.identity.image_id, "volumes": None}
+        )
+        self.engine.worker_state.side_effect = runtime.RuntimeRefused("private")
+        with patch.object(
+            launcher.volumes, "capture_volume_resource", return_value=self.state
+        ):
+            with self.assertRaises(runtime.RuntimeRefused):
+                launcher._audit(
+                    self.engine,
+                    project,
+                    self.state,
+                    self.identity.image_id,
+                    "worker-bootstrap-state",
+                    ("--runner-id", cases.PREVIOUS),
+                    args,
+                )
+        self.assertEqual(
+            cli.failure_diagnostic(args, runtime.RuntimeRefused("private")),
+            {"failure_code": "runtime_refused", "failure_phase": "launch_audit_run"},
+        )
+
+    def test_reviewed_credential_names_can_use_the_native_name_range(self):
+        names = ["_mixedCase" + "a" * 117] + [f"reader_{index}" for index in range(31)]
+        config = {**self.config, "credential_names": names}
+        path = self.private / "config.json"
+        path.write_bytes(host.canonical(config))
+        self.assertEqual(launcher._config(str(path))["credential_names"], names)
