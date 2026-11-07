@@ -404,6 +404,26 @@ Windows receipt SHA-256 `991bd4fa9364d01b3ed0750486434baa90a2dc43a4671c871d31ae3
 Ubuntu sanitized receipt SHA-256 `ed389544450e6128ee24185e6049a47c8f1ece217ac6e41ae8db224030276987`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42409178298)
 
+### Strict review without authority or an open testing window
+
+Distribution `976b2716abce43f33a09a2e7587f354acdf5e9e2`,
+Map `05dc78cf9a385255de459c8a5b833842d6528a63`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` passed on Windows Docker Desktop
+and Ubuntu 24.04. Review of the first job returned HTTP 409 when there was
+no authorization record. Adding the record and selecting it made review
+return HTTP 200. The second job's exact existing warning identified a
+closed testing window. Map refused review with HTTP 409, then accepted the
+same request after the owner extended only the window end.
+
+Both jobs remained pending and unissued, with zero target requests,
+charges, or reservations. No managed worker started. Each fixture retained
+five stopped containers.
+
+Windows receipt SHA-256 `64db894c4c057c61ce645f3bd1dcc6e68bc181d9c88133996844983c7d2d2861`.
+Ubuntu sanitized receipt SHA-256 `89373fa252baf61a2a5c1cdedd218dffa927239fab41c8eee715149442279824`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42409914844)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
@@ -674,7 +694,9 @@ cancellation paths, active grant revocation, expiry before claim and expiry
 during active work, allocated duration and represented-origin exhaustion, and
 Strict registration refusal after an authority change. The ordinary
 stopped-predecessor recovery check and shared concurrency exhaustion also
-passed. The open cases include the remaining Strict denials,
+passed. Both platforms also passed the Strict review checks for missing
+authorization and a closed testing window. The open cases include a stale
+registered approval at claim,
 retained partial evidence, disconnect, crash and restart, duplicate and lost
 replies, and persisted preclaim recovery.
 

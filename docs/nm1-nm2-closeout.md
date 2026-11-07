@@ -111,6 +111,11 @@ after an authority change. Fresh signed registration for the same job passed
 with no execution or charges.
 [Installed Strict evidence](nm2-worker-acceptance-evidence.md#strict-approval-after-an-authority-change)
 
+Both platforms also refused Strict review when authorization was absent
+or the testing window had closed. The repaired reviews passed with zero
+execution or charges. A claim against a stale registered approval remains open.
+[Installed review evidence](nm2-worker-acceptance-evidence.md#strict-review-without-authority-or-an-open-testing-window)
+
 Windows Docker Desktop and Ubuntu passed ordinary stopped-predecessor
 recovery. A successor was refused before exact exit reporting and launched
 on the same state volume after original Runner reconciliation. The first
