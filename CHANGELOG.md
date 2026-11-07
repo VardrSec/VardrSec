@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Prepare closed host lifecycle-intent storage with a distinct MAC-only custody
+  purpose, live-operation access, exclusive durable creation and sticky CAS
+  updates. Preserve STOP keys and ordinary registration; add ADR0006 and isolated
+  synthetic-backend regressions. No launcher, effect fences, activation or
+  lifecycle acceptance is supplied by this storage increment.
+
+
 - Record separate verified Linux/Desktop optional60-second idle and zero-issued-job
   stop slices, with six exact sanitized public receipts. Preserve the earlier
   held/unobserved Linux and Desktop diagnostic attempts without acceptance credit

@@ -37,6 +37,14 @@ def _secret(value):
     return value
 
 
+def _intent_operation(backend, records, operation):
+    # Imported only at an explicit call, after worker_host finished importing us.
+    import worker_host
+
+    _require(type(records) is worker_host.HostRecords and records.backend is backend)
+    records._intent_access(operation)
+
+
 class WindowsSecrets:
     """Generic credential, local-machine persistence for this user only.
 
@@ -94,6 +102,9 @@ class WindowsSecrets:
     def _target(self, runtime_id):
         return "VardrSec.NewMoon.WorkerStop/v1/" + _runtime_id(runtime_id)
 
+    def _intent_target(self, operation_id):
+        return "VardrSec.NewMoon.LifecycleIntent/v1/" + _runtime_id(operation_id)
+
     @contextmanager
     def _guard(self, runtime_id):
         ctypes.set_last_error(0)
@@ -111,7 +122,9 @@ class WindowsSecrets:
             self.kernel.CloseHandle(handle)
 
     def read(self, runtime_id):
-        target = self._target(runtime_id)
+        return self._read_target(self._target(runtime_id))
+
+    def _read_target(self, target):
         pointer = ctypes.POINTER(self.Credential)()
         if not self.api.CredReadW(target, 1, 0, ctypes.byref(pointer)):
             if ctypes.get_last_error() == 1168:
@@ -136,13 +149,41 @@ class WindowsSecrets:
         target = self._target(runtime_id)
         with self._guard(runtime_id):
             _require(self.read(runtime_id) is None)
-            data = (ctypes.c_ubyte * 64).from_buffer_copy(secret.encode("ascii"))
-            value = self.Credential()
-            value.Type, value.TargetName = 1, target
-            value.CredentialBlobSize, value.CredentialBlob = 64, data
-            value.Persist, value.UserName = 2, "VardrSec worker stop only"
-            _require(self.api.CredWriteW(ctypes.byref(value), 0))
+            self._write_target(target, secret, "VardrSec worker stop only")
             _require(self.read(runtime_id) == secret)
+
+    def _write_target(self, target, secret, description):
+        data = (ctypes.c_ubyte * 64).from_buffer_copy(secret.encode("ascii"))
+        value = self.Credential()
+        value.Type, value.TargetName = 1, target
+        value.CredentialBlobSize, value.CredentialBlob = 64, data
+        value.Persist, value.UserName = 2, description
+        _require(self.api.CredWriteW(ctypes.byref(value), 0))
+
+    def read_intent(self, operation_id, *, records, operation):
+        _intent_operation(self, records, operation)
+        return self._read_target(self._intent_target(operation_id))
+
+    def create_intent(self, operation_id, secret, *, records, operation):
+        _intent_operation(self, records, operation)
+        secret = _secret(secret)
+        operation_id = _runtime_id(operation_id)
+        # Separate fixed purpose; the future runtime's STOP slot stays absent.
+        ctypes.set_last_error(0)
+        handle = self.kernel.CreateMutexW(
+            None, True, "Local\\VardrSec.LifecycleIntent.v1." + operation_id
+        )
+        _require(handle)
+        owned = ctypes.get_last_error() != 183
+        try:
+            _require(owned)
+            _require(self.read_intent(operation_id, records=records, operation=operation) is None)
+            self._write_target(self._intent_target(operation_id), secret, "VardrSec lifecycle MAC only")
+            _require(self.read_intent(operation_id, records=records, operation=operation) == secret)
+        finally:
+            if owned:
+                self.kernel.ReleaseMutex(handle)
+            self.kernel.CloseHandle(handle)
 
     def delete(self, runtime_id):
         # Explicit retirement only; expiry/failed reconciliation never calls this.
@@ -176,7 +217,9 @@ class PosixSecrets:
             raise
 
     def read(self, runtime_id):
-        name = _runtime_id(runtime_id) + ".stop"
+        return self._read_name(_runtime_id(runtime_id) + ".stop")
+
+    def _read_name(self, name):
         try:
             directory = self._directory()
             try:
@@ -202,8 +245,9 @@ class PosixSecrets:
             raise SecretRefused("worker_secret_refused") from None
 
     def create(self, runtime_id, secret):
-        secret = _secret(secret)
-        name = _runtime_id(runtime_id) + ".stop"
+        return self._create_name(_runtime_id(runtime_id) + ".stop", _secret(secret))
+
+    def _create_name(self, name, secret):
         try:
             directory = self._directory()
             try:
@@ -222,6 +266,14 @@ class PosixSecrets:
                 os.close(directory)
         except OSError:
             raise SecretRefused("worker_secret_refused") from None
+
+    def read_intent(self, operation_id, *, records, operation):
+        _intent_operation(self, records, operation)
+        return self._read_name(_runtime_id(operation_id) + ".intent-key")
+
+    def create_intent(self, operation_id, secret, *, records, operation):
+        _intent_operation(self, records, operation)
+        return self._create_name(_runtime_id(operation_id) + ".intent-key", _secret(secret))
 
     def delete(self, runtime_id):
         name = _runtime_id(runtime_id) + ".stop"

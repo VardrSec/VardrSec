@@ -725,6 +725,12 @@ class HostRecords:
     def _path(self, runtime_id):
         return self.directory / (_uuid(runtime_id) + ".json")
 
+    def _intent_access(self, operation):
+        """Validate a live owner before any lifecycle-intent storage access."""
+        self._require_operation(operation)
+        self._directory()
+        return self.directory
+
     def secret(self, runtime_id):
         try:
             return _hash(self.backend.read(_uuid(runtime_id)))
