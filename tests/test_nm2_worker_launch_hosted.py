@@ -335,12 +335,13 @@ class HostedLaunchTests(unittest.TestCase):
             key: value for key, value in stopped["cancelled_job"].items()
             if key != "cancel_requested_sha256"
         }
-        grant_proof.update(grant_revocation_sha256="a" * 64, terminal_cause="control_lease_expired")
+        grant_proof.update(grant_revocation_sha256="a" * 64, terminal_cause="local_emergency_stop")
         revoked = {
             **stopped, "scenario": hosted.LAUNCH_GRANT_REVOKE_SCENARIO,
             "acceptance_scope": "grant_revocation_then_next_launch", "cancelled_job": grant_proof,
         }
         self.assertEqual(hosted.public_projection(revoked, selection)["cancelled_job"], grant_proof)
-        grant_proof["terminal_cause"] = "remote_stop_requested"
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.public_projection(revoked, selection)
+        for other_cause in ("remote_stop_requested", "control_lease_expired", "observed_exit"):
+            with self.subTest(other_cause=other_cause), self.assertRaises(hosted.HostedRefused):
+                grant_proof["terminal_cause"] = other_cause
+                hosted.public_projection(revoked, selection)

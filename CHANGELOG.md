@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Add an opt-in installed case for revoking one synthetic target grant during
-  active work, preserving the original Runner API enrollment and peer grant.
+  active work, checking Runner's native stop receipt and preserving the
+  original Runner API enrollment and peer grant.
 
 - Add an opt-in installed case for an approved job with a missing local target
   grant. Verify zero issuance, target requests and charges through a successor.

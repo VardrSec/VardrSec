@@ -1037,9 +1037,12 @@ def launch_projection(raw, selection):
         proof = raw.get("cancelled_job")
         authority_key, expected_causes = {
             LAUNCH_LOCAL_STOP_SCENARIO: ("local_stop_sha256", {"local_emergency_stop"}),
-            LAUNCH_GRANT_REVOKE_SCENARIO: ("grant_revocation_sha256", {"control_lease_expired"}),
+            LAUNCH_GRANT_REVOKE_SCENARIO: ("grant_revocation_sha256", {"local_emergency_stop"}),
         }.get(scenario, ("cancel_requested_sha256", {"remote_stop_requested", "control_lease_expired"}))
-        allowed_causes = expected_causes | {"observed_exit"}
+        allowed_causes = (
+            expected_causes if scenario == LAUNCH_GRANT_REVOKE_SCENARIO
+            else expected_causes | {"observed_exit"}
+        )
         require(
             type(proof) is dict
             and set(proof) == {"job_id", "retirement_sha256", "audit_sha256",

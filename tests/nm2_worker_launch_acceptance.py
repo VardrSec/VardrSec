@@ -375,9 +375,10 @@ print(len(directories))
             "launch_stop_work_original_run_not_preserved",
         )
         audit = self.reconcile_original(admission, retired)
+        # Runner treats local grant revalidation failure as a local stop.
+        # The original journal above distinguishes it from an operator stop.
         expected_causes = (
-            {"local_emergency_stop"} if self.local_stop
-            else {"control_lease_expired"} if self.revoke_grant
+            {"local_emergency_stop"} if self.local_stop or self.revoke_grant
             else {"remote_stop_requested", "control_lease_expired"}
         )
         if inventory["results"]:
@@ -407,8 +408,7 @@ print(len(directories))
         else:
             cause = terminal.get("cause")
             require(
-                cause in expected_causes | {"observed_exit"}
-                and inventory["stops"][0] == {
+                inventory["stops"][0] == {
                     "contract_id": binding["contract_id"],
                     "receipt_sha256": terminal["receipt_sha256"],
                     "outcome": terminal["outcome"],
@@ -416,6 +416,8 @@ print(len(directories))
                 },
                 "launch_stop_work_terminal_not_proven",
             )
+        allowed_causes = expected_causes if self.revoke_grant else expected_causes | {"observed_exit"}
+        require(cause in allowed_causes, "launch_stop_work_terminal_not_proven")
         require(self.timed_traffic()["requests"] == requests, "launch_stop_work_traffic_changed")
         proof = {
             "job_id": job, "retirement_sha256": retired["receipt_sha256"],
