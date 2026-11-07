@@ -45,3 +45,15 @@ permanent runtime/provider denials. They cover ownership/lifetime/thread checks,
 one-lock ordering, exception release and original diagnostic identity. They do
 not replace the normal full Distribution suite against actual imported modules,
 or physical Windows/Linux lifecycle acceptance. Background startup remains off.
+
+Enable preparation and the already-owned body have separate private entry points.
+`_enable_setup(args)` returns only its existing observer, client, public path,
+reviewed trust bytes and admission options. `_enable_owned(args, records,
+operation, setup)` requires the exact live operation before unpacking that setup
+or performing body effects. It reuses the same records and existing borrowed
+critical sections; it constructs neither records nor another operation. The
+installation-state checks use the installation already bound to that capability.
+Public enable retains its original setup, custody, authentication, capture,
+registration and publication order, and constructs its reply after lock release.
+This factoring does not wire durable intents, registration/publication fences,
+create/start or a next-enable command. Those remain independently gated.

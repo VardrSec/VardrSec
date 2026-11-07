@@ -185,11 +185,15 @@ class World:
                 assert [a.name for a in node.names] == ["worker_host_persistent"]
                 return None
         tree = ast.parse((SOURCE/"worker_cli.py").read_text(encoding="utf-8"))
-        node = next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name == "enable")
+        nodes = [n for n in tree.body if isinstance(n,ast.FunctionDef)
+            and n.name in {"_enable_setup", "_enable_owned", "enable"}]
+        assert {n.name for n in nodes} == {"_enable_setup", "_enable_owned", "enable"}
         cg["worker_host_persistent"] = SimpleNamespace(limits=lambda value:value)
-        exec(compile(ast.fix_missing_locations(ast.Module(body=[SupplyLimits().visit(node)],type_ignores=[])),
+        exec(compile(ast.fix_missing_locations(ast.Module(body=[SupplyLimits().visit(node) for node in nodes],type_ignores=[])),
             str(SOURCE/"worker_cli.py"),"exec"),cg)
         self.enable = cg["enable"]
+        self.enable_setup = cg["_enable_setup"]
+        self.enable_owned = cg["_enable_owned"]
         self.cli_globals = cg
         cg["CLIRefused"] = type("CLIRefused",(ValueError,),{})
         for item in tree.body:
@@ -392,6 +396,46 @@ class Operations(unittest.TestCase):
         self.assertEqual(w.releases,1)
 
 
+    def test_private_enable_uses_existing_owner_and_public_reply_follows_release(self):
+        w = World()
+        setup = w.enable_setup(w.cli_args)
+        with w.records.operation() as operation:
+            admission, identity = w.enable_owned(w.cli_args, w.records, operation, setup)
+            self.assertIs(identity, w.identity)
+            self.assertEqual(admission["runtime_sha256"], "e" * 64)
+            self.assertEqual((w.acquisitions, w.releases, w.depth), (1, 0, 1))
+            w.records._require_operation(operation)
+        self.assertEqual((w.acquisitions, w.releases, w.depth), (1, 1, 0))
+        w = World()
+        original = w.cli_globals["asdict"]
+        def after_release(value):
+            self.assertEqual(w.depth, 0)
+            self.assertEqual(w.releases, 1)
+            return original(value)
+        w.cli_globals["asdict"] = after_release
+        self.assertEqual(w.enable(VirtualPath("installation"), w.cli_args)["state"], "enabled")
+
+    def test_private_enable_rejects_invalid_owner_before_unpack_or_effect(self):
+        w = World()
+        def refused(records, operation):
+            before = list(w.events)
+            with self.assertRaises(Refused):
+                w.enable_owned(None, records, operation, None)
+            self.assertEqual(w.events, before)
+        refused(w.records, None)
+        refused(w.records, True)
+        refused(w.records, object())
+        with w.records.operation() as operation:
+            refused(w.records, copy.copy(operation))
+            refused(w.record(), operation)
+            w.thread += 1
+            refused(w.records, operation)
+            w.thread -= 1
+            w.records._require_operation(operation)
+        refused(w.records, operation)
+        self.assertEqual(w.sequence.get("request", 0), 0)
+        self.assertEqual(w.sequence.get("auth", 0), 0)
+
 class ActualOperations(unittest.TestCase):
     """Normal full-suite coverage of real modules; pure runner excludes this class."""
     @staticmethod
@@ -518,6 +562,96 @@ class ActualOperations(unittest.TestCase):
                             with records.operation(): pass
                         self.assertEqual(count,[1])
 
+
+    def test_real_private_enable_keeps_exact_owner_and_never_calls_public_enable(self):
+        host, cli = self.modules()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            public = root / "public"
+            public.mkdir()
+            records = self.record(host, root)
+            identity = cli.runtime.RuntimeIdentity("owned", "a" * 64, "sha256:" + "b" * 64,
+                "owned-project", "2026-11-06T02:00:00Z", "c" * 64)
+            observer = Mock()
+            observer.capture_running.return_value = identity
+            client, session = Mock(), Mock()
+            admission = {"runtime_sha256": "e" * 64}
+            records.read = Mock(return_value={"registration_state": "acknowledged", "admission": admission})
+            records.outside_mounts = Mock()
+            args = SimpleNamespace(runtime_id=RID, container_id=identity.container_id,
+                image_id=identity.image_id, project=identity.project, origin="https://issuer.example",
+                enrollment_id="enrolled", runner_id=RUNNER)
+            setup = (observer, client, public, b"[]", {"protocol": "persistent-v3", "limits": {
+                "max_attempts": None, "idle_timeout_seconds": None}})
+            counts, order = [0, 0], []
+            @contextlib.contextmanager
+            def lock(_installation):
+                counts[0] += 1
+                try:
+                    yield
+                finally:
+                    self.assertIsNone(records._HostRecords__operation)
+                    counts[1] += 1
+            def registered(*positional, **kwargs):
+                self.assertEqual(positional, (client, records, session))
+                self.assertIs(kwargs["operation"], operation)
+                records._require_operation(operation)
+                order.append("register")
+                return admission
+            def publish(path, _data):
+                records._require_operation(operation)
+                self.assertEqual(counts, [1, 0])
+                order.append(path.name)
+            with patch.object(host.updater, "installation_lock", side_effect=lock), \
+                    patch.object(cli, "enable", side_effect=AssertionError("nested_public_enable")), \
+                    patch.object(cli, "records_for", side_effect=AssertionError("new_records")), \
+                    patch.object(cli, "owner", return_value=contextlib.nullcontext(session)), \
+                    patch.object(cli.host, "register_runtime", side_effect=registered), \
+                    patch.object(cli.host, "_client"), patch.object(cli.host, "_observer"), \
+                    patch.object(cli, "publish_public", side_effect=publish):
+                with records.operation() as operation:
+                    result = cli._enable_owned(args, records, operation, setup)
+                    self.assertEqual(result, (admission, identity))
+                    self.assertEqual(counts, [1, 0])
+                    records._require_operation(operation)
+            self.assertEqual(counts, [1, 1])
+            self.assertEqual(order, ["register", "trust.json", "admission.json"])
+            self.assertEqual(observer.capture_running.call_count, 2)
+
+    def test_real_private_enable_rejects_none_foreign_copied_thread_and_stale_tokens(self):
+        host, cli = self.modules()
+        with tempfile.TemporaryDirectory() as temporary:
+            records = self.record(host, Path(temporary))
+            other = self.record(host, Path(temporary))
+            counts = [0, 0]
+            @contextlib.contextmanager
+            def lock(_installation):
+                counts[0] += 1
+                try:
+                    yield
+                finally:
+                    counts[1] += 1
+            def refused(selected, operation):
+                with self.assertRaises(host.HostRefused):
+                    cli._enable_owned(None, selected, operation, None)
+            with patch.object(host.updater, "installation_lock", side_effect=lock), \
+                    patch.object(cli, "owner") as owner, \
+                    patch.object(cli.host, "register_runtime") as register, \
+                    patch.object(cli, "publish_public") as publish, \
+                    patch.object(cli.runtime.LocalDocker, "capture_running") as capture:
+                refused(records, None)
+                refused(records, True)
+                refused(records, object())
+                with records.operation() as operation:
+                    refused(records, copy.copy(operation))
+                    refused(other, operation)
+                    with patch.object(host.threading, "get_ident", return_value=operation._thread + 1):
+                        refused(records, operation)
+                    records._require_operation(operation)
+                refused(records, operation)
+                for effect in (owner, register, publish, capture):
+                    effect.assert_not_called()
+            self.assertEqual(counts, [1, 1])
 
 if __name__ == "__main__":
     unittest.main()

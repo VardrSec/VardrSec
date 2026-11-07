@@ -22,11 +22,16 @@ RUNNER = "22222222-2222-4222-8222-222222222222"
 
 
 class Records:
-    def __init__(self, record):
+    def __init__(self, record, installation):
         self.record = record
+        self.installation = installation
         self.depth = 0
         self.active_operation = None
         self.outside_mounts = Mock()
+
+    def _require_operation(self, operation):
+        assert operation is not None and operation is self.active_operation
+        assert self.depth == 1
 
     @contextlib.contextmanager
     def locked(self, *, operation=None):
@@ -131,7 +136,7 @@ class WorkerCLI(unittest.TestCase):
             "revocation_state": "none",
             "receipt": None,
         }
-        records = Records(record)
+        records = Records(record, directory)
         observer = Observer(record)
         client = Mock(spec=cli.host.HostClient)
         client.pin.return_value = record["client"]

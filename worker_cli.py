@@ -373,7 +373,8 @@ def components(record, *, client=True):
     return api, observer, identity
 
 
-def enable(installation, args):
+def _enable_setup(args):
+    """Keep the existing enable setup prefix; never acquire custody or a lock."""
     args._failure_phase = "enable_inputs"
     protocol = getattr(args, "protocol", "persistent-v3")
     maximum = getattr(args, "max_attempts", None)
@@ -435,61 +436,74 @@ def enable(installation, args):
     )
     args._failure_phase = "enable_api_setup"
     client = host.HostClient(args.api_url, args.ca)
+    return observer, client, public, trust, admission_options
+
+
+def _enable_owned(args, records, operation, setup):
+    """Continue enablement only inside this exact records owner's live operation."""
+    records._require_operation(operation)
+    observer, client, public, trust, admission_options = setup
+    with records.locked(operation=operation):
+        require(not (records.installation / updater.STATE).exists())
+        require(not (public / "admission.json").exists())
+    args._failure_phase = "enable_owner_auth"
+    with owner(client, args) as session:
+        args._failure_phase = "enable_capture"
+        identity = observer.capture_running(
+            container_id=args.container_id, image_id=args.image_id, project=args.project
+        )
+        args._failure_phase = "enable_registration"
+        admission = host.register_runtime(
+            client,
+            records,
+            session,
+            issuer_origin=args.origin,
+            enrollment_id=args.enrollment_id,
+            runner_id=args.runner_id,
+            identity=identity,
+            observer=observer,
+            runtime_id=args.runtime_id,
+            operation=operation,
+            **admission_options,
+        )
+    # The host receipt exists before public permission can enter the container.
+    args._failure_phase = "enable_publication_checks"
+    with records.locked(operation=operation):
+        require(not (records.installation / updater.STATE).exists())
+        record = records.read(args.runtime_id)
+        host._client(record, client)
+        host._observer(record, observer)
+        require(
+            record["registration_state"] == "acknowledged"
+            and record["admission"] == admission
+        )
+        args._failure_phase = "enable_recapture"
+        require(
+            observer.capture_running(
+                container_id=args.container_id,
+                image_id=args.image_id,
+                project=args.project,
+            )
+            == identity
+        )
+        args._failure_phase = "enable_mount_custody"
+        records.outside_mounts(observer, identity)
+        args._failure_phase = "enable_publish_trust"
+        if not (public / "trust.json").exists():
+            publish_public(public / "trust.json", trust)
+        else:
+            require(public_trust(public / "trust.json") == trust)
+        args._failure_phase = "enable_publish_admission"
+        publish_public(public / "admission.json", host.canonical(admission))
+    return admission, identity
+
+
+def enable(installation, args):
+    setup = _enable_setup(args)
     args._failure_phase = "enable_custody"
     records = records_for(installation, args.private_root)
     with records.operation() as operation:
-        with records.locked(operation=operation):
-            require(not (installation / updater.STATE).exists())
-            require(not (public / "admission.json").exists())
-        args._failure_phase = "enable_owner_auth"
-        with owner(client, args) as session:
-            args._failure_phase = "enable_capture"
-            identity = observer.capture_running(
-                container_id=args.container_id, image_id=args.image_id, project=args.project
-            )
-            args._failure_phase = "enable_registration"
-            admission = host.register_runtime(
-                client,
-                records,
-                session,
-                issuer_origin=args.origin,
-                enrollment_id=args.enrollment_id,
-                runner_id=args.runner_id,
-                identity=identity,
-                observer=observer,
-                runtime_id=args.runtime_id,
-                operation=operation,
-                **admission_options,
-            )
-        # The host receipt exists before public permission can enter the container.
-        args._failure_phase = "enable_publication_checks"
-        with records.locked(operation=operation):
-            require(not (installation / updater.STATE).exists())
-            record = records.read(args.runtime_id)
-            host._client(record, client)
-            host._observer(record, observer)
-            require(
-                record["registration_state"] == "acknowledged"
-                and record["admission"] == admission
-            )
-            args._failure_phase = "enable_recapture"
-            require(
-                observer.capture_running(
-                    container_id=args.container_id,
-                    image_id=args.image_id,
-                    project=args.project,
-                )
-                == identity
-            )
-            args._failure_phase = "enable_mount_custody"
-            records.outside_mounts(observer, identity)
-            args._failure_phase = "enable_publish_trust"
-            if not (public / "trust.json").exists():
-                publish_public(public / "trust.json", trust)
-            else:
-                require(public_trust(public / "trust.json") == trust)
-            args._failure_phase = "enable_publish_admission"
-            publish_public(public / "admission.json", host.canonical(admission))
+        admission, identity = _enable_owned(args, records, operation, setup)
     return {
         "schema": "vardr.worker-cli/1",
         "state": "enabled",

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Factor worker enable setup and its existing locked body into private helpers.
+  Require the exact live HostRecords operation before private-body effects;
+  preserve public argument/default/diagnostic order and reply construction after
+  lock release. This adds no create/start command, intent fence or replay path.
+
 - Prepare closed host lifecycle-intent storage with a distinct MAC-only custody
   purpose, live-operation access, exclusive durable creation and sticky CAS
   updates. Preserve STOP keys and ordinary registration; add ADR0006 and isolated
