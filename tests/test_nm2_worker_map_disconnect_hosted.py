@@ -197,6 +197,21 @@ class MapDisconnectHostedTests(unittest.TestCase):
                     {"stage": "launch_map_disconnect_observe_worker", "reason": reason},
                 )
 
+        self.assertEqual(
+            hosted.failure_projection(
+                {
+                    **raw,
+                    "stage": "launch_map_disconnect_journal_after_exit",
+                    "reason": "cancellation_original_run_not_active",
+                },
+                selection,
+            ),
+            {
+                "stage": "launch_map_disconnect_journal_after_exit",
+                "reason": "cancellation_original_run_not_active",
+            },
+        )
+
 
 class MapDisconnectLocalTests(unittest.TestCase):
     def fixture(self, *, worker_exit=WORKER_EXIT):
@@ -331,7 +346,6 @@ class MapDisconnectLocalTests(unittest.TestCase):
                 "register",
                 "target",
                 "map_read",
-                "audit",
                 "target",
             ],
         )
@@ -345,13 +359,15 @@ class MapDisconnectLocalTests(unittest.TestCase):
         calls = [
             (name, args[3] if name == "docker" else None)
             for name, args, _ in history.mock_calls
-            if name in {"docker", "observer.observe_exit", "observer.confirm_exit"}
+            if name
+            in {"docker", "observer.observe_exit", "audit", "observer.confirm_exit"}
         ]
         self.assertEqual(
             calls,
             [
                 ("docker", "stop"),
                 ("observer.observe_exit", None),
+                ("audit", None),
                 ("observer.confirm_exit", None),
                 ("docker", "start"),
                 ("observer.confirm_exit", None),
@@ -365,6 +381,31 @@ class MapDisconnectLocalTests(unittest.TestCase):
             fixture.receipt["map_disconnect"]["api_cut_to_worker_exit_ns"],
             3_000_000_000,
         )
+
+    def test_refused_post_exit_audit_holds_before_api_restart_or_report(self):
+        fixture, observer, identity, _, history = self.fixture()
+        fixture.observe_executing_run_id.side_effect = local.AcceptanceRefused(
+            "cancellation_original_run_not_active"
+        )
+        fixture.report_exit = Mock()
+        with self.assertRaisesRegex(
+            local.AcceptanceRefused, "^cancellation_original_run_not_active$"
+        ):
+            fixture.observe_map_disconnect(observer, identity, {}, CASE)
+        self.assertEqual(
+            fixture.receipt["stage"], "launch_map_disconnect_journal_after_exit"
+        )
+        fixture.docker.assert_called_once()
+        self.assertEqual(fixture.docker.call_args.args[3], "stop")
+        observer.observe_exit.assert_called_once_with(identity)
+        fixture.observe_executing_run_id.assert_called_once_with("engagement", "job")
+        observer.confirm_exit.assert_not_called()
+        fixture.report_exit.assert_not_called()
+        self.assertLess(
+            [entry[0] for entry in history.mock_calls].index("observer.observe_exit"),
+            [entry[0] for entry in history.mock_calls].index("audit"),
+        )
+        self.assertNotIn("map_disconnect", fixture.receipt)
 
     def test_freshness_accounts_for_target_age_and_entire_host_sample(self):
         observed = {
@@ -394,7 +435,7 @@ class MapDisconnectLocalTests(unittest.TestCase):
         fixture.docker.assert_not_called()
         fixture.api.request.assert_called_once()
         fixture.unreported_attempt.assert_called_once()
-        fixture.observe_executing_run_id.assert_called_once()
+        fixture.observe_executing_run_id.assert_not_called()
         observer.observe_exit.assert_not_called()
 
     def test_wrong_daemon_refuses_before_registration_or_stop(self):
@@ -456,6 +497,7 @@ class MapDisconnectLocalTests(unittest.TestCase):
             fixture.observe_map_disconnect(observer, identity, {}, CASE)
         fixture.docker.assert_called_once()
         self.assertEqual(fixture.docker.call_args.args[3], "stop")
+        fixture.observe_executing_run_id.assert_not_called()
         self.assertNotIn("map_disconnect", fixture.receipt)
 
     def test_observation_refusals_are_distinct_and_never_restart_api(self):
@@ -491,6 +533,7 @@ class MapDisconnectLocalTests(unittest.TestCase):
                     fixture.observe_map_disconnect(observer, identity, {}, CASE)
                 fixture.docker.assert_called_once()
                 self.assertEqual(fixture.docker.call_args.args[3], "stop")
+                fixture.observe_executing_run_id.assert_not_called()
                 self.assertNotIn("map_disconnect", fixture.receipt)
 
     def test_core_identity_refuses_foreign_service_before_mutation(self):

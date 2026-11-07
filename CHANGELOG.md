@@ -4,7 +4,8 @@
 
 - Complete slow installed-outage observations before the final target sample.
   Refuse a stale sample before stopping the API and distinguish worker, traffic,
-  and API-state observation failures.
+  and API-state observation failures. Verify the original persisted journal
+  after physical exit and before API restart or host reporting.
 
 - Add an opt-in installed Map claim witness for a registered Strict approval
   whose authority revision became stale. Verify the unchanged approval and zero

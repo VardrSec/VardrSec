@@ -214,6 +214,14 @@ always needs fresh admission.
 | 3 | Restart/duplicate claim | No automatic restart or new claim while an old incarnation is unresolved. Competing explicit claims yield at most one physical attempt/ordinal/reservation; ambiguous losers remain held. |
 | 3 | Lost terminal reply | Observe the exact immutable receipt. A retained result without completion stays held until the trusted host has proved exit and failed that existing result; preserve its artifact/receipt and never replace it with a stop or replay publication. |
 
+The ordinary Map outage fixture checks the exact consumed, confirmed, active
+Map attempt and the three case-bound target requests before stopping the API.
+After direct worker exit and the target/API/cutoff checks, the original audit
+command verifies the retained controlled executing journal record. This journal
+observation occurs after physical exit and before API restart or host reporting.
+Its phase is interpreted as persisted history. Any mismatch holds the fixture.
+The original physical timing bounds and recovery checks remain required.
+
 Do not infer a completed stop from an expired lease, a numeric PID, owner intent,
 container name, health response or a restarted service. Record actual direct
 Docker state and exact runtime receipt. A negative case passing because a later

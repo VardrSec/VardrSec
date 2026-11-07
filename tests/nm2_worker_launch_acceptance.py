@@ -1189,11 +1189,10 @@ print(len(directories))
         self.api.request(f"/jobs/{job}/managed/approval/register", self.pending_approval)
 
         self.receipt["stage"] = "launch_map_disconnect_active"
-        # A matching dispatched prefix makes the pre-cut inventory and executing
-        # journal reads meaningful without polling intermediate claim states.
+        # A matching dispatched prefix makes the exact pre-cut Map inventory
+        # meaningful without polling intermediate claim states.
         prefix, _ = self.observe_target_prefix(stored, minimum=1)
         original = self.unreported_attempt(admission, case, identity, disabled=False)
-        run_id = self.observe_executing_run_id(engagement, job)
         observed, sample_started_ns = self.observe_target_prefix(stored)
         requests = observed["requests"]
         require(
@@ -1231,6 +1230,10 @@ print(len(directories))
         elapsed, cut_to_exit = map_disconnect_timing(
             requests[-1], after, stopped["FinishedAt"], exit_proof.finished_at
         )
+        # Corroborate the original persisted executing record after the exact
+        # physical exit and cutoff checks, before API restart or host reporting.
+        self.receipt["stage"] = "launch_map_disconnect_journal_after_exit"
+        run_id = self.observe_executing_run_id(engagement, job)
         observer.confirm_exit(exit_proof)
 
         self.receipt["stage"] = "launch_map_disconnect_start_api"
