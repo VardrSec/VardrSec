@@ -36,7 +36,14 @@ LAUNCH_GRANT_REVOKE_SCENARIO = "persistent-launch-grant-revocation"
 LAUNCH_EXPIRED_GRANT_SCENARIO = "persistent-launch-expired-grant"
 LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO = "persistent-launch-active-grant-expiry"
 LAUNCH_DURATION_SCENARIO = "persistent-launch-duration-exhaustion"
+LAUNCH_TARGET_SCENARIO = "persistent-launch-target-exhaustion"
 DURATION_MAP_COMMIT = "40bf4e37076d6a85648f817dd8b6bc69104bd863"
+TARGET_MAP_COMMIT = "41635f9a75598c84192b4b53be95e025bf0b9b9d"
+LAUNCH_BUDGETS = {LAUNCH_DURATION_SCENARIO: "duration", LAUNCH_TARGET_SCENARIO: "target"}
+LAUNCH_BUDGET_SCHEMAS = {
+    LAUNCH_DURATION_SCENARIO: "vardr.nm2-hosted/8",
+    LAUNCH_TARGET_SCENARIO: "vardr.nm2-hosted/10",
+}
 LAUNCH_GRANT_DENIAL_SCENARIOS = {LAUNCH_MISSING_GRANT_SCENARIO, LAUNCH_EXPIRED_GRANT_SCENARIO}
 LAUNCH_CANCELLATION_SCENARIOS = {
     LAUNCH_STOP_WORK_SCENARIO, LAUNCH_STOP_WORK_QUEUED_SCENARIO, LAUNCH_LOCAL_STOP_SCENARIO,
@@ -53,6 +60,7 @@ LAUNCH_SCOPES = {
     LAUNCH_EXPIRED_GRANT_SCENARIO: "expired_grant_then_next_launch",
     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: "active_grant_expiry_then_next_launch",
     LAUNCH_DURATION_SCENARIO: "allocated_duration_exhaustion",
+    LAUNCH_TARGET_SCENARIO: "represented_origin_exhaustion",
 }
 LAUNCH_SCENARIOS = set(LAUNCH_SCOPES)
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
@@ -611,6 +619,11 @@ def cohort(env):
     return values
 
 
+def _require_budget_source(budget, commit):
+    expected = {"duration": DURATION_MAP_COMMIT, "target": TARGET_MAP_COMMIT}[budget]
+    require(expected is not None and commit == expected)
+
+
 def execution_options(env):
     scenario = env.get("NM2_SCENARIO", "healthy")
     revision = env.get("NM2_DATABASE_REVISION", "0040runtimesequence")
@@ -620,8 +633,8 @@ def execution_options(env):
         and revision in {"0040runtimesequence", "0041persistentruntime"}
     )
     require(scenario not in PERSISTENT_SCENARIOS or revision == "0041persistentruntime")
-    if scenario == LAUNCH_DURATION_SCENARIO:
-        require(env.get("NM2_MAP_SHA") == DURATION_MAP_COMMIT)
+    if scenario in LAUNCH_BUDGETS:
+        _require_budget_source(LAUNCH_BUDGETS[scenario], env.get("NM2_MAP_SHA"))
     return scenario, revision
 
 
@@ -748,6 +761,8 @@ def failure_projection(raw, selection):
         "launch_duration_verify_retired",
         "selected_launch_complete",
         "selected_duration_exhaustion_complete",
+        "launch_target_prepare_second", "launch_target_observe_refusal",
+        "launch_target_verify_retired", "selected_target_exhaustion_complete",
         "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
         "empty_stop_reconciliation", "selected_empty_stop_complete",
         "image_sources",
@@ -805,6 +820,12 @@ def failure_projection(raw, selection):
         "launch_duration_original_history_changed",
         "launch_duration_api_identity_required",
         "launch_duration_policy_required",
+        "launch_target_witness_source_required", "launch_target_first_release_required",
+        "launch_target_first_approval_required", "launch_target_second_approval_required",
+        "launch_target_exact_refusal_required", "launch_target_refusal_mutated_inventory",
+        "launch_target_original_hold_required", "launch_target_unbound_reconciliation_required",
+        "launch_target_exit_changed", "launch_target_original_history_changed",
+        "launch_target_api_identity_required", "launch_target_policy_required",
         "launch_stop_work_exit_not_observed", "launch_stop_work_traffic_changed",
         "launch_stop_work_capacity_not_released", "launch_stop_work_runtime_not_retired",
         "launch_stop_work_attempt_reused", "launch_stop_work_original_run_not_preserved",
@@ -1060,12 +1081,13 @@ def _completed_launch(proof, launch):
     return dict(proof)
 
 
-def _duration_projection(raw, selection):
+def _budget_projection(raw, selection, budget):
     sources = selection["sources"]
-    require(type(sources) is dict and type(sources.get("map")) is dict
-            and sources["map"].get("commit") == DURATION_MAP_COMMIT)
+    require(type(sources) is dict and type(sources.get("map")) is dict)
+    _require_budget_source(budget, sources["map"].get("commit"))
+    other = "target_exhaustion" if budget == "duration" else "duration_exhaustion"
     require(not any(key in raw for key in (
-        "launch_pair", "cancelled_job", "unclaimed_job", "unissued_job",
+        "launch_pair", "cancelled_job", "unclaimed_job", "unissued_job", other,
     )))
     launch = raw.get("launch")
     _launch_row(launch, 1)
@@ -1077,14 +1099,16 @@ def _duration_projection(raw, selection):
         "marker_count": 1,
         "targets_spent": 1,
         "duration_allocated": 30,
-        "duration_limit": 30,
+        "duration_limit": 30 if budget == "duration" else 120,
+        **({"target_limit": 1} if budget == "target" else {}),
         "capacity_before": 0,
         "capacity_after": 0,
         "second_job_issued": 0,
         "second_job_target_requests": 0,
         "remaining_local_holds": 0,
     }
-    proof = raw.get("duration_exhaustion")
+    proof_key = f"{budget}_exhaustion"
+    proof = raw.get(proof_key)
     require(
         type(proof) is dict
         and set(proof) == set(counts) | {
@@ -1092,7 +1116,7 @@ def _duration_projection(raw, selection):
             "natural_exit_code", "retirement_sha256",
         }
         and all(type(proof[key]) is int and proof[key] == value for key, value in counts.items())
-        and proof["marker"] == "managed_claim_duration_exhausted"
+        and proof["marker"] == f"managed_claim_{budget}_exhausted"
         and proof["selected_sequence"] == "2"
         and proof["last_issued_sequence"] == "1"
         and type(proof["natural_exit_code"]) is int
@@ -1104,7 +1128,7 @@ def _duration_projection(raw, selection):
     return {
         "launch": dict(launch),
         "completed_job": completed,
-        "duration_exhaustion": dict(proof),
+        proof_key: dict(proof),
         "nm2_exit_status": "incomplete",
         "resources_retained": True,
     }
@@ -1113,9 +1137,9 @@ def _duration_projection(raw, selection):
 def launch_projection(raw, selection):
     scenario = raw.get("scenario")
     require(type(scenario) is str and scenario in LAUNCH_SCENARIOS)
-    duration = scenario == LAUNCH_DURATION_SCENARIO
-    status = "selected_duration_exhaustion_slice_passed" if duration else "selected_launch_slice_passed"
-    stage = "selected_duration_exhaustion_complete" if duration else "selected_launch_complete"
+    budget = LAUNCH_BUDGETS.get(scenario)
+    status = f"selected_{budget}_exhaustion_slice_passed" if budget else "selected_launch_slice_passed"
+    stage = f"selected_{budget}_exhaustion_complete" if budget else "selected_launch_complete"
     require(
         raw.get("expected_database_revision") == "0041persistentruntime"
         and raw.get("acceptance_scope") == LAUNCH_SCOPES[scenario]
@@ -1127,9 +1151,9 @@ def launch_projection(raw, selection):
         and raw.get("images") == selection["images"]
         and raw.get("project") == selection["project"]
     )
-    if duration:
-        return _duration_projection(raw, selection)
-    require("launch" not in raw and "duration_exhaustion" not in raw)
+    if budget:
+        return _budget_projection(raw, selection, budget)
+    require(not any(key in raw for key in ("launch", "duration_exhaustion", "target_exhaustion")))
     pair = raw["launch_pair"]
     require(type(pair) is list and len(pair) == 2)
     for ordinal, row in enumerate(pair, 1):
@@ -1453,7 +1477,7 @@ class Hosted:
                 scope="Strict authority drift only; other Strict denials and NM2 remain incomplete")
         elif self.scenario in LAUNCH_SCENARIOS:
             self.receipt.update(
-                schema="vardr.nm2-hosted/8" if self.scenario == LAUNCH_DURATION_SCENARIO else "vardr.nm2-hosted/7",
+                schema=LAUNCH_BUDGET_SCHEMAS.get(self.scenario, "vardr.nm2-hosted/7"),
                 scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope=LAUNCH_SCOPES[self.scenario],
@@ -1661,6 +1685,7 @@ class Hosted:
                 LAUNCH_EXPIRED_GRANT_SCENARIO: ["--expire-grant"],
                 LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: ["--expire-active-grant"],
                 LAUNCH_DURATION_SCENARIO: ["--duration-exhaustion"],
+                LAUNCH_TARGET_SCENARIO: ["--target-exhaustion"],
             }[self.scenario],
             "--execute",
         ]
@@ -1808,6 +1833,7 @@ class Hosted:
                     LAUNCH_EXPIRED_GRANT_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_DURATION_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_TARGET_SCENARIO: LAUNCH_SCHEMA,
                     STRICT_DRIFT_SCENARIO: STRICT_DRIFT_SCHEMA,
                 }[self.scenario]
             )
@@ -1845,6 +1871,10 @@ class Hosted:
                 self.receipt["remaining_required_cases"]["budget_exhaustion"] = (
                     "allocated_duration_exhaustion_verified_selected_cohort"
                 )
+            if self.scenario == LAUNCH_TARGET_SCENARIO:
+                self.receipt["remaining_required_cases"]["budget_exhaustion"] = (
+                    "represented_origin_exhaustion_verified_selected_cohort"
+                )
             self.receipt.update(
                 schema={
                     "healthy": "vardr.nm2-hosted/2",
@@ -1861,7 +1891,7 @@ class Hosted:
                     LAUNCH_GRANT_REVOKE_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_EXPIRED_GRANT_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: "vardr.nm2-hosted/7",
-                    LAUNCH_DURATION_SCENARIO: "vardr.nm2-hosted/8",
+                    **LAUNCH_BUDGET_SCHEMAS,
                     STRICT_DRIFT_SCENARIO: STRICT_DRIFT_HOSTED,
                 }[self.scenario],
                 stage="complete",

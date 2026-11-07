@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an opt-in installed witness for exhaustion of one represented-origin
+  attempt. Verify the second approved job remains unissued through physical
+  retirement and original-key reconciliation.
+
 - Exercise managed duration exhaustion after a healthy installed job releases
   capacity. Verify the refused claim preserves charges and reservations through
   physical retirement and original-key reconciliation.

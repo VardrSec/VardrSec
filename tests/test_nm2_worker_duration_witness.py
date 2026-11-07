@@ -2,7 +2,7 @@
 
 import unittest
 
-from nm2_worker_launch_acceptance import duration_witness_count
+from nm2_worker_launch_acceptance import budget_witness_count, duration_witness_count
 
 
 class DurationWitnessTests(unittest.TestCase):
@@ -19,3 +19,13 @@ class DurationWitnessTests(unittest.TestCase):
             b"managed_claim_duration_exhausted\n"
         )
         self.assertEqual(duration_witness_count(raw), 0)
+
+
+    def test_target_witness_is_exact_and_separate_from_duration(self):
+        prefix = b"2026-11-07 11:27:07,387 WARNING managed_http "
+        duration = prefix + b"managed_claim_duration_exhausted"
+        target = prefix + b"managed_claim_target_exhausted"
+        raw = b"\r\n".join([duration, target, target + b" extra", target])
+        self.assertEqual(budget_witness_count(raw, "target"), 2)
+        self.assertEqual(duration_witness_count(raw), 1)
+        self.assertEqual(budget_witness_count(duration, "target"), 0)

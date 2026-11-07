@@ -502,7 +502,6 @@ class HostedLaunchTests(unittest.TestCase):
 
     def test_duration_routes_to_existing_launch_harness(self):
         fixture = hosted.Hosted.__new__(hosted.Hosted)
-        fixture.scenario = hosted.LAUNCH_DURATION_SCENARIO
         fixture.receipt = {}
         fixture.command = Mock()
         asset = b"synthetic pinned Compose bytes"
@@ -512,10 +511,17 @@ class HostedLaunchTests(unittest.TestCase):
             (fixture.root / "docker-compose-5.6.1").write_bytes(asset)
             with patch.multiple(hosted, COMPOSE_BYTES=len(asset),
                                 COMPOSE_SHA256=hashlib.sha256(asset).hexdigest()):
-                argv = fixture.launch_harness(fixture.root / "cohort.json")
-        self.assertEqual(Path(argv[0]).name, "nm2_worker_launch_acceptance.py")
-        self.assertEqual(argv[-2:], ["--duration-exhaustion", "--execute"])
-        fixture.command.assert_called_once()
+                for scenario, flag in (
+                    (hosted.LAUNCH_DURATION_SCENARIO, "--duration-exhaustion"),
+                    (hosted.LAUNCH_TARGET_SCENARIO, "--target-exhaustion"),
+                ):
+                    with self.subTest(scenario=scenario):
+                        fixture.scenario = scenario
+                        fixture.command.reset_mock()
+                        argv = fixture.launch_harness(fixture.root / "cohort.json")
+                        self.assertEqual(Path(argv[0]).name, "nm2_worker_launch_acceptance.py")
+                        self.assertEqual(argv[-2:], [flag, "--execute"])
+                        fixture.command.assert_called_once()
 
     def test_duration_receipt_projects_one_joined_incarnation_and_rejects_mutations(self):
         selection = {"project": "fixture", "images": {},
@@ -557,6 +563,36 @@ class HostedLaunchTests(unittest.TestCase):
             "launch": launch, "completed_job": completed, "duration_exhaustion": proof,
             "nm2_exit_status": "incomplete", "resources_retained": True,
         })
+        target_selection = {**selection, "sources": {"map": {"commit": "b" * 40}}}
+        target_proof = {
+            **proof, "marker": "managed_claim_target_exhausted", "target_limit": 1, "duration_limit": 120,
+        }
+        target_raw = {
+            **{key: value for key, value in raw.items() if key != "duration_exhaustion"},
+            **target_selection,
+            "scenario": hosted.LAUNCH_TARGET_SCENARIO,
+            "acceptance_scope": "represented_origin_exhaustion",
+            "status": "selected_target_exhaustion_slice_passed",
+            "stage": "selected_target_exhaustion_complete",
+            "target_exhaustion": target_proof,
+        }
+        with patch.object(hosted, "TARGET_MAP_COMMIT", "b" * 40):
+            self.assertEqual(hosted.public_projection(target_raw, target_selection), {
+                "launch": launch, "completed_job": completed, "target_exhaustion": target_proof,
+                "nm2_exit_status": "incomplete", "resources_retained": True,
+            })
+            for field, changed in (
+                ("target_limit", True), ("target_limit", 5), ("duration_limit", 30),
+                ("marker", proof["marker"]), ("capacity_after", 1),
+                ("last_issued_sequence", "2"), ("second_job_target_requests", 1),
+            ):
+                bad = {**target_raw, "target_exhaustion": {**target_proof, field: changed}}
+                with self.subTest(target_field=field), self.assertRaises(hosted.HostedRefused):
+                    hosted.public_projection(bad, target_selection)
+            with self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection({**target_raw, "duration_exhaustion": proof}, target_selection)
+        with patch.object(hosted, "TARGET_MAP_COMMIT", None), self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(target_raw, target_selection)
         for field, changed in (
             ("marker", "409 Conflict"), ("marker_count", 2), ("capacity_before", False),
             ("capacity_after", 1), ("second_job_id", completed["job_id"]),
@@ -581,6 +617,37 @@ class HostedLaunchTests(unittest.TestCase):
         wrong = {**selection, "sources": {"map": {"commit": "f" * 40}}}
         with self.assertRaises(hosted.HostedRefused):
             hosted.public_projection({**raw, **wrong}, wrong)
+
+    def test_target_dispatch_refuses_unbound_and_wrong_map_sources(self):
+        pinned = "b" * 40
+        env = {"NM2_SCENARIO": hosted.LAUNCH_TARGET_SCENARIO,
+               "NM2_DATABASE_REVISION": "0041persistentruntime", "NM2_MAP_SHA": pinned}
+        with patch.object(hosted, "TARGET_MAP_COMMIT", None), self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(env)
+        with patch.object(hosted, "TARGET_MAP_COMMIT", pinned):
+            self.assertEqual(hosted.execution_options(env),
+                             (hosted.LAUNCH_TARGET_SCENARIO, "0041persistentruntime"))
+            with self.assertRaises(hosted.HostedRefused):
+                hosted.execution_options({**env, "NM2_MAP_SHA": hosted.DURATION_MAP_COMMIT})
+            with self.assertRaises(hosted.HostedRefused):
+                hosted.execution_options({**env, "NM2_DATABASE_REVISION": "0040runtimesequence"})
+
+    def test_target_fixture_configures_only_target_policy(self):
+        fixture = LaunchFixture.__new__(LaunchFixture)
+        fixture.budget_exhaustion = "target"
+        fixture.images = {"api": "sha256:" + "a" * 64}
+        initial = {"core": [{"service": "api", "container_id": "1" * 64,
+                            "image_id": fixture.images["api"]}]}
+        fixture.api = Mock()
+        fixture.api.request.return_value = {"limit": 1, "spent": 0, "unit": "represented_origin_attempts/1"}
+        fixture.configure_budget_exhaustion(initial, "owned", "authority")
+        fixture.api.request.assert_called_once_with(
+            "/engagements/owned/target-policy", {"limit": 1}, method="PUT",
+        )
+        self.assertEqual((fixture.budget_api_id, fixture.budget_authorization), ("1" * 64, "authority"))
+        fixture.api.request.return_value["limit"] = True
+        with self.assertRaises(AcceptanceRefused):
+            fixture.configure_budget_exhaustion(initial, "owned", "authority")
 
     def test_duration_failure_retains_only_fixed_stage_and_reason(self):
         selection = {"project": "fixture", "images": {}, "sources": {}}
