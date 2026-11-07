@@ -16,15 +16,17 @@ platforms passed ordinary stopped-predecessor
 recovery, including successor refusal before exit reporting and same-volume
 startup after original Runner reconciliation. The ordinary Map API outage
 check also passed on both platforms in one exact cohort within its configured
-lease ceiling. The exact last native lease acknowledgement remains open.
+lease ceiling, satisfying the documented ordinary disconnect criterion.
 Both platforms also passed the Strict authority-change check. A stale
 signed registration was refused, and a fresh one stayed unissued and
 uncharged. The Strict review checks for missing authorization and a closed
 testing window also passed. Both platforms verified the installed API refusal
-of a stale registered approval. Persistent discovery and claim ordering remain open.
+of a stale registered approval. The worker uses the same shared locked claim
+validator. These results satisfy the Strict denial criterion.
 The [installed receipts](nm2-worker-acceptance-evidence.md) record the exact
 sources and scope. The [closeout control record](nm1-nm2-closeout.md) tracks
-the remaining failure and containment gates. NM-3 remains paused.
+the [fixed remaining checklist](nm1-nm2-closeout.md#fixed-nm-2-closeout-checklist).
+NM-3 remains paused.
 
 `tests/nm2_worker_acceptance.py` now prepares the first coupled slice: default
 disabled, owner/CSRF transport denial, Strict out-of-scope approval refusal, and

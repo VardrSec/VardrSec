@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fix the remaining NM-2 checklist as C01–C10, credit verified requirements,
+  and correct stale optional-idle and coverage status entries.
+
 - Complete slow installed-outage observations before the final target sample.
   Refuse a stale sample before stopping the API and distinguish worker, traffic,
   and API-state observation failures. Start one existing audit helper alongside

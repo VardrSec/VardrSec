@@ -889,10 +889,10 @@ stopped-predecessor recovery check and shared concurrency exhaustion also
 passed. Both platforms also passed the Strict review checks for missing
 authorization and a closed testing window, and the installed API refusal of a
 stale registered approval. The ordinary API-outage check passed on one shared
-cohort within its configured lease ceiling. Open cases include persistent
-discovery and claim ordering, retained partial evidence, remaining disconnect
-cases, unexpected process loss, duplicate and lost replies, and persisted
-preclaim recovery.
+cohort within its configured lease ceiling. The original Strict and ordinary
+disconnect criteria receive that acceptance credit. The
+[fixed checklist C01–C10](nm1-nm2-closeout.md#fixed-nm-2-closeout-checklist)
+defines the remaining evidence, recovery and security work.
 
 ADR 0043's independent containment review and bootstrap, channel, owner-loss,
 credential-isolation, pressure and supported-host clock obligations remain open.

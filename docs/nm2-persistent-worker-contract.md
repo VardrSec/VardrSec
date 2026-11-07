@@ -1,10 +1,11 @@
 # NM-2 persistent worker implementation contract
 
 Status: implementation contract, with persistent STOP reporting approved for
-isolated testing on 2026-11-06. The first isolated Desktop runtime was enabled;
-its availability trial held and its six fixture containers stopped and were
-retained. No persistent deployment has been accepted.
-NM-2 remains open and NM-3 remains paused.
+isolated testing on 2026-11-06. Separate Windows Docker Desktop and Ubuntu
+receipts now verify persistent availability, optional finite controls and the
+selected lifecycle cases in the [evidence record](nm2-worker-acceptance-evidence.md).
+The [fixed closeout checklist](nm1-nm2-closeout.md#fixed-nm-2-closeout-checklist)
+controls the remaining work. NM-2 remains open and NM-3 remains paused.
 
 The owner clarified the required behavior: an explicitly enabled background
 Runner stays available until explicitly stopped. The current 60-second idle and
@@ -166,8 +167,11 @@ exit 124 classification and a sticky, nonspawning, no-RPC adapter wait. Its chec
 post-ACK idle bound includes a fixed five-second shutdown-only reserve; claim
 cutoffs, native/job deadlines, leases and EOF cleanup remain unchanged. The
 [component checks](evidence/nm2-persistent-idle-component-2026-11-06.json) passed,
-but actual exact-incarnation exit 124 remains unobserved and the idle-control gate
-stays open. Generic held/exit 125 plus timing cannot satisfy it. A zero-job runtime
+and separate installed Windows Docker Desktop and Ubuntu receipts now verify
+exact-incarnation exit 124 and the optional idle criterion. The
+[platform ledger](acceptance.md#accepted-optional-idle-and-zero-issued-job-slices-2026-11-06)
+records those exact cohorts. Earlier held receipts retain their original scope.
+A zero-job runtime
 has no run to reconcile; no synthetic run or completion/stop receipt may be
 substituted. Normal unlimited availability does not inherit either finite control.
 
