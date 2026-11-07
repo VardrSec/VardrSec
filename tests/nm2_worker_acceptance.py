@@ -1415,7 +1415,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
             timeout=60,
         )
 
-    def inventory(self, engagement, job):
+    def inventory(self, engagement, job, *, include_capacity=False):
         source = (self.install / "tests" / "nm2_worker_inventory.py").read_text(
             encoding="utf-8"
         )
@@ -1439,6 +1439,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                         if getattr(self, "scenario", None) in {COUNT_SCENARIO, IDLE_SCENARIO}
                         else {}
                     )
+                    | ({"include_capacity": True} if include_capacity else {})
                 ),
             )
         )

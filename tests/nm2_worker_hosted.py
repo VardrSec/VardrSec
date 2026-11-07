@@ -35,6 +35,8 @@ LAUNCH_MISSING_GRANT_SCENARIO = "persistent-launch-missing-grant"
 LAUNCH_GRANT_REVOKE_SCENARIO = "persistent-launch-grant-revocation"
 LAUNCH_EXPIRED_GRANT_SCENARIO = "persistent-launch-expired-grant"
 LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO = "persistent-launch-active-grant-expiry"
+LAUNCH_DURATION_SCENARIO = "persistent-launch-duration-exhaustion"
+DURATION_MAP_COMMIT = "40bf4e37076d6a85648f817dd8b6bc69104bd863"
 LAUNCH_GRANT_DENIAL_SCENARIOS = {LAUNCH_MISSING_GRANT_SCENARIO, LAUNCH_EXPIRED_GRANT_SCENARIO}
 LAUNCH_CANCELLATION_SCENARIOS = {
     LAUNCH_STOP_WORK_SCENARIO, LAUNCH_STOP_WORK_QUEUED_SCENARIO, LAUNCH_LOCAL_STOP_SCENARIO,
@@ -50,6 +52,7 @@ LAUNCH_SCOPES = {
     LAUNCH_GRANT_REVOKE_SCENARIO: "grant_revocation_then_next_launch",
     LAUNCH_EXPIRED_GRANT_SCENARIO: "expired_grant_then_next_launch",
     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: "active_grant_expiry_then_next_launch",
+    LAUNCH_DURATION_SCENARIO: "allocated_duration_exhaustion",
 }
 LAUNCH_SCENARIOS = set(LAUNCH_SCOPES)
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
@@ -611,6 +614,8 @@ def execution_options(env):
         and revision in {"0040runtimesequence", "0041persistentruntime"}
     )
     require(scenario not in PERSISTENT_SCENARIOS or revision == "0041persistentruntime")
+    if scenario == LAUNCH_DURATION_SCENARIO:
+        require(env.get("NM2_MAP_SHA") == DURATION_MAP_COMMIT)
     return scenario, revision
 
 
@@ -728,7 +733,11 @@ def failure_projection(raw, selection):
         "launch_grant_revocation_catalog",
         "launch_active_grant_expiry_window", "launch_active_grant_expiry_timing",
         "launch_active_grant_expiry_catalog",
+        "launch_duration_prepare_second",
+        "launch_duration_observe_refusal",
+        "launch_duration_verify_retired",
         "selected_launch_complete",
+        "selected_duration_exhaustion_complete",
         "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
         "empty_stop_reconciliation", "selected_empty_stop_complete",
         "image_sources",
@@ -772,6 +781,17 @@ def failure_projection(raw, selection):
         "launch_completed_reconciliation_not_observed", "launch_completed_enrollment_changed",
         "launch_completed_job_not_pending", "launch_completed_audit_changed",
         "launch_completed_audit_not_observed",
+        "launch_duration_witness_source_required",
+        "launch_duration_first_release_required",
+        "launch_duration_second_approval_required",
+        "launch_duration_exact_refusal_required",
+        "launch_duration_refusal_mutated_inventory",
+        "launch_duration_original_hold_required",
+        "launch_duration_unbound_reconciliation_required",
+        "launch_duration_exit_changed",
+        "launch_duration_original_history_changed",
+        "launch_duration_api_identity_required",
+        "launch_duration_policy_required",
         "launch_stop_work_exit_not_observed", "launch_stop_work_traffic_changed",
         "launch_stop_work_capacity_not_released", "launch_stop_work_runtime_not_retired",
         "launch_stop_work_attempt_reused", "launch_stop_work_original_run_not_preserved",
@@ -989,32 +1009,113 @@ def failure_projection(raw, selection):
     return value
 
 
+def _launch_row(row, ordinal):
+    fields = {
+        "ordinal", "runtime_id", "container_id", "started_at", "finished_at",
+        "intent_sha256", "retirement_sha256", "predecessor_cids",
+        "bootstrap_audit_sha256", "runner_state_sha256",
+    }
+    require(
+        type(row) is dict
+        and set(row) == fields
+        and type(row["ordinal"]) is int
+        and row["ordinal"] == ordinal
+        and _physical_time(row["started_at"]) < _physical_time(row["finished_at"])
+    )
+    _uuid(row["runtime_id"])
+    for key in ("container_id", "intent_sha256", "retirement_sha256", "runner_state_sha256"):
+        _hash(row[key])
+
+
+def _completed_launch(proof, launch):
+    require(
+        type(proof) is dict
+        and set(proof) == {"job_id", "retirement_sha256", "audit_sha256",
+                           "target_requests", "fixed_evidence_sha256"}
+        and type(proof["target_requests"]) is int
+        and proof["target_requests"] == 5
+        and proof["retirement_sha256"] == launch["retirement_sha256"]
+    )
+    _uuid(proof["job_id"])
+    _hash(proof["audit_sha256"])
+    _hash(proof["fixed_evidence_sha256"])
+    return dict(proof)
+
+
+def _duration_projection(raw, selection):
+    sources = selection["sources"]
+    require(type(sources) is dict and type(sources.get("map")) is dict
+            and sources["map"].get("commit") == DURATION_MAP_COMMIT)
+    require(not any(key in raw for key in (
+        "launch_pair", "cancelled_job", "unclaimed_job", "unissued_job",
+    )))
+    launch = raw.get("launch")
+    _launch_row(launch, 1)
+    require(launch["predecessor_cids"] == [])
+    _hash(launch["bootstrap_audit_sha256"])
+    completed = _completed_launch(raw.get("completed_job"), launch)
+
+    counts = {
+        "marker_count": 1,
+        "targets_spent": 1,
+        "duration_allocated": 30,
+        "duration_limit": 30,
+        "capacity_before": 0,
+        "capacity_after": 0,
+        "second_job_issued": 0,
+        "second_job_target_requests": 0,
+        "remaining_local_holds": 0,
+    }
+    proof = raw.get("duration_exhaustion")
+    require(
+        type(proof) is dict
+        and set(proof) == set(counts) | {
+            "marker", "second_job_id", "selected_sequence", "last_issued_sequence",
+            "natural_exit_code", "retirement_sha256",
+        }
+        and all(type(proof[key]) is int and proof[key] == value for key, value in counts.items())
+        and proof["marker"] == "managed_claim_duration_exhausted"
+        and proof["selected_sequence"] == "2"
+        and proof["last_issued_sequence"] == "1"
+        and type(proof["natural_exit_code"]) is int
+        and 1 <= proof["natural_exit_code"] <= 255
+        and proof["retirement_sha256"] == launch["retirement_sha256"]
+        and proof["second_job_id"] != completed["job_id"]
+    )
+    _uuid(proof["second_job_id"])
+    return {
+        "launch": dict(launch),
+        "completed_job": completed,
+        "duration_exhaustion": dict(proof),
+        "nm2_exit_status": "incomplete",
+        "resources_retained": True,
+    }
+
+
 def launch_projection(raw, selection):
     scenario = raw.get("scenario")
     require(type(scenario) is str and scenario in LAUNCH_SCENARIOS)
+    duration = scenario == LAUNCH_DURATION_SCENARIO
+    status = "selected_duration_exhaustion_slice_passed" if duration else "selected_launch_slice_passed"
+    stage = "selected_duration_exhaustion_complete" if duration else "selected_launch_complete"
     require(
         raw.get("expected_database_revision") == "0041persistentruntime"
         and raw.get("acceptance_scope") == LAUNCH_SCOPES[scenario]
-        and raw.get("status") == "selected_launch_slice_passed"
-        and raw.get("stage") == "selected_launch_complete"
+        and raw.get("status") == status
+        and raw.get("stage") == stage
         and raw.get("retained") is True and raw.get("platform") == "linux"
         and raw.get("nm2_exit_status") == "incomplete"
         and raw.get("sources") == selection["sources"]
         and raw.get("images") == selection["images"]
         and raw.get("project") == selection["project"]
     )
+    if duration:
+        return _duration_projection(raw, selection)
+    require("launch" not in raw and "duration_exhaustion" not in raw)
     pair = raw["launch_pair"]
     require(type(pair) is list and len(pair) == 2)
-    fields = {"ordinal", "runtime_id", "container_id", "started_at", "finished_at",
-              "intent_sha256", "retirement_sha256", "predecessor_cids",
-              "bootstrap_audit_sha256", "runner_state_sha256"}
     for ordinal, row in enumerate(pair, 1):
-        require(type(row) is dict and set(row) == fields and type(row["ordinal"]) is int
-                and row["ordinal"] == ordinal
-                and _physical_time(row["started_at"]) < _physical_time(row["finished_at"]))
-        _uuid(row["runtime_id"])
-        for key in ("container_id", "intent_sha256", "retirement_sha256", "runner_state_sha256"):
-            _hash(row[key])
+        _launch_row(row, ordinal)
     first, second = pair
     _hash(first["bootstrap_audit_sha256"])
     require(
@@ -1028,18 +1129,7 @@ def launch_projection(raw, selection):
     )
     result = {"launch_pair": pair, "nm2_exit_status": "incomplete", "resources_retained": True}
     if scenario == LAUNCH_COMPLETED_SCENARIO:
-        proof = raw.get("completed_job")
-        require(
-            type(proof) is dict
-            and set(proof) == {"job_id", "retirement_sha256", "audit_sha256",
-                               "target_requests", "fixed_evidence_sha256"}
-            and type(proof["target_requests"]) is int and proof["target_requests"] == 5
-            and proof["retirement_sha256"] == first["retirement_sha256"]
-        )
-        _uuid(proof["job_id"])
-        _hash(proof["audit_sha256"])
-        _hash(proof["fixed_evidence_sha256"])
-        result["completed_job"] = proof
+        result["completed_job"] = _completed_launch(raw.get("completed_job"), first)
     else:
         require("completed_job" not in raw)
     if scenario in LAUNCH_CANCELLATION_SCENARIOS:
@@ -1334,7 +1424,8 @@ class Hosted:
                 scope="Explicit zero-issued-job stop with offline empty audit; NM2 remains incomplete")
         elif self.scenario in LAUNCH_SCENARIOS:
             self.receipt.update(
-                schema="vardr.nm2-hosted/7", scenario=self.scenario,
+                schema="vardr.nm2-hosted/8" if self.scenario == LAUNCH_DURATION_SCENARIO else "vardr.nm2-hosted/7",
+                scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope=LAUNCH_SCOPES[self.scenario],
             )
@@ -1540,6 +1631,7 @@ class Hosted:
                 LAUNCH_GRANT_REVOKE_SCENARIO: ["--revoke-grant"],
                 LAUNCH_EXPIRED_GRANT_SCENARIO: ["--expire-grant"],
                 LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: ["--expire-active-grant"],
+                LAUNCH_DURATION_SCENARIO: ["--duration-exhaustion"],
             }[self.scenario],
             "--execute",
         ]
@@ -1686,6 +1778,7 @@ class Hosted:
                     LAUNCH_GRANT_REVOKE_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_EXPIRED_GRANT_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_DURATION_SCENARIO: LAUNCH_SCHEMA,
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
@@ -1708,6 +1801,10 @@ class Hosted:
                 self.receipt["remaining_required_cases"]["target_grant_expiry_revocation"] = (
                     "active_expiry_verified_selected_cohort"
                 )
+            if self.scenario == LAUNCH_DURATION_SCENARIO:
+                self.receipt["remaining_required_cases"]["budget_exhaustion"] = (
+                    "allocated_duration_exhaustion_verified_selected_cohort"
+                )
             self.receipt.update(
                 schema={
                     "healthy": "vardr.nm2-hosted/2",
@@ -1724,6 +1821,7 @@ class Hosted:
                     LAUNCH_GRANT_REVOKE_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_EXPIRED_GRANT_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: "vardr.nm2-hosted/7",
+                    LAUNCH_DURATION_SCENARIO: "vardr.nm2-hosted/8",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],

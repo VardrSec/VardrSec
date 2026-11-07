@@ -6,6 +6,7 @@ from dataclasses import asdict
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
+import re
 import shutil
 import sys
 import time
@@ -24,6 +25,17 @@ from nm2_worker_acceptance import (
 )
 
 SECOND_NS = 1_000_000_000
+DURATION_SCENARIO = "persistent-launch-duration-exhaustion"
+DURATION_PASS = "selected_duration_exhaustion_slice_passed"
+DURATION_MAP_COMMIT = "40bf4e37076d6a85648f817dd8b6bc69104bd863"
+DURATION_WARNING = re.compile(
+    rb"[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]{3}"
+    rb" WARNING managed_http managed_claim_duration_exhausted"
+)
+
+
+def duration_witness_count(raw):
+    return sum(DURATION_WARNING.fullmatch(line) is not None for line in raw.splitlines())
 
 
 def grant_time_ns(value):
@@ -74,6 +86,7 @@ class LaunchFixture(Fixture):
         self, selection, *, compose, compose_sha256, docker_config,
         completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
         revoke_grant=False, expire_grant=False, expire_active_grant=False,
+        duration_exhaustion=False,
     ):
         super().__init__(
             selection,
@@ -96,7 +109,8 @@ class LaunchFixture(Fixture):
             "launch_client_pin_refused",
         )
         self.compose_sha256 = compose_sha256
-        self.completed = completed
+        self.duration_exhaustion = duration_exhaustion
+        self.completed = completed or duration_exhaustion
         self.cancelling = stop_work or local_stop or revoke_grant or expire_active_grant
         self.local_stop = local_stop
         self.local_grant_denial = missing_grant or expire_grant
@@ -108,13 +122,19 @@ class LaunchFixture(Fixture):
         self.max_attempts = None
         require(
             sum((completed, stop_work, local_stop, missing_grant, revoke_grant,
-                 expire_grant, expire_active_grant)) <= 1
+                 expire_grant, expire_active_grant, duration_exhaustion)) <= 1
             and (not queued_peer or stop_work),
             "launch_fixture_mode_conflict",
         )
         scenario = "persistent-launch-empty"
         scope = "first_and_next_empty_launch"
-        if completed:
+        if duration_exhaustion:
+            require(
+                selection["sources"]["map"]["commit"] == DURATION_MAP_COMMIT,
+                "launch_duration_witness_source_required",
+            )
+            scenario, scope = DURATION_SCENARIO, "allocated_duration_exhaustion"
+        elif completed:
             scenario, scope = "persistent-launch-completed", "completed_then_next_launch"
         elif stop_work:
             scenario, scope = "persistent-launch-stop-work", "stop_work_then_next_launch"
@@ -231,11 +251,84 @@ class LaunchFixture(Fixture):
             )
             time.sleep(0.2)
         self.persistent_idle(admission, 1)
-        self.verify_persistent_local(
-            self.persistent_metadata(admission, 1), admission, 1
-        )
+        local = self.persistent_metadata(admission, 1)
+        self.verify_persistent_local(local, admission, 1)
+        return local
 
-    def reconcile_original(self, admission, retired):
+    def duration_witnesses(self):
+        raw = self.docker(
+            "container", "logs", "--tail", "100", self.duration_api_id, timeout=8
+        )
+        return duration_witness_count(raw)
+
+    def observe_duration_exhaustion(self, observer, identity, admission, case, binding, local):
+        engagement, first_job, _, _ = case
+        self.receipt["stage"] = "launch_duration_prepare_second"
+        first_inventory = self.inventory(engagement, first_job, include_capacity=True)
+        traffic = self.traffic()
+        require(
+            len(traffic) == 5 and self.duration_witnesses() == 0
+            and first_inventory["targets_spent"] == 1
+            and first_inventory["duration_allocated"] == 30
+            and canonical([first_inventory["capacity_reserved_count"], first_inventory["concurrency_limit"]])
+            == b"[0,1]"
+            and first_inventory["execution"]["capacity_reserved"] is False
+            and len(first_inventory["runtimes"]) == 1
+            and first_inventory["runtimes"][0]["id"] == admission["runtime_id"]
+            and first_inventory["runtimes"][0]["last_sequence"] == "1"
+            and first_inventory["runtimes"][0]["active_sequence"] is None
+            and len(first_inventory["runtimes"][0]["attempts"]) == 1,
+            "launch_duration_first_release_required",
+        )
+        name = "launch-duration-exhausted"
+        job, stored = self.job_in_engagement(name, engagement, marker=True)
+        authority = {}
+        require(
+            self.approve(
+                name, engagement, self.duration_authorization, job, stored,
+                local_grants=False, review_authority=authority,
+            ) == binding
+            and canonical(authority["limits"])
+            == canonical({"concurrency": 1, "targets": 5, "duration": 30}),
+            "launch_duration_second_approval_required",
+        )
+        self.receipt["stage"] = "launch_duration_observe_refusal"
+        # Observe the natural exit before issuing any stop/disable command.
+        exited = observer.observe_exit(identity)
+        require(
+            type(exited.exit_code) is int and exited.exit_code != 0
+            and self.duration_witnesses() == 1 and self.traffic() == traffic,
+            "launch_duration_exact_refusal_required",
+        )
+        peer = (engagement, job)
+        approval = self.verify_unclaimed_peer(peer, targets=1, duration=30)
+        refused = self.inventory(engagement, first_job, include_capacity=True)
+        require(
+            all(canonical(refused[key]) == canonical(first_inventory[key])
+                for key in first_inventory if key != "runtimes"),
+            "launch_duration_refusal_mutated_inventory",
+        )
+        rows = json.loads(self.helper("audit", "list", "--engagement", engagement,
+                                      "--limit", "3", "--json"))
+        require(
+            type(rows) is list and len(rows) == 2
+            and {row["job_id"] for row in rows} == {first_job, job},
+            "launch_duration_original_hold_required",
+        )
+        run = next(row for row in rows if row["job_id"] == job)
+        metadata = self.local_metadata(run["run_id"], engagement, job)
+        require(
+            run["phase"] == "claiming" and run["status"] == "claim_unknown"
+            and run["pid"] is None and run["artifact_sha256"] is None
+            and metadata["claim_state"] == "claim_unknown"
+            and canonical([metadata["consumption_sent"], metadata["consumption_acknowledged"]])
+            == b"[0,0]"
+            and metadata["partial_files"] == [] and metadata["partial_result"] is None,
+            "launch_duration_original_hold_required",
+        )
+        return exited, peer, approval, run["run_id"], local["attempt"], first_inventory
+
+    def reconcile_original(self, admission, retired, *, unissued_run_id=None):
         binding = {
             key: admission[key]
             for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256")
@@ -264,6 +357,14 @@ class LaunchFixture(Fixture):
             and reconciled["retirement_receipt_sha256"] == retired["receipt_sha256"],
             "launch_completed_reconciliation_not_observed",
         )
+        if unissued_run_id is not None:
+            require(
+                reconciled["selected_run_id"] == unissued_run_id
+                and reconciled["selected_sequence"] == "2"
+                and reconciled["reconciliation_state"] == "terminal_runtime_unbound_retired"
+                and retired["last_sequence"] == "1" and retired["binding"] is None,
+                "launch_duration_unbound_reconciliation_required",
+            )
         self.receipt["stage"] = "launch_audit_retired"
         audit = self.worker_state(admission)
         require(
@@ -407,7 +508,7 @@ print(len(directories))
         if self.expire_grant:
             self.receipt["unissued_job"]["grant_expiry_sha256"] = self.grant_expiry_sha256
 
-    def completed_reconciliation(self, physical, admission, retired, case):
+    def completed_reconciliation(self, physical, admission, retired, case, *, unissued_run_id=None):
         engagement, job, stored, before = case
         requests = self.traffic()
         require(len(requests) == 5, "launch_completed_traffic_changed")
@@ -415,7 +516,7 @@ print(len(directories))
             engagement, job, stored, physical, before, requests,
             self.inventory(engagement, job), persistent=True,
         )
-        audit = self.reconcile_original(admission, retired)
+        audit = self.reconcile_original(admission, retired, unissued_run_id=unissued_run_id)
         self.receipt["completed_job"] = {
             "job_id": job,
             "retirement_sha256": retired["receipt_sha256"],
@@ -672,6 +773,7 @@ print(len(directories))
                 "launch_completed_audit_changed",
             )
         cancelling = self.cancelling and case is not None
+        exhausted = None
         if case is None:
             self.persistent_idle(admission, 0)
             before = self.verify_empty_worker_state(
@@ -692,7 +794,11 @@ print(len(directories))
             elif not self.local_stop:
                 self.observe_stop_work(case, action)
         else:
-            self.await_completed_job(admission, case)
+            local = self.await_completed_job(admission, case)
+            if self.duration_exhaustion:
+                exhausted = self.observe_duration_exhaustion(
+                    observer, identity, admission, case, binding, local
+                )
         self.receipt["stage"] = "launch_stop_work_exit" if cancelling else f"launch_stop_{ordinal}"
         stopped = None if cancelling else self.worker_action("stop", selected)
         exit_proof = observer.observe_exit(identity)
@@ -707,6 +813,14 @@ print(len(directories))
                 and stopped["finished_at"] == exit_proof.finished_at
                 and stopped["new_work_disable_state"] == "acknowledged",
                 "launch_exact_exit_not_observed",
+            )
+        if exhausted is not None:
+            natural = exhausted[0]
+            require(
+                exit_proof.identity == natural.identity
+                and exit_proof.exit_code == natural.exit_code
+                and exit_proof.finished_at == natural.finished_at,
+                "launch_duration_exit_changed",
             )
         physical = {
             "identity": asdict(identity),
@@ -742,6 +856,39 @@ print(len(directories))
             self.verify_grant_denial_launch(admission, retired, case, unissued)
         elif cancelling:
             self.cancelled_reconciliation(physical, admission, retired, case, action, after)
+        elif exhausted is not None:
+            natural, peer, approval, run_id, original_attempt, inventory = exhausted
+            self.completed_reconciliation(physical, admission, retired, case, unissued_run_id=run_id)
+            self.receipt["stage"] = "launch_duration_verify_retired"
+            current = self.inventory(*case[:2], include_capacity=True)
+            runtime = current["runtimes"][0]
+            require(
+                canonical(self.verify_unclaimed_peer(peer, targets=1, duration=30)) == canonical(approval)
+                and self.api.request(f"/engagements/{peer[0]}/evidence?job_id={peer[1]}")["evidence"] == []
+                and all(canonical(current[key]) == canonical(inventory[key])
+                        for key in inventory if key != "runtimes")
+                and len(current["runtimes"]) == 1
+                and runtime["id"] == admission["runtime_id"] and runtime["retired"] is True
+                and runtime["last_sequence"] == "1" and runtime["active_sequence"] is None
+                and canonical(runtime["attempts"])
+                == canonical(inventory["runtimes"][0]["attempts"])
+                and canonical(self.persistent_metadata(admission, 1)["attempt"])
+                == canonical(original_attempt)
+                and self.duration_witnesses() == 1,
+                "launch_duration_original_history_changed",
+            )
+            self.receipt["duration_exhaustion"] = {
+                "marker": "managed_claim_duration_exhausted", "marker_count": 1,
+                "targets_spent": current["targets_spent"],
+                "duration_allocated": current["duration_allocated"], "duration_limit": 30,
+                "capacity_before": inventory["capacity_reserved_count"],
+                "capacity_after": current["capacity_reserved_count"],
+                "second_job_id": peer[1],
+                "second_job_issued": 0, "second_job_target_requests": 0,
+                "selected_sequence": "2", "last_issued_sequence": "1",
+                "remaining_local_holds": 0, "natural_exit_code": natural.exit_code,
+                "retirement_sha256": retired["receipt_sha256"],
+            }
         else:
             self.completed_reconciliation(physical, admission, retired, case)
         return (
@@ -823,6 +970,23 @@ print(len(directories))
                 "expired-grant" if self.expire_grant else "completed" if self.completed else self.scenario
             )
             engagement, authorization, job, stored = self.new_job(name, marker=True)
+            if self.duration_exhaustion:
+                api = next(row for row in initial["core"] if row["service"] == "api")
+                require(
+                    api["image_id"] == self.images["api"]
+                    and re.fullmatch(r"[0-9a-f]{64}", api["container_id"]) is not None,
+                    "launch_duration_api_identity_required",
+                )
+                self.duration_api_id = api["container_id"]
+                self.duration_authorization = authorization
+                policy = self.api.request(
+                    f"/engagements/{engagement}/duration-policy",
+                    {"limit_seconds": 30}, method="PUT",
+                )
+                require(canonical(policy) == canonical({
+                    "limit_seconds": 30, "allocated_seconds": 0,
+                    "unit": "allocated_wall_permission_seconds/1",
+                }), "launch_duration_policy_required")
             if self.queued_peer:
                 peer_name = "launch-stop-work-peer"
                 peer_job, peer_case = self.job_in_engagement(
@@ -879,6 +1043,17 @@ print(len(directories))
         first, old_observer, old_exit = self.launch_and_retire(
             config, signing, binding, 1, None, case=case
         )
+        if self.duration_exhaustion:
+            old_observer.confirm_exit(old_exit)
+            final = observer.capture_project_containers(self.project)
+            require(
+                final["all_worker_ids"] == [first["container_id"]]
+                and final["core"] == initial["core"] and len(self.traffic()) == 5,
+                "launch_preservation_or_traffic_not_observed",
+            )
+            self.receipt.update(launch=first, status=DURATION_PASS,
+                                stage="selected_duration_exhaustion_complete")
+            return
         baseline = self.traffic()
         second, _, _ = self.launch_and_retire(config, signing, binding, 2, first)
         old_observer.confirm_exit(old_exit)
@@ -959,6 +1134,7 @@ def main(argv=None):
     workload.add_argument("--revoke-grant", action="store_true")
     workload.add_argument("--expire-grant", action="store_true")
     workload.add_argument("--expire-active-grant", action="store_true")
+    workload.add_argument("--duration-exhaustion", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -978,9 +1154,11 @@ def main(argv=None):
             revoke_grant=args.revoke_grant,
             expire_grant=args.expire_grant,
             expire_active_grant=args.expire_active_grant,
+            duration_exhaustion=args.duration_exhaustion,
         )
         fixture.run()
-        return 0 if fixture.receipt["status"] == "selected_launch_slice_passed" else 1
+        expected = DURATION_PASS if args.duration_exhaustion else "selected_launch_slice_passed"
+        return 0 if fixture.receipt["status"] == expected else 1
     except Exception:
         print(
             "Launch fixture held. Retain the owned installation and resources.",

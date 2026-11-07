@@ -155,11 +155,13 @@ def observe(selection):
     persistent_bound = selection.get("runtime_attempt_bound")
     persistent = "runtime_attempt_bound" in selection
     count_contexts = "count_approval_contexts" in selection
+    include_capacity = "include_capacity" in selection
     if (
         set(selection)
         != {"engagement_id", "job_id"}
         | ({"runtime_attempt_bound"} if persistent else set())
         | ({"count_approval_contexts"} if count_contexts else set())
+        | ({"include_capacity"} if include_capacity else set())
         or (
             count_contexts
             and (selection["count_approval_contexts"] is not True or not persistent)
@@ -167,11 +169,12 @@ def observe(selection):
         or (
             persistent and (type(persistent_bound) is not int or persistent_bound != 35)
         )
+        or (include_capacity and (selection["include_capacity"] is not True or not persistent))
         or any(
             not isinstance(value, str)
             or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", value)
             for key, value in selection.items()
-            if key not in {"runtime_attempt_bound", "count_approval_contexts"}
+            if key not in {"runtime_attempt_bound", "count_approval_contexts", "include_capacity"}
         )
     ):
         raise ValueError("fixture_selection_refused")
@@ -209,7 +212,7 @@ def observe(selection):
                 **{
                     key: item
                     for key, item in selection.items()
-                    if key != "count_approval_contexts"
+                    if key not in {"count_approval_contexts", "include_capacity"}
                 },
                 "job_status": job.status,
                 "targets_spent": engagement.targets_spent,
@@ -281,6 +284,11 @@ def observe(selection):
                     ).hexdigest()
                     for row in approvals
                 }
+            if include_capacity:
+                from concurrency_budget import reserved
+
+                value["capacity_reserved_count"] = reserved(db, engagement.id)
+                value["concurrency_limit"] = engagement.concurrency_limit
             return value
         finally:
             db.rollback()

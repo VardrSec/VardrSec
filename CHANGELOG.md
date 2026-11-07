@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Exercise managed duration exhaustion after a healthy installed job releases
+  capacity. Verify the refused claim preserves charges and reservations through
+  physical retirement and original-key reconciliation.
+
 - Add an opt-in installed case for natural grant expiry during active work,
   with guest-clock timing, the original attempt audit, and a successor on the
   same Runner state volume. Check the existing whole-second timeout rounding

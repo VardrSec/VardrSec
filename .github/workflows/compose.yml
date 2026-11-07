@@ -16,7 +16,7 @@ on:
       nm2_scenario:
         description: Explicit reviewed NM-2 acceptance scenario
         type: choice
-        options: [healthy, persistent-availability, persistent-count-limit, persistent-idle-limit, persistent-empty-stop, persistent-launch-empty, persistent-launch-completed, persistent-launch-stop-work, persistent-launch-stop-work-queued, persistent-launch-local-stop, persistent-launch-missing-grant, persistent-launch-grant-revocation, persistent-launch-expired-grant, persistent-launch-active-grant-expiry]
+        options: [healthy, persistent-availability, persistent-count-limit, persistent-idle-limit, persistent-empty-stop, persistent-launch-empty, persistent-launch-completed, persistent-launch-stop-work, persistent-launch-stop-work-queued, persistent-launch-local-stop, persistent-launch-missing-grant, persistent-launch-grant-revocation, persistent-launch-expired-grant, persistent-launch-active-grant-expiry, persistent-launch-duration-exhaustion]
         default: healthy
       nm2_database_revision:
         description: Require the exact reviewed Map schema; does not migrate or enable work
@@ -54,7 +54,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Verify hosted refusal and public receipt guards without Docker
-        run: python -m unittest discover -s tests -p test_nm2_worker_hosted.py
+        run: python -m unittest discover -s tests -p 'test_nm2_worker*hosted.py'
       - name: Run the exact explicitly selected coupled cohort
         env:
           NM2_COUPLED: ${{ inputs.nm2_coupled }}

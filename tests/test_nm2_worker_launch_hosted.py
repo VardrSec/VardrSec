@@ -1,9 +1,12 @@
 """Check only the exact opt-in and sanitized installed launch receipt."""
 
 import copy
+import hashlib
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import nm2_worker_hosted as hosted
 from nm2_worker_acceptance import AcceptanceRefused, ORIGIN
@@ -483,3 +486,114 @@ class HostedLaunchTests(unittest.TestCase):
         }
         with self.assertRaises(hosted.HostedRefused):
             hosted.public_projection(active_expiry, selection)
+
+    def test_duration_dispatch_requires_exact_map_witness_and_schema(self):
+        env = {"NM2_SCENARIO": hosted.LAUNCH_DURATION_SCENARIO,
+               "NM2_MAP_SHA": hosted.DURATION_MAP_COMMIT}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(env)
+        env["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options({**env, "NM2_MAP_SHA": "f" * 40})
+        self.assertEqual(
+            hosted.execution_options(env),
+            (hosted.LAUNCH_DURATION_SCENARIO, "0041persistentruntime"),
+        )
+
+    def test_duration_routes_to_existing_launch_harness(self):
+        fixture = hosted.Hosted.__new__(hosted.Hosted)
+        fixture.scenario = hosted.LAUNCH_DURATION_SCENARIO
+        fixture.receipt = {}
+        fixture.command = Mock()
+        asset = b"synthetic pinned Compose bytes"
+        with TemporaryDirectory() as temporary:
+            fixture.root = Path(temporary)
+            (fixture.root / "home").mkdir()
+            (fixture.root / "docker-compose-5.6.1").write_bytes(asset)
+            with patch.multiple(hosted, COMPOSE_BYTES=len(asset),
+                                COMPOSE_SHA256=hashlib.sha256(asset).hexdigest()):
+                argv = fixture.launch_harness(fixture.root / "cohort.json")
+        self.assertEqual(Path(argv[0]).name, "nm2_worker_launch_acceptance.py")
+        self.assertEqual(argv[-2:], ["--duration-exhaustion", "--execute"])
+        fixture.command.assert_called_once()
+
+    def test_duration_receipt_projects_one_joined_incarnation_and_rejects_mutations(self):
+        selection = {"project": "fixture", "images": {},
+                     "sources": {"map": {"commit": hosted.DURATION_MAP_COMMIT}}}
+        launch = {
+            "ordinal": 1, "runtime_id": "63ba16a0-37c6-4c96-a111-80ad0965ae71",
+            "container_id": "1" * 64, "started_at": "2026-11-07T01:00:00Z",
+            "finished_at": "2026-11-07T01:00:01Z", "intent_sha256": "a" * 64,
+            "retirement_sha256": "b" * 64, "predecessor_cids": [],
+            "bootstrap_audit_sha256": "c" * 64, "runner_state_sha256": "d" * 64,
+        }
+        completed = {
+            "job_id": "ddd8e594-dfcb-4ca2-83f8-abfda598e1a7",
+            "retirement_sha256": "b" * 64, "audit_sha256": "e" * 64,
+            "target_requests": 5, "fixed_evidence_sha256": "f" * 64,
+        }
+        proof = {
+            "marker": "managed_claim_duration_exhausted", "marker_count": 1,
+            "targets_spent": 1, "duration_allocated": 30, "duration_limit": 30,
+            "capacity_before": 0, "capacity_after": 0,
+            "second_job_id": "8fa9c83b-3e1a-491f-ac2d-c40081c34a44",
+            "second_job_issued": 0, "second_job_target_requests": 0,
+            "selected_sequence": "2", "last_issued_sequence": "1",
+            "remaining_local_holds": 0, "natural_exit_code": 125,
+            "retirement_sha256": "b" * 64,
+        }
+        raw = {
+            **selection, "schema": hosted.LAUNCH_SCHEMA,
+            "scenario": hosted.LAUNCH_DURATION_SCENARIO,
+            "expected_database_revision": "0041persistentruntime",
+            "acceptance_scope": "allocated_duration_exhaustion",
+            "status": "selected_duration_exhaustion_slice_passed",
+            "stage": "selected_duration_exhaustion_complete",
+            "retained": True, "platform": "linux", "nm2_exit_status": "incomplete",
+            "launch": launch, "completed_job": completed, "duration_exhaustion": proof,
+            "private_log": "discard this",
+        }
+        self.assertEqual(hosted.public_projection(raw, selection), {
+            "launch": launch, "completed_job": completed, "duration_exhaustion": proof,
+            "nm2_exit_status": "incomplete", "resources_retained": True,
+        })
+        for field, changed in (
+            ("marker", "409 Conflict"), ("marker_count", 2), ("capacity_before", False),
+            ("capacity_after", 1), ("second_job_id", completed["job_id"]),
+            ("second_job_issued", 1), ("second_job_target_requests", 1),
+            ("selected_sequence", 2), ("last_issued_sequence", "2"),
+            ("duration_allocated", 30.0), ("remaining_local_holds", 1),
+            ("natural_exit_code", 0), ("retirement_sha256", "0" * 64),
+            ("private_log", "discard this"),
+        ):
+            bad = {**raw, "duration_exhaustion": {**proof, field: changed}}
+            with self.subTest(field=field, changed=changed), self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection(bad, selection)
+        for changed in (
+            {"launch_pair": [launch]},
+            {"launch": {**launch, "predecessor_cids": ["2" * 64]}},
+            {"completed_job": {**completed, "retirement_sha256": "0" * 64}},
+            {"status": "selected_launch_slice_passed"},
+            {"stage": "selected_launch_complete"},
+        ):
+            with self.subTest(changed=changed), self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection({**raw, **changed}, selection)
+        wrong = {**selection, "sources": {"map": {"commit": "f" * 40}}}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection({**raw, **wrong}, wrong)
+
+    def test_duration_failure_retains_only_fixed_stage_and_reason(self):
+        selection = {"project": "fixture", "images": {}, "sources": {}}
+        raw = {
+            **selection, "schema": hosted.LAUNCH_SCHEMA,
+            "scenario": hosted.LAUNCH_DURATION_SCENARIO,
+            "expected_database_revision": "0041persistentruntime",
+            "status": "held", "platform": "linux",
+            "stage": "launch_duration_observe_refusal",
+            "reason": "launch_duration_refusal_mutated_inventory",
+            "private_log": "discard this",
+        }
+        self.assertEqual(hosted.failure_projection(raw, selection), {
+            "stage": "launch_duration_observe_refusal",
+            "reason": "launch_duration_refusal_mutated_inventory",
+        })
