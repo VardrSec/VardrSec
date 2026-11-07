@@ -32,16 +32,19 @@ def grant_time_ns(value):
     return timegm(stamp.utctimetuple()) * SECOND_NS + stamp.microsecond * 1000
 
 
-def active_expiry_elapsed_ns(request, observed, expiry_ns, physical_elapsed):
+def active_expiry_elapsed_ns(request, observed, expiry_ns, physical_elapsed, cause):
     request_ns = request["received_utc_ns"]
     active_elapsed = observed["observed_utc_ns"] - request_ns
     monotonic_elapsed = observed["observed_monotonic_ns"] - request["received_monotonic_ns"]
     grant_elapsed = expiry_ns - request_ns
+    # Runner floors the grant-bound tool timeout to whole seconds before launch.
+    # Only that terminal cause can explain a cutoff within one second early.
+    earliest_offset = -SECOND_NS if cause == "tool_timeout" else 0
     require(
         0 <= active_elapsed <= grant_elapsed - SECOND_NS
         and abs(active_elapsed - monotonic_elapsed) < 50_000_000
         and grant_elapsed <= 14 * SECOND_NS
-        and 0 <= physical_elapsed - grant_elapsed <= 2_500_000_000,
+        and earliest_offset <= physical_elapsed - grant_elapsed <= 2_500_000_000,
         "launch_active_grant_expiry_timing",
     )
     return grant_elapsed
@@ -430,10 +433,6 @@ print(len(directories))
         require(requests == action["requests"] and len(requests) == 3,
                 "launch_stop_work_traffic_changed")
         stop_elapsed = stop_exit_elapsed_ns(requests[-1], after, physical["finished_at"])
-        if self.expire_active_grant:
-            grant_elapsed = active_expiry_elapsed_ns(
-                requests[-1], action["observed"], action["expiry_ns"], stop_elapsed
-            )
         inventory = self.inventory(engagement, job)
         require(
             inventory["job_status"] == "failed"
@@ -495,7 +494,9 @@ print(len(directories))
             else {"remote_stop_requested", "control_lease_expired"}
         )
         if self.expire_active_grant:
-            expected_causes = {"authorization_deadline", "control_lease_expired", "local_emergency_stop"}
+            expected_causes = {
+                "authorization_deadline", "control_lease_expired", "local_emergency_stop", "tool_timeout",
+            }
         if inventory["results"]:
             self.receipt["stage"] = "launch_stop_work_partial_evidence"
             cause = local.get("failure_reason")
@@ -552,12 +553,15 @@ print(len(directories))
             }
             proof["grant_revocation_sha256"] = digest(canonical(revocation))
         elif self.expire_active_grant:
+            self.receipt["stage"] = "launch_active_grant_expiry_timing"
+            proof["grant_expiry_elapsed_ns"] = active_expiry_elapsed_ns(
+                requests[-1], action["observed"], action["expiry_ns"], stop_elapsed, cause
+            )
             self.receipt["stage"] = "launch_active_grant_expiry_catalog"
             self.helper("whoami")
             proof["grant_expiry_sha256"] = self.verify_expired_catalog(
                 engagement, self.grant_before, self.grant_snapshot(engagement)
             )
-            proof["grant_expiry_elapsed_ns"] = grant_elapsed
         else:
             proof["cancel_requested_sha256"] = digest(canonical(pending))
         self.receipt["cancelled_job"] = proof

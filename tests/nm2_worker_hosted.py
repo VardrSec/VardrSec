@@ -726,7 +726,8 @@ def failure_projection(raw, selection):
         "launch_stop_work_partial_evidence",
         "launch_missing_grant_observe", "launch_expired_grant_prepare", "launch_expired_grant_observe",
         "launch_grant_revocation_catalog",
-        "launch_active_grant_expiry_window", "launch_active_grant_expiry_catalog",
+        "launch_active_grant_expiry_window", "launch_active_grant_expiry_timing",
+        "launch_active_grant_expiry_catalog",
         "selected_launch_complete",
         "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
         "empty_stop_reconciliation", "selected_empty_stop_complete",
@@ -1048,7 +1049,8 @@ def launch_projection(raw, selection):
             LAUNCH_LOCAL_STOP_SCENARIO: ("local_stop_sha256", {"local_emergency_stop"}),
             LAUNCH_GRANT_REVOKE_SCENARIO: ("grant_revocation_sha256", {"local_emergency_stop"}),
             LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: (
-                "grant_expiry_sha256", {"authorization_deadline", "control_lease_expired", "local_emergency_stop"},
+                "grant_expiry_sha256",
+                {"authorization_deadline", "control_lease_expired", "local_emergency_stop", "tool_timeout"},
             ),
         }.get(scenario, ("cancel_requested_sha256", {"remote_stop_requested", "control_lease_expired"}))
         allowed_causes = (
@@ -1075,9 +1077,10 @@ def launch_projection(raw, selection):
         _hash(proof[authority_key])
         if active_expiry:
             expiry = proof["grant_expiry_elapsed_ns"]
+            earliest_offset = -1_000_000_000 if proof["terminal_cause"] == "tool_timeout" else 0
             require(
                 type(expiry) is int and 1_000_000_000 <= expiry <= 14_000_000_000
-                and 0 <= proof["physical_exit_elapsed_ns"] - expiry <= 2_500_000_000
+                and earliest_offset <= proof["physical_exit_elapsed_ns"] - expiry <= 2_500_000_000
             )
         result["cancelled_job"] = proof
     else:

@@ -181,7 +181,7 @@ class HostedLaunchTests(unittest.TestCase):
         ):
             with self.subTest(grant=grant, sample=sample, physical=physical):
                 self.assertEqual(
-                    active_expiry_elapsed_ns(request, sample, start + grant, physical),
+                    active_expiry_elapsed_ns(request, sample, start + grant, physical, "observed_exit"),
                     grant,
                 )
 
@@ -197,7 +197,18 @@ class HostedLaunchTests(unittest.TestCase):
                 self.subTest(grant=grant, sample=sample, physical=physical),
                 self.assertRaisesRegex(AcceptanceRefused, "launch_active_grant_expiry_timing"),
             ):
-                active_expiry_elapsed_ns(request, sample, start + grant, physical)
+                active_expiry_elapsed_ns(request, sample, start + grant, physical, "observed_exit")
+
+        self.assertEqual(
+            active_expiry_elapsed_ns(
+                request, observed(10 * second), start + 12 * second, 11 * second, "tool_timeout"
+            ),
+            12 * second,
+        )
+        with self.assertRaisesRegex(AcceptanceRefused, "launch_active_grant_expiry_timing"):
+            active_expiry_elapsed_ns(
+                request, observed(10 * second), start + 12 * second, 11 * second - 1, "tool_timeout"
+            )
 
     def test_stop_work_failure_reports_fixed_partial_evidence_diagnostics(self):
         selection = {"project": "fixture", "sources": {}, "images": {}}
@@ -441,7 +452,7 @@ class HostedLaunchTests(unittest.TestCase):
         }
         for cause in (
             "authorization_deadline", "control_lease_expired",
-            "local_emergency_stop", "observed_exit",
+            "local_emergency_stop", "observed_exit", "tool_timeout",
         ):
             proof = {**expiry_proof, "terminal_cause": cause}
             active_expiry["cancelled_job"] = proof
@@ -450,8 +461,13 @@ class HostedLaunchTests(unittest.TestCase):
                     hosted.public_projection(active_expiry, selection)["cancelled_job"], proof
                 )
 
+        early = {**expiry_proof, "terminal_cause": "tool_timeout", "physical_exit_elapsed_ns": 11_000_000_000}
+        active_expiry["cancelled_job"] = early
+        self.assertEqual(hosted.public_projection(active_expiry, selection)["cancelled_job"], early)
+
         for changed in (
             {"physical_exit_elapsed_ns": 11_999_999_999},
+            {"physical_exit_elapsed_ns": 10_999_999_999, "terminal_cause": "tool_timeout"},
             {"physical_exit_elapsed_ns": 14_500_000_001},
             {"grant_expiry_elapsed_ns": 14_000_000_001, "physical_exit_elapsed_ns": 14_000_000_001},
             {"grant_expiry_elapsed_ns": 14_000_000_000, "physical_exit_elapsed_ns": 15_000_000_000},
