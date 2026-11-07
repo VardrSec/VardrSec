@@ -276,6 +276,7 @@ def register_runtime(
     runtime_id,
     selected_limits,
     operation=None,
+    registration_capability=None,
 ):
     with host.registration_step("inputs"):
         host.require(
@@ -349,6 +350,15 @@ def register_runtime(
             records.write(record, create=True)
         try:
             with host.registration_step("request"):
+                if registration_capability is not None:
+                    import worker_lifecycle_intent
+
+                    worker_lifecycle_intent.registration_fence(
+                        registration_capability, records=records, operation=operation,
+                        client=client, observer=observer, identity=identity,
+                        runtime_id=runtime_id, protocol="persistent-v3",
+                        selected=selected, record=record,
+                    )
                 reply = session.register(runtime_id, selected)
             with host.registration_step("ack"):
                 record["admission"] = admission(record, reply)

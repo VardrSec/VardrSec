@@ -4,6 +4,7 @@ MACs and sticky updates discipline a trusted host's interrupted operations. They
 are not attestation or protection against a key holder restoring older valid files.
 """
 
+from dataclasses import asdict
 import hashlib
 import hmac
 import os
@@ -455,6 +456,84 @@ class IntentStore:
         # Inert: neither provider construction nor path/key/file access.
         self.records = records
 
+    def registration_capability(
+        self,
+        operation_id,
+        identity,
+        client,
+        observer,
+        *,
+        expected_revision,
+        expected_sha256,
+        operation,
+    ):
+        """Mint only before first preparation; retained JSON is not a live proof."""
+        try:
+            require(type(self) is IntentStore)
+            require(type(self.records) is host.HostRecords)
+            self.records._require_operation(operation)
+            require(isinstance(identity, runtime.RuntimeIdentity))
+            require(isinstance(client, host.HostClient))
+            require(isinstance(observer, runtime.LocalDocker))
+            selected = self.read(operation_id, operation=operation)
+            require(
+                integer(expected_revision) == selected["revision"]
+                and host._hash(expected_sha256) == host.digest(selected)
+                and selected["disposition"] == "active"
+                and not selected["effects"]["registration_may_have_sent"]
+                and not selected["effects"]["publication_may_have_happened"]
+                and all(
+                    selected["observations"][k] is None
+                    for k in (
+                        "registration_sha256",
+                        "host_record_sha256",
+                        "admission_sha256",
+                    )
+                )
+                and host.canonical(selected["observations"]["running"])
+                == host.canonical(asdict(identity))
+            )
+            layout = observer.layout
+            resources = selected["resources"]
+            require(
+                observer.context == selected["binding"]["context"]
+                and layout.trust_source == resources["trust_source"]
+                and layout.admission_source == resources["public_directory"]
+                and layout.state_volume == resources["runner_state"]["name"]
+                and layout.readiness_volume == resources["readiness_volume"]
+                and observer.protocol == selected["registration_policy"]["protocol"]
+                and getattr(observer, "max_attempts", None)
+                == (
+                    selected["registration_policy"]["limits"]["max_attempts"]
+                    if observer.protocol == "finite-v2"
+                    else None
+                )
+            )
+            path = self.records._path(selected["future_runtime_id"])
+            require(not path.exists() and not path.is_symlink())
+            return _RegistrationCapability(
+                self,
+                self.records,
+                operation,
+                host.canonical(selected),
+                host.canonical(asdict(identity)),
+                client,
+                host.canonical(client.pin()),
+                observer,
+                _observer_pin(observer),
+                _REGISTRATION_PROOF,
+            )
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            OverflowError,
+            RecursionError,
+        ):
+            raise IntentRefused() from None
+
     def _access(self, operation, operation_id):
         require(type(self.records) is host.HostRecords)
         directory = self.records._intent_access(operation)
@@ -637,3 +716,234 @@ class IntentStore:
             RecursionError,
         ):
             raise IntentRefused() from None
+
+
+_REGISTRATION_PROOF = object()
+
+
+def _observer_pin(observer):
+    require(isinstance(observer, runtime.LocalDocker))
+    return host.canonical(
+        {
+            "context": observer.context,
+            "layout": asdict(observer.layout),
+            "protocol": observer.protocol,
+            "max_attempts": getattr(observer, "max_attempts", None),
+        }
+    )
+
+
+def _actual_registration_policy(selected, protocol):
+    """Project already validated engine inputs, without rebuilding registration."""
+    persistent = protocol == "persistent-v3"
+    if protocol is None:
+        protocol = "finite-v2" if "max_attempts" in selected else "legacy-v1"
+    return registration_policy(
+        {
+            "origin": selected["origin"],
+            "enrollment_id": selected["enrollment_id"],
+            "runner_id": selected["runner_id"],
+            "protocol": protocol,
+            "expires_in_seconds": None
+            if persistent
+            else selected["expires_in_seconds"],
+            "limits": selected["limits"]
+            if persistent
+            else {
+                "max_attempts": selected.get("max_attempts"),
+                "idle_timeout_seconds": None,
+            },
+            "reporting_authority": selected["reporting_authority"]
+            if persistent
+            else None,
+        }
+    )
+
+
+class _RegistrationCapability:
+    __slots__ = (
+        "_store",
+        "_records",
+        "_operation",
+        "_intent",
+        "_identity",
+        "_client",
+        "_client_pin",
+        "_observer",
+        "_observer_pin",
+        "_proof",
+        "_used",
+        "_prepared_digest",
+        "_fenced_digest",
+    )
+
+    def __init__(
+        self,
+        store,
+        records,
+        operation,
+        selected,
+        identity,
+        client,
+        client_pin,
+        observer,
+        observer_pin,
+        proof,
+    ):
+        require(proof is _REGISTRATION_PROOF)
+        for name, value in (
+            ("_store", store),
+            ("_records", records),
+            ("_operation", operation),
+            ("_intent", selected),
+            ("_identity", identity),
+            ("_client", client),
+            ("_client_pin", client_pin),
+            ("_observer", observer),
+            ("_observer_pin", observer_pin),
+            ("_proof", proof),
+            ("_used", False),
+            ("_prepared_digest", None),
+            ("_fenced_digest", None),
+        ):
+            object.__setattr__(self, name, value)
+
+    def __setattr__(self, name, value):
+        raise IntentRefused()
+
+    def __copy__(self):
+        raise IntentRefused()
+
+    def __deepcopy__(self, memo):
+        raise IntentRefused()
+
+    def __reduce_ex__(self, protocol):
+        raise IntentRefused()
+
+    def _fence(self, arguments):
+        # Consumption precedes attempted validation or storage/provider I/O.
+        require(not self._used)
+        object.__setattr__(self, "_used", True)
+        fields(
+            arguments,
+            {
+                "records",
+                "operation",
+                "client",
+                "observer",
+                "identity",
+                "runtime_id",
+                "protocol",
+                "selected",
+                "record",
+            },
+        )
+        (
+            records,
+            operation,
+            client,
+            observer,
+            identity,
+            runtime_id,
+            protocol,
+            selected,
+            record,
+        ) = (
+            arguments[k]
+            for k in (
+                "records",
+                "operation",
+                "client",
+                "observer",
+                "identity",
+                "runtime_id",
+                "protocol",
+                "selected",
+                "record",
+            )
+        )
+        require(
+            self._proof is _REGISTRATION_PROOF
+            and records is self._records
+            and operation is self._operation
+            and type(self._store) is IntentStore
+            and self._store.records is records
+            and client is self._client
+            and observer is self._observer
+        )
+        records._require_operation(operation)
+        require(
+            isinstance(identity, runtime.RuntimeIdentity)
+            and host.canonical(asdict(identity)) == self._identity
+            and host.canonical(client.pin()) == self._client_pin
+            and _observer_pin(observer) == self._observer_pin
+        )
+        expected = host._json(self._intent)
+        require(host._uuid(runtime_id) == expected["future_runtime_id"])
+        current = self._store.read(expected["operation_id"], operation=operation)
+        require(host.canonical(current) == self._intent)
+        require(
+            current["disposition"] == "active"
+            and not current["effects"]["registration_may_have_sent"]
+            and not current["effects"]["publication_may_have_happened"]
+            and all(
+                current["observations"][k] is None
+                for k in (
+                    "registration_sha256",
+                    "host_record_sha256",
+                    "admission_sha256",
+                )
+            )
+            and host.canonical(_actual_registration_policy(selected, protocol))
+            == host.canonical(current["registration_policy"])
+            and host.canonical(selected["identity"]) == self._identity
+        )
+        prepared = records.read(runtime_id)
+        host._client(prepared, client)
+        host._observer(prepared, observer)
+        require(
+            prepared["runtime_id"] == runtime_id
+            and prepared["registration_state"] == "prepared"
+            and prepared["admission"] is None
+            and host.canonical(prepared) == host.canonical(record)
+            and host.canonical(prepared["registration"]) == host.canonical(selected)
+        )
+        # ACK observation remains reserved. This digest never leaves the cap.
+        object.__setattr__(self, "_prepared_digest", host.digest(prepared))
+        updated = host._json(host.canonical(current))
+        updated.update(
+            revision=current["revision"] + 1, previous_sha256=host.digest(current)
+        )
+        updated["effects"]["registration_may_have_sent"] = True
+        updated["observations"]["registration_sha256"] = host.digest(selected)
+        observed = self._store.advance(
+            updated,
+            expected_revision=current["revision"],
+            expected_sha256=host.digest(current),
+            operation=operation,
+        )
+        require(host.canonical(observed) == host.canonical(updated))
+        records._require_operation(operation)
+        require(
+            host.digest(records.read(runtime_id)) == self._prepared_digest
+            and host.canonical(client.pin()) == self._client_pin
+            and _observer_pin(observer) == self._observer_pin
+        )
+        object.__setattr__(self, "_fenced_digest", host.digest(observed))
+
+
+def registration_fence(capability, **selected):
+    """Fixed sealed-type dispatch only; never invoke a supplied callback."""
+    try:
+        require(type(capability) is _RegistrationCapability)
+        capability._fence(selected)
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        OverflowError,
+        RecursionError,
+    ):
+        raise IntentRefused() from None

@@ -61,7 +61,10 @@ def actual_definitions(filename, selected, namespace, *, record_methods=None):
             if name == "register_runtime":
                 class SuppliedPeer(ast.NodeTransformer):
                     def visit_Import(self, item):
-                        assert filename == "worker_host.py" and [n.name for n in item.names] == ["worker_host_persistent"]
+                        names = [n.name for n in item.names]
+                        assert (filename == "worker_host.py" and names in (
+                            ["worker_host_persistent"], ["worker_lifecycle_intent"])) or (
+                            filename == "worker_host_persistent.py" and names == ["worker_lifecycle_intent"])
                         return None
                 node = SuppliedPeer().visit(copy.deepcopy(node))
             nodes.append(node)
@@ -362,6 +365,7 @@ class Operations(unittest.TestCase):
         w.host_namespace["worker_host_persistent"].register_runtime = lambda *args,**kwargs:captured.append(kwargs)
         w.register(w.client,w.records,w.session,**w.register_args())
         self.assertNotIn("operation",captured[0])
+        self.assertNotIn("registration_capability",captured[0])
         self.assertEqual(w.acquisitions,0)
         with w.records.operation() as operation:
             w.register(w.client,w.records,w.session,**w.register_args(),operation=operation)

@@ -80,3 +80,47 @@ schema. A new data domain prevents an old MAC authenticating relabelled bytes.
 No key rotation/deletion or future-runtime STOP-slot reservation is introduced.
 `observations.host_record_sha256` remains reserved for the acknowledged record;
 it must not be consumed by a prepared-record digest in a later registration fence.
+
+## Original live registration sequence
+
+The private registration capability binds the exact records/live operation and
+intent revision/digest, future runtime identity, immutable reviewed policy, exact
+client/observer objects and their existing public pin/context/layout/protocol/max
+settings. Its factory requires active, unissued intent metadata and an absent
+future-runtime host record. RuntimeIdentity and retained running JSON remain
+descriptive: the existing engine's fresh capture and mount validation are still
+authoritative. The capability adds no observation proof or execution authority.
+
+Only a sealed, noncopyable, nonserializable in-memory object reaches the fixed
+fence. The first attempted fence consumes it before argument validation or I/O,
+including failure and interruption. After the existing secret and initial MAC
+host record are written, each existing first-registration engine invokes that
+fence immediately before its existing session.register call. It rechecks exact
+inputs and the authenticated prepared record, then CAS-publishes and reads back
+registration_sha256 and registration_may_have_sent. No second registration engine
+or callback is introduced. A prepared-record digest stays private on the object;
+host_record_sha256 and admission_sha256 remain reserved for later ACK evidence.
+
+Single-use applies to each in-memory object, not to universal factory issuance.
+Before any engine preparation, multiple objects can exist, and a fresh object may
+be minted after a purely malformed pre-preparation attempt consumed another one.
+Such a failed attempt has no external send or storage effect. The existing first
+engine's exclusive host record/STOP slot and exact intent revision/CAS remain
+the at-most-one-first-send boundary, including lost ACKs and failed fences.
+
+Once an actual engine prepares its host record, prepared, interrupted, unknown or
+acknowledged state never mints a replacement capability. A true persisted flag
+supplies no replay authority, including when a host record is absent. The existing explicit legacy library
+replay_registration helper keeps its original behavior and diagnostics; this
+new lifecycle path never calls it, and its existence clears no held intent.
+Ordinary None defaults omit the new imports/delegate keyword and preserve the
+existing validation, diagnostic and request order. Public enable is unchanged;
+its private already-owned path only threads a supplied capability.
+
+The private successful-fence digest proves CAS/readback before send, not that
+the original call returned an ACK. There is no publication API in this increment.
+A later publication sequence must require the same original live object and an
+ACK-success marker set only after the original engine's validated ACK and final
+store succeed. Reading any later ACKed record, including explicit legacy recovery,
+cannot synthesize that marker or publication authority. Owner-before-start timing,
+publication fencing, create/start, recovery and platform acceptance stay separate.

@@ -1143,6 +1143,7 @@ def register_runtime(
     protocol=None,
     limits=None,
     operation=None,
+    registration_capability=None,
 ):
     """Persist exact grant/custody before POST; unknown replies never recreate it."""
     if protocol == "persistent-v3":
@@ -1161,6 +1162,7 @@ def register_runtime(
             runtime_id=runtime_id,
             selected_limits=limits,
             **({} if operation is None else {"operation": operation}),
+            **({} if registration_capability is None else {"registration_capability": registration_capability}),
         )
     require(
         protocol is None
@@ -1239,6 +1241,15 @@ def register_runtime(
             record["report_cursors"] = []
         records.write(record, create=True)
         try:
+            if registration_capability is not None:
+                import worker_lifecycle_intent
+
+                worker_lifecycle_intent.registration_fence(
+                    registration_capability, records=records, operation=operation,
+                    client=client, observer=observer, identity=identity,
+                    runtime_id=runtime_id, protocol=protocol,
+                    selected=registration, record=record,
+                )
             record["admission"] = _admission(
                 record, session.register(runtime_id, registration)
             )

@@ -439,7 +439,7 @@ def _enable_setup(args):
     return observer, client, public, trust, admission_options
 
 
-def _enable_owned(args, records, operation, setup):
+def _enable_owned(args, records, operation, setup, *, registration_capability=None):
     """Continue enablement only inside this exact records owner's live operation."""
     records._require_operation(operation)
     observer, client, public, trust, admission_options = setup
@@ -465,6 +465,7 @@ def _enable_owned(args, records, operation, setup):
             runtime_id=args.runtime_id,
             operation=operation,
             **admission_options,
+            **({} if registration_capability is None else {"registration_capability": registration_capability}),
         )
     # The host receipt exists before public permission can enter the container.
     args._failure_phase = "enable_publication_checks"

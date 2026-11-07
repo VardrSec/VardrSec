@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add a private single-use registration-send capability bound to one live host
+  operation, reviewed policy, runtime, client and observer. Fence the two existing
+  first-registration sends with durable CAS/readback before POST; keep prepared
+  digests private, ACK observations reserved and default calls unchanged. Each
+  object is single-use; existing exclusive preparation and intent CAS bound first
+  sends. Retained records/true flags grant no replacements. No publication, replay
+  or launcher authority is added; lifecycle and platform gates remain open.
+
 - Bind lifecycle intent/2 to an immutable, explicitly reviewed public registration
   policy and separate MAC data domain. Keep the existing MAC-only key purpose;
   hold old records/collisions without migration, overwrite or replay. Preserve
