@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Return success from the official fixture CLI after the explicit zero-issued-job
+  stop slice passes. Keep held, unknown and raised-fixture outcomes nonzero;
+  preserve every existing success status and all independent acceptance gates.
+
 - Add an explicit zero-issued-job stop fixture and independent Linux/Desktop
   reader. Require complete component-owned empty-state audits, measured fresh
   readiness and positive unbound host retirement at sequence0. Own and bound the

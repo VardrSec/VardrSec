@@ -4967,6 +4967,7 @@ def main(argv=None):
             "selected_availability_slice_passed",
             "selected_count_control_slice_passed",
             "selected_idle_control_slice_passed",
+            "selected_empty_stop_slice_passed",
         }
         else 1
     )
