@@ -347,8 +347,11 @@ class WorkerRuntimeTests(unittest.TestCase):
 
     def capture_with_final_change(self, change, *, protocol="persistent-v3"):
         self.info["state"].update(
-            Status="running", Running=True, ExitCode=0,
-            FinishedAt="0001-01-01T00:00:00Z", Pid=314,
+            Status="running",
+            Running=True,
+            ExitCode=0,
+            FinishedAt="0001-01-01T00:00:00Z",
+            Pid=314,
         )
         self.ready["schema"] = {
             "legacy-v1": "vardr.worker-owner-ready/1",
@@ -366,7 +369,9 @@ class WorkerRuntimeTests(unittest.TestCase):
 
         with patch.object(runtime.subprocess, "run", command):
             return runtime.LocalDocker(
-                "desktop-linux", self.layout, protocol=protocol,
+                "desktop-linux",
+                self.layout,
+                protocol=protocol,
                 max_attempts=2 if protocol == "finite-v2" else None,
             ).capture_running(
                 container_id=self.identity.container_id,
@@ -387,7 +392,9 @@ class WorkerRuntimeTests(unittest.TestCase):
                 self.assertEqual(self.inspect_count, 3)
                 self.assertEqual(len(self.calls), 16)
 
-    def test_bound_mount_order_is_copied_without_dropping_fields_or_mutating_input(self):
+    def test_bound_mount_order_is_copied_without_dropping_fields_or_mutating_input(
+        self,
+    ):
         self.info["FutureInspectField"] = {"public-fixture": True}
         self.info["mounts"][0]["FutureMountField"] = {"public-fixture": True}
         original = copy.deepcopy(self.info)
@@ -402,25 +409,83 @@ class WorkerRuntimeTests(unittest.TestCase):
         self.assertIsNot(bound["mounts"], self.info["mounts"])
         self.assertEqual(
             bound,
-            {**original, "mounts": sorted(original["mounts"], key=lambda row: row["Destination"])},
+            {
+                **original,
+                "mounts": sorted(
+                    original["mounts"], key=lambda row: row["Destination"]
+                ),
+            },
         )
-        self.assertTrue(all(any(row is source for source in self.info["mounts"]) for row in bound["mounts"]))
+        self.assertTrue(
+            all(
+                any(row is source for source in self.info["mounts"])
+                for row in bound["mounts"]
+            )
+        )
 
     def test_mount_permutation_cannot_hide_other_inspect_changes(self):
         changes = [
-            ("Source", "volume_metadata", lambda value: value["mounts"][0].update(Source="/untrusted")),
+            (
+                "Source",
+                "volume_metadata",
+                lambda value: value["mounts"][0].update(Source="/untrusted"),
+            ),
             ("RW", "mounts", lambda value: value["mounts"][0].update(RW=False)),
-            ("Name", "mounts", lambda value: value["mounts"][0].update(Name="another-volume")),
-            ("unknown_mount_field", "incarnation_recheck", lambda value: value["mounts"][0].update(FutureMountField=True)),
-            ("propagation", "incarnation_recheck", lambda value: value["mounts"][0].update(Propagation="rshared")),
-            ("Pid", "incarnation_recheck", lambda value: value["state"].update(Pid=315)),
-            ("ExitCode", "incarnation_recheck", lambda value: value["state"].update(ExitCode=1)),
-            ("FinishedAt", "incarnation_recheck", lambda value: value["state"].update(FinishedAt="2026-11-05T20:01:00Z")),
-            ("StartedAt", "profile", lambda value: value["state"].update(StartedAt="2026-11-05T20:01:00Z")),
-            ("unknown_state_field", "incarnation_recheck", lambda value: value["state"].update(FutureStateField=True)),
-            ("image", "profile", lambda value: value.update(image="sha256:" + "d" * 64)),
-            ("privileged", "profile", lambda value: value["host"].update(privileged=True)),
-            ("cap_add_order", "incarnation_recheck", lambda value: value["host"]["cap_add"].reverse()),
+            (
+                "Name",
+                "mounts",
+                lambda value: value["mounts"][0].update(Name="another-volume"),
+            ),
+            (
+                "unknown_mount_field",
+                "incarnation_recheck",
+                lambda value: value["mounts"][0].update(FutureMountField=True),
+            ),
+            (
+                "propagation",
+                "incarnation_recheck",
+                lambda value: value["mounts"][0].update(Propagation="rshared"),
+            ),
+            (
+                "Pid",
+                "incarnation_recheck",
+                lambda value: value["state"].update(Pid=315),
+            ),
+            (
+                "ExitCode",
+                "incarnation_recheck",
+                lambda value: value["state"].update(ExitCode=1),
+            ),
+            (
+                "FinishedAt",
+                "incarnation_recheck",
+                lambda value: value["state"].update(FinishedAt="2026-11-05T20:01:00Z"),
+            ),
+            (
+                "StartedAt",
+                "profile",
+                lambda value: value["state"].update(StartedAt="2026-11-05T20:01:00Z"),
+            ),
+            (
+                "unknown_state_field",
+                "incarnation_recheck",
+                lambda value: value["state"].update(FutureStateField=True),
+            ),
+            (
+                "image",
+                "profile",
+                lambda value: value.update(image="sha256:" + "d" * 64),
+            ),
+            (
+                "privileged",
+                "profile",
+                lambda value: value["host"].update(privileged=True),
+            ),
+            (
+                "cap_add_order",
+                "incarnation_recheck",
+                lambda value: value["host"]["cap_add"].reverse(),
+            ),
         ]
         for name, checkpoint, change in changes:
             with self.subTest(field=name):
@@ -456,7 +521,9 @@ class WorkerRuntimeTests(unittest.TestCase):
             return result
 
         with patch.object(runtime.subprocess, "run", command):
-            proof = runtime.LocalDocker("desktop-linux", self.layout).observe_exit(self.identity)
+            proof = runtime.LocalDocker("desktop-linux", self.layout).observe_exit(
+                self.identity
+            )
         self.assertEqual(proof.identity, self.identity)
         self.assertEqual(proof.exit_code, 137)
         self.assertEqual(self.inspect_count, 3)
@@ -495,6 +562,13 @@ class WorkerRuntimeTests(unittest.TestCase):
                     self.ready["owner_uid"] = 10001
 
                 def command(argv, **kwargs):
+                    if (
+                        checkpoint == "network_binding"
+                        and runtime._NETWORK_INSPECT in argv
+                    ):
+                        return subprocess.CompletedProcess(
+                            argv, 0, '{"id":"private-canary"}', ""
+                        )
                     if checkpoint == "inspect" and argv[3:5] == [
                         "container",
                         "inspect",
@@ -524,7 +598,10 @@ class WorkerRuntimeTests(unittest.TestCase):
                     patch.object(runtime.subprocess, "run", command),
                     self.assertRaises(runtime.RuntimeRefused) as caught,
                 ):
-                    runtime.LocalDocker("desktop-linux", self.layout).capture_running(
+                    observer = runtime.LocalDocker("desktop-linux", self.layout)
+                    if checkpoint == "network_binding":
+                        observer.network_binding = ("owned_runner", "f" * 64)
+                    observer.capture_running(
                         container_id=self.identity.container_id,
                         image_id=self.identity.image_id,
                         project=self.identity.project,
@@ -684,6 +761,195 @@ class WorkerRuntimeTests(unittest.TestCase):
             self.info["state"]["StartedAt"] = "2026-11-05T20:01:00Z"
             with self.assertRaises(runtime.RuntimeRefused):
                 runtime.LocalDocker("desktop-linux", self.layout).confirm_exit(proof)
+
+    def network_capture(self, projection=None, *, changed=False, raw=None):
+        self.info["state"].update(Status="running", Running=True)
+        selected = ("owned_runner", "f" * 64)
+        self.network_reads = 0
+        observer = runtime.LocalDocker(
+            "desktop-linux", self.layout, network_binding=selected
+        )
+        original = self.command
+
+        def command(argv, **options):
+            if (
+                argv[3:6] == ["container", "inspect", "--format"]
+                and argv[6] == runtime._NETWORK_INSPECT
+            ):
+                self.network_reads += 1
+                value = (
+                    projection
+                    if projection is not None
+                    else {
+                        "id": self.identity.container_id,
+                        "mode": selected[0],
+                        "attachments": [{"name": selected[0], "id": selected[1]}, None],
+                    }
+                )
+                if changed and self.network_reads == 2:
+                    value = {
+                        **value,
+                        "attachments": [{"name": selected[0], "id": "e" * 64}, None],
+                    }
+                self.calls.append((argv, options))
+                return subprocess.CompletedProcess(
+                    argv, 0, raw if raw is not None else json.dumps(value), ""
+                )
+            return original(argv, **options)
+
+        with patch.object(runtime.subprocess, "run", command):
+            return observer.capture_running(
+                container_id=self.identity.container_id,
+                image_id=self.identity.image_id,
+                project=self.identity.project,
+            )
+
+    def test_network_pin_accepts_only_closed_literal_name_and_full_id_tuple(self):
+        for value in (
+            [],
+            {},
+            ("runner",),
+            ("runner", "f" * 12),
+            ["runner", "f" * 64],
+            ("--flag", "f" * 64),
+            ("runner", True),
+            ("runner\nprivate", "f" * 64),
+        ):
+            with (
+                self.subTest(kind=type(value).__name__),
+                patch.object(runtime.subprocess, "run") as command,
+            ):
+                with self.assertRaises(runtime.RuntimeRefused):
+                    runtime.LocalDocker(
+                        "desktop-linux", self.layout, network_binding=value
+                    )
+                command.assert_not_called()
+        self.assertIsNone(
+            runtime.LocalDocker("desktop-linux", self.layout).network_binding
+        )
+
+    def test_network_pin_joins_both_actual_bound_reads_to_owner_nonce_capture(self):
+        self.assertEqual(self.network_capture(), self.identity)
+        self.assertEqual(self.network_reads, 2)
+        self.assertEqual(self.inspect_count, 3)
+        network_calls = [
+            argv for argv, _ in self.calls if runtime._NETWORK_INSPECT in argv
+        ]
+        self.assertEqual(
+            network_calls,
+            [
+                [
+                    "docker",
+                    "--context",
+                    "desktop-linux",
+                    "container",
+                    "inspect",
+                    "--format",
+                    runtime._NETWORK_INSPECT,
+                    self.identity.container_id,
+                ]
+            ]
+            * 2,
+        )
+        self.assertNotIn(".Config.Env", runtime._NETWORK_INSPECT)
+        self.assertNotIn("IPAddress", runtime._NETWORK_INSPECT)
+        self.assertFalse(any("exec" in argv for argv, _ in self.calls))
+
+    def test_network_pin_refuses_unallocated_missing_foreign_extra_or_ambiguous_slots(
+        self,
+    ):
+        good = {
+            "id": self.identity.container_id,
+            "mode": "owned_runner",
+            "attachments": [{"name": "owned_runner", "id": "f" * 64}, None],
+        }
+        changes = [
+            dict(mode="bridge"),
+            dict(id="e" * 64),
+            dict(attachments=[]),
+            dict(attachments=None),
+            dict(attachments=[None]),
+            dict(attachments=[{"name": "owned_runner", "id": ""}, None]),
+            dict(attachments=[{"name": "foreign", "id": "f" * 64}, None]),
+            dict(attachments=[{"name": "owned_runner", "id": "e" * 64}, None]),
+            dict(
+                attachments=[
+                    {"name": "owned_runner", "id": "f" * 64, "extra": True},
+                    None,
+                ]
+            ),
+            dict(attachments=[good["attachments"][0], good["attachments"][0], None]),
+            dict(extra="private-canary"),
+        ]
+        for change in changes:
+            with self.subTest(change=sorted(change)):
+                self.setUp()
+                with self.assertRaises(runtime.RuntimeRefused) as caught:
+                    self.network_capture({**good, **change})
+                self.assertEqual(caught.exception.args, ("worker_runtime_refused",))
+                self.assertEqual(caught.exception.checkpoint, "network_binding")
+                self.assertFalse(
+                    any(argv[3:5] == ["container", "cp"] for argv, _ in self.calls)
+                )
+
+    def test_network_projection_rejects_duplicate_malformed_and_oversized_documents(
+        self,
+    ):
+        for raw in (
+            '{"id":"one","id":"private-canary"}',
+            '{"mode":NaN}',
+            "[]",
+            "{broken",
+            "x" * 16385,
+        ):
+            with self.subTest(length=len(raw)):
+                self.setUp()
+                with self.assertRaises(runtime.RuntimeRefused) as caught:
+                    self.network_capture(raw=raw)
+                self.assertEqual(caught.exception.args, ("worker_runtime_refused",))
+                self.assertEqual(caught.exception.checkpoint, "network_binding")
+
+    def test_network_drift_after_readiness_copy_never_returns_running_identity(self):
+        with self.assertRaises(runtime.RuntimeRefused) as caught:
+            self.network_capture(changed=True)
+        self.assertEqual(caught.exception.checkpoint, "network_binding")
+        self.assertEqual(self.network_reads, 2)
+        self.assertTrue(any(argv[3:5] == ["container", "cp"] for argv, _ in self.calls))
+
+    def test_created_observation_with_network_pin_does_not_claim_actual_attachment(
+        self,
+    ):
+        self.info["state"].update(
+            Status="created",
+            Running=False,
+            Paused=False,
+            Restarting=False,
+            Dead=False,
+            OOMKilled=False,
+            Pid=0,
+            ExitCode=0,
+            Error="",
+            StartedAt="0001-01-01T00:00:00Z",
+            FinishedAt="0001-01-01T00:00:00Z",
+        )
+        observer = runtime.LocalDocker(
+            "desktop-linux", self.layout, network_binding=("owned_runner", "f" * 64)
+        )
+        with patch.object(runtime.subprocess, "run", self.command):
+            observed = observer.capture_created(
+                daemon_id=self.identity.daemon_id,
+                container_id=self.identity.container_id,
+                image_id=self.identity.image_id,
+                project=self.identity.project,
+            )
+        self.assertIs(type(observed), runtime.ObservedCreated)
+        self.assertFalse(
+            any(runtime._NETWORK_INSPECT in argv for argv, _ in self.calls)
+        )
+        self.assertFalse(
+            any(argv[3:5] == ["container", "cp"] for argv, _ in self.calls)
+        )
+        self.assertFalse(hasattr(observed, "owner_nonce"))
 
 
 if __name__ == "__main__":

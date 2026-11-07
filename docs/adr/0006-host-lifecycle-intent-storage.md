@@ -238,3 +238,26 @@ outside the new mounts before a PID1 can start. A Created observation still
 proves neither an unsent start nor permission to start. Durable effect fences,
 complete predecessor/resource checks and actual post-start network identity
 remain separate requirements. No launcher or platform acceptance is claimed.
+
+
+## Exact network pin during running observations
+
+The direct observer accepts an optional closed `(network_name, full_network_id)`
+pin. When supplied, every existing bound-incarnation read also checks a separate
+value-limited Docker projection: the full CID, exact network mode and exactly one
+attachment with that name and ID. Missing, empty, foreign, extra, malformed or
+duplicate fields refuse with a fixed diagnostic. Capture and the registration
+engine already repeat bound reads; they reuse this check without a second engine.
+
+The private lifecycle registration capability binds the optional pin and checks
+it against its immutable intent network. Changing or dropping it invalidates
+that capability. Ordinary observers without this pin keep their original calls.
+This optional API is groundwork: a future lifecycle caller must supply the pin
+from its independent resource observation. It grants no start or claim authority.
+
+Created observations retain their narrower meaning. Docker Desktop 29.9.2 with
+Compose 5.6.1 was separately observed to leave the configured attachment's ID
+empty before start, including for the real managed profile. A Created slot is
+not a running network identity and cannot satisfy this check. Linux physical
+shape qualification, the supported facade and both-platform lifecycle acceptance
+remain open. No container execution or acceptance credit is added here.

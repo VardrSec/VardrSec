@@ -35,6 +35,7 @@ CAPTURE_FAILURE_PHASES = {
     "tmpfs": "enable_capture_tmpfs",
     "profile": "enable_capture_profile",
     "volume_metadata": "enable_capture_volume_metadata",
+    "network_binding": "enable_capture_network_binding",
     "running_state": "enable_capture_running_state",
     "readiness_copy": "enable_capture_readiness_copy",
     "readiness_archive": "enable_capture_readiness_archive",

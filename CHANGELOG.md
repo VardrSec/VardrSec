@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: optionally pin the direct observer to one exact Docker
+  network name/ID during running capture and registration; bind that selection to
+  the existing registration capability. Unallocated Created slots remain distinct.
+
 - NM-2 private lifecycle: reuse mount/volume custody checks with a directly
   observed Created worker before startup. Recheck daemon, layout and profile;
   retained JSON supplies no start authority. Ordinary running checks are unchanged.

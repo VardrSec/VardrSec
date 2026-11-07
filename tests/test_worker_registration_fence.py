@@ -186,6 +186,44 @@ class RegistrationFenceTests(unittest.TestCase):
             registration_capability=cap,
         )
 
+    def test_optional_network_pin_matches_immutable_intent_before_capability_mint(self):
+        for mode in ("legacy-v1", "finite-v2", "persistent-v3"):
+            with self.subTest(mode=mode), self.prepared(mode) as state:
+                f, store, operation, current, _, options, _ = state
+                network = current["resources"]["runner_network"]
+                for pin in (
+                    (network["name"], "e" * 64),
+                    ("foreign", network["id"]),
+                    [network["name"], network["id"]],
+                ):
+                    f.observer.network_binding = pin
+                    with self.assertRaises(intent.IntentRefused):
+                        self.mint(f, store, operation, current)
+                    f.session.register.assert_not_called()
+                f.observer.network_binding = (network["name"], network["id"])
+                cap = self.mint(f, store, operation, current)
+                self.register(f, operation, cap, options)
+                self.assertEqual(f.session.register.call_count, 1)
+
+    def test_optional_network_pin_cannot_be_dropped_or_replaced_before_first_send(self):
+        for changed in (None, ("foreign", "e" * 64)):
+            with self.subTest(changed=changed), self.prepared() as state:
+                f, store, operation, current, _, options, calls = state
+                network = current["resources"]["runner_network"]
+                f.observer.network_binding = (network["name"], network["id"])
+                cap = self.mint(f, store, operation, current)
+                f.observer.network_binding = changed
+                before = list(calls)
+                with self.assertRaises(host.HostRefused):
+                    self.register(f, operation, cap, options)
+                f.session.register.assert_not_called()
+                self.assertEqual(calls, before)
+                self.assertFalse(
+                    store.read(current["operation_id"], operation=operation)["effects"][
+                        "registration_may_have_sent"
+                    ]
+                )
+
     def test_each_existing_engine_reads_back_sticky_marker_before_one_actual_send(self):
         for mode, generic_none in (
             ("legacy-v1", False),

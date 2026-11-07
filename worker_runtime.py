@@ -29,6 +29,7 @@ CAPTURE_CHECKPOINTS = frozenset(
         "tmpfs",
         "profile",
         "volume_metadata",
+        "network_binding",
         "running_state",
         "readiness_copy",
         "readiness_archive",
@@ -106,6 +107,27 @@ _INSPECT = (
     '"cap_drop":{{json .HostConfig.CapDrop}},'
     '"security":{{json .HostConfig.SecurityOpt}}}}'
 )
+
+
+# No Env, IP addresses, MACs, aliases or endpoint options cross this projection.
+# The final null keeps the range output valid without copying arbitrary fields.
+_NETWORK_INSPECT = (
+    '{"id":{{json .Id}},"mode":{{json .HostConfig.NetworkMode}},"attachments":['
+    "{{range $name, $network := .NetworkSettings.Networks}}"
+    '{"name":{{json $name}},"id":{{json $network.NetworkID}}},{{end}}null]}'
+)
+
+
+def _network_binding(value):
+    if value is not None:
+        require(type(value) is tuple and len(value) == 2)
+        name, network_id = value
+        require(
+            type(name) is str
+            and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", name)
+        )
+        require(type(network_id) is str and _ID.fullmatch(network_id))
+    return value
 
 
 def _timestamp(value):
@@ -262,13 +284,16 @@ def _static_profile(value, host, labels, image_id, project):
 class LocalDocker:
     """Bounded CLI access to one explicitly selected local Docker context."""
 
-    def __init__(self, context, layout, *, max_attempts=None, protocol=None):
+    def __init__(
+        self, context, layout, *, max_attempts=None, protocol=None, network_binding=None
+    ):
         require(
             type(context) is str and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", context)
         )
         self.context = context
         require(isinstance(layout, WorkerLayout))
         self.layout = layout
+        self.network_binding = _network_binding(network_binding)
         require(
             max_attempts is None
             or (type(max_attempts) is int and 1 <= max_attempts <= 32)
@@ -349,6 +374,22 @@ class LocalDocker:
         except (ValueError, TypeError):
             raise RuntimeRefused("worker_runtime_refused") from None
 
+    def _network(self, container_id):
+        """Require one actual attachment to the selected full network identity."""
+        selected = _network_binding(self.network_binding)
+        require(selected is not None)
+        from worker_volumes import parse_document
+
+        value = parse_document(
+            self._command(
+                "container", "inspect", "--format", _NETWORK_INSPECT, container_id
+            )
+        )
+        require(set(value) == {"id", "mode", "attachments"})
+        name, network_id = selected
+        require(value["id"] == container_id and value["mode"] == name)
+        require(value["attachments"] == [{"name": name, "id": network_id}, None])
+
     def _bound(self, identity):
         checkpoint = "daemon"
         try:
@@ -376,6 +417,9 @@ class LocalDocker:
             )
             checkpoint = "volume_metadata"
             self._volume_sources(identity.project, value["mounts"])
+            if getattr(self, "network_binding", None) is not None:
+                checkpoint = "network_binding"
+                self._network(identity.container_id)
         except (RuntimeRefused, KeyError, TypeError, AttributeError) as error:
             raise _capture_refused(error, checkpoint) from None
         return {

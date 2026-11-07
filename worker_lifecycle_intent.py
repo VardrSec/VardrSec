@@ -512,6 +512,15 @@ class IntentStore:
                     else None
                 )
             )
+            network = getattr(observer, "network_binding", None)
+            if network is not None:
+                require(
+                    network
+                    == (
+                        resources["runner_network"]["name"],
+                        resources["runner_network"]["id"],
+                    )
+                )
             path = self.records._path(selected["future_runtime_id"])
             require(not path.exists() and not path.is_symlink())
             return _RegistrationCapability(
@@ -726,12 +735,16 @@ _REGISTRATION_PROOF = object()
 
 def _observer_pin(observer):
     require(isinstance(observer, runtime.LocalDocker))
+    network = getattr(observer, "network_binding", None)
+    if network is not None:
+        runtime._network_binding(network)
     return host.canonical(
         {
             "context": observer.context,
             "layout": asdict(observer.layout),
             "protocol": observer.protocol,
             "max_attempts": getattr(observer, "max_attempts", None),
+            "network_binding": network,
         }
     )
 
