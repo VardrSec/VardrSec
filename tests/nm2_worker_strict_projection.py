@@ -1,4 +1,4 @@
-"""Bounded public reader for the installed Strict authority-drift case."""
+"""Bounded public reader for installed Strict no-worker cases."""
 
 from pathlib import PurePosixPath, PureWindowsPath
 import re
@@ -14,11 +14,24 @@ def _project(raw, selection, before, after, *, desktop):
     platform = "win32" if desktop else "linux"
     require(type(raw) is dict and type(selection) is dict)
     require(len(fixture.canonical(raw)) <= 4 * 1024 * 1024)
-    require(raw["schema"] == fixture.STRICT_DRIFT_SCHEMA
-            and raw["scenario"] == fixture.STRICT_DRIFT_SCENARIO
-            and raw["acceptance_scope"] == fixture.STRICT_DRIFT_SCOPE
-            and raw["status"] == fixture.STRICT_DRIFT_PASS
-            and raw["stage"] == fixture.STRICT_DRIFT_COMPLETE
+    if raw["schema"] == fixture.STRICT_REVIEW_SCHEMA:
+        scenario, scope, status, stage, case, verify, projected_schema = (
+            fixture.STRICT_REVIEW_SCENARIO, fixture.STRICT_REVIEW_SCOPE, fixture.STRICT_REVIEW_PASS,
+            fixture.STRICT_REVIEW_COMPLETE, fixture.STRICT_REVIEW_CASE, fixture.strict_review_measurements,
+            "vardr.nm2-strict-review-public/1",
+        )
+        require(selection["sources"]["map"]["commit"] == fixture.STRICT_REVIEW_MAP)
+    else:
+        require(raw["schema"] == fixture.STRICT_DRIFT_SCHEMA)
+        scenario, scope, status, stage, case, verify, projected_schema = (
+            fixture.STRICT_DRIFT_SCENARIO, fixture.STRICT_DRIFT_SCOPE, fixture.STRICT_DRIFT_PASS,
+            fixture.STRICT_DRIFT_COMPLETE, fixture.STRICT_DRIFT_CASE, fixture.strict_drift_measurements,
+            "vardr.nm2-strict-drift-public/1",
+        )
+    require(raw["scenario"] == scenario
+            and raw["acceptance_scope"] == scope
+            and raw["status"] == status
+            and raw["stage"] == stage
             and raw["expected_database_revision"] == "0041persistentruntime"
             and raw["nm2_exit_status"] == "incomplete"
             and raw["platform"] == platform and raw["retained"] is True)
@@ -42,15 +55,15 @@ def _project(raw, selection, before, after, *, desktop):
         require(path.is_absolute() and ".." not in path.parts)
 
     cases = raw["cases"]
-    require(type(cases) is dict and set(cases) == set(fixture.INITIAL_CASES) | {fixture.STRICT_DRIFT_CASE})
+    require(type(cases) is dict and set(cases) == set(fixture.INITIAL_CASES) | {case})
     require(fixture.canonical(cases["default_disabled"]) == fixture.canonical({
         "status": "passed", "services": ["api", "db", "proxy", "web"],
         "managed_pending_status": 404, "csrf_write_status": 403, "unauthenticated_read_status": 401,
     }))
     require(all(cases[name] == {"status": "not_run"} for name in fixture.INITIAL_CASES[1:]))
-    selected = cases[fixture.STRICT_DRIFT_CASE]
+    selected = cases[case]
     require(type(selected) is dict and set(selected) == {"status", "proof"} and selected["status"] == "passed")
-    measurements = fixture.strict_drift_measurements(selected["proof"])
+    measurements = verify(selected["proof"])
 
     kinds = {"containers", "volumes", "networks", "images"}
     for inventory, key in ((before, "before_sha256"), (after, "after_sha256")):
@@ -92,8 +105,8 @@ def _project(raw, selection, before, after, *, desktop):
                 and all(row["state"][key] is False for key in ("running", "paused", "restarting", "dead")))
     require(not expected)
     return {
-        "schema": "vardr.nm2-strict-drift-public/1", "status": fixture.STRICT_DRIFT_PASS,
-        "scenario": fixture.STRICT_DRIFT_SCENARIO, "acceptance_scope": fixture.STRICT_DRIFT_SCOPE,
+        "schema": projected_schema, "status": status,
+        "scenario": scenario, "acceptance_scope": scope,
         "platform": platform, "container_platform": "linux", "nm2_exit_status": "incomplete",
         "source_commits": {name: row["commit"] for name, row in sources.items()},
         "stopped_owned_container_count": len(owned), "empty_builtin_bridge_id_change_count": len(admitted),

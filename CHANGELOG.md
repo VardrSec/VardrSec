@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an opt-in installed check for Strict review refusal when engagement
+  authority is missing or its testing window has closed. Verify both reviews
+  succeed after correcting the relevant condition without issuing work.
+
 - Add an opt-in installed witness for engagement concurrency exhaustion. An
   owned API reservation holds capacity while an approved persistent worker
   claim is refused. Confirm unbound retirement and the original owner's

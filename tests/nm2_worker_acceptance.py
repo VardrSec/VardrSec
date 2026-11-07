@@ -52,8 +52,19 @@ STRICT_DRIFT_SCOPE = "strict_authority_drift_only"
 STRICT_DRIFT_PASS = "selected_strict_drift_slice_passed"
 STRICT_DRIFT_COMPLETE = "selected_strict_drift_complete"
 STRICT_DRIFT_SERVICES = ["api", "db", "gate-fixture", "proxy", "web"]
+STRICT_REVIEW_SCENARIO = "strict-review-authority"
+STRICT_REVIEW_CASE = "strict_review_authority"
+STRICT_REVIEW_SCHEMA = "vardr.nm2-worker-strict-review-acceptance/1"
+STRICT_REVIEW_SCOPE = "strict_review_denials_only"
+STRICT_REVIEW_PASS = "selected_strict_review_slice_passed"
+STRICT_REVIEW_COMPLETE = "selected_strict_review_complete"
+STRICT_REVIEW_MAP = "05dc78cf9a385255de459c8a5b833842d6528a63"
+CLOSED_WINDOW_WARNING = {
+    "reason": "outside_testing_window", "message": "The testing window has closed.",
+}
 SCENARIOS = (
     STRICT_DRIFT_SCENARIO,
+    STRICT_REVIEW_SCENARIO,
     "healthy",
     "persistent-availability",
     "persistent-count-limit",
@@ -69,7 +80,7 @@ IDLE_SCENARIO = "persistent-idle-limit"
 EMPTY_SCENARIO = "persistent-empty-stop"
 PERSISTENT_SCENARIOS = {
     "persistent-availability", COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO,
-    STRICT_DRIFT_SCENARIO,
+    STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO,
 }
 
 
@@ -318,11 +329,110 @@ def strict_drift_measurements(proof):
     }
 
 
+def _strict_review_window_time(value):
+    # Authorization readback uses datetime.isoformat(). The Map policy treats
+    # a naive database timestamp as UTC. Signed review fields below require Z.
+    require(type(value) is str and re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:Z|[+]00:00)?", value,
+    ), "strict_review_window_binding")
+    moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return moment.replace(tzinfo=timezone.utc)
+
+
+def strict_review_measurements(proof):
+    require(type(proof) is dict and set(proof) == {
+        "missing", "expired", "traffic_before", "traffic_after", "services",
+    }, "strict_review_proof_shape")
+    require(proof["traffic_before"] == proof["traffic_after"] == []
+            and proof["services"] == STRICT_DRIFT_SERVICES, "strict_review_traffic_changed")
+    results = {}
+    identities = set()
+    for kind in ("missing", "expired"):
+        row = proof[kind]
+        keys = {
+            "before", "after_refusal", "after_review", "listed_before", "active_before",
+            "authorization_after", "active_after", "review_input", "accepted_input_sha256",
+            "runner_id", "refusal", "review",
+        }
+        require(type(row) is dict and set(row) == keys | ({"queued_warnings"} if kind == "expired" else set()),
+                "strict_review_proof_shape")
+        require(row["refusal"] == {"detail": "managed_approval_refused"}
+                and row["active_before"] is None, "strict_review_refusal_shape")
+        review = row["review"]
+        require(type(review) is dict and set(review) == {"context", "authority_snapshot", "case"},
+                "strict_review_proof_shape")
+        context, authority = review["context"], review["authority_snapshot"]
+        engagement, job = context["engagement_id"], context["job_id"]
+        identities.add((engagement, job))
+        for key in ("before", "after_refusal", "after_review"):
+            strict_drift_empty(row[key], engagement, job)
+        current, submitted = row["authorization_after"], row["review_input"]
+        require(type(submitted) is dict and set(submitted) == {
+            "enrollment_id", "authorization_id", "plan", "expires_at",
+            "max_executions", "max_duration_seconds", "max_artifact_bytes", "credential_grants",
+        }, "strict_review_positive_binding")
+        accepted = {**submitted, "authorization_id": current["id"]}
+        plan = submitted["plan"]
+        require(
+            canonical(current) == canonical(row["active_after"])
+            and current["program_id"] == engagement and current["status"] == "active"
+            and row["accepted_input_sha256"] == digest(canonical(accepted))
+            and authority["schema"] == "vardr.map-managed-authority/1"
+            and authority["authority"]["engagement_id"] == engagement
+            and authority["enrollment"]["id"] == submitted["enrollment_id"]
+            and authority["enrollment"]["runner_id"] == context["runner_id"] == row["runner_id"]
+            and type(context["authority_revision"]) is int
+            and canonical(context["authority_revision"]) == canonical(authority["authority_revision"])
+            and context["mode"] == "strict" and context["control"] == "managed_online"
+            and context["authority_sha256"] == digest(canonical(authority))
+            and context["plan_sha256"] == digest(canonical(plan))
+            and plan["profile"] == "gate-fixed-http/1"
+            and plan["case_hash"] == digest(canonical(review["case"]))
+            and all(canonical(context[key]) == canonical(submitted[key]) for key in (
+                "expires_at", "max_executions", "max_duration_seconds", "max_artifact_bytes",
+                "credential_grants",
+            )), "strict_review_positive_binding",
+        )
+        snapshot = authority["authority"]["authorization"]
+        start, end = (_strict_review_window_time(current[key]) for key in ("window_start", "window_end"))
+        now, expiry = (
+            datetime.strptime(context[key], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            for key in ("not_before", "expires_at")
+        )
+        require(
+            snapshot["id"] == current["id"] and snapshot["status"] == "active"
+            and _strict_review_window_time(snapshot["window_start"]) == start
+            and _strict_review_window_time(snapshot["window_end"]) == end
+            and start <= now < expiry <= end, "strict_review_window_binding",
+        )
+        if kind == "missing":
+            require(row["listed_before"] == [] and submitted["authorization_id"] == "nm2-absent-authorization"
+                    and current["id"] != submitted["authorization_id"], "strict_review_authority_precondition")
+        else:
+            require(type(row["listed_before"]) is list and len(row["listed_before"]) == 1
+                    and row["queued_warnings"] == [CLOSED_WINDOW_WARNING],
+                    "strict_review_authority_precondition")
+            prior = row["listed_before"][0]
+            require(canonical({**prior, "window_end": current["window_end"]}) == canonical(current)
+                    and submitted["authorization_id"] == current["id"]
+                    and start < _strict_review_window_time(prior["window_end"]) < now,
+                    "strict_review_window_binding")
+        results[{"missing": "missing_authority", "expired": "expired_testing_window"}[kind]] = {
+            "refused_review_status": 409, "repaired_review_status": 200,
+            "unchanged_inventory_sha256": digest(canonical(row["after_refusal"])),
+            "positive_context_sha256": digest(canonical(context)),
+        }
+    require(len({engagement for engagement, _ in identities}) == 2
+            and len({job for _, job in identities}) == 2, "strict_review_proof_shape")
+    return {**results, "target_request_count": 0, "targets_spent": 0,
+            "duration_allocated": 0, "capacity_reserved_count": 0}
+
+
 def target_environment(scenario):
     require(scenario in SCENARIOS, "fixture_scenario_refused")
     if scenario == "persistent-availability":
         return {"NM2_FIXTURE_REQUEST_CEILING": "175"}
-    if scenario in {COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO, STRICT_DRIFT_SCENARIO}:
+    if scenario in {COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO, STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO}:
         return {}
     if scenario != "healthy":
         return {"NM2_FIXTURE_DELAY_SECONDS": "15"}
@@ -1070,6 +1180,9 @@ class Fixture:
             or database_revision == "0041persistentruntime",
             "persistent_database_revision_required",
         )
+        require(scenario != STRICT_REVIEW_SCENARIO
+                or selection["sources"]["map"]["commit"] == STRICT_REVIEW_MAP,
+                "strict_review_map_source_required")
         self.scenario = scenario
         self.protocol = (
             "persistent-v3" if scenario in PERSISTENT_SCENARIOS else "finite-v2"
@@ -1152,6 +1265,12 @@ class Fixture:
                 acceptance_scope=STRICT_DRIFT_SCOPE, nm2_exit_status="incomplete",
             )
             self.receipt["cases"][STRICT_DRIFT_CASE] = {"status": "not_run"}
+        elif scenario == STRICT_REVIEW_SCENARIO:
+            self.receipt.update(
+                schema=STRICT_REVIEW_SCHEMA, scenario=scenario,
+                acceptance_scope=STRICT_REVIEW_SCOPE, nm2_exit_status="incomplete",
+            )
+            self.receipt["cases"][STRICT_REVIEW_CASE] = {"status": "not_run"}
         elif scenario != "healthy":
             self.receipt.update(
                 schema="vardr.nm2-worker-failure-acceptance/1",
@@ -1564,7 +1683,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                     | (
                         {"count_approval_contexts": True}
                         if getattr(self, "scenario", None)
-                        in {COUNT_SCENARIO, IDLE_SCENARIO, STRICT_DRIFT_SCENARIO}
+                        in {COUNT_SCENARIO, IDLE_SCENARIO, STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO}
                         else {}
                     )
                     | ({"include_capacity": True} if include_capacity else {})
@@ -1738,7 +1857,22 @@ print(json.dumps({'files':hashes,'executables':executables}))
     def target_environment(self):
         return target_environment(self.scenario)
 
-    def new_job(self, name, *, in_scope=True, marker=False):
+    def fixture_authorization(self, engagement, window_start, window_end):
+        return self.api.request(
+            f"/engagements/{engagement}/authorizations",
+            {
+                "permits": "Owned synthetic fixture only",
+                "authorized_by": "Fixture local owner",
+                "reference": self.project,
+                "window_start": window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "window_end": window_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
+            expected=201,
+        )
+
+    def new_job(self, name, *, in_scope=True, marker=False,
+                authority="current", queue_warnings=None):
+        require(authority in {"current", "missing", "expired"}, "strict_review_authority_mode")
         now = datetime.now(timezone.utc)
 
         def stamp(moment):
@@ -1753,17 +1887,14 @@ print(json.dumps({'files':hashes,'executables':executables}))
             },
         )["id"]
         base = "/engagements/" + engagement
-        authorization = self.api.request(
-            base + "/authorizations",
-            {
-                "permits": "Owned synthetic fixture only",
-                "authorized_by": "Fixture local owner",
-                "reference": self.project,
-                "window_start": stamp(now - timedelta(minutes=1)),
-                "window_end": stamp(now + timedelta(minutes=15)),
-            },
-            expected=201,
-        )["id"]
+        authorization = None
+        if authority != "missing":
+            window = (
+                (now - timedelta(days=2), now - timedelta(days=1))
+                if authority == "expired"
+                else (now - timedelta(minutes=1), now + timedelta(minutes=15))
+            )
+            authorization = self.fixture_authorization(engagement, *window)["id"]
         self.api.request(
             base + "/scope/in",
             {
@@ -1778,10 +1909,11 @@ print(json.dumps({'files':hashes,'executables':executables}))
             ("duration-policy", {"limit_seconds": 120}),
         ):
             self.api.request(base + "/" + endpoint, body, method="PUT")
-        job, stored = self.job_in_engagement(name, engagement, marker=marker)
+        job, stored = self.job_in_engagement(name, engagement, marker=marker,
+                                             queue_warnings=queue_warnings)
         return engagement, authorization, job, stored
 
-    def job_in_engagement(self, name, engagement, *, marker=False, contract_required=True):
+    def job_in_engagement(self, name, engagement, *, marker=False, contract_required=True, queue_warnings=None):
         from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
 
         base = "/engagements/" + engagement
@@ -1819,8 +1951,10 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 },
                 "authorization_contract_required": contract_required,
             },
-        )["id"]
-        return job, stored
+        )
+        if queue_warnings is not None:
+            queue_warnings.extend(job["warnings"])
+        return job["id"], stored
 
     def enroll_runner(self):
         identity = self.helper("identity", "show").decode()
@@ -1856,26 +1990,10 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "--expires-in", str(lifetime),
         )
 
-    def approve(
-        self,
-        name,
-        engagement,
-        authorization,
-        job,
-        case,
-        *,
-        local_grants=True,
-        expected=200,
-        review_snapshot=None,
-        review_context=None,
-        review_authority=None,
-        deferred_registration=None,
-    ):
-        from vardrrunner.authorization.contracts import approve
+    def approval_review_input(self, engagement, authorization, case, *, local_grants=True):
         from vardrrunner.authorization.plan import compile_gate_plan
 
         runner_id, enrollment_id = self.enroll_runner()
-        enrollment = {"enrollment_id": enrollment_id}
         if local_grants:
             for who in ("owner", "peer"):
                 self.approve_local_grant(engagement, who, 600)
@@ -1894,7 +2012,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
             "%Y-%m-%dT%H:%M:%SZ"
         )
         selection = {
-            "enrollment_id": enrollment["enrollment_id"],
+            "enrollment_id": enrollment_id,
             "authorization_id": authorization,
             "plan": plan,
         }
@@ -1909,6 +2027,29 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 for reference in plan["credential_references"]
             ],
         }
+        return (runner_id, enrollment_id), review_input
+
+    def approve(
+        self,
+        name,
+        engagement,
+        authorization,
+        job,
+        case,
+        *,
+        local_grants=True,
+        expected=200,
+        review_snapshot=None,
+        review_context=None,
+        review_authority=None,
+        deferred_registration=None,
+    ):
+        from vardrrunner.authorization.contracts import approve
+
+        binding, review_input = self.approval_review_input(
+            engagement, authorization, case, local_grants=local_grants,
+        )
+        selection = {key: review_input[key] for key in ("enrollment_id", "authorization_id", "plan")}
         review = self.api.request(
             f"/jobs/{job}/managed/approval/review", review_input, expected=expected
         )
@@ -1934,7 +2075,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
             review_context.update(review["context"])
         if review_authority is not None:
             review_authority.update(review["authority_snapshot"])
-        return runner_id, enrollment["enrollment_id"]
+        return binding
 
     def strict_drift_replacement(self, registration, original, fresh):
         from vardrrunner.authorization.codec import TrustAnchor, unb64
@@ -2033,6 +2174,64 @@ print(json.dumps({'files':hashes,'executables':executables}))
         strict_drift_measurements(proof)
         self.receipt["cases"][STRICT_DRIFT_CASE] = {"status": "passed", "proof": proof}
         self.receipt["status"], self.receipt["stage"] = STRICT_DRIFT_PASS, STRICT_DRIFT_COMPLETE
+
+    def strict_review_authority(self):
+        traffic_before = self.traffic()
+        require(traffic_before == [], "strict_review_traffic_changed")
+        proof = {"traffic_before": traffic_before}
+        for kind in ("missing", "expired"):
+            self.receipt["stage"] = f"strict_review_{kind}"
+            warnings = []
+            engagement, authorization, job, case = self.new_job(
+                f"strict-review-{kind}", authority=kind, queue_warnings=warnings,
+            )
+            base = f"/engagements/{engagement}"
+            path = f"/jobs/{job}/managed/approval/review"
+            listed = self.api.request(base + "/authorizations")
+            active = self.api.request(base + "/authorization/active")
+            require(active is None and (listed == [] if kind == "missing" else
+                    type(listed) is list and len(listed) == 1
+                    and listed[0]["id"] == authorization and warnings == [CLOSED_WINDOW_WARNING]),
+                    "strict_review_authority_precondition")
+            binding, review_input = self.approval_review_input(
+                engagement, authorization or "nm2-absent-authorization", case,
+            )
+            before = self.inventory(engagement, job, include_capacity=True)
+            strict_drift_empty(before, engagement, job)
+            refusal = self.api.request(path, review_input, expected=409)
+            require(refusal == {"detail": "managed_approval_refused"}, "strict_review_refusal_shape")
+            after_refusal = self.inventory(engagement, job, include_capacity=True)
+            strict_drift_empty(after_refusal, engagement, job)
+
+            now = datetime.now(timezone.utc)
+            if kind == "missing":
+                current = self.fixture_authorization(
+                    engagement, now - timedelta(minutes=1), now + timedelta(minutes=15),
+                )
+            else:
+                current = self.api.request(
+                    f"{base}/authorizations/{authorization}",
+                    {"window_end": (now + timedelta(minutes=15)).strftime("%Y-%m-%dT%H:%M:%SZ")},
+                    method="PATCH",
+                )
+            accepted_input = {**review_input, "authorization_id": current["id"]}
+            review = self.api.request(path, accepted_input)
+            proof[kind] = {
+                "before": before, "after_refusal": after_refusal,
+                "after_review": self.inventory(engagement, job, include_capacity=True),
+                "listed_before": listed, "active_before": active, "authorization_after": current,
+                "active_after": self.api.request(base + "/authorization/active"),
+                "review_input": review_input, "accepted_input_sha256": digest(canonical(accepted_input)),
+                "runner_id": binding[0], "refusal": refusal,
+                "review": {key: review[key] for key in ("authority_snapshot", "case", "context")},
+            }
+            if kind == "expired":
+                proof[kind]["queued_warnings"] = warnings
+        proof["traffic_after"] = self.traffic()
+        proof["services"] = sorted(self.compose("ps", "--all", "--services").decode().split())
+        strict_review_measurements(proof)
+        self.receipt["cases"][STRICT_REVIEW_CASE] = {"status": "passed", "proof": proof}
+        self.receipt["status"], self.receipt["stage"] = STRICT_REVIEW_PASS, STRICT_REVIEW_COMPLETE
 
     def verify_fixed(
         self,
@@ -4962,6 +5161,9 @@ print(json.dumps(result))
             if self.scenario == STRICT_DRIFT_SCENARIO:
                 self.strict_authority_drift()
                 return
+            if self.scenario == STRICT_REVIEW_SCENARIO:
+                self.strict_review_authority()
+                return
             self.receipt["stage"] = "strict_scope_setup"
             engagement, authorization, job, case = self.new_job(
                 "strict-denial", in_scope=False
@@ -5153,6 +5355,9 @@ def main(argv=None):
         "persistent_database_revision_required",
     )
     selection = manifest(args.cohort)
+    require(args.scenario != STRICT_REVIEW_SCENARIO
+            or selection["sources"]["map"]["commit"] == STRICT_REVIEW_MAP,
+            "strict_review_map_source_required")
     if not args.execute:
         receipt = {
             "schema": "vardr.nm2-worker-source-validation/1",
@@ -5180,6 +5385,11 @@ def main(argv=None):
             receipt["initial_cases"] = ("default_disabled", "strict_out_of_scope", "persistent_idle_limit")
             receipt.update(scenario=args.scenario, limits=persistent_limits(IDLE_SCENARIO),
                            acceptance_scope="persistent_idle_control_only")
+        if args.scenario == STRICT_REVIEW_SCENARIO:
+            receipt.update(
+                initial_cases=("default_disabled", STRICT_REVIEW_CASE),
+                acceptance_scope=STRICT_REVIEW_SCOPE,
+            )
         if args.scenario == STRICT_DRIFT_SCENARIO:
             receipt.update(
                 initial_cases=("default_disabled", STRICT_DRIFT_CASE),
@@ -5220,7 +5430,7 @@ def main(argv=None):
             "selected_count_control_slice_passed",
             "selected_idle_control_slice_passed",
             "selected_empty_stop_slice_passed",
-            STRICT_DRIFT_PASS,
+            STRICT_DRIFT_PASS, STRICT_REVIEW_PASS,
         }
         else 1
     )

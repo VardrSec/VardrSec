@@ -94,6 +94,7 @@ class ControlledRequestCeiling(unittest.TestCase):
                     if scenario in {
                         "healthy", "persistent-count-limit", "persistent-idle-limit",
                         "persistent-empty-stop", "strict-authority-drift",
+                        "strict-review-authority",
                     }
                     else {"NM2_FIXTURE_DELAY_SECONDS": "15"},
                 )

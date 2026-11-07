@@ -224,3 +224,144 @@ class StrictDriftHosted(unittest.TestCase):
         receipt = json.loads(output.getvalue())
         self.assertEqual(receipt["docker_calls"], 0)
         self.assertEqual(receipt["initial_cases"], ["default_disabled", fixture.STRICT_DRIFT_CASE])
+
+
+def review_vector(*, desktop=False):
+    raw, selection, before, after, run, *_ = vector(desktop=desktop)
+    selection["sources"]["map"]["commit"] = fixture.STRICT_REVIEW_MAP
+    old = raw["cases"].pop(fixture.STRICT_DRIFT_CASE)["proof"]["before"]
+    raw.update(schema=fixture.STRICT_REVIEW_SCHEMA, scenario=fixture.STRICT_REVIEW_SCENARIO,
+               acceptance_scope=fixture.STRICT_REVIEW_SCOPE)
+    run.traffic = Mock(side_effect=[[], []])
+    run.compose = Mock(return_value=" ".join(fixture.STRICT_DRIFT_SERVICES).encode())
+    replies, requests, jobs, inventories = [], {}, {}, []
+    for kind in ("missing", "expired"):
+        engagement, job, authority = f"private-eng-{kind}", f"private-job-{kind}", f"private-auth-{kind}"
+        inventory = {**old, "engagement_id": engagement, "job_id": job}
+        inventories.extend(dict(inventory) for _ in range(3))
+        spec = {"id": f"private-case-{kind}"}
+        plan = {"profile": "gate-fixed-http/1", "case_hash": digest(spec)}
+        submitted = {
+            "enrollment_id": "private-enrollment",
+            "authorization_id": "nm2-absent-authorization" if kind == "missing" else authority,
+            "plan": plan, "expires_at": "2026-11-07T20:05:00Z", "max_executions": 1,
+            "max_duration_seconds": 30, "max_artifact_bytes": 1024 * 1024, "credential_grants": [],
+        }
+        requests[kind] = submitted
+        jobs[kind] = engagement, None if kind == "missing" else authority, job, {"spec": spec}
+        current = {
+            "id": authority, "program_id": engagement, "status": "active", "permits": "private-canary",
+            "window_start": "2026-11-05T19:00:00", "window_end": "2026-11-07T20:15:00+00:00",
+        }
+        snapshot = {
+            "schema": "vardr.map-managed-authority/1", "authority_revision": 9,
+            "authority": {"engagement_id": engagement, "authorization": {
+                "id": authority, "status": "active",
+                "window_start": "2026-11-05T19:00:00Z", "window_end": "2026-11-07T20:15:00Z",
+            }},
+            "enrollment": {"id": submitted["enrollment_id"], "runner_id": "private-runner"},
+        }
+        context = {
+            "engagement_id": engagement, "job_id": job, "runner_id": "private-runner",
+            "mode": "strict", "control": "managed_online", "authority_sha256": digest(snapshot),
+            "authority_revision": snapshot["authority_revision"],
+            "plan_sha256": digest(plan), "not_before": "2026-11-07T20:00:00Z",
+            **{key: submitted[key] for key in ("expires_at", "max_executions", "max_duration_seconds",
+                                                "max_artifact_bytes", "credential_grants")},
+        }
+        prior = [] if kind == "missing" else [{**current, "window_end": "2026-11-06T19:00:00"}]
+        replies.extend((prior, None, {"detail": "managed_approval_refused"}))
+        if kind == "missing":
+            run.fixture_authorization = Mock(return_value=current)
+        else:
+            replies.append(current)
+        replies.extend(({"context": context, "authority_snapshot": snapshot, "case": spec}, current))
+
+    def new_job(_name, *, authority, queue_warnings):
+        if authority == "expired":
+            queue_warnings.append(fixture.CLOSED_WINDOW_WARNING)
+        return jobs[authority]
+
+    run.new_job = Mock(side_effect=new_job)
+    run.approval_review_input = Mock(side_effect=[
+        (("private-runner", "private-enrollment"), requests[kind]) for kind in ("missing", "expired")
+    ])
+    run.inventory = Mock(side_effect=inventories)
+    run.api.request = Mock(side_effect=replies)
+    run.strict_review_authority()
+    return raw, selection, before, after, run, requests
+
+
+class StrictReviewHosted(unittest.TestCase):
+    def test_same_installation_review_denials_have_narrow_positive_controls(self):
+        for desktop in (False, True):
+            with self.subTest(desktop=desktop):
+                raw, selection, before, after, run, requests = review_vector(desktop=desktop)
+                calls = run.api.request.call_args_list
+                reviews = [observed for observed in calls if observed.args[0].endswith("/approval/review")]
+                self.assertEqual(reviews, [
+                    call("/jobs/private-job-missing/managed/approval/review", requests["missing"], expected=409),
+                    call("/jobs/private-job-missing/managed/approval/review",
+                         {**requests["missing"], "authorization_id": "private-auth-missing"}),
+                    call("/jobs/private-job-expired/managed/approval/review", requests["expired"], expected=409),
+                    call("/jobs/private-job-expired/managed/approval/review", requests["expired"]),
+                ])
+                mutations = [observed for observed in calls if observed.kwargs.get("method") == "PATCH"]
+                self.assertEqual(len(mutations), 1)
+                self.assertEqual(mutations[0].args[0], "/engagements/private-eng-expired/authorizations/private-auth-expired")
+                self.assertEqual(set(mutations[0].args[1]), {"window_end"})
+                run.fixture_authorization.assert_called_once()
+                self.assertEqual(run.inventory.call_count, 6)
+                self.assertFalse(any(observed.args[0].endswith("/register") for observed in calls))
+                run.worker.assert_not_called()
+                output = (projection.project_desktop(raw, selection, before, after) if desktop
+                          else hosted.public_projection(raw, selection, inventories=(before, after)))
+                self.assertEqual(output["stopped_owned_container_count"], 5)
+                self.assertEqual(output["measurements"]["target_request_count"], 0)
+                self.assertEqual(output["measurements"]["missing_authority"]["refused_review_status"], 409)
+                self.assertEqual(output["measurements"]["expired_testing_window"]["repaired_review_status"], 200)
+                self.assertNotIn("private-", json.dumps(output))
+
+    def test_review_projection_refuses_alternative_explanations_and_scope_drift(self):
+        for change in ("present", "unopened", "nonwindow_change", "wrong_case", "dirty_budget", "traffic", "map"):
+            with self.subTest(change=change):
+                raw, selection, before, after, *_ = review_vector()
+                proof = raw["cases"][fixture.STRICT_REVIEW_CASE]["proof"]
+                if change == "present":
+                    proof["missing"]["listed_before"] = [{"id": "unexpected"}]
+                elif change == "unopened":
+                    proof["expired"]["queued_warnings"] = [{
+                        "reason": "outside_testing_window", "message": "The testing window has not opened yet.",
+                    }]
+                elif change == "nonwindow_change":
+                    proof["expired"]["listed_before"][0]["permits"] = "unexpected"
+                elif change == "wrong_case":
+                    proof["expired"]["review"]["case"] = {"id": "other"}
+                elif change == "dirty_budget":
+                    proof["expired"]["after_review"]["duration_allocated"] = 30
+                elif change == "traffic":
+                    proof["traffic_after"] = [{"private": "canary"}]
+                elif change == "map":
+                    selection["sources"]["map"]["commit"] = "0" * 40
+                with self.assertRaises(hosted.HostedRefused):
+                    hosted.public_projection(raw, selection, inventories=(before, after))
+
+    def test_review_scenario_requires_exact_map_and_persistent_schema(self):
+        env = {"NM2_SCENARIO": fixture.STRICT_REVIEW_SCENARIO,
+               "NM2_DATABASE_REVISION": "0041persistentruntime", "NM2_MAP_SHA": fixture.STRICT_REVIEW_MAP}
+        self.assertEqual(hosted.execution_options(env), (fixture.STRICT_REVIEW_SCENARIO, "0041persistentruntime"))
+        for wrong in ({"NM2_MAP_SHA": "0" * 40}, {"NM2_DATABASE_REVISION": "0040runtimesequence"}):
+            with self.assertRaises(hosted.HostedRefused):
+                hosted.execution_options({**env, **wrong})
+        _, selection, *_ = review_vector()
+        output = io.StringIO()
+        with (patch.object(fixture, "manifest", return_value=selection),
+              patch.object(fixture.Fixture, "run", side_effect=AssertionError("no execution")),
+              redirect_stdout(output)):
+            self.assertEqual(fixture.main([
+                "--cohort", "unused", "--scenario", fixture.STRICT_REVIEW_SCENARIO,
+                "--database-revision", "0041persistentruntime",
+            ]), 0)
+        receipt = json.loads(output.getvalue())
+        self.assertEqual(receipt["docker_calls"], 0)
+        self.assertEqual(receipt["initial_cases"], ["default_disabled", fixture.STRICT_REVIEW_CASE])
