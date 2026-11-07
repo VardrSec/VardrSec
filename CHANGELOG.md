@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Verify the completed-job reconciliation summary and a separate offline
+  Runner audit before checking the successor launch.
+
 - Exercise one approved job and the original Runner reconciliation before
   the next managed worker launch in the installed fixture.
 

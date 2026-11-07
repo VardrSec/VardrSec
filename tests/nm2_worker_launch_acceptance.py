@@ -158,9 +158,14 @@ class LaunchFixture(Fixture):
             self.inventory(engagement, job),
             persistent=True,
         )
+        binding = {
+            key: admission[key]
+            for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256")
+        }
         selectors = []
-        for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256"):
-            selectors.extend(("--" + key.replace("_", "-"), admission[key]))
+        for key, value in binding.items():
+            selectors.extend(("--" + key.replace("_", "-"), value))
+        self.receipt["stage"] = "launch_reconcile_completed"
         reconciled = json.loads(
             self.helper(
                 "worker-reconcile",
@@ -171,17 +176,29 @@ class LaunchFixture(Fixture):
                 *selectors,
             )
         )
-        audit = reconciled["audit"]
         require(
-            reconciled["status"] in {"reconciled", "already_retired"}
+            reconciled["schema"] == "vardr.worker-reconciliation/1"
+            and reconciled["status"] in {"reconciled", "already_retired"}
+            and reconciled["complete"] is True
+            and reconciled["binding"] == binding
+            and type(reconciled["remaining_local_holds"]) is int
+            and reconciled["remaining_local_holds"] == 0
+            and reconciled["retirement_receipt_sha256"] == retired["receipt_sha256"],
+            "launch_completed_reconciliation_not_observed",
+        )
+        self.receipt["stage"] = "launch_audit_retired"
+        audit = self.worker_state(admission)
+        require(
+            audit["schema"] == "vardr.worker-state-audit/1"
             and audit["status"] == "retired"
             and audit["complete"] is True
+            and audit["binding"] == binding
             and type(audit["global_holds"]) is int
             and audit["global_holds"] == 0
             and audit["retirement_receipt_sha256"] == retired["receipt_sha256"]
             and audit["counts"]["attempts"] == 1
             and len(requests) == 5,
-            "launch_completed_reconciliation_not_observed",
+            "launch_completed_audit_not_observed",
         )
         self.receipt["completed_job"] = {
             "job_id": job,

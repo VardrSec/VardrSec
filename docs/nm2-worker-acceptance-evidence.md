@@ -5,6 +5,28 @@ paused. These receipts establish specific development slices, not release or
 complete worker acceptance. The [acceptance plan](nm2-worker-acceptance-plan.md)
 and [closeout control record](nm1-nm2-closeout.md) retain the remaining gates.
 
+## Installed first and subsequent startup (2026-11-07)
+
+The explicit `worker launch` command passed the zero-issued-job sequence
+on Docker Desktop for Windows and Ubuntu 24.04 using distribution
+`12983d7e793d4d80f96088dab958d6ab708e1724`, Runner
+`2176c8e7ff9361fc9cdebdbaa2fc1ac9b56da15d`, and Compose 5.6.1.
+Each test admitted ordinal one from a clear initialized journal, retired
+that worker, and admitted ordinal two using the exact predecessor. Both
+tests retained the original Runner state volume and the stopped containers.
+
+- The Ubuntu sanitized receipt SHA-256 is
+  `5ae6e9692bacd43e43438ed916a1c01b5f607600eb981fa14a2ca269c4b7f3a6`.
+  [Installed Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42374672703)
+- The Windows private receipt SHA-256 is
+  `51ba4dc81f0fc8081e431e4d5c1f897768b628a4866352af70a90a1a4c98ddac`.
+  The operator profile hashes matched before and after. Two earlier Desktop
+  runs held before writing a startup intent. The corrected image inspection
+  accepts the omitted Volumes key and still refuses a nonempty declaration.
+
+Completed-job successor, active cancellation, and containment acceptance
+have separate requirements.
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)

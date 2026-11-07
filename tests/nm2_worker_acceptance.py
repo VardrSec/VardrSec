@@ -3365,7 +3365,7 @@ print(json.dumps(result))
                 reason)
         return {"daemon_id": daemon, "endpoint": endpoint, "root": root, **value}
 
-    def empty_worker_state(self, admission):
+    def worker_state(self, admission):
         # Component-owned offline inspection. The root filesystem is read-only;
         # this one exact state volume permits ordinary SQLite WAL sidecars.
         args = ["run", "--rm", "--pull", "never", "--user", "10001:10001",
@@ -3385,7 +3385,10 @@ print(json.dumps(result))
         after = self.empty_audit_volume(admission)
         require(canonical(before) == canonical(after), "empty_audit_volume_changed")
         self.empty_audit_volumes.append({"before": before, "after": after})
-        return self.verify_empty_worker_state(value, admission)
+        return value
+
+    def empty_worker_state(self, admission):
+        return self.verify_empty_worker_state(self.worker_state(admission), admission)
 
     def empty_engagements(self):
         value = self.api.request("/engagements")

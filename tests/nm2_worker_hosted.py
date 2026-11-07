@@ -696,6 +696,7 @@ def failure_projection(raw, selection):
                 and raw.get("expected_database_revision") == "0041persistentruntime")
     stages = {
         "launch_prepare", "launch_1", "launch_2", "launch_stop_1", "launch_stop_2",
+        "launch_reconcile_completed", "launch_audit_retired",
         "selected_launch_complete",
         "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
         "empty_stop_reconciliation", "selected_empty_stop_complete",
@@ -739,6 +740,7 @@ def failure_projection(raw, selection):
         "launch_retirement_not_observed", "launch_completed_job_not_done",
         "launch_completed_reconciliation_not_observed", "launch_completed_enrollment_changed",
         "launch_completed_job_not_pending", "launch_completed_audit_changed",
+        "launch_completed_audit_not_observed",
         "empty_audit_volume_not_bound", "empty_audit_volume_changed",
         "empty_local_state_not_proven", "empty_map_inventory_not_empty",
         "empty_target_traffic_not_empty", "empty_operator_stop_not_proven",
