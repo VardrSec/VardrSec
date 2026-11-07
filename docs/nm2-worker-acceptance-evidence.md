@@ -261,6 +261,36 @@ catalog, the peer policy check and the exact original attempt receipt.
 The Ubuntu sanitized receipt SHA-256 is
 `86f8df6abdd67007a0ccff3772c3a4b678f255915cfa5c439855e1adba894611`.
 
+### Allocated duration exhaustion
+
+Distribution `176d4d47a8f743c04fabe00d92bfe89e91e57046` uses the exact
+Map diagnostic revision `40bf4e37076d6a85648f817dd8b6bc69104bd863`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9`, and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`. The fixture completes one approved synthetic job and waits for its
+native completion, release, and local audit. It then submits a second,
+separately approved job in the same engagement. The first job has allocated
+the full 30-second duration budget. One concurrency slot remains free and
+target allowance remains available.
+
+The owned Map API emits one fixed duration-exhaustion marker. The refused job
+stays pending and unissued, with zero target requests. Across the denial and
+reconciliation, the engagement retains one target spent, 30 seconds
+allocated, and zero capacity reservations. The first job's receipts remain
+intact. Runner holds the ambiguous claim until exact physical retirement and
+original-key reconciliation. The retired runtime records sequence one as
+issued, and the original audit shows zero remaining holds.
+
+Windows Docker Desktop passed. The worker exited with code 125 before any
+operator stop, and the fixture was stopped and retained. The operator profile
+hashes matched. The private Windows receipt SHA-256 is
+`675c6d4463da02bff62e20ec3827d8402edbfa0bba9877c2528311e94033a5cb`.
+The matching Ubuntu 24.04 run passed with the same charges, capacity,
+issuance and target counts. Its worker exited with code 125
+before operator stop, and the original Runner had zero holds after
+reconciliation. The sanitized Ubuntu receipt SHA-256 is
+`94fc329e879b89f33b973eb7b4f139a51721594e9e588ba0cb0351dd3b6b5e93`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42399656129)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
@@ -528,9 +558,10 @@ both cases. No test result here establishes physical failure-path acceptance.
 
 The installed evidence above covers first and subsequent startup, selected
 cancellation paths, active grant revocation, expiry before claim and expiry
-during active work. The full matrix still includes budget exhaustion,
-remaining strict denials, retained partial evidence, disconnect, crash and
-restart, duplicate and lost replies, and persisted preclaim recovery.
+during active work, and allocated duration exhaustion. The open cases include
+represented-origin and concurrency exhaustion, the remaining Strict denials,
+retained partial evidence, disconnect, crash and restart, duplicate and lost
+replies, and persisted preclaim recovery.
 
 ADR 0043's independent containment review and bootstrap, channel, owner-loss,
 credential-isolation, pressure and supported-host clock obligations remain open.

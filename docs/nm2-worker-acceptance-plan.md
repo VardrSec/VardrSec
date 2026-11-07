@@ -4,8 +4,12 @@ Windows Docker Desktop and Ubuntu have verified selected persistent
 availability, optional finite controls, zero-job stop, first and subsequent
 startup, active Map and local emergency cancellation, and refusal of approved
 jobs with a missing local target grant. Active target grant revocation and
-natural expiry before claim and during active work passed on both platforms. The
-[installed receipts](nm2-worker-acceptance-evidence.md) record the exact
+natural expiry before claim and during active work passed on both platforms.
+Allocated duration exhaustion also passed on both platforms, preserving one
+target charge, 30 seconds allocated and zero capacity reservations through
+refusal and reconciliation. Represented-origin and concurrency exhaustion
+remain open.
+The [installed receipts](nm2-worker-acceptance-evidence.md) record the exact
 sources and scope. The [closeout control record](nm1-nm2-closeout.md) tracks
 the remaining failure and containment gates. NM-3 remains paused.
 
@@ -192,7 +196,7 @@ always needs fresh admission.
 | 2 | Local emergency stop | A separate ordinary helper invokes existing `jobs stop RUN_ID`; bounded graceful/forced handling is measured, partial artifacts remain, and no new target dispatch follows confirmed termination. |
 | 2 | Engagement stop-work | Real owner/CSRF stop-work change prevents new claims and stops an active ordinary delayed HTTP case within the existing permission bounds. |
 | 2 | Target grant expiry/revocation | Keep original Runner enrollment/key active. Verify exact grant revocation during active work, expiry before claim and expiry during active work. Check the original grant binding, bounded stop or refusal, and retained peer authority. |
-| 2 | Budget exhaustion | Concurrency/represented-origin/allocated-duration limits prevent excess claims; one-use approvals, spent targets and allocated duration never reset after failure. |
+| 2 | Budget exhaustion | Concurrency, represented-origin and allocated-duration limits prevent excess claims. The installed duration case passed on Windows Docker Desktop and Ubuntu with unchanged charges and capacity. Represented-origin and concurrency exhaustion remain open. |
 | 3 | Map disconnect | Stop only this project's API during an already observed bounded slow HTTP resource request. The independent owner stops the incarnation by its last valid lease/hard ceiling; API restart starts no worker. |
 | 3 | Ordinary worker crash/stop | Stop only the exact owned container. Direct wait/inspect proves its exit; host capability reports only the exact atomic runtime-associated failure, never success or permission renewal. |
 | 3 | Lost claim/consume/bind reply | Use a reviewed fixture-only response-loss seam, without changing product authorization. Exact server runtime association and durable local send fences prevent replay; physical exit precedes host reporting. |
