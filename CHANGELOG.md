@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: inventory every same-project readiness volume,
+  including retained volumes with no attached worker.
+
 - NM-2 private lifecycle: join the selected Runner's clear offline bootstrap
   audit to an empty protected catalog under the same live host operation.
 

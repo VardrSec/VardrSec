@@ -395,3 +395,12 @@ the enrolled credential configured) is a candidate to establish the journal
 in the original Full installation volume before this inspection. Qualify
 that path in the actual installed cohort; a missing journal stays held.
 Do not substitute an empty container list or create a replacement volume.
+
+The readiness volume inventory independently lists all project-labelled
+volumes and inspects a closed metadata projection. A logical worker-ready
+role, readiness marker, or lifecycle intent marker must all pass the same
+existing readiness-volume checks. No container attachment or Compose config
+hash is required to find a retained volume. The observer rechecks the full
+project list, exact readiness metadata, root and local daemon, and never
+mounts, creates or removes a volume. The caller still compares the retained
+set with the protected intent history and checks the exact proposed new name.

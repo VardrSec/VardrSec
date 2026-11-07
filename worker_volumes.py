@@ -148,13 +148,17 @@ def _optional_label(value):
     return value[0]
 
 
-def _resource(observer, root, name, project, logical):
+def _resource_row(observer, name):
     row = parse_document(
         observer._command("volume", "inspect", "--format", VOLUME_RESOURCE_FORMAT, name)
     )
     runtime.require(
         set(row) == _VOLUME_FIELDS | {"created_at", "intent_id", "config_hash"}
     )
+    return row
+
+
+def _resource_value(row, root, name, project, logical):
     selected = {key: row[key] for key in _VOLUME_FIELDS}
     selected["ready"] = _optional_label(selected["ready"])
     _volume_source(selected, root, name, project, logical)
@@ -178,6 +182,87 @@ def _resource(observer, root, name, project, logical):
         "intent_id": intent_id,
         "config_hash": config_hash,
     }
+
+
+def _resource(observer, root, name, project, logical):
+    return _resource_value(_resource_row(observer, name), root, name, project, logical)
+
+
+def _project_readiness(observer, root, project):
+    raw = observer._command(
+        "volume",
+        "ls",
+        "--filter",
+        "label=com.docker.compose.project=" + project,
+        "--format",
+        "{{json .Name}}",
+    )
+    lines = raw.split("\n") if raw else []
+    runtime.require(len(lines) <= 256)
+    names = set()
+    for line in lines:
+        value = json.loads(line)
+        runtime.require(
+            type(value) is str
+            and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", value)
+            and value not in names
+        )
+        names.add(value)
+    readiness = []
+    for name in sorted(names):
+        row = _resource_row(observer, name)
+        runtime.require(row["name"] == name and row["project"] == project)
+        if (
+            row["volume"] == "worker-ready"
+            or _optional_label(row["ready"]) is not None
+            or _optional_label(row["intent_id"]) is not None
+        ):
+            readiness.append(_resource_value(row, root, name, project, "worker-ready"))
+    return sorted(names), readiness
+
+
+def capture_readiness_inventory(observer, project):
+    """Read every same-project readiness resource, even without a container."""
+    runtime.require(isinstance(observer, runtime.LocalDocker))
+    runtime.require(
+        type(project) is str and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project)
+    )
+    runtime.require(observer._observation_lock.acquire(blocking=False))
+    try:
+        observer._deadline = time.monotonic() + 30
+        context = observer.context
+        endpoint, daemon = observer._daemon_binding()
+        raw_root = daemon_root(observer._command("info", "--format", DAEMON_FORMAT))
+        root = _path(raw_root)
+        names, readiness = _project_readiness(observer, root, project)
+        runtime.require(
+            _project_readiness(observer, root, project) == (names, readiness)
+        )
+        runtime.require(
+            daemon_root(observer._command("info", "--format", DAEMON_FORMAT))
+            == raw_root
+            and observer._daemon_binding() == (endpoint, daemon)
+            and observer.context == context
+        )
+        return {
+            "context": context,
+            "local_endpoint": endpoint,
+            "daemon_id": daemon,
+            "daemon_root": raw_root,
+            "readiness": readiness,
+        }
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        AttributeError,
+        OverflowError,
+        RecursionError,
+    ):
+        raise runtime.RuntimeRefused("worker_runtime_refused") from None
+    finally:
+        observer._deadline = None
+        observer._observation_lock.release()
 
 
 def capture_volume_resource(observer, project, logical):
