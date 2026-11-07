@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Keep existing worker enablement under one installation-lock operation with a
+  live, thread/owner/lifetime-bound capability for nested host calls. Preserve
+  token-free direct-call locking, registration/publication order and original
+  capture diagnostics. Add ADR0005 and pure actual-definition tests; normal
+  full-module validation remains required. Durable lifecycle intents and
+  next-enable recovery are separate open work; startup remains disabled.
+
+
 - Return success from the official fixture CLI after the explicit zero-issued-job
   stop slice passes. Keep held, unknown and raised-fixture outcomes nonzero;
   preserve every existing success status and all independent acceptance gates.

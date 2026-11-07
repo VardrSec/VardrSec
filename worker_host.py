@@ -3,8 +3,8 @@
 No execution, Docker mutation, secret export, implicit replay or authority repair.
 """
 
-from contextlib import contextmanager
-from dataclasses import asdict
+from contextlib import contextmanager, ExitStack
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
 import hmac
@@ -604,6 +604,23 @@ class OwnerSession:
         return reply
 
 
+_OPERATION_PROOF = object()
+
+
+@dataclass(frozen=True, slots=True, eq=False, repr=False)
+class _HostOperation:
+    """An opaque live lock owner; never serialized or accepted from CLI input."""
+
+    _owner: object
+    _thread: int
+    _installation: Path
+    _private_root: Path
+    _proof: object
+
+    def __post_init__(self):
+        require(self._proof is _OPERATION_PROOF)
+
+
 class HostRecords:
     """Public-only MAC records in a dedicated host-private directory.
 
@@ -614,6 +631,7 @@ class HostRecords:
     def __init__(self, installation, private_root, *, backend=None):
         self.installation = Path(installation).absolute()
         self.private_root = Path(private_root).absolute()
+        self.__operation = None
         require(self.installation.is_dir() and self.private_root.is_dir())
         self.directory = self.private_root / "worker-host"
         self.directory.mkdir(mode=0o700, exist_ok=True)
@@ -641,11 +659,63 @@ class HostRecords:
                     info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o700
                 )
 
+    def _require_operation(self, operation):
+        require(
+            type(operation) is _HostOperation
+            and operation is self.__operation
+            and operation._owner is self
+            and operation._thread == threading.get_ident()
+            and operation._installation == self.installation
+            and operation._private_root == self.private_root
+        )
+
     @contextmanager
-    def locked(self):
-        try:
-            with updater.installation_lock(self.installation):
+    def operation(self, existing=None):
+        """Own one installation lock, or borrow only its exact live capability."""
+        if existing is not None:
+            self._require_operation(existing)
+            try:
                 self._directory()
+            except (OSError, ValueError) as error:
+                raise HostRefused(
+                    registration_failure=registration_diagnostic(error)
+                ) from None
+            yield existing
+            return
+        require(self.__operation is None)
+        stack = ExitStack()
+        try:
+            try:
+                stack.enter_context(updater.installation_lock(self.installation))
+                self._directory()
+            except (OSError, ValueError) as error:
+                raise HostRefused(
+                    registration_failure=registration_diagnostic(error)
+                ) from None
+            operation = _HostOperation(
+                self, threading.get_ident(), self.installation,
+                self.private_root, _OPERATION_PROOF,
+            )
+            self.__operation = operation
+            try:
+                yield operation
+            finally:
+                self.__operation = None
+        finally:
+            # Invalidate first; release/handle-close failure cannot leave a token
+            # usable. Translate only the owned lock exit, never body failures.
+            try:
+                stack.close()
+            except (OSError, ValueError) as error:
+                raise HostRefused(
+                    registration_failure=registration_diagnostic(error)
+                ) from None
+
+    @contextmanager
+    def locked(self, *, operation=None):
+        # Ordinary callers retain one independently acquired lock and no token.
+        try:
+            with self.operation(operation):
                 yield
         except (OSError, ValueError) as error:
             raise HostRefused(
@@ -1066,6 +1136,7 @@ def register_runtime(
     max_attempts=None,
     protocol=None,
     limits=None,
+    operation=None,
 ):
     """Persist exact grant/custody before POST; unknown replies never recreate it."""
     if protocol == "persistent-v3":
@@ -1083,6 +1154,7 @@ def register_runtime(
             observer=observer,
             runtime_id=runtime_id,
             selected_limits=limits,
+            **({} if operation is None else {"operation": operation}),
         )
     require(
         protocol is None
@@ -1114,7 +1186,7 @@ def register_runtime(
     )
     require(getattr(observer, "max_attempts", None) == max_attempts)
     runtime_id = str(uuid.uuid4()) if runtime_id is None else _uuid(runtime_id)
-    with records.locked():
+    with records.locked(**({} if operation is None else {"operation": operation})):
         require(
             not records._path(runtime_id).exists()
             and records.backend.read(runtime_id) is None

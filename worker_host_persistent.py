@@ -275,6 +275,7 @@ def register_runtime(
     observer,
     runtime_id,
     selected_limits,
+    operation=None,
 ):
     with host.registration_step("inputs"):
         host.require(
@@ -289,7 +290,9 @@ def register_runtime(
         )
         selected_limits = limits(selected_limits)
         runtime_id = str(uuid.uuid4()) if runtime_id is None else host._uuid(runtime_id)
-    with host.registration_step("inputs"), records.locked():
+    with host.registration_step("inputs"), records.locked(
+        **({} if operation is None else {"operation": operation})
+    ):
         with host.registration_step("secret_store"):
             host.require(
                 not records._path(runtime_id).exists()

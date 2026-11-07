@@ -25,10 +25,15 @@ class Records:
     def __init__(self, record):
         self.record = record
         self.depth = 0
+        self.active_operation = None
         self.outside_mounts = Mock()
 
     @contextlib.contextmanager
-    def locked(self):
+    def locked(self, *, operation=None):
+        if operation is not None:
+            assert operation is self.active_operation and self.depth == 1
+            yield
+            return
         if self.depth:
             raise AssertionError("installation lock must not be nested")
         self.depth += 1
@@ -36,6 +41,19 @@ class Records:
             yield
         finally:
             self.depth -= 1
+
+    @contextlib.contextmanager
+    def operation(self, existing=None):
+        if existing is not None:
+            assert existing is self.active_operation and self.depth == 1
+            yield existing
+            return
+        with self.locked():
+            self.active_operation = object()
+            try:
+                yield self.active_operation
+            finally:
+                self.active_operation = None
 
     def read(self, selected_id):
         if selected_id != RID:
@@ -270,6 +288,7 @@ class WorkerCLI(unittest.TestCase):
                         "observer": f.observer,
                         "expires_in_seconds": 900,
                         "runtime_id": RID,
+                        "operation": f.records.active_operation,
                     },
                 )
                 self.assertFalse((f.public / "admission.json").exists())
