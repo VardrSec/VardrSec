@@ -349,23 +349,29 @@ def register_runtime(
             }
             records.write(record, create=True)
         try:
-            with host.registration_step("request"):
-                if registration_capability is not None:
-                    import worker_lifecycle_intent
+            with host.ExitStack() as attempts:
+                with host.registration_step("request"):
+                    if registration_capability is not None:
+                        import worker_lifecycle_intent
 
-                    worker_lifecycle_intent.registration_fence(
-                        registration_capability, records=records, operation=operation,
-                        client=client, observer=observer, identity=identity,
-                        runtime_id=runtime_id, protocol="persistent-v3",
-                        selected=selected, record=record,
+                        attempt = attempts.enter_context(worker_lifecycle_intent.registration_fence(
+                            registration_capability, records=records, operation=operation,
+                            client=client, observer=observer, identity=identity,
+                            runtime_id=runtime_id, protocol="persistent-v3",
+                            selected=selected, record=record,
+                        ))
+                    reply = session.register(runtime_id, selected)
+                with host.registration_step("ack"):
+                    record["admission"] = admission(record, reply)
+                record["registration_state"] = "acknowledged"
+                with host.registration_step("final_store"):
+                    records.write(record)
+                if registration_capability is not None:
+                    worker_lifecycle_intent.stage_original_ack(
+                        attempt,
+                        record=record, admission=record["admission"],
                     )
-                reply = session.register(runtime_id, selected)
-            with host.registration_step("ack"):
-                record["admission"] = admission(record, reply)
-            record["registration_state"] = "acknowledged"
-            with host.registration_step("final_store"):
-                records.write(record)
-            return record["admission"]
+                return record["admission"]
         except Exception as error:
             record["registration_state"] = "unknown"
             with host.registration_step("unknown_store"):

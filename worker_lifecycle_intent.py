@@ -775,6 +775,8 @@ class _RegistrationCapability:
         "_used",
         "_prepared_digest",
         "_fenced_digest",
+        "_attempt",
+        "_acknowledged",
     )
 
     def __init__(
@@ -805,6 +807,8 @@ class _RegistrationCapability:
             ("_used", False),
             ("_prepared_digest", None),
             ("_fenced_digest", None),
+            ("_attempt", None),
+            ("_acknowledged", None),
         ):
             object.__setattr__(self, name, value)
 
@@ -930,13 +934,138 @@ class _RegistrationCapability:
             and _observer_pin(observer) == self._observer_pin
         )
         object.__setattr__(self, "_fenced_digest", host.digest(observed))
+        attempt = _OriginalRegistration(self, _REGISTRATION_PROOF)
+        object.__setattr__(self, "_attempt", attempt)
+        return attempt
 
 
 def registration_fence(capability, **selected):
     """Fixed sealed-type dispatch only; never invoke a supplied callback."""
     try:
         require(type(capability) is _RegistrationCapability)
-        capability._fence(selected)
+        return capability._fence(selected)
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        OverflowError,
+        RecursionError,
+    ):
+        raise IntentRefused() from None
+
+
+class _OriginalRegistration:
+    """A single original call's scope; exceptional exit grants no ACK marker."""
+
+    __slots__ = ("_capability", "_entered", "_closed", "_stage_used", "_staged")
+
+    def __init__(self, capability, proof):
+        require(proof is _REGISTRATION_PROOF)
+        object.__setattr__(self, "_capability", capability)
+        for name, value in (
+            ("_entered", False),
+            ("_closed", False),
+            ("_stage_used", False),
+            ("_staged", None),
+        ):
+            object.__setattr__(self, name, value)
+
+    def __setattr__(self, name, value):
+        raise IntentRefused()
+
+    def __copy__(self):
+        raise IntentRefused()
+
+    def __deepcopy__(self, memo):
+        raise IntentRefused()
+
+    def __reduce_ex__(self, protocol):
+        raise IntentRefused()
+
+    def __enter__(self):
+        require(not self._entered and not self._closed)
+        object.__setattr__(self, "_entered", True)
+        try:
+            cap = self._capability
+            require(
+                type(cap) is _RegistrationCapability
+                and cap._proof is _REGISTRATION_PROOF
+                and cap._attempt is self
+                and cap._used
+                and cap._fenced_digest is not None
+                and cap._acknowledged is None
+            )
+            cap._records._require_operation(cap._operation)
+        except BaseException:
+            object.__setattr__(self, "_closed", True)
+            raise
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # No I/O or raised cleanup error can obscure the original interruption.
+        if self._entered and not self._closed:
+            object.__setattr__(self, "_closed", True)
+            if exc_type is None and self._staged is not None:
+                object.__setattr__(self._capability, "_acknowledged", self._staged)
+            else:
+                object.__setattr__(self, "_staged", None)
+        return False
+
+
+def stage_original_ack(attempt, *, record, admission):
+    """Stage authenticated original-call readback; retained records cannot mint it."""
+    try:
+        require(type(attempt) is _OriginalRegistration)
+        require(attempt._entered and not attempt._closed and not attempt._stage_used)
+        object.__setattr__(attempt, "_stage_used", True)
+        cap = attempt._capability
+        require(
+            type(cap) is _RegistrationCapability
+            and cap._proof is _REGISTRATION_PROOF
+            and cap._attempt is attempt
+            and cap._acknowledged is None
+            and cap._used
+            and cap._prepared_digest is not None
+            and cap._fenced_digest is not None
+        )
+        records, operation = cap._records, cap._operation
+        records._require_operation(operation)
+        require(
+            type(cap._store) is IntentStore
+            and cap._store.records is records
+            and host.canonical(cap._client.pin()) == cap._client_pin
+            and _observer_pin(cap._observer) == cap._observer_pin
+        )
+        expected = host._json(cap._intent)
+        current = cap._store.read(expected["operation_id"], operation=operation)
+        require(
+            host.digest(current) == cap._fenced_digest
+            and current["disposition"] == "active"
+            and current["effects"]["registration_may_have_sent"]
+            and not current["effects"]["publication_may_have_happened"]
+            and current["observations"]["host_record_sha256"] is None
+            and current["observations"]["admission_sha256"] is None
+        )
+        observed = records.read(expected["future_runtime_id"])
+        host._client(observed, cap._client)
+        host._observer(observed, cap._observer)
+        require(
+            observed["registration_state"] == "acknowledged"
+            and host.canonical(observed) == host.canonical(record)
+            and host.canonical(observed["admission"]) == host.canonical(admission)
+            and admission is not None
+            and host.digest(observed["registration"])
+            == current["observations"]["registration_sha256"]
+        )
+        prepared = host._json(host.canonical(observed))
+        prepared.update(registration_state="prepared", admission=None)
+        require(host.digest(prepared) == cap._prepared_digest)
+        records._require_operation(operation)
+        object.__setattr__(
+            attempt, "_staged", (host.digest(observed), host.digest(admission))
+        )
     except (
         OSError,
         ValueError,

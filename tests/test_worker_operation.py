@@ -133,6 +133,7 @@ class World:
         self.runtime.RuntimeRefused = CaptureRefused
         def step(_checkpoint): return contextlib.nullcontext()
         self.host = SimpleNamespace(HostClient=Client,OwnerSession=Session,HostRefused=Refused,
+            ExitStack=contextlib.ExitStack,
             require=require,_uuid=lambda value:value,_identifier=lambda value:require(bool(value)),
             _url=lambda *_args,**_kwargs:None,_CAPABILITY=b"synthetic-prefix",
             registration_step=step,registration_diagnostic=lambda error:None)
@@ -147,6 +148,7 @@ class World:
         actual_definitions("worker_host_persistent.py",{"register_runtime"},pg)
         self.persistent_register = pg["register_runtime"]
         hg = {"__name__":__name__,"require":require,"HostClient":Client,"OwnerSession":Session,
+            "ExitStack":contextlib.ExitStack,
             "runtime":self.runtime,"_url":self.host._url,"_identifier":self.host._identifier,
             "_uuid":lambda value:value,"asdict":pg["asdict"],"secrets":pg["secrets"],
             "hashlib":hashlib,"_CAPABILITY":self.host._CAPABILITY,"_admission":ack,

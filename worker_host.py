@@ -1241,21 +1241,27 @@ def register_runtime(
             record["report_cursors"] = []
         records.write(record, create=True)
         try:
-            if registration_capability is not None:
-                import worker_lifecycle_intent
+            with ExitStack() as attempts:
+                if registration_capability is not None:
+                    import worker_lifecycle_intent
 
-                worker_lifecycle_intent.registration_fence(
-                    registration_capability, records=records, operation=operation,
-                    client=client, observer=observer, identity=identity,
-                    runtime_id=runtime_id, protocol=protocol,
-                    selected=registration, record=record,
+                    attempt = attempts.enter_context(worker_lifecycle_intent.registration_fence(
+                        registration_capability, records=records, operation=operation,
+                        client=client, observer=observer, identity=identity,
+                        runtime_id=runtime_id, protocol=protocol,
+                        selected=registration, record=record,
+                    ))
+                record["admission"] = _admission(
+                    record, session.register(runtime_id, registration)
                 )
-            record["admission"] = _admission(
-                record, session.register(runtime_id, registration)
-            )
-            record["registration_state"] = "acknowledged"
-            records.write(record)
-            return record["admission"]
+                record["registration_state"] = "acknowledged"
+                records.write(record)
+                if registration_capability is not None:
+                    worker_lifecycle_intent.stage_original_ack(
+                        attempt,
+                        record=record, admission=record["admission"],
+                    )
+                return record["admission"]
         except Exception:
             record["registration_state"] = "unknown"
             records.write(record)

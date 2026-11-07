@@ -124,3 +124,26 @@ ACK-success marker set only after the original engine's validated ACK and final
 store succeed. Reading any later ACKed record, including explicit legacy recovery,
 cannot synthesize that marker or publication authority. Owner-before-start timing,
 publication fencing, create/start, recovery and platform acceptance stay separate.
+
+## Original ACK success is live-only
+
+An optional registration capability now opens one sealed scope around the existing
+first send, ACK validation and final host-record save. Only that original engine
+stages authenticated readback of the exact acknowledged record and admission.
+Normal scope exit commits private immutable hashes; failures or interruptions,
+including those after staging or after a committed final write, leave no success
+marker. Exceptional scope exit performs no I/O and never replaces the original
+exception. A retained acknowledged record or explicit legacy replay cannot supply
+this original-call marker. Staging is one-use and rechecks the live operation,
+thread, exact client/observer pins, fenced intent digest and prepared-record binding.
+
+The marker remains private and has no publication, launcher, observation-proof or
+execution authority. ACK hashes are not yet written into intent observations.
+Ordinary None defaults import/call no lifecycle code and preserve the existing
+request and diagnostic order. Publication fencing, create/start orchestration,
+recovery and fresh Linux/Desktop qualification remain open requirements.
+
+TLS CA pins (HostClient.ca_sha256) and signing-anchor bytes (public_trust) are
+distinct. Future publication must bind the reviewed canonical signing anchors and
+literal destination; it must not substitute the CA hash. No field is reinterpreted
+or schema migrated in this ACK-only increment.

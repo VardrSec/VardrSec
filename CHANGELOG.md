@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: bind original registration ACK success to its live send/validation/save scope; interrupted or retained ACKs grant no publication marker. No launcher or publication path is enabled.
+
 - Add a private single-use registration-send capability bound to one live host
   operation, reviewed policy, runtime, client and observer. Fence the two existing
   first-registration sends with durable CAS/readback before POST; keep prepared
