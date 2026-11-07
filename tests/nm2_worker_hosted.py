@@ -29,6 +29,8 @@ BRANCH = "refs/heads/codex/nm1-nm2-closeout"
 LAUNCH_SCENARIO = "persistent-launch-empty"
 LAUNCH_STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
 STOPPED_PREDECESSOR_HOSTED = "vardr.nm2-hosted/11"
+LAUNCH_MAP_DISCONNECT_SCENARIO = "persistent-launch-map-disconnect"
+MAP_DISCONNECT_HOSTED = "vardr.nm2-hosted/14"
 LAUNCH_COMPLETED_SCENARIO = "persistent-launch-completed"
 LAUNCH_STOP_WORK_SCENARIO = "persistent-launch-stop-work"
 LAUNCH_STOP_WORK_QUEUED_SCENARIO = "persistent-launch-stop-work-queued"
@@ -61,6 +63,7 @@ LAUNCH_CANCELLATION_SCENARIOS = {
 LAUNCH_SCOPES = {
     LAUNCH_SCENARIO: "first_and_next_empty_launch",
     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: "stopped_predecessor_then_next_launch",
+    LAUNCH_MAP_DISCONNECT_SCENARIO: "ordinary_map_api_outage",
     LAUNCH_COMPLETED_SCENARIO: "completed_then_next_launch",
     LAUNCH_STOP_WORK_SCENARIO: "stop_work_then_next_launch",
     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "stop_work_excludes_queued_job",
@@ -656,6 +659,11 @@ def execution_options(env):
         _require_budget_source(LAUNCH_BUDGETS[scenario], env.get("NM2_MAP_SHA"))
     if scenario == STRICT_REVIEW_SCENARIO:
         require(env.get("NM2_MAP_SHA") == STRICT_REVIEW_MAP)
+    if scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
+        from nm2_worker_launch_acceptance import MAP_DISCONNECT_SOURCES
+
+        require(all(env.get("NM2_" + name.upper() + "_SHA") == commit
+                    for name, commit in MAP_DISCONNECT_SOURCES.items()))
     return scenario, revision
 
 
@@ -772,6 +780,10 @@ def failure_projection(raw, selection):
         "launch_predecessor_active", "launch_predecessor_unreported",
         "launch_refuse_unresolved_predecessor", "launch_report_predecessor",
         "launch_host_exit_verification",
+        "launch_map_disconnect_active", "launch_map_disconnect_stop_api",
+        "launch_map_disconnect_observe_worker", "launch_map_disconnect_start_api",
+        "launch_map_disconnect_verify_held", "launch_map_disconnect_report_exit",
+        "selected_map_disconnect_complete",
         "launch_reconcile_original", "launch_audit_retired",
         "launch_stop_work_observe", "cancellation_request",
         "launch_stop_work_exit", "launch_stop_work_retirement",
@@ -837,6 +849,10 @@ def failure_projection(raw, selection):
         "launch_host_exit_original_reconciliation_missing", "launch_host_exit_terminal_not_proven",
         "launch_host_exit_budget_or_history_changed", "launch_host_exit_predecessor_history_changed",
         "launch_host_exit_predecessor_binding_changed", "launch_successor_identity_changed",
+        "launch_map_disconnect_source_required", "launch_map_disconnect_api_identity",
+        "launch_map_disconnect_target_changed", "launch_map_disconnect_api_exit_missing",
+        "launch_map_disconnect_exit_or_traffic", "launch_map_disconnect_timing_refused",
+        "launch_map_disconnect_api_restart_missing", "launch_map_disconnect_recovery_state_changed",
         "launch_enable_not_observed", "launch_admission_not_bound",
         "launch_intent_not_observed", "launch_durable_chain_not_observed",
         "launch_exact_exit_not_observed", "launch_empty_retirement_not_observed",
@@ -1247,32 +1263,8 @@ def _concurrency_projection(raw, selection):
     }
 
 
-def _stopped_predecessor_projection(raw, selection, first, second, inventories, *, desktop):
+def _launch_retention(raw, selection, launches, inventories, *, desktop):
     from nm2_worker_acceptance import AcceptanceRefused, canonical, digest, unchanged_inventory
-
-    counts = {
-        "new_resources": 0, "target_requests": 3, "capacity_before": 1,
-        "capacity_after": 0, "targets_spent": 1, "duration_allocated": 30,
-        "remaining_local_holds": 0,
-    }
-    hashes = ("retirement_sha256", "host_retirement_sha256", "audit_sha256", "terminal_sha256")
-    proof = raw.get("stopped_predecessor")
-    require(
-        type(proof) is dict and set(proof) == set(counts) | set(hashes) | {
-            "refused_runtime_id", "failure_phase", "failure_code",
-            "physical_exit_elapsed_ns", "terminal_cause",
-        }
-        and all(type(proof[key]) is int and proof[key] == value for key, value in counts.items())
-        and proof["refused_runtime_id"] == second["runtime_id"]
-        and proof["retirement_sha256"] == first["retirement_sha256"]
-        and proof["failure_phase"] == "launch_catalog"
-        and proof["failure_code"] == "validation_refused"
-        and proof["terminal_cause"] == "observed_exit"
-        and type(proof["physical_exit_elapsed_ns"]) is int
-        and 0 < proof["physical_exit_elapsed_ns"] < 15_000_000_000
-    )
-    for key in hashes:
-        _hash(proof[key])
 
     admit_bridge = selection["allow_empty_builtin_bridge_id_change"]
     require(
@@ -1291,7 +1283,7 @@ def _stopped_predecessor_projection(raw, selection, first, second, inventories, 
     try:
         admitted = unchanged_inventory(before, after, project, admit_bridge=admit_bridge)
     except AcceptanceRefused:
-        raise HostedRefused("nm2_hosted_stopped_predecessor_inventory_refused") from None
+        raise HostedRefused("nm2_hosted_launch_retention_refused") from None
     require(
         len(admitted) <= 1
         and canonical(admitted) == canonical(raw["admitted_inventory_diffs"])
@@ -1312,7 +1304,7 @@ def _stopped_predecessor_projection(raw, selection, first, second, inventories, 
             require(canonical(prior) == canonical(current))
     state_volume = project + "_runner-state"
     expected_volumes = {state_volume, *(
-        f"{project}_worker-ready-{row['runtime_id']}" for row in (first, second)
+        f"{project}_worker-ready-{row['runtime_id']}" for row in launches
     )}
     require(
         not expected_volumes & before["volumes"].keys()
@@ -1320,12 +1312,12 @@ def _stopped_predecessor_projection(raw, selection, first, second, inventories, 
         and all(after["volumes"][name]["id"] == name for name in expected_volumes)
     )
     owned = set(after["containers"]) - set(before["containers"])
-    workers = {row["container_id"]: row for row in (first, second)}
+    workers = {row["container_id"]: row for row in launches}
     stopped = raw["fixture_stop"]
     require(
         type(stopped) is dict and set(stopped) == {"status", "container_ids", "stop_requested_ids"}
         and stopped["status"] == "stopped_retained"
-        and len(owned) == 7 and workers.keys() <= owned
+        and len(owned) == 5 + len(launches) and workers.keys() <= owned
         and stopped["container_ids"] == sorted(owned)
         and stopped["stop_requested_ids"] == sorted(owned - workers.keys())
     )
@@ -1358,19 +1350,124 @@ def _stopped_predecessor_projection(raw, selection, first, second, inventories, 
         else:
             require(service in services and row["image"] == services.pop(service))
     require(not services)
+    return len(owned), len(admitted)
+
+
+def _stopped_predecessor_projection(raw, selection, first, second, inventories, *, desktop):
+
+    counts = {
+        "new_resources": 0, "target_requests": 3, "capacity_before": 1,
+        "capacity_after": 0, "targets_spent": 1, "duration_allocated": 30,
+        "remaining_local_holds": 0,
+    }
+    hashes = ("retirement_sha256", "host_retirement_sha256", "audit_sha256", "terminal_sha256")
+    proof = raw.get("stopped_predecessor")
+    require(
+        type(proof) is dict and set(proof) == set(counts) | set(hashes) | {
+            "refused_runtime_id", "failure_phase", "failure_code",
+            "physical_exit_elapsed_ns", "terminal_cause",
+        }
+        and all(type(proof[key]) is int and proof[key] == value for key, value in counts.items())
+        and proof["refused_runtime_id"] == second["runtime_id"]
+        and proof["retirement_sha256"] == first["retirement_sha256"]
+        and proof["failure_phase"] == "launch_catalog"
+        and proof["failure_code"] == "validation_refused"
+        and proof["terminal_cause"] == "observed_exit"
+        and type(proof["physical_exit_elapsed_ns"]) is int
+        and 0 < proof["physical_exit_elapsed_ns"] < 15_000_000_000
+    )
+    for key in hashes:
+        _hash(proof[key])
+
+    owned_count, admitted_count = _launch_retention(
+        raw, selection, (first, second), inventories, desktop=desktop
+    )
     result = {
         "stopped_predecessor": {
             **{key: proof[key] for key in (*counts, *hashes, "failure_phase", "failure_code",
                                           "terminal_cause", "physical_exit_elapsed_ns")},
             "same_runner_state_volume": True,
-            "owned_stopped_container_count": len(owned),
+            "owned_stopped_container_count": owned_count,
         },
         "nm2_exit_status": "incomplete", "resources_retained": True,
     }
     if desktop:
         result.update(platform="win32", container_platform="linux",
-                      empty_builtin_bridge_id_change_count=len(admitted))
+                      empty_builtin_bridge_id_change_count=admitted_count)
     return result
+
+
+def _map_disconnect_projection(raw, selection, inventories, *, desktop):
+    from nm2_worker_launch_acceptance import (
+        MAP_DISCONNECT_LEASE_NS, MAP_DISCONNECT_SOURCES, engine_timestamp_ns,
+    )
+
+    sources = selection["sources"]
+    require(
+        all(sources[name]["commit"] == commit for name, commit in MAP_DISCONNECT_SOURCES.items())
+        and not any(key in raw for key in (
+            "launch_pair", "stopped_predecessor", "completed_job", "cancelled_job",
+            "unclaimed_job", "unissued_job", "duration_exhaustion", "target_exhaustion",
+            "concurrency_exhaustion",
+        ))
+    )
+    launch = raw["launch"]
+    _launch_row(launch, 1)
+    require(launch["predecessor_cids"] == [])
+    _hash(launch["bootstrap_audit_sha256"])
+    counts = {
+        "target_requests": 3, "capacity_before": 1, "capacity_after": 0,
+        "targets_spent": 1, "duration_allocated": 30, "remaining_local_holds": 0,
+    }
+    hashes = ("audit_sha256", "retirement_sha256", "host_retirement_sha256", "terminal_sha256")
+    timing = ("api_cut_to_worker_exit_ns", "physical_exit_elapsed_ns")
+    proof = raw["map_disconnect"]
+    require(
+        type(proof) is dict and set(proof) == set(counts) | set(hashes) | set(timing) | {
+            "api_container_id", "api_started_at", "api_finished_at", "api_restarted_at", "terminal_cause",
+        }
+        and all(type(proof[key]) is int and proof[key] == count for key, count in counts.items())
+        and all(type(proof[key]) is int for key in timing)
+        and proof["terminal_cause"] == "observed_exit"
+        and proof["retirement_sha256"] == launch["retirement_sha256"]
+    )
+    for key in hashes:
+        _hash(proof[key])
+    _hash(proof["api_container_id"])
+    api_started = engine_timestamp_ns(proof["api_started_at"])
+    api_stopped = engine_timestamp_ns(proof["api_finished_at"])
+    api_restarted = engine_timestamp_ns(proof["api_restarted_at"])
+    worker_started = engine_timestamp_ns(launch["started_at"])
+    worker_finished = engine_timestamp_ns(launch["finished_at"])
+    cut_to_exit = proof["api_cut_to_worker_exit_ns"]
+    require(
+        api_started < worker_started < api_stopped < worker_finished < api_restarted
+        and cut_to_exit == worker_finished - api_stopped
+        and cut_to_exit <= MAP_DISCONNECT_LEASE_NS
+        and cut_to_exit < proof["physical_exit_elapsed_ns"] < 15_000_000_000
+    )
+    owned, admitted = _launch_retention(raw, selection, (launch,), inventories, desktop=desktop)
+    api_id = proof["api_container_id"]
+    before, after = inventories
+    api = after["containers"][api_id]
+    require(
+        api_id not in before["containers"]
+        and api["labels"]["com.docker.compose.service"] == "api"
+        and api["state"]["started_at"] == proof["api_restarted_at"]
+        and engine_timestamp_ns(api["state"]["finished_at"]) > api_restarted
+        and type(api["restarts"]) is int and api["restarts"] == 0
+    )
+    return {
+        "map_disconnect": {
+            **{key: proof[key] for key in (*counts, *hashes, *timing, "terminal_cause")},
+            "configured_lease_ceiling_ns": MAP_DISCONNECT_LEASE_NS,
+            "lease_evidence": "configured_ceiling_only",
+            "owned_stopped_container_count": owned,
+        },
+        "platform": "win32" if desktop else "linux",
+        "container_platform": "linux", "empty_builtin_bridge_id_change_count": admitted,
+        "nm2_exit_status": "incomplete", "resources_retained": True,
+    }
 
 
 def launch_projection(raw, selection, *, inventories=(), desktop=False):
@@ -1378,11 +1475,16 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
     require(
         type(scenario) is str and scenario in LAUNCH_SCENARIOS
         and type(desktop) is bool
-        and (not desktop or scenario in {LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_CONCURRENCY_SCENARIO})
+        and (not desktop or scenario in {
+            LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_CONCURRENCY_SCENARIO,
+            LAUNCH_MAP_DISCONNECT_SCENARIO,
+        })
     )
     budget = LAUNCH_BUDGETS.get(scenario)
     status = f"selected_{budget}_exhaustion_slice_passed" if budget else "selected_launch_slice_passed"
     stage = f"selected_{budget}_exhaustion_complete" if budget else "selected_launch_complete"
+    if scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
+        status, stage = "selected_map_disconnect_slice_passed", "selected_map_disconnect_complete"
     require(
         raw.get("expected_database_revision") == "0041persistentruntime"
         and raw.get("acceptance_scope") == LAUNCH_SCOPES[scenario]
@@ -1395,6 +1497,8 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
         and raw.get("images") == selection["images"]
         and raw.get("project") == selection["project"]
     )
+    if scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
+        return _map_disconnect_projection(raw, selection, inventories, desktop=desktop)
     if scenario == LAUNCH_CONCURRENCY_SCENARIO:
         return _concurrency_projection(raw, selection)
     if budget:
@@ -1514,6 +1618,18 @@ def concurrency_desktop_projection(raw, selection):
         raise HostedRefused("nm2_desktop_concurrency_receipt_refused") from None
 
 
+def map_disconnect_desktop_projection(raw, selection, *, inventories):
+    """Read only the Windows Desktop ordinary Map outage evidence."""
+    require(
+        type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA
+        and raw.get("scenario") == LAUNCH_MAP_DISCONNECT_SCENARIO
+    )
+    try:
+        return launch_projection(raw, selection, inventories=inventories, desktop=True)
+    except (KeyError, TypeError, IndexError, ValueError):
+        raise HostedRefused("nm2_desktop_map_disconnect_receipt_refused") from None
+
+
 def stopped_predecessor_desktop_projection(raw, selection, *, inventories):
     """Read only the Windows Desktop stopped-predecessor fixture evidence."""
     require(
@@ -1540,6 +1656,11 @@ def public_projection(raw, selection, *, inventories=()):
             )
             raise HostedRefused(reason) from None
     if type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA:
+        if raw.get("scenario") == LAUNCH_MAP_DISCONNECT_SCENARIO:
+            try:
+                return launch_projection(raw, selection, inventories=inventories)
+            except (KeyError, TypeError, IndexError, ValueError):
+                raise HostedRefused("nm2_hosted_map_disconnect_receipt_refused") from None
         if raw.get("scenario") == LAUNCH_STOPPED_PREDECESSOR_SCENARIO:
             try:
                 return launch_projection(raw, selection, inventories=inventories)
@@ -1764,6 +1885,12 @@ class Hosted:
             self.receipt.update(schema=STRICT_DRIFT_HOSTED, scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope="Strict authority drift only; other Strict denials and NM2 remain incomplete")
+        elif self.scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
+            self.receipt.update(
+                schema=MAP_DISCONNECT_HOSTED, scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope=LAUNCH_SCOPES[self.scenario],
+            )
         elif self.scenario == LAUNCH_STOPPED_PREDECESSOR_SCENARIO:
             self.receipt.update(
                 schema=STOPPED_PREDECESSOR_HOSTED, scenario=self.scenario,
@@ -1972,6 +2099,7 @@ class Hosted:
             *{
                 LAUNCH_SCENARIO: [],
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO: ["--stopped-predecessor"],
+                LAUNCH_MAP_DISCONNECT_SCENARIO: ["--map-disconnect"],
                 LAUNCH_COMPLETED_SCENARIO: ["--completed-job"],
                 LAUNCH_STOP_WORK_SCENARIO: ["--stop-work"],
                 LAUNCH_STOP_WORK_QUEUED_SCENARIO: ["--stop-work-queued"],
@@ -2122,6 +2250,7 @@ class Hosted:
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
                     LAUNCH_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_MAP_DISCONNECT_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_COMPLETED_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: LAUNCH_SCHEMA,
@@ -2137,7 +2266,11 @@ class Hosted:
                     STRICT_REVIEW_SCENARIO: STRICT_REVIEW_SCHEMA,
                 }[self.scenario]
             )
-            if self.scenario in {STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, LAUNCH_STOPPED_PREDECESSOR_SCENARIO}:
+            if self.scenario in {
+                STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO,
+                LAUNCH_STOPPED_PREDECESSOR_SCENARIO,
+                LAUNCH_MAP_DISCONNECT_SCENARIO,
+            }:
                 inventories = []
                 for name in ("before", "after"):
                     with (self.root / f"installation/nm2-inventory-{name}.json").open("rb") as handle:
@@ -2150,6 +2283,10 @@ class Hosted:
                 elif self.scenario == STRICT_REVIEW_SCENARIO:
                     self.receipt["remaining_required_cases"]["strict_other_denials"] = (
                         "missing_and_expired_reviews_verified_stale_registered_claim_open"
+                    )
+                elif self.scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
+                    self.receipt["remaining_required_cases"]["map_disconnect"] = (
+                        "ordinary_api_outage_verified_selected_cohort"
                     )
                 else:
                     self.receipt["remaining_required_cases"]["worker_crash_stop"] = (
@@ -2200,6 +2337,7 @@ class Hosted:
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
                     LAUNCH_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: STOPPED_PREDECESSOR_HOSTED,
+                    LAUNCH_MAP_DISCONNECT_SCENARIO: MAP_DISCONNECT_HOSTED,
                     LAUNCH_COMPLETED_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "vardr.nm2-hosted/7",

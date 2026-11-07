@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an opt-in installed check for ordinary Map API outage during approved
+  work. Measure the configured worker exit bound, then verify that API recovery
+  leaves the old reservation held until authenticated reconciliation.
+
 - Add an opt-in installed check for Strict review refusal when engagement
   authority is missing or its testing window has closed. Verify both reviews
   succeed after correcting the relevant condition without issuing work.

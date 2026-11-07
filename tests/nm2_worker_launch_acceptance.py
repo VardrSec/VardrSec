@@ -29,6 +29,15 @@ from nm2_worker_acceptance import (
 
 SECOND_NS = 1_000_000_000
 STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
+MAP_DISCONNECT_SCENARIO = "persistent-launch-map-disconnect"
+MAP_DISCONNECT_PASS = "selected_map_disconnect_slice_passed"
+MAP_DISCONNECT_SCOPE = "ordinary_map_api_outage"
+MAP_DISCONNECT_LEASE_NS = 10 * SECOND_NS
+MAP_DISCONNECT_SOURCES = {
+    "map": "05dc78cf9a385255de459c8a5b833842d6528a63",
+    "runner": "5ecc869d80f53ae7fdbca25b971838976a6c41e9",
+    "gate": "d80d4730b8486b75be72431b5af88e0ddb45020b",
+}
 DURATION_SCENARIO = "persistent-launch-duration-exhaustion"
 DURATION_PASS = "selected_duration_exhaustion_slice_passed"
 DURATION_MAP_COMMIT = "40bf4e37076d6a85648f817dd8b6bc69104bd863"
@@ -196,13 +205,30 @@ def stop_exit_elapsed_ns(request, after, finished_at):
     return elapsed
 
 
+def engine_timestamp_ns(value):
+    from worker_runtime import _timestamp
+
+    second, fraction = _timestamp(value)
+    return timegm(second.utctimetuple()) * SECOND_NS + fraction
+
+
+def map_disconnect_timing(request, after, api_finished_at, worker_finished_at):
+    elapsed = stop_exit_elapsed_ns(request, after, worker_finished_at)
+    cut_to_exit = engine_timestamp_ns(worker_finished_at) - engine_timestamp_ns(api_finished_at)
+    require(
+        0 < cut_to_exit < elapsed and cut_to_exit <= MAP_DISCONNECT_LEASE_NS,
+        "launch_map_disconnect_timing_refused",
+    )
+    return elapsed, cut_to_exit
+
+
 class LaunchFixture(Fixture):
     def __init__(
         self, selection, *, compose, compose_sha256, docker_config,
         completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
         revoke_grant=False, expire_grant=False, expire_active_grant=False,
         duration_exhaustion=False, target_exhaustion=False, stopped_predecessor=False,
-        concurrency_exhaustion=False,
+        concurrency_exhaustion=False, map_disconnect=False,
     ):
         super().__init__(
             selection,
@@ -210,7 +236,7 @@ class LaunchFixture(Fixture):
                 "missing-local-grant" if missing_grant or expire_grant
                 else "active-target-grant-revoked" if revoke_grant
                 else "local-emergency-stop" if local_stop
-                else "stop-work" if stop_work or expire_active_grant or stopped_predecessor
+                else "stop-work" if stop_work or expire_active_grant or stopped_predecessor or map_disconnect
                 else EMPTY_SCENARIO
             ),
             database_revision="0041persistentruntime",
@@ -229,6 +255,7 @@ class LaunchFixture(Fixture):
         self.budget_exhaustion = "duration" if duration_exhaustion else "target" if target_exhaustion else None
         self.completed = completed or self.budget_exhaustion is not None
         self.stopped_predecessor = stopped_predecessor
+        self.map_disconnect = map_disconnect
         self.concurrency_exhaustion = concurrency_exhaustion
         self.cancelling = stop_work or local_stop or revoke_grant or expire_active_grant
         self.local_stop = local_stop
@@ -242,7 +269,7 @@ class LaunchFixture(Fixture):
         require(
             sum((completed, stop_work, local_stop, missing_grant, revoke_grant,
                  expire_grant, expire_active_grant, duration_exhaustion, target_exhaustion,
-                 stopped_predecessor, concurrency_exhaustion)) <= 1
+                 stopped_predecessor, concurrency_exhaustion, map_disconnect)) <= 1
             and (not queued_peer or stop_work),
             "launch_fixture_mode_conflict",
         )
@@ -269,6 +296,13 @@ class LaunchFixture(Fixture):
             scenario, scope = CONCURRENCY_SCENARIO, "shared_engagement_concurrency_exhaustion"
         elif stopped_predecessor:
             scenario, scope = STOPPED_PREDECESSOR_SCENARIO, "stopped_predecessor_then_next_launch"
+        elif map_disconnect:
+            require(
+                all(selection["sources"][name]["commit"] == commit
+                    for name, commit in MAP_DISCONNECT_SOURCES.items()),
+                "launch_map_disconnect_source_required",
+            )
+            scenario, scope = MAP_DISCONNECT_SCENARIO, MAP_DISCONNECT_SCOPE
         elif completed:
             scenario, scope = "persistent-launch-completed", "completed_then_next_launch"
         elif stop_work:
@@ -293,7 +327,7 @@ class LaunchFixture(Fixture):
 
     def target_environment(self):
         environment = super().target_environment()
-        if self.cancelling or self.stopped_predecessor:
+        if self.cancelling or self.stopped_predecessor or self.map_disconnect:
             environment["NM2_FIXTURE_UTC_TIMING"] = "1"
         return environment
 
@@ -931,22 +965,7 @@ print(len(directories))
             proof["cancel_requested_sha256"] = digest(canonical(pending))
         self.receipt["cancelled_job"] = proof
 
-    def verify_unresolved_predecessor(
-        self, observer, exit_proof, admission, case, run_id, observed, arguments
-    ):
-        from worker_cli import records_for
-        from worker_launch import _public_inventory
-        from worker_lifecycle_intent import IntentStore
-
-        self.receipt["stage"] = "launch_predecessor_unreported"
-        observer.confirm_exit(exit_proof)
-        requests = observed["requests"]
-        after = self.timed_traffic()
-        require(
-            exit_proof.exit_code == 125 and requests == after["requests"] and len(requests) == 3,
-            "launch_active_predecessor_exit_missing",
-        )
-        elapsed = stop_exit_elapsed_ns(requests[-1], after, exit_proof.finished_at)
+    def unreported_attempt(self, admission, case, identity, *, disabled):
         engagement, job = case[:2]
         inventory = self.inventory(engagement, job, include_capacity=True)
         require(
@@ -967,9 +986,9 @@ print(len(directories))
             runtime["id"] == admission["runtime_id"]
             and runtime["runtime_sha256"] == admission["runtime_sha256"]
             and runtime["admission_sha256"] == admission["admission_sha256"]
-            and runtime["identity"] == asdict(exit_proof.identity)
+            and runtime["identity"] == asdict(identity)
             and runtime["active_sequence"] == runtime["last_sequence"] == "1"
-            and runtime["new_work_disabled"] is True
+            and runtime["new_work_disabled"] is disabled
             and runtime["retired"] is False and runtime["report_sha256"] is None
             and len(runtime["attempts"]) == 1,
             "launch_predecessor_unreported_runtime_changed",
@@ -990,6 +1009,26 @@ print(len(directories))
             )),
             "launch_predecessor_original_attempt_missing",
         )
+        return inventory
+
+    def verify_unresolved_predecessor(
+        self, observer, exit_proof, admission, case, run_id, observed, arguments
+    ):
+        from worker_cli import records_for
+        from worker_launch import _public_inventory
+        from worker_lifecycle_intent import IntentStore
+
+        self.receipt["stage"] = "launch_predecessor_unreported"
+        observer.confirm_exit(exit_proof)
+        requests = observed["requests"]
+        after = self.timed_traffic()
+        require(
+            exit_proof.exit_code == 125 and requests == after["requests"] and len(requests) == 3,
+            "launch_active_predecessor_exit_missing",
+        )
+        elapsed = stop_exit_elapsed_ns(requests[-1], after, exit_proof.finished_at)
+        engagement, job = case[:2]
+        inventory = self.unreported_attempt(admission, case, exit_proof.identity, disabled=True)
         local = self.local_metadata(run_id, engagement, job)
         require(
             local["phase"] == "executing" and local["claim_state"] == "consume_acknowledged"
@@ -1049,7 +1088,9 @@ print(len(directories))
         }
         return inventory
 
-    def verify_host_exit_reconciliation(self, admission, retired, case, run_id, before):
+    def verify_host_exit_reconciliation(
+        self, admission, retired, case, run_id, before, *, proof_key="stopped_predecessor"
+    ):
         from worker_host import _terminal
 
         self.receipt["stage"] = "launch_host_exit_verification"
@@ -1066,14 +1107,17 @@ print(len(directories))
         expected = {
             **before, "job_status": "failed", "capacity_reserved_count": 0,
             "execution": {**before["execution"], "state": "failed", "capacity_reserved": False},
-            "runtimes": [{**runtime, "retired": True, "report_sha256": retired["report_sha256"]}],
+            "runtimes": [{
+                **runtime, "retired": True, "report_sha256": retired["report_sha256"],
+                **({"new_work_disabled": True} if proof_key == "map_disconnect" else {}),
+            }],
             "stops": [{key: terminal[key] for key in ("contract_id", "receipt_sha256", "outcome", "cause")}],
         }
         after = self.inventory(*case[:2], include_capacity=True)
         require(canonical(after) == canonical(expected), "launch_host_exit_budget_or_history_changed")
         audit = self.reconcile_original(admission, retired, host_exit_run_id=run_id)
         self.retired_predecessor_inventory = after
-        self.receipt["stopped_predecessor"].update(
+        self.receipt[proof_key].update(
             audit_sha256=digest(canonical(audit)), retirement_sha256=retired["receipt_sha256"],
             host_retirement_sha256=digest(canonical(retired)),
             terminal_sha256=digest(canonical(terminal)), terminal_cause="observed_exit",
@@ -1082,6 +1126,113 @@ print(len(directories))
             targets_spent=after["targets_spent"], duration_allocated=after["duration_allocated"],
             remaining_local_holds=audit["global_holds"],
         )
+
+    def disconnect_core_state(self, core):
+        cid = core["container_id"]
+        require(re.fullmatch(r"[0-9a-f]{64}", cid), "launch_map_disconnect_api_identity")
+        row = json.loads(self.docker(
+            "--config", str(self.docker_config), "container", "inspect", "--format",
+            '{"id":{{json .Id}},"image":{{json .Image}},"labels":{{json .Config.Labels}},'
+            '"state":{{json .State}},"restarts":{{json .RestartCount}}}',
+            cid, timeout=8,
+        ))
+        labels, state = row["labels"], row["state"]
+        require(
+            row["id"] == cid and row["image"] == core["image_id"]
+            and labels.get("com.docker.compose.project") == self.project
+            and labels.get("com.docker.compose.service") == core["service"]
+            and labels.get("com.docker.compose.oneoff") == "False"
+            and type(row["restarts"]) is int and row["restarts"] == 0
+            and all(state[key] is False for key in ("Paused", "Restarting", "Dead", "OOMKilled")),
+            "launch_map_disconnect_api_identity",
+        )
+        return state
+
+    def observe_map_disconnect(self, observer, identity, admission, case, observed):
+        self.receipt["stage"] = "launch_map_disconnect_active"
+        original = self.unreported_attempt(admission, case, identity, disabled=False)
+        requests = observed["requests"]
+        require(len(requests) == 3, "launch_map_disconnect_target_changed")
+        api = next(row for row in self.disconnect_core if row["service"] == "api")
+        proxy = next(row for row in self.disconnect_core if row["service"] == "proxy")
+        prior = self.disconnect_core_state(api)
+        require(
+            prior["Status"] == "running" and prior["Running"] is True
+            and prior["Health"]["Status"] == "healthy"
+            and prior["StartedAt"] == api["started_at"]
+            and observer.daemon() == identity.daemon_id,
+            "launch_map_disconnect_api_identity",
+        )
+        self.receipt["stage"] = "launch_map_disconnect_stop_api"
+        cid = api["container_id"]
+        self.docker("--config", str(self.docker_config), "container", "stop", "--time", "10", cid,
+                    timeout=20)
+        stopped = self.disconnect_core_state(api)
+        require(
+            stopped["Status"] == "exited" and stopped["Running"] is False
+            and stopped["StartedAt"] == prior["StartedAt"]
+            and type(stopped["ExitCode"]) is int and stopped["ExitCode"] in {0, 143},
+            "launch_map_disconnect_api_exit_missing",
+        )
+        self.receipt["stage"] = "launch_map_disconnect_observe_worker"
+        exit_proof = observer.observe_exit(identity)
+        after = self.timed_traffic()
+        still_stopped = self.disconnect_core_state(api)
+        require(
+            exit_proof.exit_code == 125 and after["requests"] == requests
+            and all(still_stopped[key] == stopped[key] for key in (
+                "Status", "Running", "StartedAt", "FinishedAt", "ExitCode",
+            )),
+            "launch_map_disconnect_exit_or_traffic",
+        )
+        elapsed, cut_to_exit = map_disconnect_timing(
+            requests[-1], after, stopped["FinishedAt"], exit_proof.finished_at
+        )
+        observer.confirm_exit(exit_proof)
+
+        self.receipt["stage"] = "launch_map_disconnect_start_api"
+        require(observer.daemon() == identity.daemon_id, "launch_map_disconnect_api_identity")
+        self.docker("--config", str(self.docker_config), "container", "start", cid, timeout=20)
+        until = time.monotonic() + 75
+        while True:
+            recovered = self.disconnect_core_state(api)
+            routed = self.disconnect_core_state(proxy)
+            require(
+                recovered["Status"] == "running" and recovered["Running"] is True
+                and engine_timestamp_ns(exit_proof.finished_at)
+                < engine_timestamp_ns(recovered["StartedAt"])
+                and routed["Status"] == "running" and routed["Running"] is True
+                and routed["StartedAt"] == proxy["started_at"],
+                "launch_map_disconnect_api_restart_missing",
+            )
+            if recovered["Health"]["Status"] == routed["Health"]["Status"] == "healthy":
+                break
+            require(time.monotonic() < until, "launch_map_disconnect_api_restart_missing")
+            time.sleep(0.2)
+
+        self.receipt["stage"] = "launch_map_disconnect_verify_held"
+        observer.confirm_exit(exit_proof)
+        final = observer.capture_project_containers(self.project)
+        expected_core = [
+            {**row, "started_at": recovered["StartedAt"]} if row["service"] == "api" else row
+            for row in self.disconnect_core
+        ]
+        require(
+            final["daemon_id"] == identity.daemon_id
+            and canonical(final["core"]) == canonical(expected_core)
+            and final["all_worker_ids"] == [identity.container_id]
+            and canonical(self.unreported_attempt(admission, case, identity, disabled=False))
+            == canonical(original)
+            and self.traffic() == requests,
+            "launch_map_disconnect_recovery_state_changed",
+        )
+        self.receipt["map_disconnect"] = {
+            "api_container_id": cid, "api_started_at": prior["StartedAt"],
+            "api_finished_at": stopped["FinishedAt"], "api_restarted_at": recovered["StartedAt"],
+            "physical_exit_elapsed_ns": elapsed, "api_cut_to_worker_exit_ns": cut_to_exit,
+            "target_requests": len(requests),
+        }
+        return exit_proof, original
 
     def launch_arguments(self, config, signing, binding, runtime_id):
         runner, enrollment = binding
@@ -1209,6 +1360,7 @@ print(len(directories))
             )
         cancelling = self.cancelling and case is not None
         stopping_predecessor = self.stopped_predecessor and case is not None
+        disconnecting = self.map_disconnect and case is not None
         exhausted = None
         concurrency_refused = None
         if case is None:
@@ -1231,6 +1383,19 @@ print(len(directories))
             concurrency_refused = natural, run_id, refused_capacity
         elif self.local_grant_denial:
             unissued = self.await_local_grant_denial(admission, case)
+        elif disconnecting:
+            self.receipt["stage"] = "launch_map_disconnect_active"
+            require(
+                observer.capture_running(
+                    container_id=identity.container_id, image_id=identity.image_id,
+                    project=identity.project,
+                ) == identity,
+                "launch_map_disconnect_api_identity",
+            )
+            run_id, observed = self.observe_active_run(*case[:3])
+            exit_proof, before_report = self.observe_map_disconnect(
+                observer, identity, admission, case, observed
+            )
         elif stopping_predecessor:
             self.receipt["stage"] = "launch_predecessor_active"
             require(
@@ -1259,21 +1424,22 @@ print(len(directories))
                 exhausted = self.observe_budget_exhaustion(
                     observer, identity, admission, case, binding, local
                 )
-        self.receipt["stage"] = "launch_stop_work_exit" if cancelling else f"launch_stop_{ordinal}"
-        stopped = None if cancelling else self.worker_action("stop", selected)
-        exit_proof = observer.observe_exit(identity)
-        if cancelling:
-            after = self.timed_traffic()
-            require(exit_proof.exit_code != 0, "launch_stop_work_exit_not_observed")
-        else:
-            require(
-                stopped["state"] == "stopped_observed"
-                and stopped["identity"] == asdict(identity)
-                and stopped["exit_code"] == exit_proof.exit_code
-                and stopped["finished_at"] == exit_proof.finished_at
-                and stopped["new_work_disable_state"] == "acknowledged",
-                "launch_exact_exit_not_observed",
-            )
+        if not disconnecting:
+            self.receipt["stage"] = "launch_stop_work_exit" if cancelling else f"launch_stop_{ordinal}"
+            stopped = None if cancelling else self.worker_action("stop", selected)
+            exit_proof = observer.observe_exit(identity)
+            if cancelling:
+                after = self.timed_traffic()
+                require(exit_proof.exit_code != 0, "launch_stop_work_exit_not_observed")
+            else:
+                require(
+                    stopped["state"] == "stopped_observed"
+                    and stopped["identity"] == asdict(identity)
+                    and stopped["exit_code"] == exit_proof.exit_code
+                    and stopped["finished_at"] == exit_proof.finished_at
+                    and stopped["new_work_disable_state"] == "acknowledged",
+                    "launch_exact_exit_not_observed",
+                )
         if exhausted is not None:
             natural = exhausted[0]
             require(
@@ -1297,7 +1463,7 @@ print(len(directories))
             "admission_sha256": admission["admission_sha256"],
             "finished_at": exit_proof.finished_at,
             "exit_code": exit_proof.exit_code,
-            "operator_stop_state": "not_requested" if cancelling else stopped["state"],
+            "operator_stop_state": "not_requested" if cancelling or disconnecting else stopped["state"],
         }
         if cancelling:
             self.receipt["stage"] = "launch_stop_work_retirement"
@@ -1307,15 +1473,17 @@ print(len(directories))
                 self.launch_arguments(config, signing, binding, self.successor_id),
             )
             self.receipt["stage"] = "launch_report_predecessor"
+        if disconnecting:
+            self.receipt["stage"] = "launch_map_disconnect_report_exit"
         retired = self.report_exit(physical)
         reconciled = self.worker_action("reconcile", selected, timeout=120)
         require(
             retired["last_sequence"] == (
                 "0" if case is None or self.local_grant_denial or concurrency_refused is not None else "1"
             )
-            and retired["runtime_sequence"] == ("1" if cancelling or stopping_predecessor else None)
+            and retired["runtime_sequence"] == ("1" if cancelling or stopping_predecessor or disconnecting else None)
             and retired["retired"] is True
-            and (retired["attempt_receipt"] is not None) == (cancelling or stopping_predecessor)
+            and (retired["attempt_receipt"] is not None) == (cancelling or stopping_predecessor or disconnecting)
             and reconciled["state"] == "terminal_observed"
             and reconciled["receipt"]["retirement"] == retired,
             "launch_retirement_not_observed",
@@ -1344,6 +1512,10 @@ print(len(directories))
             }
         elif self.local_grant_denial:
             self.verify_grant_denial_launch(admission, retired, case, unissued)
+        elif disconnecting:
+            self.verify_host_exit_reconciliation(
+                admission, retired, case, run_id, before_report, proof_key="map_disconnect",
+            )
         elif stopping_predecessor:
             self.verify_host_exit_reconciliation(admission, retired, case, run_id, before_report)
         elif cancelling:
@@ -1460,7 +1632,7 @@ print(len(directories))
 
         self.receipt["stage"] = "launch_prepare"
         require(self.traffic() == [], "launch_unexpected_target_traffic")
-        if not (self.cancelling or self.local_grant_denial or self.stopped_predecessor):
+        if not (self.cancelling or self.local_grant_denial or self.stopped_predecessor or self.map_disconnect):
             self.empty_engagements()
         self.helper("init", "--non-interactive", "--no-install-tools")
         binding = self.enroll_runner()
@@ -1478,15 +1650,18 @@ print(len(directories))
         initial = observer.capture_project_containers(self.project)
         require(initial["all_worker_ids"] == [], "launch_preexisting_worker")
         config, signing = self.launch_config(observer, initial)
+        if self.map_disconnect:
+            self.disconnect_core = initial["core"]
         case = None
         peer = None
         if self.stopped_predecessor:
             self.successor_id = str(uuid.uuid4())
         if (
             self.completed or self.cancelling or self.local_grant_denial
-            or self.stopped_predecessor or self.concurrency_exhaustion
+            or self.stopped_predecessor or self.concurrency_exhaustion or self.map_disconnect
         ):
             name = "launch-" + (
+                "map-disconnect" if self.map_disconnect else
                 "stopped-predecessor" if self.stopped_predecessor else
                 "concurrency-contender" if self.concurrency_exhaustion else
                 "active-grant-expiry" if self.expire_active_grant else
@@ -1615,6 +1790,18 @@ print(len(directories))
                 stage=f"selected_{self.budget_exhaustion}_exhaustion_complete",
             )
             return
+        if self.map_disconnect:
+            old_observer.confirm_exit(old_exit)
+            require(
+                len(self.traffic()) == 3
+                and canonical(self.inventory(*case[:2], include_capacity=True))
+                == canonical(self.retired_predecessor_inventory),
+                "launch_map_disconnect_recovery_state_changed",
+            )
+            self.receipt.update(
+                launch=first, status=MAP_DISCONNECT_PASS, stage="selected_map_disconnect_complete",
+            )
+            return
         baseline = self.traffic()
         second, _, _ = self.launch_and_retire(config, signing, binding, 2, first)
         old_observer.confirm_exit(old_exit)
@@ -1707,6 +1894,7 @@ def main(argv=None):
     workload.add_argument("--target-exhaustion", action="store_true")
     workload.add_argument("--concurrency-exhaustion", action="store_true")
     workload.add_argument("--stopped-predecessor", action="store_true")
+    workload.add_argument("--map-disconnect", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -1730,12 +1918,14 @@ def main(argv=None):
             target_exhaustion=args.target_exhaustion,
             concurrency_exhaustion=args.concurrency_exhaustion,
             stopped_predecessor=args.stopped_predecessor,
+            map_disconnect=args.map_disconnect,
         )
         fixture.run()
         expected = (
             DURATION_PASS if args.duration_exhaustion else
             TARGET_PASS if args.target_exhaustion else
-            CONCURRENCY_PASS if args.concurrency_exhaustion else "selected_launch_slice_passed"
+            CONCURRENCY_PASS if args.concurrency_exhaustion else
+            MAP_DISCONNECT_PASS if args.map_disconnect else "selected_launch_slice_passed"
         )
         return 0 if fixture.receipt["status"] == expected else 1
     except Exception:
