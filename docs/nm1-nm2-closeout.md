@@ -122,6 +122,11 @@ on the same state volume after original Runner reconciliation. The first
 two held receipts remain in the record.
 [Installed recovery evidence](nm2-worker-acceptance-evidence.md#stopped-predecessor-recovery-after-exact-exit-reporting)
 
+Ubuntu passed the ordinary Map API outage check within the configured lease
+bound. The first Windows attempt stopped and was retained with the traffic
+and state check unresolved. Cross-platform outage acceptance remains open.
+[Initial outage evidence](nm2-worker-acceptance-evidence.md#ordinary-map-api-outage-initial-cohort)
+
 The open NM-2 exit requirements stay in NM-2. NM-3's independent
 Runner, Full/Mapless, Docker, Windows and cross-platform objectives remain required
 and preserved. NM-4 testing intelligence and NM-5 validation/release keep their

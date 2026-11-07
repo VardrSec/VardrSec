@@ -424,6 +424,31 @@ Windows receipt SHA-256 `64db894c4c057c61ce645f3bd1dcc6e68bc181d9c88133996844983
 Ubuntu sanitized receipt SHA-256 `89373fa252baf61a2a5c1cdedd218dffa927239fab41c8eee715149442279824`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42409914844)
 
+### Ordinary Map API outage, initial cohort
+
+Distribution `f0e3172e6779a65dd112a65ac75e8861498ff3d8`,
+Map `05dc78cf9a385255de459c8a5b833842d6528a63`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` verified the ordinary API-outage check on Ubuntu 24.04.
+The exact worker exited 8.759 seconds after the API exited and 10.872 seconds
+after the third delayed request was recorded. No further request arrived.
+Restarting the same API started no worker and preserved the original
+reservation. Authenticated exit reporting and original Runner reconciliation
+released the slot with zero local holds and the original one-target,
+30-second charge. This measures the configured lease ceiling. The exact
+last native lease acknowledgement is outside this observation.
+
+The initial Windows Docker Desktop fixture held at the combined exit and
+traffic check. The retained inventory shows that the exact worker exited
+with code 125, 9.317 seconds after API exit. The fixture stopped and was
+retained. The initial receipt does not distinguish target traffic from the
+final API-state comparison, so this attempt does not establish Windows
+outage acceptance.
+
+Windows held receipt SHA-256 `6e46666dabe6cf926f50d8d03cc2e504ec89d76f56a97feeb52b27570dc82133`.
+Ubuntu sanitized receipt SHA-256 `650d3b9ada4d7f7ba4cf0c35fe303609176e55e205e291b1282dc0ee31549100`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42410862666)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
