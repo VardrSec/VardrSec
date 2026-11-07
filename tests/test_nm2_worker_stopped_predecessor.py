@@ -45,6 +45,13 @@ class StoppedPredecessorTests(unittest.TestCase):
             timeout=240, check=False,
         )
 
+    def test_exact_refusal_accepts_json_layout_variations(self):
+        for raw in (b" " + reply(REFUSAL) + b"\r\n", json.dumps(REFUSAL, indent=2).encode()):
+            with self.subTest(raw=raw), patch("nm2_worker_launch_acceptance.subprocess.run") as child:
+                child.return_value = SimpleNamespace(returncode=1, stdout=raw)
+                expect_unresolved_launch([], SELECTED, cwd=Path("."), env={}, stdin="fixture\n")
+            child.assert_called_once()
+
     def test_wrong_status_identity_or_refusal_is_classified_without_acceptance(self):
         for code, raw, checkpoint, phase, failure in (
             (0, reply(REFUSAL), "unexpected_success", None, None),
@@ -59,7 +66,6 @@ class StoppedPredecessorTests(unittest.TestCase):
              "refusal_mismatch", "launch_preflight", "validation_refused"),
             (1, reply({**REFUSAL, "failure_code": "host_refused"}),
              "refusal_mismatch", "launch_catalog", "host_refused"),
-            (1, b" " + reply(REFUSAL), "reply_format", "launch_catalog", "validation_refused"),
             (1, b"secret-canary\n" + reply(REFUSAL), "invalid_stdout", None, None),
             (1, reply({**REFUSAL, "raw": "secret-canary"}), "invalid_stdout", None, None),
             (1, reply({**REFUSAL, "failure_phase": "secret-canary"}), "invalid_stdout", None, None),

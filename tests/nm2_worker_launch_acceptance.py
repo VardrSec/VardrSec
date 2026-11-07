@@ -93,7 +93,7 @@ def launch_refusal_failure_detail(value):
     return {"checkpoint": checkpoint, "failure_phase": phase, "failure_code": code}
 
 
-def _unexpected_launch_reply(raw, expected):
+def _launch_reply_failure(raw, expected):
     from worker_host import HostRefused, _json, _uuid
 
     try:
@@ -112,7 +112,7 @@ def _unexpected_launch_reply(raw, expected):
     elif (phase, code) != _EXPECTED_LAUNCH_REFUSAL:
         checkpoint = "refusal_mismatch"
     else:
-        checkpoint = "reply_format"
+        return None
     refusal = UnresolvedLaunchRefused(checkpoint, phase, code)
     if launch_refusal_failure_detail(refusal.public) is None:
         return UnresolvedLaunchRefused("invalid_stdout")
@@ -144,8 +144,9 @@ def expect_unresolved_launch(arguments, runtime_id, *, cwd, env, stdin):
         "schema": "vardr.worker-cli/1", "state": "held", "runtime_id": runtime_id,
         "failure_phase": phase, "failure_code": code,
     }
-    if raw.splitlines() != [json.dumps(expected, sort_keys=True).encode()]:
-        raise _unexpected_launch_reply(raw, expected)
+    refusal = _launch_reply_failure(raw, expected)
+    if refusal is not None:
+        raise refusal
 
 
 def grant_time_ns(value):
