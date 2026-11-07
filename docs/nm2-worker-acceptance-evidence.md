@@ -337,6 +337,24 @@ The passing Windows receipt SHA-256 is `49975b7e3ed77ff0ea2fa5b6cb39017cf2e887a8
 The sanitized Ubuntu receipt SHA-256 is `43d0077862fb19ba379902d46c14f4c080ed1645930078ac710c46bd85aab9fd`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42402880527)
 
+### Stopped predecessor recovery held
+
+Distribution `773655424730e55f4da0a88ac8a076472bd07f6e`,
+Map `41635f9a75598c84192b4b53be95e025bf0b9b9d`, Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9`
+and the same Gate revision reached the successor-refusal check on both
+Windows Docker Desktop and Ubuntu 24.04. Neither receipt matched the
+required exact successor refusal. The fixture had already observed the
+physical exit and one reserved slot on the unreported original attempt.
+
+The stopped Windows fixture retained one worker, one readiness volume,
+one launch intent and no exit report. The original checkout captures no
+raw child stdout or stderr. The mismatched CLI response category remains
+unknown in these two runs. The stopped-predecessor gate stays open.
+
+Windows held receipt SHA-256 `59838357b4f27785a0be0186b7b003f02485a2b980a91682b274253cf6f23594`.
+Ubuntu sanitized held receipt SHA-256 `f214f0f7b2a671b1736786ae9e1df333c67bf9e453fafc69dcd7387f7bcf8541`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42404296385)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
