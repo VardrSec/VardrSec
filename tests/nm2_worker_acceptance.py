@@ -45,7 +45,15 @@ INITIAL_CASES = (
     "healthy_sequence",
     "missing_local_grant",
 )
+STRICT_DRIFT_SCENARIO = "strict-authority-drift"
+STRICT_DRIFT_CASE = "strict_authority_drift"
+STRICT_DRIFT_SCHEMA = "vardr.nm2-worker-strict-drift-acceptance/1"
+STRICT_DRIFT_SCOPE = "strict_authority_drift_only"
+STRICT_DRIFT_PASS = "selected_strict_drift_slice_passed"
+STRICT_DRIFT_COMPLETE = "selected_strict_drift_complete"
+STRICT_DRIFT_SERVICES = ["api", "db", "gate-fixture", "proxy", "web"]
 SCENARIOS = (
+    STRICT_DRIFT_SCENARIO,
     "healthy",
     "persistent-availability",
     "persistent-count-limit",
@@ -59,7 +67,10 @@ SCENARIOS = (
 COUNT_SCENARIO = "persistent-count-limit"
 IDLE_SCENARIO = "persistent-idle-limit"
 EMPTY_SCENARIO = "persistent-empty-stop"
-PERSISTENT_SCENARIOS = {"persistent-availability", COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO}
+PERSISTENT_SCENARIOS = {
+    "persistent-availability", COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO,
+    STRICT_DRIFT_SCENARIO,
+}
 
 
 def count_approval_context(inventory, original_context):
@@ -197,11 +208,121 @@ def digest(value):
     return hashlib.sha256(value).hexdigest()
 
 
+def strict_drift_empty(inventory, engagement, job):
+    expected = {
+        "schema": "vardr.nm2-fixture-inventory/4", "schema_revision": "0041persistentruntime",
+        "database_user": "vardrmap_app", "engagement_id": engagement, "job_id": job,
+        "runtime_attempt_bound": 35, "job_status": "pending", "execution": None,
+        "targets_spent": 0, "duration_allocated": 0, "capacity_reserved_count": 0,
+        "concurrency_limit": 1, "approvals": [], "contracts": [], "results": [],
+        "stops": [], "runtimes": [], "approval_context_sha256": {},
+    }
+    require(canonical(inventory) == canonical(expected), "strict_authority_drift_dirty_inventory")
+
+
+def strict_drift_contexts(original, fresh, old_approved_at):
+    require(all(type(item) is dict and set(item) == {"context", "authority_snapshot"}
+                for item in (original, fresh)), "strict_authority_drift_proof_shape")
+    context, authority = original["context"], original["authority_snapshot"]
+    revision = authority["authority_revision"]
+    engagement = context["engagement_id"]
+    authorization = authority["authority"]["authorization"]
+    require(
+        type(revision) is int and revision >= 0
+        and authority["schema"] == "vardr.map-managed-authority/1"
+        and authority["authority"]["engagement_id"] == engagement
+        and authorization["status"] == "active" and context["mode"] == "strict"
+        and canonical(context["authority_revision"]) == canonical(revision)
+        and context["authority_sha256"] == digest(canonical(authority)),
+        "strict_authority_drift_original_context",
+    )
+    expected_authority = {**authority, "authority_revision": revision + 2}
+    expected_context = {
+        **context, "not_before": fresh["context"]["not_before"],
+        "authority_revision": revision + 2,
+        "authority_sha256": digest(canonical(expected_authority)),
+    }
+    original_time, signed_time, fresh_time, expiry = (
+        datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+        for value in (context["not_before"], old_approved_at,
+                      fresh["context"]["not_before"], context["expires_at"])
+    )
+    require(
+        canonical(fresh["authority_snapshot"]) == canonical(expected_authority)
+        and canonical(fresh["context"]) == canonical(expected_context)
+        and original_time <= signed_time <= fresh_time < expiry,
+        "strict_authority_drift_fresh_context",
+    )
+
+
+def strict_drift_measurements(proof):
+    """Recheck the retained observations and emit only fixed measurements."""
+    require(type(proof) is dict and set(proof) == {
+        "original", "fresh", "mutations", "refusal", "registration_sha256",
+        "old_approved_at", "before", "after", "traffic_before", "traffic_after",
+        "services", "positive",
+    }, "strict_authority_drift_proof_shape")
+    original, fresh = proof["original"], proof["fresh"]
+    strict_drift_contexts(original, fresh, proof["old_approved_at"])
+    context = original["context"]
+    engagement, job = context["engagement_id"], context["job_id"]
+    authorization = original["authority_snapshot"]["authority"]["authorization"]
+    require(
+        proof["mutations"] == [
+            {"id": authorization["id"], "program_id": engagement, "status": status}
+            for status in ("revoked", "active")
+        ] and proof["refusal"] == {"detail": "managed_approval_refused"}
+        and re.fullmatch(r"[0-9a-f]{64}", proof["registration_sha256"]),
+        "strict_authority_drift_refusal_shape",
+    )
+    strict_drift_empty(proof["before"], engagement, job)
+    strict_drift_empty(proof["after"], engagement, job)
+    require(proof["traffic_before"] == proof["traffic_after"] == []
+            and proof["services"] == STRICT_DRIFT_SERVICES,
+            "strict_authority_drift_mutated_or_dispatched")
+
+    positive = proof["positive"]
+    require(type(positive) is dict and set(positive) == {
+        "approval_record_id", "registration_sha256", "inventory", "traffic",
+    }, "strict_authority_drift_positive_control")
+    approval_id, fresh_context = positive["approval_record_id"], fresh["context"]
+    require(re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}:fixture-strict-authority-drift-fresh", approval_id)
+            and re.fullmatch(r"[0-9a-f]{64}", positive["registration_sha256"])
+            and positive["registration_sha256"] != proof["registration_sha256"]
+            and positive["traffic"] == [], "strict_authority_drift_positive_control")
+    approval = {
+        "id": approval_id, "issued": 0, "revoked": False,
+        "approved_at": fresh_context["not_before"],
+        **{key: fresh_context[key] for key in (
+            "expires_at", "max_executions", "max_duration_seconds", "credential_grants",
+        )},
+    }
+    fresh_sha = digest(canonical(fresh_context))
+    require(
+        canonical(positive["inventory"]) == canonical({
+            **proof["after"], "approvals": [approval],
+            "approval_context_sha256": {approval_id: fresh_sha},
+        }),
+        "strict_authority_drift_positive_control",
+    )
+    return {
+        "stale_registration_status": 409, "fresh_review_status": 200,
+        "fresh_registration_status": 200, "authority_revision_delta": 2,
+        "target_request_count": 0, "targets_spent": 0, "duration_allocated": 0,
+        "capacity_reserved_count": 0,
+        "stale_registration_sha256": proof["registration_sha256"],
+        "fresh_registration_sha256": positive["registration_sha256"],
+        "original_context_sha256": digest(canonical(context)),
+        "fresh_context_sha256": fresh_sha,
+        "unchanged_inventory_sha256": digest(canonical(proof["after"])),
+    }
+
+
 def target_environment(scenario):
     require(scenario in SCENARIOS, "fixture_scenario_refused")
     if scenario == "persistent-availability":
         return {"NM2_FIXTURE_REQUEST_CEILING": "175"}
-    if scenario in {COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO}:
+    if scenario in {COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO, STRICT_DRIFT_SCENARIO}:
         return {}
     if scenario != "healthy":
         return {"NM2_FIXTURE_DELAY_SECONDS": "15"}
@@ -1025,6 +1146,12 @@ class Fixture:
                 nm2_exit_status="incomplete",
             )
             self.receipt["cases"]["persistent_count_limit"] = {"status": "not_run"}
+        elif scenario == STRICT_DRIFT_SCENARIO:
+            self.receipt.update(
+                schema=STRICT_DRIFT_SCHEMA, scenario=scenario,
+                acceptance_scope=STRICT_DRIFT_SCOPE, nm2_exit_status="incomplete",
+            )
+            self.receipt["cases"][STRICT_DRIFT_CASE] = {"status": "not_run"}
         elif scenario != "healthy":
             self.receipt.update(
                 schema="vardr.nm2-worker-failure-acceptance/1",
@@ -1436,7 +1563,8 @@ print(json.dumps({'files':hashes,'executables':executables}))
                     )
                     | (
                         {"count_approval_contexts": True}
-                        if getattr(self, "scenario", None) in {COUNT_SCENARIO, IDLE_SCENARIO}
+                        if getattr(self, "scenario", None)
+                        in {COUNT_SCENARIO, IDLE_SCENARIO, STRICT_DRIFT_SCENARIO}
                         else {}
                     )
                     | ({"include_capacity": True} if include_capacity else {})
@@ -1807,6 +1935,104 @@ print(json.dumps({'files':hashes,'executables':executables}))
         if review_authority is not None:
             review_authority.update(review["authority_snapshot"])
         return runner_id, enrollment["enrollment_id"]
+
+    def strict_drift_replacement(self, registration, original, fresh):
+        from vardrrunner.authorization.codec import TrustAnchor, unb64
+        from vardrrunner.authorization.contracts import approve, approved
+        from vardrrunner.authorization.documents import read_document
+
+        operators = read_document(self.private / "operators.json")
+        require(type(operators) is list and len(operators) == 1,
+                "strict_authority_drift_original_signature")
+        operator = operators[0]
+        require(operator["issuer_id"] == self.issuer_id and operator["key_id"] == "operator"
+                and operator["approver_id"] == self.owner and operator["revoked"] is False,
+                "strict_authority_drift_original_signature")
+        anchor = TrustAnchor(
+            self.issuer_id, "operator", unb64(operator["public_key"]),
+            frozenset({"approval"}), frozenset({"map"}),
+        )
+        old = approved(registration["approval"], (anchor,))
+        require(old["approver_id"] == self.owner
+                and old["approval_id"] == "fixture-" + STRICT_DRIFT_SCENARIO
+                and canonical(old["context"]) == canonical(original["context"]),
+                "strict_authority_drift_original_signature")
+        strict_drift_contexts(original, fresh, old["approved_at"])
+        context = fresh["context"]
+        approval_id = "fixture-" + STRICT_DRIFT_SCENARIO + "-fresh"
+        envelope = approve(
+            context, {"id": self.issuer_id, "key_id": "operator"}, "map", self.owner,
+            approval_id, context["not_before"], self.operator_key,
+        )
+        return old["approved_at"], {**registration, "approval": envelope}, f"{self.issuer_id}:{approval_id}"
+
+    def strict_authority_drift(self):
+        self.receipt["stage"] = "strict_authority_drift_setup"
+        traffic_before = self.traffic()
+        require(traffic_before == [], "strict_authority_drift_traffic")
+        name = STRICT_DRIFT_SCENARIO
+        engagement, authorization, job, case = self.new_job(name)
+        review_input, context, authority, registration = {}, {}, {}, {}
+        self.approve(
+            name, engagement, authorization, job, case,
+            review_snapshot=review_input, review_context=context,
+            review_authority=authority, deferred_registration=registration,
+        )
+        before = self.inventory(engagement, job, include_capacity=True)
+        strict_drift_empty(before, engagement, job)
+
+        self.receipt["stage"] = "strict_authority_drift_mutation"
+        path = f"/engagements/{engagement}/authorizations/{authorization}"
+        mutations = []
+        for status in ("revoked", "active"):
+            observed = self.api.request(path, {"status": status}, method="PATCH")
+            mutations.append({key: observed[key] for key in ("id", "program_id", "status")})
+            require(
+                mutations[-1] == {"id": authorization, "program_id": engagement, "status": status},
+                "strict_authority_drift_mutation_unconfirmed",
+            )
+
+        self.receipt["stage"] = "strict_authority_drift_refusal"
+        path = f"/jobs/{job}/managed/approval"
+        original = {"context": context, "authority_snapshot": authority}
+        reviewed = self.api.request(path + "/review", review_input)
+        fresh = {key: reviewed[key] for key in ("context", "authority_snapshot")}
+        old_approved_at, replacement, approval_id = self.strict_drift_replacement(
+            registration, original, fresh,
+        )
+        refused = self.api.request(path + "/register", registration, expected=409)
+        require(refused == {"detail": "managed_approval_refused"},
+                "strict_authority_drift_refusal_shape")
+        after = self.inventory(engagement, job, include_capacity=True)
+        strict_drift_empty(after, engagement, job)
+        traffic_after = self.traffic()
+        require(traffic_after == [], "strict_authority_drift_traffic")
+
+        self.receipt["stage"] = "strict_authority_drift_positive_control"
+        require(
+            sorted(self.compose("ps", "--all", "--services").decode().split()) == STRICT_DRIFT_SERVICES,
+            "strict_authority_drift_mutated_or_dispatched",
+        )
+        reply = self.api.request(path + "/register", replacement)
+        require(reply == {"approval_record_id": approval_id},
+                "strict_authority_drift_positive_control")
+        proof = {
+            "original": original, "fresh": fresh, "mutations": mutations,
+            "refusal": refused, "old_approved_at": old_approved_at,
+            "registration_sha256": digest(canonical(registration)),
+            "before": before, "after": after, "traffic_before": traffic_before,
+            "traffic_after": traffic_after,
+            "services": sorted(self.compose("ps", "--all", "--services").decode().split()),
+            "positive": {
+                "approval_record_id": approval_id,
+                "registration_sha256": digest(canonical(replacement)),
+                "inventory": self.inventory(engagement, job, include_capacity=True),
+                "traffic": self.traffic(),
+            },
+        }
+        strict_drift_measurements(proof)
+        self.receipt["cases"][STRICT_DRIFT_CASE] = {"status": "passed", "proof": proof}
+        self.receipt["status"], self.receipt["stage"] = STRICT_DRIFT_PASS, STRICT_DRIFT_COMPLETE
 
     def verify_fixed(
         self,
@@ -4733,6 +4959,9 @@ print(json.dumps(result))
             if self.scenario == EMPTY_SCENARIO:
                 self.persistent_empty_stop()
                 return
+            if self.scenario == STRICT_DRIFT_SCENARIO:
+                self.strict_authority_drift()
+                return
             self.receipt["stage"] = "strict_scope_setup"
             engagement, authorization, job, case = self.new_job(
                 "strict-denial", in_scope=False
@@ -4951,6 +5180,11 @@ def main(argv=None):
             receipt["initial_cases"] = ("default_disabled", "strict_out_of_scope", "persistent_idle_limit")
             receipt.update(scenario=args.scenario, limits=persistent_limits(IDLE_SCENARIO),
                            acceptance_scope="persistent_idle_control_only")
+        if args.scenario == STRICT_DRIFT_SCENARIO:
+            receipt.update(
+                initial_cases=("default_disabled", STRICT_DRIFT_CASE),
+                acceptance_scope=STRICT_DRIFT_SCOPE,
+            )
         if args.scenario == COUNT_SCENARIO:
             receipt["initial_cases"] = (
                 "default_disabled",
@@ -4986,6 +5220,7 @@ def main(argv=None):
             "selected_count_control_slice_passed",
             "selected_idle_control_slice_passed",
             "selected_empty_stop_slice_passed",
+            STRICT_DRIFT_PASS,
         }
         else 1
     )

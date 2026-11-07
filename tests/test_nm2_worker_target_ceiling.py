@@ -91,7 +91,10 @@ class ControlledRequestCeiling(unittest.TestCase):
                 self.assertEqual(
                     value,
                     {}
-                    if scenario in {"healthy", "persistent-count-limit", "persistent-idle-limit", "persistent-empty-stop"}
+                    if scenario in {
+                        "healthy", "persistent-count-limit", "persistent-idle-limit",
+                        "persistent-empty-stop", "strict-authority-drift",
+                    }
                     else {"NM2_FIXTURE_DELAY_SECONDS": "15"},
                 )
         with self.assertRaises(acceptance.AcceptanceRefused):

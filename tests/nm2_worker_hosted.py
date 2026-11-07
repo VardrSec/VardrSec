@@ -56,10 +56,16 @@ LAUNCH_SCOPES = {
 }
 LAUNCH_SCENARIOS = set(LAUNCH_SCOPES)
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
+STRICT_DRIFT_SCENARIO = "strict-authority-drift"
+STRICT_DRIFT_SCHEMA = "vardr.nm2-worker-strict-drift-acceptance/1"
+STRICT_DRIFT_HOSTED = "vardr.nm2-hosted/9"
 COMPOSE_ASSET = "https://github.com/docker/compose/releases/download/v5.6.1/docker-compose-linux-x86_64"
 COMPOSE_SHA256 = "47737f4236e6d3ccea7291995203f8f018058783b4c3a9469119811a0b5db8c0"
 COMPOSE_BYTES = 32676477
-PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit", "persistent-idle-limit", "persistent-empty-stop", *LAUNCH_SCENARIOS}
+PERSISTENT_SCENARIOS = {
+    "persistent-availability", "persistent-count-limit", "persistent-idle-limit",
+    "persistent-empty-stop", STRICT_DRIFT_SCENARIO, *LAUNCH_SCENARIOS,
+}
 REPOSITORIES = {
     name: "VardrSec/" + repo
     for name, repo in (
@@ -696,6 +702,7 @@ def failure_projection(raw, selection):
             "vardr.nm2-worker-idle-acceptance/1",
             "vardr.nm2-worker-empty-acceptance/1",
             LAUNCH_SCHEMA,
+            STRICT_DRIFT_SCHEMA,
         }
         and raw.get("status") == "held"
         and raw.get("sources") == selection["sources"]
@@ -718,6 +725,9 @@ def failure_projection(raw, selection):
                 and raw.get("expected_database_revision") == "0041persistentruntime")
     if raw["schema"] == "vardr.nm2-worker-empty-acceptance/1":
         require(raw.get("scenario") == "persistent-empty-stop"
+                and raw.get("expected_database_revision") == "0041persistentruntime")
+    if raw["schema"] == STRICT_DRIFT_SCHEMA:
+        require(raw.get("scenario") == STRICT_DRIFT_SCENARIO
                 and raw.get("expected_database_revision") == "0041persistentruntime")
     if raw["schema"] == LAUNCH_SCHEMA:
         require(raw.get("scenario") in LAUNCH_SCENARIOS
@@ -746,6 +756,9 @@ def failure_projection(raw, selection):
         "managed_setup",
         "strict_scope_setup",
         "strict_scope_denial",
+        "strict_authority_drift_setup", "strict_authority_drift_mutation",
+        "strict_authority_drift_refusal", "strict_authority_drift_positive_control",
+        "selected_strict_drift_complete",
         "happy_setup",
         "operator_worker_enable",
         "happy_verification",
@@ -822,6 +835,11 @@ def failure_projection(raw, selection):
         "idle_executed_or_changed_work", "idle_native_exit_not_proven",
         "idle_host_receipt_changed", "idle_original_reconciliation_held",
         "idle_status_refused",
+        "strict_authority_drift_traffic", "strict_authority_drift_dirty_inventory",
+        "strict_authority_drift_proof_shape", "strict_authority_drift_original_context",
+        "strict_authority_drift_mutation_unconfirmed", "strict_authority_drift_refusal_shape",
+        "strict_authority_drift_fresh_context", "strict_authority_drift_mutated_or_dispatched",
+        "strict_authority_drift_original_signature", "strict_authority_drift_positive_control",
         "count_baseline_not_empty",
         "count_complete_traffic_changed",
         "count_enrollment_changed",
@@ -1208,8 +1226,15 @@ def launch_projection(raw, selection):
     return result
 
 
-def public_projection(raw, selection):
+def public_projection(raw, selection, *, inventories=()):
     """Project only fixed statuses and measured hashes, never raw nested data."""
+    if type(raw) is dict and raw.get("schema") == STRICT_DRIFT_SCHEMA:
+        from nm2_worker_strict_projection import project
+
+        try:
+            return project(raw, selection, *inventories)
+        except (ValueError, TypeError, KeyError, IndexError):
+            raise HostedRefused("nm2_hosted_strict_drift_receipt_refused") from None
     if type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA:
         return launch_projection(raw, selection)
     if type(raw) is dict and raw.get("schema") == "vardr.nm2-worker-empty-acceptance/1":
@@ -1422,6 +1447,10 @@ class Hosted:
             self.receipt.update(schema="vardr.nm2-hosted/6", scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope="Explicit zero-issued-job stop with offline empty audit; NM2 remains incomplete")
+        elif self.scenario == STRICT_DRIFT_SCENARIO:
+            self.receipt.update(schema=STRICT_DRIFT_HOSTED, scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope="Strict authority drift only; other Strict denials and NM2 remain incomplete")
         elif self.scenario in LAUNCH_SCENARIOS:
             self.receipt.update(
                 schema="vardr.nm2-hosted/8" if self.scenario == LAUNCH_DURATION_SCENARIO else "vardr.nm2-hosted/7",
@@ -1779,9 +1808,20 @@ class Hosted:
                     LAUNCH_EXPIRED_GRANT_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_DURATION_SCENARIO: LAUNCH_SCHEMA,
+                    STRICT_DRIFT_SCENARIO: STRICT_DRIFT_SCHEMA,
                 }[self.scenario]
             )
-            self.receipt.update(public_projection(observed, selection))
+            if self.scenario == STRICT_DRIFT_SCENARIO:
+                inventories = []
+                for name in ("before", "after"):
+                    with (self.root / f"installation/nm2-inventory-{name}.json").open("rb") as handle:
+                        inventories.append(decode_receipt(handle.read(4 * 1024 * 1024 + 1)))
+                self.receipt.update(public_projection(observed, selection, inventories=inventories))
+                self.receipt["remaining_required_cases"]["strict_other_denials"] = (
+                    "authority_drift_verified_other_strict_denials_open"
+                )
+            else:
+                self.receipt.update(public_projection(observed, selection))
             verified_case = {
                 LAUNCH_STOP_WORK_QUEUED_SCENARIO: "engagement_stop_work",
                 LAUNCH_LOCAL_STOP_SCENARIO: "local_emergency_stop",
@@ -1822,6 +1862,7 @@ class Hosted:
                     LAUNCH_EXPIRED_GRANT_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_DURATION_SCENARIO: "vardr.nm2-hosted/8",
+                    STRICT_DRIFT_SCENARIO: STRICT_DRIFT_HOSTED,
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],
