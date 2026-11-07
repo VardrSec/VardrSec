@@ -16,7 +16,7 @@ on:
       nm2_scenario:
         description: Explicit reviewed NM-2 acceptance scenario
         type: choice
-        options: [healthy, persistent-availability, persistent-count-limit, persistent-idle-limit, persistent-empty-stop, persistent-launch-empty, persistent-launch-completed, persistent-launch-stop-work, persistent-launch-stop-work-queued, persistent-launch-local-stop, persistent-launch-missing-grant, persistent-launch-grant-revocation, persistent-launch-expired-grant, persistent-launch-active-grant-expiry, persistent-launch-duration-exhaustion, persistent-launch-target-exhaustion, strict-authority-drift, persistent-launch-stopped-predecessor, persistent-launch-concurrency-exhaustion, strict-review-authority, persistent-launch-map-disconnect, strict-stale-registered-claim]
+        options: [healthy, persistent-availability, persistent-count-limit, persistent-idle-limit, persistent-empty-stop, persistent-launch-empty, persistent-launch-completed, persistent-launch-stop-work, persistent-launch-stop-work-queued, persistent-launch-local-stop, persistent-launch-missing-grant, persistent-launch-grant-revocation, persistent-launch-expired-grant, persistent-launch-active-grant-expiry, persistent-launch-duration-exhaustion, persistent-launch-target-exhaustion, strict-authority-drift, persistent-launch-stopped-predecessor, persistent-launch-concurrency-exhaustion, strict-review-authority, persistent-launch-map-disconnect, strict-stale-registered-claim, bootstrap-configurations]
         default: healthy
       nm2_database_revision:
         description: Require the exact reviewed Map schema; does not migrate or enable work

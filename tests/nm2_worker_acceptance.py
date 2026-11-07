@@ -1286,6 +1286,86 @@ def unchanged_inventory(before, after, project, *, admit_bridge=False):
     return admitted
 
 
+def image_source(component, source, image, project, docker):
+    """Measure one closed component in a read-only, network-none helper."""
+    require(component in {"map", "runner"}, "image_source_component_refused")
+    prefix = {"map": "backend", "runner": "vardrrunner"}[component]
+    program = """import hashlib,json,pathlib,sys
+selection=json.load(sys.stdin)
+base=pathlib.Path('/app')
+if selection['component']=='runner':
+ import vardrrunner
+ base=pathlib.Path(vardrrunner.__file__).parent
+hashes={path.relative_to(base).as_posix():hashlib.sha256(path.read_bytes().replace(b'\\r\\n',b'\\n')).hexdigest() for path in base.rglob('*.py') if not {'tests','postgres_tests'} & set(path.relative_to(base).parts)}
+executables={name:hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest() for name in selection['executables']}
+print(json.dumps({'files':hashes,'executables':executables}))
+"""
+    files = {}
+    tracked = command(
+        ["git", "-C", str(source), "ls-files", "-z", "--", prefix]
+    )
+    for raw in tracked.split(b"\0"):
+        if not raw:
+            continue
+        relative = Path(os.fsdecode(raw))
+        if relative.suffix != ".py" or {"tests", "postgres_tests"} & set(
+            relative.parts
+        ):
+            continue
+        require(
+            relative.parts[0] == prefix and ".." not in relative.parts,
+            "image_source_path_refused",
+        )
+        files[relative.relative_to(prefix).as_posix()] = digest(
+            (source / relative).read_bytes().replace(b"\r\n", b"\n")
+        )
+    require(files, "image_source_inventory_empty")
+    executables = (
+        ["/usr/local/bin/vardr-worker-owner", "/usr/local/bin/vardrgate"]
+        if component == "runner"
+        else []
+    )
+    measured = json.loads(
+        docker(
+            "run",
+            "--rm",
+            "-i",
+            "--network",
+            "none",
+            "--user",
+            "10001:10001",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges:true",
+            "--read-only",
+            "--label",
+            "com.docker.compose.project=" + project,
+            "--entrypoint",
+            "/usr/local/bin/python",
+            image,
+            "-I",
+            "-c",
+            program,
+            stdin=canonical(
+                {
+                    "component": component,
+                    "files": sorted(files),
+                    "executables": executables,
+                }
+            ),
+        )
+    )
+    require(measured["files"] == files, "image_source_inventory_mismatch")
+    return {
+        "image_id": image,
+        "python_file_count": len(files),
+        "python_inventory_sha256": digest(canonical(files)),
+        "executables": measured["executables"],
+        "line_endings": "CRLF-normalized-to-LF",
+    }
+
+
 class Fixture:
     def __init__(
         self, selection, *, scenario="healthy", database_revision="0040runtimesequence"
@@ -1547,87 +1627,13 @@ class Fixture:
 
     def image_sources(self):
         """Read files in ordinary network-none helpers, without invoking tools."""
-        inventory = {}
-        program = """import hashlib,json,pathlib,sys
-selection=json.load(sys.stdin)
-base=pathlib.Path('/app')
-if selection['component']=='runner':
- import vardrrunner
- base=pathlib.Path(vardrrunner.__file__).parent
-hashes={path.relative_to(base).as_posix():hashlib.sha256(path.read_bytes().replace(b'\\r\\n',b'\\n')).hexdigest() for path in base.rglob('*.py') if not {'tests','postgres_tests'} & set(path.relative_to(base).parts)}
-executables={name:hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest() for name in selection['executables']}
-print(json.dumps({'files':hashes,'executables':executables}))
-"""
-        for component, prefix, image in (
-            ("map", "backend", self.images["api"]),
-            ("runner", "vardrrunner", self.images["worker"]),
-        ):
-            source = Path(self.m["sources"][component]["path"])
-            files = {}
-            tracked = command(
-                ["git", "-C", str(source), "ls-files", "-z", "--", prefix]
+        return {
+            component: image_source(
+                component, Path(self.m["sources"][component]["path"]),
+                self.images[image], self.project, self.docker,
             )
-            for raw in tracked.split(b"\0"):
-                if not raw:
-                    continue
-                relative = Path(os.fsdecode(raw))
-                if relative.suffix != ".py" or {"tests", "postgres_tests"} & set(
-                    relative.parts
-                ):
-                    continue
-                require(
-                    relative.parts[0] == prefix and ".." not in relative.parts,
-                    "image_source_path_refused",
-                )
-                files[relative.relative_to(prefix).as_posix()] = digest(
-                    (source / relative).read_bytes().replace(b"\r\n", b"\n")
-                )
-            require(files, "image_source_inventory_empty")
-            executables = (
-                ["/usr/local/bin/vardr-worker-owner", "/usr/local/bin/vardrgate"]
-                if component == "runner"
-                else []
-            )
-            measured = json.loads(
-                self.docker(
-                    "run",
-                    "--rm",
-                    "-i",
-                    "--network",
-                    "none",
-                    "--user",
-                    "10001:10001",
-                    "--cap-drop",
-                    "ALL",
-                    "--security-opt",
-                    "no-new-privileges:true",
-                    "--read-only",
-                    "--label",
-                    "com.docker.compose.project=" + self.project,
-                    "--entrypoint",
-                    "/usr/local/bin/python",
-                    image,
-                    "-I",
-                    "-c",
-                    program,
-                    stdin=canonical(
-                        {
-                            "component": component,
-                            "files": sorted(files),
-                            "executables": executables,
-                        }
-                    ),
-                )
-            )
-            require(measured["files"] == files, "image_source_inventory_mismatch")
-            inventory[component] = {
-                "image_id": image,
-                "python_file_count": len(files),
-                "python_inventory_sha256": digest(canonical(files)),
-                "executables": measured["executables"],
-                "line_endings": "CRLF-normalized-to-LF",
-            }
-        return inventory
+            for component, image in (("map", "api"), ("runner", "worker"))
+        }
 
     def stage(self):
         private_directory(self.install)

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a bootstrap-only Ubuntu check that qualifies the selected Runner image
+  and runs the two existing configuration-refusal cases.
+
 - Fix the remaining NM-2 checklist as C01–C10, credit verified requirements,
   and correct stale optional-idle and coverage status entries.
 

@@ -524,3 +524,20 @@ admission, source/image/incarnation, fresh status, offline state, positive host
 receipt, empty traffic/inventory and stopped-resource joins. The
 [installed startup receipts](nm2-worker-acceptance-evidence.md#installed-first-and-subsequent-startup-2026-11-07)
 verify both ordinal-one and ordinal-two launch after exact zero-job retirement.
+
+
+## Ubuntu ordinary bootstrap configuration slice
+
+The explicit hosted scenario `bootstrap-configurations` builds the selected
+Runner toolkit and persistent worker using the exact Runner and Gate sources.
+A network-none UID 10001 read-only helper verifies the installed Python inventory
+and owner bytes, and a separate helper runs pip check before the unchanged
+`nm2_worker_bootstrap.py` fixture. Its two cases are the unprivileged initial user
+and missing bootstrap SETPCAP. Each must exit 125 with successfully copied empty
+readiness and retained stopped-container inventory.
+
+This slice closes C06's Ubuntu configuration criterion when it passes. The
+current Windows configuration evidence supplies the other platform's credit.
+C07–C10 retain the remaining runtime and review obligations in the
+[fixed checklist](nm1-nm2-closeout.md#fixed-nm-2-closeout-checklist).
+Hosted execution uses the existing explicit controls.

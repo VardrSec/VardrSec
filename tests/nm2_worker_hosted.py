@@ -26,6 +26,9 @@ SOURCE = Path(__file__).resolve().parents[1]
 # Root helpers must come from this exact source tree, never the caller's cwd.
 sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
+BOOTSTRAP_SCENARIO = "bootstrap-configurations"
+BOOTSTRAP_RUNNER = "5ecc869d80f53ae7fdbca25b971838976a6c41e9"
+BOOTSTRAP_GATE = "d80d4730b8486b75be72431b5af88e0ddb45020b"
 LAUNCH_SCENARIO = "persistent-launch-empty"
 LAUNCH_STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
 STOPPED_PREDECESSOR_HOSTED = "vardr.nm2-hosted/11"
@@ -137,6 +140,8 @@ STAGES = {
     "build_proxy",
     "build_toolkit",
     "build_worker",
+    "bootstrap_qualification",
+    "bootstrap_harness",
     "launch_compose_pin",
     "harness",
     "complete",
@@ -654,7 +659,7 @@ def _require_budget_source(budget, commit):
 def execution_options(env):
     scenario = env.get("NM2_SCENARIO", "healthy")
     revision = env.get("NM2_DATABASE_REVISION", "0040runtimesequence")
-    require(type(scenario) is str and scenario in {"healthy", *PERSISTENT_SCENARIOS})
+    require(type(scenario) is str and scenario in {"healthy", BOOTSTRAP_SCENARIO, *PERSISTENT_SCENARIOS})
     require(
         type(revision) is str
         and revision in {"0040runtimesequence", "0041persistentruntime"}
@@ -671,6 +676,9 @@ def execution_options(env):
 
         require(all(env.get("NM2_" + name.upper() + "_SHA") == commit
                     for name, commit in MAP_DISCONNECT_SOURCES.items()))
+    if scenario == BOOTSTRAP_SCENARIO:
+        require(env.get("NM2_RUNNER_SHA") == BOOTSTRAP_RUNNER
+                and env.get("NM2_GATE_SHA") == BOOTSTRAP_GATE)
     return scenario, revision
 
 
@@ -1963,7 +1971,7 @@ class Hosted:
                 scope="Optional persistent count-one control in one self-exited incarnation; NM2 remains incomplete",
             )
 
-    def command(self, args, *, capture=False, timeout=60):
+    def command(self, args, *, capture=False, timeout=60, stdin=None):
         remaining = self.deadline - time.monotonic()
         require(remaining > 0)
         try:
@@ -1977,6 +1985,7 @@ class Hosted:
                     stderr=log,
                     timeout=min(timeout, remaining),
                     check=False,
+                    **({"input": stdin} if stdin is not None else {}),
                 )
             require(result.returncode == 0)
             if capture:
@@ -2030,13 +2039,16 @@ class Hosted:
             <= {"bridge", "host", "none"}
         )
 
-    def prepare_sources(self):
+    def prepare_sources(self, names=None):
         self.receipt["stage"] = "sources"
         require(
             self.command(["git", "rev-parse", "HEAD"], capture=True)
             == self.pins["distribution"]
         )
-        for name, repository in REPOSITORIES.items():
+        selected = tuple(REPOSITORIES) if names is None else names
+        require(type(selected) is tuple and selected in (tuple(REPOSITORIES), ("runner", "gate")))
+        for name in selected:
+            repository = REPOSITORIES[name]
             path = self.root / name
             self.command(["git", "init", str(path)])
             self.command(
@@ -2125,6 +2137,129 @@ class Hosted:
         )
         return value, tag
 
+    def build_worker_images(self, *, persistent):
+        toolkit, tag = self.build(
+            "toolkit",
+            self.sources["runner"],
+            extra=(
+                "--target",
+                "toolkit",
+                "--build-context",
+                "gate=" + str(self.sources["gate"]),
+            ),
+        )
+        self.receipt["toolkit_image"] = toolkit
+        self.receipt["images"]["worker"] = self.build(
+            "worker",
+            self.sources["runner"],
+            file=self.sources["runner"]
+            / (
+                "Dockerfile.worker.persistent"
+                if persistent
+                else "Dockerfile.worker"
+            ),
+            extra=("--build-arg", "RUNNER_BASE_IMAGE=" + tag),
+        )[0]
+        return toolkit, tag
+
+    def run_bootstrap(self):
+        """Build and qualify only Runner/Gate; invoke the unchanged two-case fixture."""
+        import nm2_worker_acceptance as shared
+        import nm2_worker_bootstrap as bootstrap
+
+        self.receipt = {
+            "schema": "vardr.nm2-hosted-bootstrap/1", "status": "held",
+            "stage": "sources", "scenario": BOOTSTRAP_SCENARIO,
+            "scope": "two_target_free_bootstrap_configuration_refusals",
+            "sources": {n: self.pins[n] for n in ("distribution", "runner", "gate")},
+            "source_trees": {}, "images": {}, "nm2_exit_status": "incomplete",
+        }
+        self.prepare_sources(names=("runner", "gate"))
+
+        def frozen_inputs():
+            result = {}
+            for name in ("runner", "gate"):
+                source = self.sources[name]
+                require(self.command(
+                    ["git", "-C", str(source), "rev-parse", "HEAD"], capture=True
+                ) == self.pins[name])
+                require(not self.command(
+                    ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=no"],
+                    capture=True,
+                ))
+                names = self.command(
+                    ["git", "-C", str(source), "ls-files", "-z"], capture=True
+                ).split("\0")
+                result[name] = {
+                    relative: hashlib.sha256((source / relative).read_bytes()).hexdigest()
+                    for relative in names if relative
+                }
+            return result
+
+        frozen = frozen_inputs()
+        self.build_worker_images(persistent=True)
+        image = self.receipt["images"]["worker"]
+        self.receipt["stage"] = "bootstrap_qualification"
+        measured = shared.image_source(
+            "runner", self.sources["runner"], image, self.project,
+            lambda *args, **kwargs: self.docker(*args, capture=True, **kwargs),
+        )
+        self.docker(
+            "run", "--rm", "--network", "none", "--user", "10001:10001",
+            "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
+            "--read-only", "--pids-limit", "64", "--memory", "512m", "--cpus", "1",
+            "--label", "com.docker.compose.project=" + self.project,
+            "--entrypoint", "/usr/local/bin/python", image,
+            "-I", "-m", "pip", "check", capture=True,
+        )
+        require(frozen_inputs() == frozen)
+        source_hashes = frozen["runner"]
+        owner = measured["executables"]["/usr/local/bin/vardr-worker-owner"]
+        require(re.fullmatch(r"[0-9a-f]{64}", owner)
+                and measured["image_id"] == image)
+        qualification = {
+            "status": "passed_frozen_build_dependency_probe", "image": image,
+            "source_commit": self.pins["runner"],
+            "source_tree": self.receipt["source_trees"]["runner"],
+            "source_manifest_sha256": shared.digest(shared.canonical(source_hashes)),
+            "source_hashes": source_hashes,
+            "python_inventory_sha256": measured["python_inventory_sha256"],
+            "owner_binary_sha256": owner,
+        }
+        build_receipt = self.root / "bootstrap-build.json"
+        shared.publish(build_receipt, shared.canonical(qualification))
+        output = self.root / "bootstrap"
+        selection = bootstrap.validate(argparse.Namespace(
+            build_receipt=build_receipt, image=image, owner_sha256=owner,
+            docker_context="default", project=self.project, output=output,
+            allow_empty_builtin_bridge_id_change=False,
+        ))
+        self.receipt["stage"] = "bootstrap_harness"
+        raw = bootstrap.Bootstrap(selection).run()
+        require(raw["schema"] == "vardr.nm2-worker-bootstrap/1"
+                and raw["status"] == "passed_configuration_refusals"
+                and raw["image"] == image
+                and raw["owner_binary_sha256"] == owner
+                and raw["source_commit"] == self.pins["runner"]
+                and raw["source_tree"] == qualification["source_tree"]
+                and set(raw["cases"]) == set(bootstrap.CASES))
+        for case in raw["cases"].values():
+            require(case["status"] == "passed" and type(case["exit_code"]) is int
+                    and case["exit_code"] == 125 and case["readiness_absent"] is True
+                    and case["descendant_absence"] == "not_independently_observed")
+        self.receipt.update(
+            status="passed_configuration_refusals", stage="complete",
+            source_manifest_sha256=qualification["source_manifest_sha256"],
+            python_inventory_sha256=measured["python_inventory_sha256"],
+            owner_binary_sha256=owner,
+            owner_source_sha256=source_hashes["container/worker_owner.c"],
+            cases={name: {
+                "status": "passed", "exit_code": 125, "readiness_absent": True,
+                "descendant_absence": "not_independently_observed",
+            } for name in bootstrap.CASES},
+            resources_retained=True, owned_stopped_container_count=2,
+        )
+
     def launch_harness(self, path):
         self.receipt["stage"] = "launch_compose_pin"
         compose = self.root / "docker-compose-5.6.1"
@@ -2165,6 +2300,9 @@ class Hosted:
     def run(self):
         try:
             self.daemon_guard()
+            if self.scenario == BOOTSTRAP_SCENARIO:
+                self.run_bootstrap()
+                return
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
                 probe.bind(("127.0.0.1", 28443))
             self.prepare_sources()
@@ -2198,28 +2336,9 @@ class Hosted:
                     else ()
                 )
                 self.receipt["images"][name] = self.build(name, context, extra=extra)[0]
-            toolkit, tag = self.build(
-                "toolkit",
-                self.sources["runner"],
-                extra=(
-                    "--target",
-                    "toolkit",
-                    "--build-context",
-                    "gate=" + str(self.sources["gate"]),
-                ),
+            toolkit, tag = self.build_worker_images(
+                persistent=self.scenario in PERSISTENT_SCENARIOS
             )
-            self.receipt["toolkit_image"] = toolkit
-            self.receipt["images"]["worker"] = self.build(
-                "worker",
-                self.sources["runner"],
-                file=self.sources["runner"]
-                / (
-                    "Dockerfile.worker.persistent"
-                    if self.scenario in PERSISTENT_SCENARIOS
-                    else "Dockerfile.worker"
-                ),
-                extra=("--build-arg", "RUNNER_BASE_IMAGE=" + tag),
-            )[0]
             require(
                 self.docker(
                     "image", "inspect", "--format", "{{.Id}}", tag, capture=True
