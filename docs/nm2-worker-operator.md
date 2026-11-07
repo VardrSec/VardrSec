@@ -35,6 +35,13 @@ preserves the resources and durable intent for inspection. Follow the
 original report and reconciliation flow for an admitted worker. Installed
 first and subsequent acceptance on Windows and Linux is still pending.
 
+The opt-in `persistent-launch-empty` CI case verifies first and next launch
+in one Full installation. The same installed fixture accepts an explicitly
+selected Compose 5.6.1 binary and local Docker context on Docker Desktop.
+It retains both exact exited containers and checks zero issued jobs, physical
+stop, Map retirement and local Runner audit for each. This slice is separate
+from the required completed-job, cancellation and containment checks.
+
 ## Admission of a prepared worker
 
 This is a default-disabled NM-2 development candidate. The retained one-attempt

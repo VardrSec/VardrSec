@@ -26,7 +26,12 @@ SOURCE = Path(__file__).resolve().parents[1]
 # Root helpers must come from this exact source tree, never the caller's cwd.
 sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
-PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit", "persistent-idle-limit", "persistent-empty-stop"}
+LAUNCH_SCENARIO = "persistent-launch-empty"
+LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
+COMPOSE_ASSET = "https://github.com/docker/compose/releases/download/v5.6.1/docker-compose-linux-x86_64"
+COMPOSE_SHA256 = "47737f4236e6d3ccea7291995203f8f018058783b4c3a9469119811a0b5db8c0"
+COMPOSE_BYTES = 32676477
+PERSISTENT_SCENARIOS = {"persistent-availability", "persistent-count-limit", "persistent-idle-limit", "persistent-empty-stop", LAUNCH_SCENARIO}
 REPOSITORIES = {
     name: "VardrSec/" + repo
     for name, repo in (
@@ -67,6 +72,7 @@ STAGES = {
     "build_proxy",
     "build_toolkit",
     "build_worker",
+    "launch_compose_pin",
     "harness",
     "complete",
 }
@@ -74,6 +80,8 @@ _CLI_FAILURE_PHASES = {
     "arguments",
     "installation",
     "dispatch",
+    "launch_inputs", "launch_preflight", "launch_intent", "launch_resources",
+    "launch_create", "launch_start",
     "enable_inputs",
     "enable_observer_setup",
     "enable_api_setup",
@@ -654,6 +662,7 @@ def failure_projection(raw, selection):
             "vardr.nm2-worker-count-acceptance/1",
             "vardr.nm2-worker-idle-acceptance/1",
             "vardr.nm2-worker-empty-acceptance/1",
+            LAUNCH_SCHEMA,
         }
         and raw.get("status") == "held"
         and raw.get("sources") == selection["sources"]
@@ -677,7 +686,12 @@ def failure_projection(raw, selection):
     if raw["schema"] == "vardr.nm2-worker-empty-acceptance/1":
         require(raw.get("scenario") == "persistent-empty-stop"
                 and raw.get("expected_database_revision") == "0041persistentruntime")
+    if raw["schema"] == LAUNCH_SCHEMA:
+        require(raw.get("scenario") == LAUNCH_SCENARIO
+                and raw.get("expected_database_revision") == "0041persistentruntime")
     stages = {
+        "launch_prepare", "launch_1", "launch_2", "launch_stop_1", "launch_stop_2",
+        "selected_launch_complete",
         "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
         "empty_stop_reconciliation", "selected_empty_stop_complete",
         "image_sources",
@@ -712,6 +726,11 @@ def failure_projection(raw, selection):
         "selected_availability_complete",
     }
     reasons = {
+        "launch_preexisting_worker", "launch_unexpected_target_traffic",
+        "launch_enable_not_observed", "launch_admission_not_bound",
+        "launch_intent_not_observed", "launch_durable_chain_not_observed",
+        "launch_exact_exit_not_observed", "launch_empty_retirement_not_observed",
+        "launch_preservation_or_traffic_not_observed",
         "empty_audit_volume_not_bound", "empty_audit_volume_changed",
         "empty_local_state_not_proven", "empty_map_inventory_not_empty",
         "empty_target_traffic_not_empty", "empty_operator_stop_not_proven",
@@ -911,8 +930,49 @@ def failure_projection(raw, selection):
     return value
 
 
+def launch_projection(raw, selection):
+    require(
+        raw.get("scenario") == LAUNCH_SCENARIO
+        and raw.get("expected_database_revision") == "0041persistentruntime"
+        and raw.get("acceptance_scope") == "first_and_next_empty_launch"
+        and raw.get("status") == "selected_launch_slice_passed"
+        and raw.get("stage") == "selected_launch_complete"
+        and raw.get("retained") is True and raw.get("platform") == "linux"
+        and raw.get("nm2_exit_status") == "incomplete"
+        and raw.get("sources") == selection["sources"]
+        and raw.get("images") == selection["images"]
+        and raw.get("project") == selection["project"]
+    )
+    pair = raw["launch_pair"]
+    require(type(pair) is list and len(pair) == 2)
+    fields = {"ordinal", "runtime_id", "container_id", "started_at", "finished_at",
+              "intent_sha256", "retirement_sha256", "predecessor_cids",
+              "bootstrap_audit_sha256", "runner_state_sha256"}
+    for ordinal, row in enumerate(pair, 1):
+        require(type(row) is dict and set(row) == fields and type(row["ordinal"]) is int
+                and row["ordinal"] == ordinal
+                and _physical_time(row["started_at"]) < _physical_time(row["finished_at"]))
+        _uuid(row["runtime_id"])
+        for key in ("container_id", "intent_sha256", "retirement_sha256", "runner_state_sha256"):
+            _hash(row[key])
+    first, second = pair
+    _hash(first["bootstrap_audit_sha256"])
+    require(
+        first["predecessor_cids"] == []
+        and second["predecessor_cids"] == [first["container_id"]]
+        and second["bootstrap_audit_sha256"] is None
+        and first["runtime_id"] != second["runtime_id"]
+        and first["container_id"] != second["container_id"]
+        and first["runner_state_sha256"] == second["runner_state_sha256"]
+        and _physical_time(first["finished_at"]) < _physical_time(second["started_at"])
+    )
+    return {"launch_pair": pair, "nm2_exit_status": "incomplete", "resources_retained": True}
+
+
 def public_projection(raw, selection):
     """Project only fixed statuses and measured hashes, never raw nested data."""
+    if type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA:
+        return launch_projection(raw, selection)
     if type(raw) is dict and raw.get("schema") == "vardr.nm2-worker-empty-acceptance/1":
         from nm2_worker_empty_projection import project
         try:
@@ -1123,6 +1183,12 @@ class Hosted:
             self.receipt.update(schema="vardr.nm2-hosted/6", scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope="Explicit zero-issued-job stop with offline empty audit; NM2 remains incomplete")
+        elif self.scenario == LAUNCH_SCENARIO:
+            self.receipt.update(
+                schema="vardr.nm2-hosted/7", scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope="First and next worker launch, physical stop and zero-job reconciliation",
+            )
         elif self.scenario == "persistent-idle-limit":
             self.receipt.update(schema="vardr.nm2-hosted/5", scenario=self.scenario,
                 expected_database_revision=self.database_revision,
@@ -1297,6 +1363,27 @@ class Hosted:
         )
         return value, tag
 
+    def launch_harness(self, path):
+        self.receipt["stage"] = "launch_compose_pin"
+        compose = self.root / "docker-compose-5.6.1"
+        self.command(
+            ["curl", "--fail", "--location", "--proto", "=https", "--max-time", "90",
+             "--max-filesize", str(COMPOSE_BYTES), "--output", str(compose), COMPOSE_ASSET],
+            timeout=95,
+        )
+        require(compose.stat().st_size == COMPOSE_BYTES
+                and hashlib.sha256(compose.read_bytes()).hexdigest() == COMPOSE_SHA256)
+        compose.chmod(0o700)
+        config = self.root / "home" / ".docker"
+        config.mkdir(mode=0o700, exist_ok=True)
+        require(config.is_dir() and not config.is_symlink())
+        return [
+            str(SOURCE / "tests/nm2_worker_launch_acceptance.py"),
+            "--cohort", str(path), "--compose-executable", str(compose),
+            "--compose-sha256", COMPOSE_SHA256, "--docker-config", str(config),
+            "--execute",
+        ]
+
     def run(self):
         try:
             self.daemon_guard()
@@ -1379,20 +1466,19 @@ class Hosted:
             path = self.root / "cohort.json"
             path.write_text(json.dumps(selection))
             path.chmod(0o600)
+            harness = (
+                self.launch_harness(path)
+                if self.scenario == LAUNCH_SCENARIO
+                else [
+                    str(SOURCE / "tests/nm2_worker_acceptance.py"),
+                    "--cohort", str(path), "--scenario", self.scenario,
+                    "--database-revision", self.database_revision, "--execute",
+                ]
+            )
             self.receipt["stage"] = "harness"
             try:
                 self.command(
-                    [
-                        str(python),
-                        str(SOURCE / "tests/nm2_worker_acceptance.py"),
-                        "--cohort",
-                        str(path),
-                        "--scenario",
-                        self.scenario,
-                        "--database-revision",
-                        self.database_revision,
-                        "--execute",
-                    ],
+                    [str(python), *harness],
                     timeout=1200 if self.scenario == "persistent-availability" else 900,
                 )
             except Exception:
@@ -1429,6 +1515,7 @@ class Hosted:
                     "persistent-count-limit": "vardr.nm2-worker-count-acceptance/1",
                     "persistent-idle-limit": "vardr.nm2-worker-idle-acceptance/1",
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
+                    LAUNCH_SCENARIO: LAUNCH_SCHEMA,
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
@@ -1439,6 +1526,7 @@ class Hosted:
                     "persistent-count-limit": "vardr.nm2-hosted/4",
                     "persistent-idle-limit": "vardr.nm2-hosted/5",
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
+                    LAUNCH_SCENARIO: "vardr.nm2-hosted/7",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],

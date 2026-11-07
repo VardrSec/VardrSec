@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add an opt-in installed NM-2 fixture for first and next worker launch,
+  physical retirement, and unchanged Runner state on one installation.
+
 - NM-2 development candidate: add explicit `worker launch` for the first or
   next persistent worker. Retain earlier incarnations and record create and
   start uncertainty before sending either request.
