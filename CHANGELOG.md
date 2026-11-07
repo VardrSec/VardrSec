@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Isolate NM-1 historical closeout evidence and four byte-exact sanitized receipts
+  on main; maintain explicit normalized Map/standalone approval and contract
+  comparisons in the existing conformance harness. Preserve historical sources
+  and later phase gates. Select the isolated Runner regression, Map main and
+  merged Gate fix for existing exact-source CI only; production pins and release
+  status are unchanged.
+
 - Add bounded NM-1 hosted verification with explicit review-only companion SHAs,
   actual checkout/tree/dependency receipts, common issuance and guarded loopback
   execution, and existing Map/distribution regressions. Production source pins are

@@ -1,0 +1,35 @@
+{
+  "schema": "vardr.nm1-conformance-receipt/1",
+  "results": [
+    {
+      "origin": "standalone",
+      "approved_executions": 2,
+      "single_use_verified": true,
+      "plan_sha256": "87c748b5146b4cc2c8e4887e1c115aeac7bcdd2f21658337e652c7daa7826454"
+    },
+    {
+      "origin": "map",
+      "approved_executions": 2,
+      "single_use_verified": true,
+      "plan_sha256": "87c748b5146b4cc2c8e4887e1c115aeac7bcdd2f21658337e652c7daa7826454"
+    }
+  ],
+  "map_owner_snapshot_verified": true,
+  "api_key_approval_denied": true,
+  "semantic_equivalence_verified": true,
+  "normalized_permission_sha256": "20c82ec8b7de765b9cec94d3786ef489d005606d5562765dd72ede28a69fb0ec",
+  "origin_specific_fields": {
+    "approval": [
+      "issuer",
+      "origin",
+      "context.control"
+    ],
+    "contract": [
+      "issuer",
+      "origin",
+      "approval_sha256"
+    ]
+  },
+  "network_requests": 0,
+  "managed_control": "injected fixture only; NOT implemented or certified"
+}
