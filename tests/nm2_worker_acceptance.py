@@ -1720,6 +1720,13 @@ print(json.dumps({'files':hashes,'executables':executables}))
         self.runner_binding = runner_id, enrollment["enrollment_id"]
         return self.runner_binding
 
+    def approve_local_grant(self, engagement, identity, lifetime):
+        self.helper(
+            "credentials", "approve", "--engagement", engagement, "--origin", ORIGIN,
+            "--env", f"FIXTURE_{identity.upper()}_TOKEN", "--issuer", self.issuer_origin,
+            "--expires-in", str(lifetime),
+        )
+
     def approve(
         self,
         name,
@@ -1741,20 +1748,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
         enrollment = {"enrollment_id": enrollment_id}
         if local_grants:
             for who in ("owner", "peer"):
-                self.helper(
-                    "credentials",
-                    "approve",
-                    "--engagement",
-                    engagement,
-                    "--origin",
-                    ORIGIN,
-                    "--env",
-                    f"FIXTURE_{who.upper()}_TOKEN",
-                    "--issuer",
-                    self.issuer_origin,
-                    "--expires-in",
-                    "600",
-                )
+                self.approve_local_grant(engagement, who, 600)
         tool_sha256 = (
             self.helper(
                 "-I",
@@ -2282,7 +2276,7 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
             )
         )
 
-    def grant_snapshot(self, engagement):
+    def grant_snapshot(self, engagement, *, peer_only=False):
         # Existing grant validator, public references only; never resolve a value.
         source = """
 import json,sys
@@ -2290,8 +2284,11 @@ from vardrrunner import credential_grants
 selection=json.load(sys.stdin)
 policy=credential_grants.Policy(selection['issuer'])
 grants=[row for row in policy.store.entries() if row['issuer']==selection['issuer'] and row['engagement_id']==selection['engagement_id'] and row['origin']==selection['origin'] and row['source']=='env' and row['name'] in {'FIXTURE_OWNER_TOKEN','FIXTURE_PEER_TOKEN'}]
+references=[('peer','env','FIXTURE_PEER_TOKEN')]
+if not selection['peer_only']:
+    references.insert(0,('owner','env','FIXTURE_OWNER_TOKEN'))
 try:
-    policy.check(selection['engagement_id'],[selection['origin']],[('owner','env','FIXTURE_OWNER_TOKEN'),('peer','env','FIXTURE_PEER_TOKEN')])
+    policy.check(selection['engagement_id'],[selection['origin']],references)
     reason='granted'
 except credential_grants.GrantError as error:
     reason=str(error)
@@ -2309,6 +2306,7 @@ print(json.dumps({'grants':grants,'policy_reason':reason}))
                         "issuer": self.issuer_origin,
                         "engagement_id": engagement,
                         "origin": ORIGIN,
+                        "peer_only": peer_only,
                     }
                 ),
             )

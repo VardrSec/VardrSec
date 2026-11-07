@@ -33,6 +33,8 @@ LAUNCH_STOP_WORK_QUEUED_SCENARIO = "persistent-launch-stop-work-queued"
 LAUNCH_LOCAL_STOP_SCENARIO = "persistent-launch-local-stop"
 LAUNCH_MISSING_GRANT_SCENARIO = "persistent-launch-missing-grant"
 LAUNCH_GRANT_REVOKE_SCENARIO = "persistent-launch-grant-revocation"
+LAUNCH_EXPIRED_GRANT_SCENARIO = "persistent-launch-expired-grant"
+LAUNCH_GRANT_DENIAL_SCENARIOS = {LAUNCH_MISSING_GRANT_SCENARIO, LAUNCH_EXPIRED_GRANT_SCENARIO}
 LAUNCH_CANCELLATION_SCENARIOS = {
     LAUNCH_STOP_WORK_SCENARIO, LAUNCH_STOP_WORK_QUEUED_SCENARIO, LAUNCH_LOCAL_STOP_SCENARIO,
     LAUNCH_GRANT_REVOKE_SCENARIO,
@@ -45,6 +47,7 @@ LAUNCH_SCOPES = {
     LAUNCH_LOCAL_STOP_SCENARIO: "local_stop_then_next_launch",
     LAUNCH_MISSING_GRANT_SCENARIO: "missing_grant_then_next_launch",
     LAUNCH_GRANT_REVOKE_SCENARIO: "grant_revocation_then_next_launch",
+    LAUNCH_EXPIRED_GRANT_SCENARIO: "expired_grant_then_next_launch",
 }
 LAUNCH_SCENARIOS = set(LAUNCH_SCOPES)
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
@@ -719,7 +722,7 @@ def failure_projection(raw, selection):
         "launch_stop_work_exit", "launch_stop_work_retirement",
         "launch_stop_work_inventory", "launch_stop_work_local_attempt",
         "launch_stop_work_partial_evidence",
-        "launch_missing_grant_observe",
+        "launch_missing_grant_observe", "launch_expired_grant_prepare", "launch_expired_grant_observe",
         "launch_grant_revocation_catalog",
         "selected_launch_complete",
         "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
@@ -773,6 +776,7 @@ def failure_projection(raw, selection):
         "launch_stop_work_queued_job_changed", "launch_stop_work_enrollment_changed",
         "launch_missing_grant_not_observed", "launch_missing_grant_issued_or_changed",
         "launch_missing_grant_history_changed", "launch_missing_grant_precondition_failed",
+        "launch_expired_grant_not_proven",
         "grant_not_initially_active", "target_grant_revocation_not_proven",
         "target_grant_identity_changed",
         "cancellation_dispatch_advanced_before_action", "cancellation_request_binding_mismatch",
@@ -1073,17 +1077,22 @@ def launch_projection(raw, selection):
         result["unclaimed_job"] = unclaimed
     else:
         require("unclaimed_job" not in raw)
-    if scenario == LAUNCH_MISSING_GRANT_SCENARIO:
+    if scenario in LAUNCH_GRANT_DENIAL_SCENARIOS:
         unissued = raw.get("unissued_job")
+        fields = {"job_id", "retirement_sha256", "audit_sha256", "unissued_discoveries"}
+        if scenario == LAUNCH_EXPIRED_GRANT_SCENARIO:
+            fields.add("grant_expiry_sha256")
         require(
             type(unissued) is dict
-            and set(unissued) == {"job_id", "retirement_sha256", "audit_sha256", "unissued_discoveries"}
+            and set(unissued) == fields
             and type(unissued["unissued_discoveries"]) is int
             and 0 < unissued["unissued_discoveries"] <= 40
             and unissued["retirement_sha256"] == first["retirement_sha256"]
         )
         _uuid(unissued["job_id"])
         _hash(unissued["audit_sha256"])
+        if scenario == LAUNCH_EXPIRED_GRANT_SCENARIO:
+            _hash(unissued["grant_expiry_sha256"])
         result["unissued_job"] = unissued
     else:
         require("unissued_job" not in raw)
@@ -1510,6 +1519,7 @@ class Hosted:
                 LAUNCH_LOCAL_STOP_SCENARIO: ["--local-stop"],
                 LAUNCH_MISSING_GRANT_SCENARIO: ["--missing-grant"],
                 LAUNCH_GRANT_REVOKE_SCENARIO: ["--revoke-grant"],
+                LAUNCH_EXPIRED_GRANT_SCENARIO: ["--expire-grant"],
             }[self.scenario],
             "--execute",
         ]
@@ -1654,6 +1664,7 @@ class Hosted:
                     LAUNCH_LOCAL_STOP_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_MISSING_GRANT_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_GRANT_REVOKE_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_EXPIRED_GRANT_SCENARIO: LAUNCH_SCHEMA,
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
@@ -1667,6 +1678,10 @@ class Hosted:
             if self.scenario == LAUNCH_GRANT_REVOKE_SCENARIO:
                 self.receipt["remaining_required_cases"]["target_grant_expiry_revocation"] = (
                     "revocation_verified_expiry_open"
+                )
+            if self.scenario == LAUNCH_EXPIRED_GRANT_SCENARIO:
+                self.receipt["remaining_required_cases"]["target_grant_expiry_revocation"] = (
+                    "expiry_before_claim_verified"
                 )
             self.receipt.update(
                 schema={
@@ -1682,6 +1697,7 @@ class Hosted:
                     LAUNCH_LOCAL_STOP_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_MISSING_GRANT_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_GRANT_REVOKE_SCENARIO: "vardr.nm2-hosted/7",
+                    LAUNCH_EXPIRED_GRANT_SCENARIO: "vardr.nm2-hosted/7",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an opt-in installed case for a synthetic target grant that expires before
+  an approved job can claim. Check that the peer grant and API enrollment remain
+  usable through the next worker launch.
+
 - Add an opt-in installed case for revoking one synthetic target grant during
   active work, checking Runner's native stop receipt and preserving the
   original Runner API enrollment and peer grant.

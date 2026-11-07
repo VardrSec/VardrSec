@@ -3,11 +3,11 @@
 import copy
 import json
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import nm2_worker_hosted as hosted
 from nm2_worker_launch_acceptance import LaunchFixture, stop_exit_elapsed_ns
-from nm2_worker_acceptance import AcceptanceRefused
+from nm2_worker_acceptance import AcceptanceRefused, ORIGIN
 
 
 class HostedLaunchTests(unittest.TestCase):
@@ -113,6 +113,35 @@ class HostedLaunchTests(unittest.TestCase):
             hosted.execution_options(selection),
             (hosted.LAUNCH_GRANT_REVOKE_SCENARIO, "0041persistentruntime"),
         )
+
+    def test_expiry_requires_same_local_grants_and_still_usable_peer(self):
+        fixture = LaunchFixture.__new__(LaunchFixture)
+        fixture.receipt = {}
+        fixture.issuer_origin = "https://map.example.test"
+        fixture.approve_local_grant = Mock()
+        grants = [
+            {
+                "issuer": fixture.issuer_origin, "engagement_id": "engagement", "origin": ORIGIN,
+                "source": "env", "name": f"FIXTURE_{identity}_TOKEN", "status": "active",
+            }
+            for identity in ("OWNER", "PEER")
+        ]
+        before = {"grants": grants, "policy_reason": "granted"}
+        expired = {**before, "policy_reason": "grant_expired_or_revoked"}
+        fixture.grant_snapshot = Mock(side_effect=(before, expired, before))
+        self.assertEqual(fixture.prepare_expired_grant("engagement"), expired)
+        self.assertEqual(fixture.approve_local_grant.call_args_list, [
+            call("engagement", "peer", 600), call("engagement", "owner", 10),
+        ])
+        fixture.grant_snapshot.assert_called_with("engagement", peer_only=True)
+        self.assertRegex(fixture.grant_expiry_sha256, "^[0-9a-f]{64}$")
+        revoked = {**expired, "grants": [{**grants[0], "status": "revoked"}, grants[1]]}
+        for snapshots in ((before, revoked, before), (before, expired, expired)):
+            with self.subTest(snapshots=snapshots), self.assertRaisesRegex(
+                AcceptanceRefused, "launch_expired_grant_not_proven",
+            ):
+                fixture.grant_snapshot = Mock(side_effect=snapshots)
+                fixture.prepare_expired_grant("engagement")
 
     def test_stop_work_uses_the_engine_exit_event_and_rejects_clock_disagreement(self):
         from calendar import timegm
@@ -327,6 +356,17 @@ class HostedLaunchTests(unittest.TestCase):
         self.assertEqual(
             hosted.public_projection(unissued, selection)["unissued_job"],
             unissued["unissued_job"],
+        )
+        expired = {
+            **unissued, "scenario": hosted.LAUNCH_EXPIRED_GRANT_SCENARIO,
+            "acceptance_scope": "expired_grant_then_next_launch",
+        }
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(expired, selection)
+        expired["unissued_job"] = {**unissued["unissued_job"], "grant_expiry_sha256": "f" * 64}
+        self.assertEqual(
+            hosted.public_projection(expired, selection)["unissued_job"],
+            expired["unissued_job"],
         )
         unissued["unissued_job"]["unissued_discoveries"] = 0
         with self.assertRaises(hosted.HostedRefused):
