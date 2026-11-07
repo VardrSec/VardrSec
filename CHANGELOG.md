@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Initialize the recovery fixture's grant catalogue through an unrelated inert
+  CLI approval, and verify the selected engagement still has no matching grant.
+  Retain the first held Windows/Ubuntu attempts and the positive Ubuntu partial
+  evidence witness without treating either held run as acceptance.
+
 - Retain and validate the emitted artifact/result witness in cancellation
   receipts, and add the closed-preclaim recovery acceptance scenario.
 

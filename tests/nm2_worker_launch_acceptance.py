@@ -1747,6 +1747,7 @@ print(len(directories))
             self.successor_id = str(uuid.uuid4())
         if self.preclaim_recovery:
             engagement, authorization, job, stored = self.new_job("launch-closed-preclaim", marker=True)
+            self.prepare_preclaim_grant_catalogue(engagement)
             require(self.approve("launch-closed-preclaim", engagement, authorization, job, stored, local_grants=False) == binding,
                     "launch_preclaim_enrollment_changed")
             self.preclaim_case = engagement, job, stored
@@ -1960,6 +1961,23 @@ print(len(directories))
         self.receipt["launch_pair"] = [first, second]
         self.receipt["status"] = "selected_launch_slice_passed"
         self.receipt["stage"] = "selected_launch_complete"
+
+    def prepare_preclaim_grant_catalogue(self, engagement):
+        # Establish valid grant custody through the real CLI, without granting
+        # either selected-case reference or creating another queueable job.
+        inert = self.api.request("/engagements", {"name": "NM2 inert preclaim catalogue"})["id"]
+        require(inert != engagement, "launch_preclaim_inert_engagement_changed")
+        self.helper(
+            "credentials", "approve", "--engagement", inert,
+            "--origin", "https://nm2-preclaim-catalog.invalid",
+            "--env", "NM2_PRECLAIM_INERT_TOKEN", "--issuer", self.issuer_origin,
+            "--expires-in", "600",
+        )
+        require(
+            self.grant_snapshot(engagement)
+            == {"grants": [], "policy_reason": "grant_missing_or_replaced"},
+            "launch_preclaim_selected_grants_not_missing",
+        )
 
     def preclaim_unissued(self):
         engagement, job = self.preclaim_case[:2]

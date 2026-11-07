@@ -904,6 +904,59 @@ The distribution's two-job candidate passed 308 unit methods: 290 passed and 18
 explicitly skipped. Its real Map/Runner approval preparation regression passed
 both cases. No test result here establishes physical failure-path acceptance.
 
+## C01 retained partial evidence, 2026-11-07
+
+Distribution `91cafd565ec77e9c7bdb772f50fb32230ab2bf2b`, Map `05dc78c`,
+Runner `5ecc869` and Gate `d80d473` ran the existing installed grant-revocation
+case once on each platform, with unchanged deadlines and no emission retry.
+
+The [Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42422615123)
+passed. Its independently checked sanitized receipt SHA-256 is
+`a4b38aff8f8b8c232ddefea867afc1ba12d056de61114194ad7a20dac8667b75`.
+The worker made three target requests and retained five evidence records with
+an inconclusive assessment, the original case and artifact hashes, and matching
+result/failed-completion provenance. The second launch retained the Runner state
+volume and followed the first incarnation's authenticated physical retirement.
+The closed reader recomputed the raw result and completion hashes before export;
+the separate sanitized-receipt audit verified the exported joins and counts.
+
+Windows held at `cancelled_partial_witness_unobserved`, after confirmed stop and
+original retirement. Its retained receipt SHA-256 is
+`96c6e41de58da5243e74c4a625d5bfb46097727ff14178609b49e8d95e08a3d2`.
+All six owned containers stopped, admitted inventory differences were zero,
+and the operator profile was unchanged with zero blocked operations.
+No emitted-partial witness was observed. Gate's forced-exit publication remains
+best effort within the existing deadline; this absence proves neither a
+retention loss nor a specific cause. C01's Windows handoff requirement remains
+open, and this case will not be repeated merely to obtain different timing.
+
+## C02 initial installed recovery attempts, 2026-11-07
+
+The first Windows and [Ubuntu recovery attempts](https://github.com/VardrSec/VardrSec/actions/runs/42422621955)
+used the same `91cafd5` source cohort. Both held at `launch_1`,
+`persistent_status_refused`, identity checkpoint, before seeding recovery state.
+The Windows receipt SHA-256 is
+`509e1a7ee35ee23a9657d4560523883d616f670993d5c006ee36907e74a11eb2`;
+the Ubuntu sanitized receipt SHA-256 is
+`76eb521af24ae27157b394947a7c6a6f8e6b9a8a1d52103280974f6ce708e2a3`.
+Windows retained six stopped owned containers, zero admitted inventory
+differences and an unchanged operator profile with zero blocked operations.
+
+Source review and an isolated real CLI/helper reproduction found a missing
+fixture prerequisite: this empty-start path had never initialized the credential
+grant catalogue. Runner correctly distinguishes pristine/missing custody from
+a valid catalogue with no grant for the selected engagement. The former cannot
+be treated as an ordinary local preclaim denial. The retained installed receipts
+do not identify the internal exception, so this is a demonstrated fixture defect,
+not a recovered runtime diagnosis.
+
+The correction uses the ordinary credential-approval CLI for a separate inert
+engagement and reference, then requires zero selected grants and
+`grant_missing_or_replaced` before starting. It creates no additional job or
+execution authority for the selected case. Its nine focused Distribution tests
+and two isolated real CLI/helper tests passed. Corrected installed acceptance
+is still required; neither held attempt supplies recovery credit.
+
 ## Independent source review for C10, 2026-11-07
 
 A separate reviewer who authored none of the reviewed code inspected Runner

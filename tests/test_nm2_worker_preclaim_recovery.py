@@ -292,6 +292,48 @@ class PreclaimRecoveryTests(unittest.TestCase):
                 fixture.receipt["preclaim_recovery"]["retained_tombstones"], 1
             )
 
+    def test_catalogue_setup_uses_unrelated_cli_grant_and_checks_selected_denial(self):
+        fixture = launch.LaunchFixture.__new__(launch.LaunchFixture)
+        fixture.api = Mock()
+        fixture.api.request.return_value = {"id": "inert-engagement"}
+        fixture.issuer_origin = "https://map.example.test"
+        fixture.helper = Mock()
+        fixture.grant_snapshot = Mock(return_value={
+            "grants": [], "policy_reason": "grant_missing_or_replaced",
+        })
+        fixture.prepare_preclaim_grant_catalogue("selected-engagement")
+        fixture.api.request.assert_called_once_with(
+            "/engagements", {"name": "NM2 inert preclaim catalogue"},
+        )
+        fixture.helper.assert_called_once_with(
+            "credentials", "approve", "--engagement", "inert-engagement",
+            "--origin", "https://nm2-preclaim-catalog.invalid",
+            "--env", "NM2_PRECLAIM_INERT_TOKEN", "--issuer", fixture.issuer_origin,
+            "--expires-in", "600",
+        )
+        fixture.grant_snapshot.assert_called_once_with("selected-engagement")
+
+    def test_catalogue_setup_refuses_selected_authority_or_unproven_denial(self):
+        fixture = launch.LaunchFixture.__new__(launch.LaunchFixture)
+        fixture.api = Mock()
+        fixture.issuer_origin, fixture.helper = "https://map.example.test", Mock()
+        fixture.grant_snapshot = Mock()
+        fixture.api.request.return_value = {"id": "selected-engagement"}
+        with self.assertRaisesRegex(AcceptanceRefused, "launch_preclaim_inert_engagement_changed"):
+            fixture.prepare_preclaim_grant_catalogue("selected-engagement")
+        fixture.helper.assert_not_called()
+        fixture.api.request.return_value = {"id": "inert-engagement"}
+        for invalid in (
+            {"grants": [], "policy_reason": "granted"},
+            {"grants": [{"name": "FIXTURE_OWNER_TOKEN"}], "policy_reason": "grant_missing_or_replaced"},
+            {"grants": [], "policy_reason": "missing_or_stale_grant_state"},
+        ):
+            fixture.grant_snapshot.return_value = invalid
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(
+                AcceptanceRefused, "launch_preclaim_selected_grants_not_missing",
+            ):
+                fixture.prepare_preclaim_grant_catalogue("selected-engagement")
+
     def test_hosted_opt_in_routes_only_the_explicit_mode_with_reviewed_sources(self):
         env = dict(
             NM2_SCENARIO=hosted.LAUNCH_PRECLAIM_SCENARIO,
