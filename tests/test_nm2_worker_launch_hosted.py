@@ -125,6 +125,28 @@ class HostedLaunchTests(unittest.TestCase):
             hosted.failure_projection(raw, selection)["reason"], "unclassified_refusal"
         )
 
+    def test_stopped_engagement_peer_remains_unclaimed_and_uncharged(self):
+        fixture = LaunchFixture.__new__(LaunchFixture)
+        approval = {"id": "approval", "issued": 0, "revoked": False}
+        inventory = {
+            "job_status": "pending", "execution": None, "contracts": [], "runtimes": [],
+            "results": [], "stops": [],
+            "targets_spent": 1, "duration_allocated": 30, "approvals": [approval],
+        }
+        fixture.inventory = Mock(return_value=inventory)
+        peer = ("engagement", "queued-job")
+        self.assertEqual(fixture.verify_unclaimed_peer(peer, targets=1, duration=30), approval)
+        for changed in (
+            {"execution": {"capacity_reserved": True}},
+            {"targets_spent": 2},
+            {"approvals": [{**approval, "issued": 1}]},
+        ):
+            fixture.inventory.return_value = {**inventory, **changed}
+            with self.subTest(changed=changed), self.assertRaisesRegex(
+                AcceptanceRefused, "launch_stop_work_queued_job_changed"
+            ):
+                fixture.verify_unclaimed_peer(peer, targets=1, duration=30)
+
     def test_launch_receipt_checks_the_preserved_predecessor_and_only_projects_closed_fields(
         self,
     ):
@@ -234,3 +256,18 @@ class HostedLaunchTests(unittest.TestCase):
                 hosted.public_projection(bad, selection)
         with self.assertRaises(hosted.HostedRefused):
             hosted.public_projection({**raw, "cancelled_job": stopped["cancelled_job"]}, selection)
+        queued = {
+            **stopped,
+            "scenario": hosted.LAUNCH_STOP_WORK_QUEUED_SCENARIO,
+            "acceptance_scope": "stop_work_excludes_queued_job",
+            "unclaimed_job": {
+                "job_id": "8fa9c83b-3e1a-491f-ac2d-c40081c34a44",
+                "approval_inventory_sha256": "b" * 64,
+            },
+        }
+        self.assertEqual(
+            hosted.public_projection(queued, selection)["unclaimed_job"], queued["unclaimed_job"]
+        )
+        queued["unclaimed_job"]["job_id"] = queued["cancelled_job"]["job_id"]
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(queued, selection)

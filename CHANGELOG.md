@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Exercise an approved job that remains queued in a stopped engagement through
+  the next managed worker launch. Verify its approval, counters, and absence of
+  a claim or target request.
+
 - Separate stop-work exit, retirement, local attempt, and partial-evidence
   failures in sanitized diagnostics. Verify retained partial evidence against
   the original reconciled attempt.

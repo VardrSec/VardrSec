@@ -29,10 +29,13 @@ BRANCH = "refs/heads/codex/nm1-nm2-closeout"
 LAUNCH_SCENARIO = "persistent-launch-empty"
 LAUNCH_COMPLETED_SCENARIO = "persistent-launch-completed"
 LAUNCH_STOP_WORK_SCENARIO = "persistent-launch-stop-work"
+LAUNCH_STOP_WORK_QUEUED_SCENARIO = "persistent-launch-stop-work-queued"
+LAUNCH_STOP_WORK_SCENARIOS = {LAUNCH_STOP_WORK_SCENARIO, LAUNCH_STOP_WORK_QUEUED_SCENARIO}
 LAUNCH_SCOPES = {
     LAUNCH_SCENARIO: "first_and_next_empty_launch",
     LAUNCH_COMPLETED_SCENARIO: "completed_then_next_launch",
     LAUNCH_STOP_WORK_SCENARIO: "stop_work_then_next_launch",
+    LAUNCH_STOP_WORK_QUEUED_SCENARIO: "stop_work_excludes_queued_job",
 }
 LAUNCH_SCENARIOS = set(LAUNCH_SCOPES)
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
@@ -756,6 +759,7 @@ def failure_projection(raw, selection):
         "launch_stop_work_attempt_reused", "launch_stop_work_original_run_not_preserved",
         "launch_stop_work_terminal_not_proven", "cancellation_stop_work_not_recorded",
         "launch_stop_work_active_cancellation_not_observed",
+        "launch_stop_work_queued_job_changed", "launch_stop_work_enrollment_changed",
         "cancellation_dispatch_advanced_before_action", "cancellation_request_binding_mismatch",
         "cancellation_original_run_not_active", "cancellation_resource_not_observed",
         "cancelled_partial_identity_binding_invalid", "cancelled_partial_result_not_proven",
@@ -1014,7 +1018,7 @@ def launch_projection(raw, selection):
         result["completed_job"] = proof
     else:
         require("completed_job" not in raw)
-    if scenario == LAUNCH_STOP_WORK_SCENARIO:
+    if scenario in LAUNCH_STOP_WORK_SCENARIOS:
         proof = raw.get("cancelled_job")
         require(
             type(proof) is dict
@@ -1037,6 +1041,17 @@ def launch_projection(raw, selection):
         result["cancelled_job"] = proof
     else:
         require("cancelled_job" not in raw)
+    if scenario == LAUNCH_STOP_WORK_QUEUED_SCENARIO:
+        unclaimed = raw.get("unclaimed_job")
+        require(
+            type(unclaimed) is dict and set(unclaimed) == {"job_id", "approval_inventory_sha256"}
+            and unclaimed["job_id"] != result["cancelled_job"]["job_id"]
+        )
+        _uuid(unclaimed["job_id"])
+        _hash(unclaimed["approval_inventory_sha256"])
+        result["unclaimed_job"] = unclaimed
+    else:
+        require("unclaimed_job" not in raw)
     return result
 
 
@@ -1456,6 +1471,7 @@ class Hosted:
                 LAUNCH_SCENARIO: [],
                 LAUNCH_COMPLETED_SCENARIO: ["--completed-job"],
                 LAUNCH_STOP_WORK_SCENARIO: ["--stop-work"],
+                LAUNCH_STOP_WORK_QUEUED_SCENARIO: ["--stop-work-queued"],
             }[self.scenario],
             "--execute",
         ]
@@ -1596,6 +1612,7 @@ class Hosted:
                     LAUNCH_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_COMPLETED_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_STOP_WORK_QUEUED_SCENARIO: LAUNCH_SCHEMA,
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
@@ -1609,6 +1626,7 @@ class Hosted:
                     LAUNCH_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_COMPLETED_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_SCENARIO: "vardr.nm2-hosted/7",
+                    LAUNCH_STOP_WORK_QUEUED_SCENARIO: "vardr.nm2-hosted/7",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],

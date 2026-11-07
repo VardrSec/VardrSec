@@ -43,7 +43,7 @@ def stop_exit_elapsed_ns(request, after, finished_at):
 class LaunchFixture(Fixture):
     def __init__(
         self, selection, *, compose, compose_sha256, docker_config,
-        completed=False, stop_work=False,
+        completed=False, stop_work=False, queued_peer=False,
     ):
         super().__init__(
             selection,
@@ -63,15 +63,19 @@ class LaunchFixture(Fixture):
         self.compose_sha256 = compose_sha256
         self.completed = completed
         self.stop_work = stop_work
+        self.queued_peer = queued_peer
         self.protocol = "persistent-v3"
         self.max_attempts = None
-        require(not (completed and stop_work), "launch_fixture_mode_conflict")
+        require(not (completed and stop_work) and (not queued_peer or stop_work),
+                "launch_fixture_mode_conflict")
         scenario = "persistent-launch-empty"
         scope = "first_and_next_empty_launch"
         if completed:
             scenario, scope = "persistent-launch-completed", "completed_then_next_launch"
         elif stop_work:
             scenario, scope = "persistent-launch-stop-work", "stop_work_then_next_launch"
+            if queued_peer:
+                scenario, scope = "persistent-launch-stop-work-queued", "stop_work_excludes_queued_job"
         self.receipt.update(
             schema="vardr.nm2-worker-launch-acceptance/1",
             scenario=scenario, acceptance_scope=scope, nm2_exit_status="incomplete",
@@ -578,14 +582,30 @@ class LaunchFixture(Fixture):
         require(initial["all_worker_ids"] == [], "launch_preexisting_worker")
         config, signing = self.launch_config(observer, initial)
         case = None
+        peer = None
         if self.completed or self.stop_work:
             name = "launch-stop-work" if self.stop_work else "launch-completed"
             engagement, authorization, job, stored = self.new_job(name, marker=True)
+            if self.queued_peer:
+                peer_name = "launch-stop-work-peer"
+                peer_job, peer_case = self.job_in_engagement(
+                    peer_name, engagement, marker=True
+                )
             require(
                 self.approve(name, engagement, authorization, job, stored)
                 == binding,
                 "launch_completed_enrollment_changed",
             )
+            if self.queued_peer:
+                require(
+                    self.approve(peer_name, engagement, authorization, peer_job,
+                                 peer_case, local_grants=False) == binding,
+                    "launch_stop_work_enrollment_changed",
+                )
+                if peer_job < job:
+                    job, stored, peer_job = peer_job, peer_case, job
+                peer = (engagement, peer_job)
+                peer_before = self.verify_unclaimed_peer(peer, targets=0, duration=0)
             before = self.inventory(engagement, job)
             require(
                 before["job_status"] == "pending"
@@ -602,6 +622,13 @@ class LaunchFixture(Fixture):
         baseline = self.traffic()
         second, _, _ = self.launch_and_retire(config, signing, binding, 2, first)
         old_observer.confirm_exit(old_exit)
+        if peer is not None:
+            peer_after = self.verify_unclaimed_peer(peer, targets=1, duration=30)
+            require(peer_after == peer_before, "launch_stop_work_queued_job_changed")
+            self.receipt["unclaimed_job"] = {
+                "job_id": peer[1],
+                "approval_inventory_sha256": digest(canonical(peer_after)),
+            }
         final = observer.capture_project_containers(self.project)
         require(
             final["all_worker_ids"]
@@ -618,6 +645,22 @@ class LaunchFixture(Fixture):
         self.receipt["status"] = "selected_launch_slice_passed"
         self.receipt["stage"] = "selected_launch_complete"
 
+    def verify_unclaimed_peer(self, peer, *, targets, duration):
+        inventory = self.inventory(*peer)
+        approvals = inventory["approvals"]
+        require(
+            inventory["job_status"] == "pending"
+            and inventory["execution"] is None
+            and inventory["contracts"] == inventory["runtimes"] == []
+            and inventory["results"] == inventory["stops"] == []
+            and inventory["targets_spent"] == targets
+            and inventory["duration_allocated"] == duration
+            and len(approvals) == 1
+            and approvals[0]["issued"] == 0 and approvals[0]["revoked"] is False,
+            "launch_stop_work_queued_job_changed",
+        )
+        return approvals[0]
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
@@ -628,6 +671,7 @@ def main(argv=None):
     workload = parser.add_mutually_exclusive_group()
     workload.add_argument("--completed-job", action="store_true")
     workload.add_argument("--stop-work", action="store_true")
+    workload.add_argument("--stop-work-queued", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -640,7 +684,8 @@ def main(argv=None):
             compose_sha256=args.compose_sha256,
             docker_config=args.docker_config,
             completed=args.completed_job,
-            stop_work=args.stop_work,
+            stop_work=args.stop_work or args.stop_work_queued,
+            queued_peer=args.stop_work_queued,
         )
         fixture.run()
         return 0 if fixture.receipt["status"] == "selected_launch_slice_passed" else 1

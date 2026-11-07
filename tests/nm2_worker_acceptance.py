@@ -1610,8 +1610,6 @@ print(json.dumps({'files':hashes,'executables':executables}))
         return target_environment(self.scenario)
 
     def new_job(self, name, *, in_scope=True, marker=False):
-        from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
-
         now = datetime.now(timezone.utc)
 
         def stamp(moment):
@@ -1651,6 +1649,13 @@ print(json.dumps({'files':hashes,'executables':executables}))
             ("duration-policy", {"limit_seconds": 120}),
         ):
             self.api.request(base + "/" + endpoint, body, method="PUT")
+        job, stored = self.job_in_engagement(name, engagement, marker=marker)
+        return engagement, authorization, job, stored
+
+    def job_in_engagement(self, name, engagement, *, marker=False):
+        from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
+
+        base = "/engagements/" + engagement
         case = next(case for case in reviewed_cases() if case["name"] == "fixed")
         case["spec"]["id"] = "nm2-" + name
         requests = [case["spec"]["request"]]
@@ -1686,7 +1691,7 @@ print(json.dumps({'files':hashes,'executables':executables}))
                 "authorization_contract_required": True,
             },
         )["id"]
-        return engagement, authorization, job, stored
+        return job, stored
 
     def enroll_runner(self):
         identity = self.helper("identity", "show").decode()
