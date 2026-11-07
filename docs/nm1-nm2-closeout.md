@@ -95,7 +95,7 @@ The approved lifecycle design adds the obligations in
 | --- | --- | --- | --- |
 | C01 | Confirm retained partial evidence | Retain and independently validate the existing emitted-partial case/result/artifact hashes and accurate failed status on Windows and Ubuntu. Saved launch receipts omitted that witness, so expose the already validated fields and run one affected existing cancellation case per platform. Publication ambiguity is C04. | In progress, evidence reviewer |
 | C02 | Populated no-send parent0 recovery | On Windows Docker Desktop and Ubuntu, recover the closed preclaim branch through the original authenticated observation and retirement. Preserve every tombstone, prove zero issued attempts and charges, retire only the parent, reach zero holds, and admit the successor on the same state volume. The fixture may seed this durable state through real Runner APIs and must label that scope. | In progress, recovery worker |
-| C03 | Lost replies before execution | Exercise the three named boundaries once each, claim, consume and runtime bind. Preserve send fences and unknown holds, prevent replay or extra issuance/charges/dispatch, and reconcile through the original identity after exact physical exit. | Pending, main worker after C02/C06 |
+| C03 | Lost replies before execution | Exercise the three named boundaries once each, claim, consume and runtime bind. Preserve send fences and unknown holds, prevent replay or extra issuance/charges/dispatch, and reconcile through the original identity after exact physical exit. | In progress, focused Runner inspection correction and claim-loss case |
 | C04 | Lost result or completion reply | Exercise committed result publication and completion with the reply unavailable. Retain the original artifact and immutable receipt, prevent replacement or replay, and resolve the original hold through authenticated observation after physical exit. | Pending, main worker |
 | C05 | Competing and repeated managed claims | Exercise real managed claim competition and repetition. Prove at most one issued/physical attempt and reservation, preserved charges, and conservative handling of the loser. Reuse the accepted predecessor/successor proof. | Pending, main worker |
 | C06 | Ubuntu bootstrap configuration refusals | Run the existing unprivileged-user and missing-SETPCAP cases against a qualified current Runner image. Both must exit 125 before readiness, with exact binary/profile/resource checks. Reuse the current Windows proof. | Closed, [Ubuntu and retained Windows evidence](nm2-worker-acceptance-evidence.md#current-runner-ubuntu-bootstrap-configuration-refusals-2026-11-07) |
@@ -103,6 +103,12 @@ The approved lifecycle design adds the obligations in
 | C08 | Unexpected Runner or PID-1 loss | Prove bounded failure and retained original state for unexpected loss, including the required descendant-exit evidence. Reuse ordinary exact-container stop as an accepted separate case. | Review required, evidence reviewer |
 | C09 | Supported-host clock and resource pressure | Verify finite job/control authority and failure behavior under the supported clock/suspend and pressure conditions within the documented responsive-OS assumptions. Record actual measured limits. | Review required, evidence reviewer |
 | C10 | Independent review and final disposition | Resolve findings from the independent source/security review, check exact source/image/evidence consistency and native/manual compatibility, and record the phase exit. Reuse current component CI and the real native Gate/TLS proof. | Independent source review complete, final disposition pending |
+
+C03 has one confirmed source blocker at Runner `5ecc869`. After a lost claim
+reply, Map can record issued sequence one while the original unacknowledged
+local selection remains at sequence zero. The inspection equality check rejects
+that valid distinction. The focused correction must validate the original
+authenticated retirement while retaining the local cursor and missing ACK.
 
 C07–C09 retain the earlier stopped-experiment restriction. Each proposed live
 check needs a reviewable operation within the existing authorization. Previously

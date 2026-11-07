@@ -857,7 +857,7 @@ retained. All three inventory checkpoints reported no admitted metadata changes.
 The distribution helper at `3a5a6e28acbb6b3f310fa55dd9d21781f1de5343`
 has Git blob `5720b24a428102f71c29c0be6109ba34c8b17a1d`, matching the existing
 helper used for this evidence. This records Windows configuration refusals on the
-current Runner source. Ubuntu verification remains open. Descendant absence was
+current Runner source. The Ubuntu counterpart is recorded below. Descendant absence was
 not independently observed. The wider bootstrap and containment matrix remains
 open, and previously blocked probes remain stopped.
 
