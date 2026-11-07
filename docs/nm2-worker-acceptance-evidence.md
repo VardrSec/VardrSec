@@ -543,6 +543,51 @@ remains open, along with the exact last native lease acknowledgement and the
 wider failure and containment matrix.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42415067332)
 
+### Ordinary Map API outage with concurrent original audit
+
+Distribution `e0b1b83792f99ac956ff7ae54b77d4c7cd3663d9`,
+Map `05dc78cf9a385255de459c8a5b833842d6528a63`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` passed the selected
+ordinary API-outage check on Windows Docker Desktop and Ubuntu 24.04.
+
+Windows measured API exit to worker exit at 8.964758369 seconds and third
+dispatch to worker exit at 13.197046409 seconds. Ubuntu measured
+9.433186405 and 11.926060453 seconds respectively. Each fixture retained
+exactly three target requests and six stopped owned containers. Restarting
+the same API preserved the original reserved slot and started no worker.
+Authenticated exit reporting and original Runner reconciliation released
+capacity from one to zero with zero local holds and the original one-target,
+30-second charge. The Windows operator profile hashes matched throughout.
+
+After a matching target prefix, the fixture starts one existing audit helper
+alongside the positive Map check and final fresh target sample. It requires
+the original strict controlled executing-record result after physical exit
+and timing checks, before API restart or host reporting. The thread joins on
+every path. The helper retains its existing 60-second subprocess timeout.
+The five-second freshness check, 15-second response delay and 10-second
+configured lease ceiling remain enforced. Private timestamps bound the
+helper-call interval. The exact SQLite snapshot instant remains unmeasured.
+The shared reader validates present intervals and supports older receipts.
+
+The earlier freshness holds and Ubuntu journal-after-exit refusal retain
+their separate records. This cohort verifies the configured lease ceiling.
+The exact last native lease acknowledgement, unexpected process loss, lost
+replies, preclaim recovery and the wider containment matrix remain open.
+NM-2 remains open and NM-3 remains paused.
+
+Windows private receipt SHA-256
+`837705ed82ed351bd0593f22aa3b42a16c42e44a163d11eb93dacaa24c9697d4`.
+Ubuntu sanitized receipt SHA-256
+`4fb3a9e0b95600cf3d599570377bf7c939f19f0499007d94395b1359c9367e38`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42417276387)
+
+The guarded Distribution suite ran 790 tests with 772 passing and 18 skipped.
+All four new methods ran successfully. Source and operator hashes matched,
+and the permanent isolation guard recorded zero blocked operations. Its
+private receipt SHA-256 is
+`cd0e84eb8cb74b5fd19acb75a1d188a85bd5837ba33dae134358f51f0c785336`.
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
@@ -843,9 +888,11 @@ Strict registration refusal after an authority change. The ordinary
 stopped-predecessor recovery check and shared concurrency exhaustion also
 passed. Both platforms also passed the Strict review checks for missing
 authorization and a closed testing window, and the installed API refusal of a
-stale registered approval. Open cases include persistent discovery and claim ordering,
-retained partial evidence, disconnect, crash and restart, duplicate and lost
-replies, and persisted preclaim recovery.
+stale registered approval. The ordinary API-outage check passed on one shared
+cohort within its configured lease ceiling. Open cases include persistent
+discovery and claim ordering, retained partial evidence, remaining disconnect
+cases, unexpected process loss, duplicate and lost replies, and persisted
+preclaim recovery.
 
 ADR 0043's independent containment review and bootstrap, channel, owner-loss,
 credential-isolation, pressure and supported-host clock obligations remain open.

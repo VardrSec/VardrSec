@@ -14,7 +14,9 @@ exhaustion also passed. The refused claim preserved the original reservation
 until its owned finish, with target and duration charges retained. Both
 platforms passed ordinary stopped-predecessor
 recovery, including successor refusal before exit reporting and same-volume
-startup after original Runner reconciliation.
+startup after original Runner reconciliation. The ordinary Map API outage
+check also passed on both platforms in one exact cohort within its configured
+lease ceiling. The exact last native lease acknowledgement remains open.
 Both platforms also passed the Strict authority-change check. A stale
 signed registration was refused, and a fresh one stayed unissued and
 uncharged. The Strict review checks for missing authorization and a closed

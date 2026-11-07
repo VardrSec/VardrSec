@@ -76,7 +76,7 @@ remain retained. No component pass closes NM-2 or resumes NM-3.
 | Optional finite controls | Separate Linux/Desktop count-one slices passed without charging the unissued job. Dedicated Linux/Desktop idle slices now passed one reviewed five-GET job, native124 without operator stop, zero local holds and six stopped containers. See the [current ledger](acceptance.md#accepted-optional-idle-and-zero-issued-job-slices-2026-11-06). | These selected finite controls do not define normal persistent availability or close the cancellation/containment matrix. Earlier held idle receipts remain retained with their original scope and unknown causes. |
 | First and subsequent worker launch | Windows Docker Desktop and Ubuntu passed explicit ordinal-one startup from a clear journal and ordinal-two startup after exact predecessor exit. The zero-job and one completed-job scenarios reused the original Runner state volume and retained both exited workers. The completed-job scenario verified fixed evidence, Map retirement, and the original Runner's reconciliation and offline audit. See the [installed startup receipts](nm2-worker-acceptance-evidence.md#installed-first-and-subsequent-startup-2026-11-07). | Ambiguous and preclaim recovery, including physical successor validation of those paths, remain open. |
 | Per-job cancellation, permissions and budgets | Map stop-work and Runner local emergency stop passed on Windows Docker Desktop and Ubuntu. An approved second job in a stopped engagement stayed unclaimed and uncharged. An approved job with a missing local grant remained unissued, with zero requests, charges, and original Runner claim associations through a subsequent launch. Revoking the active synthetic target grant stopped the original job on both platforms and preserved the peer grant and original Runner API enrollment. Natural expiry before claim kept the approved job unissued and uncharged through the successor on both platforms. Active expiry stopped the original job within the measured grant-bound cutoff and retained its charges before the same-volume successor. Allocated duration exhaustion refused a second approved job on both platforms, preserving one target spent, 30 seconds allocated and zero reserved slots through reconciliation. See the [installed evidence](nm2-worker-acceptance-evidence.md#installed-first-and-subsequent-startup-2026-11-07). | Persistent discovery and claim ordering, and the full retained partial evidence matrix, have separate gates. |
-| Failure and containment behavior | Ordinary exact-container stop and stopped-predecessor recovery passed on both platforms in the [installed recovery cohort](nm2-worker-acceptance-evidence.md#stopped-predecessor-recovery-after-exact-exit-reporting). Preserve existing conservative holds, exact ownership, durable send fences and independent exit checks. The current Runner source also refused two ordinary bootstrap misconfigurations before readiness on Windows Docker Desktop. See the [configuration evidence](nm2-worker-acceptance-evidence.md#current-runner-windows-bootstrap-configuration-refusals-2026-11-07). | The remaining disconnect cases, unexpected Runner/PID-1 loss, duplicate/lost replies and the full bootstrap/channel/credential-isolation/pressure/clock matrix remain open. Previously blocked adversarial operations remain stopped. |
+| Failure and containment behavior | Ordinary exact-container stop and stopped-predecessor recovery passed on both platforms in the [installed recovery cohort](nm2-worker-acceptance-evidence.md#stopped-predecessor-recovery-after-exact-exit-reporting). The ordinary API-outage check passed on both platforms within its configured lease ceiling. Preserve existing conservative holds, exact ownership, durable send fences and independent exit checks. The current Runner source also refused two ordinary bootstrap misconfigurations before readiness on Windows Docker Desktop. See the [configuration evidence](nm2-worker-acceptance-evidence.md#current-runner-windows-bootstrap-configuration-refusals-2026-11-07). | The remaining disconnect cases, unexpected Runner/PID-1 loss, duplicate/lost replies and the full bootstrap/channel/credential-isolation/pressure/clock matrix remain open. Previously blocked adversarial operations remain stopped. |
 
 Gate's guarded cancellation evidence fix is merged on its own. The
 merge tree matches the tested Gate development commit used in the installed
@@ -125,12 +125,14 @@ on the same state volume after original Runner reconciliation. The first
 two held receipts remain in the record.
 [Installed recovery evidence](nm2-worker-acceptance-evidence.md#stopped-predecessor-recovery-after-exact-exit-reporting)
 
-Windows passed the ordinary Map API outage check at `5366b397`, and Ubuntu
-passed at `24f64f52`. Both measured the configured lease ceiling. The Ubuntu
-attempt on `5366b397` held on the journal check after physical exit.
-Same-cohort cross-platform acceptance and the exact last native lease
-acknowledgement remain open. Earlier receipts retain their original scopes.
-[Current outage evidence](nm2-worker-acceptance-evidence.md#ordinary-map-api-outage-journal-observed-after-exit)
+Windows Docker Desktop and Ubuntu passed the ordinary Map API outage check
+on the same `e0b1b837` cohort. Each retained three requests and the original
+one-target, 30-second charge. API recovery held the reserved slot until
+authenticated exit reporting and original Runner reconciliation released it.
+This verifies the configured lease ceiling. The exact last native lease
+acknowledgement and the wider failure matrix remain open. Earlier held
+cohorts retain their original scopes.
+[Current outage evidence](nm2-worker-acceptance-evidence.md#ordinary-map-api-outage-with-concurrent-original-audit)
 
 The open NM-2 exit requirements stay in NM-2. NM-3's independent
 Runner, Full/Mapless, Docker, Windows and cross-platform objectives remain required
