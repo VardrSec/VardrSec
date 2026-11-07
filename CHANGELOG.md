@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: independently observe the four healthy core services
+  and every same-project worker CID, including stopped replicas, without creating
+  resources or applying Compose's configuration-hash filter.
+
 - NM-2 private lifecycle: observe exact existing state and readiness volume
   metadata without creating or mounting them; retain creation and label identity.
 

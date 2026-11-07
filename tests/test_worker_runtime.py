@@ -1190,6 +1190,265 @@ class WorkerRuntimeTests(unittest.TestCase):
                     self.runner_network_capture(raw=raw)
                 self.assertEqual(self.net_reads, 1)
 
+    def project_vectors(self):
+        cores, rows = [], []
+        for number, service in enumerate(("api", "db", "proxy", "web"), 1):
+            cid = str(number) * 64
+            labels = {
+                "id": cid,
+                "project": self.identity.project,
+                "service": service,
+                "oneoff": "False",
+            }
+            rows.append({**labels, "managed": ""})
+            cores.append(
+                {
+                    **labels,
+                    "image": self.identity.image_id,
+                    "started_at": self.identity.started_at,
+                    "status": "running",
+                    "running": True,
+                    "paused": False,
+                    "restarting": False,
+                    "dead": False,
+                    "health": "healthy",
+                }
+            )
+        for cid in ("e" * 64, "f" * 64):
+            rows.append(
+                {
+                    "id": cid,
+                    "project": self.identity.project,
+                    "service": "managed-worker",
+                    "oneoff": "False",
+                    "managed": "1",
+                }
+            )
+        rows.append(
+            {
+                "id": "d" * 64,
+                "project": self.identity.project,
+                "service": "fixture-target",
+                "oneoff": "",
+                "managed": "",
+            }
+        )
+        return rows, cores
+
+    def capture_project(self, rows=None, cores=None, *, drift=None, raw=None):
+        default_rows, default_cores = self.project_vectors()
+        rows = default_rows if rows is None else rows
+        cores = default_cores if cores is None else cores
+        self.project_lists = self.core_inspects = 0
+        observer = self.project_observer = runtime.LocalDocker(
+            "desktop-linux", self.layout
+        )
+        original = self.command
+        expected_project = self.identity.project
+
+        def command(argv, **options):
+            args = argv[3:]
+            if args[:2] == ["container", "ls"]:
+                self.assertEqual(
+                    args,
+                    [
+                        "container",
+                        "ls",
+                        "--all",
+                        "--no-trunc",
+                        "--filter",
+                        "label=com.docker.compose.project=" + expected_project,
+                        "--format",
+                        runtime._PROJECT_LIST,
+                    ],
+                )
+                self.project_lists += 1
+                selected = copy.deepcopy(rows)
+                if self.project_lists == 2:
+                    selected.reverse()
+                    if drift == "worker":
+                        selected.append({**default_rows[-2], "id": "c" * 64})
+                text = (
+                    raw
+                    if raw is not None
+                    else "\n".join(json.dumps(row) for row in selected)
+                )
+            elif args[:2] == ["container", "inspect"]:
+                self.assertEqual(
+                    args[:4],
+                    ["container", "inspect", "--format", runtime._CORE_INSPECT],
+                )
+                self.assertEqual(args[4:], [str(n) * 64 for n in range(1, 5)])
+                self.core_inspects += 1
+                selected = copy.deepcopy(cores)
+                if self.core_inspects == 2:
+                    selected.reverse()
+                    if drift == "start":
+                        selected[0]["started_at"] = "2026-11-05T20:01:00Z"
+                text = "\n".join(json.dumps(row) for row in selected)
+            else:
+                reply = original(argv, **options)
+                if (
+                    self.core_inspects == 2
+                    and drift == "endpoint"
+                    and args[0] == "context"
+                ):
+                    reply.stdout = json.dumps("unix:///changed.sock")
+                if self.core_inspects == 2 and drift == "daemon" and args[0] == "info":
+                    reply.stdout = json.dumps("changed-daemon")
+                return reply
+            self.calls.append((argv, options))
+            return subprocess.CompletedProcess(argv, 0, text, "")
+
+        with patch.object(runtime.subprocess, "run", command):
+            return observer.capture_project_containers(expected_project)
+
+    def test_project_capture_independently_binds_all_worker_ids_and_four_healthy_cores(
+        self,
+    ):
+        report = self.capture_project()
+        self.assertEqual(
+            set(report),
+            {"context", "local_endpoint", "daemon_id", "core", "all_worker_ids"},
+        )
+        self.assertEqual(report["context"], "desktop-linux")
+        self.assertEqual(report["local_endpoint"], self.endpoint)
+        self.assertEqual(report["daemon_id"], self.daemon)
+        self.assertEqual(report["all_worker_ids"], ["e" * 64, "f" * 64])
+        self.assertEqual(
+            report["core"],
+            [
+                {
+                    "service": service,
+                    "container_id": str(n) * 64,
+                    "image_id": self.identity.image_id,
+                    "started_at": self.identity.started_at,
+                    "status": "running",
+                    "health": "healthy",
+                }
+                for n, service in enumerate(("api", "db", "proxy", "web"), 1)
+            ],
+        )
+        self.assertEqual(
+            [argv[3] for argv, _ in self.calls],
+            [
+                "context",
+                "info",
+                "container",
+                "container",
+                "container",
+                "container",
+                "context",
+                "info",
+            ],
+        )
+        self.assertTrue(all(0 < opts["timeout"] <= 15 for _, opts in self.calls))
+        self.assertNotIn("config-hash", runtime._PROJECT_LIST)
+        self.assertNotIn(".Config.Env", runtime._CORE_INSPECT)
+        self.assertIsNone(self.project_observer._deadline)
+        self.assertFalse(self.project_observer._observation_lock.locked())
+
+    def test_project_capture_zero_workers_is_only_an_observation_and_rejects_invalid_selector(
+        self,
+    ):
+        rows, cores = self.project_vectors()
+        report = self.capture_project(
+            [row for row in rows if row["service"] != "managed-worker"], cores
+        )
+        self.assertEqual(report["all_worker_ids"], [])
+        self.assertNotIn("first_installation", report)
+        with patch.object(runtime.subprocess, "run") as command:
+            for value in ("--flag", "Upper", False, "a" * 64):
+                with self.assertRaises(runtime.RuntimeRefused):
+                    self.project_observer.capture_project_containers(value)
+            command.assert_not_called()
+
+    def test_project_capture_refuses_missing_duplicate_or_foreign_rows_before_core_inspection(
+        self,
+    ):
+        mutations = (
+            lambda rows: rows.pop(0),
+            lambda rows: rows.append({**rows[0], "id": "c" * 64}),
+            lambda rows: rows.append(rows[0]),
+            lambda rows: rows[0].update(project="foreign"),
+            lambda rows: rows[4].update(oneoff="True"),
+            lambda rows: rows[4].update(managed=""),
+            lambda rows: rows[-1].update(managed="1"),
+            lambda rows: rows[0].update(id="1" * 12),
+        )
+        for index, mutate in enumerate(mutations):
+            with self.subTest(case=index):
+                self.setUp()
+                rows, cores = self.project_vectors()
+                mutate(rows)
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.capture_project(rows, cores)
+                self.assertEqual(self.core_inspects, 0)
+                self.assertEqual(self.project_lists, 1)
+
+    def test_project_capture_core_requires_actual_healthy_running_identity_and_labels(
+        self,
+    ):
+        for field, value in (
+            ("id", "c" * 64),
+            ("service", "wrong"),
+            ("image", "sha256:short"),
+            ("started_at", "0001-01-01T00:00:00Z"),
+            ("status", "exited"),
+            ("running", 1),
+            ("paused", True),
+            ("restarting", True),
+            ("dead", True),
+            ("health", None),
+            ("health", "unhealthy"),
+            ("oneoff", "True"),
+            ("project", "foreign"),
+            ("extra", "private-canary"),
+        ):
+            with self.subTest(field=field):
+                self.setUp()
+                rows, cores = self.project_vectors()
+                cores[0][field] = value
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.capture_project(rows, cores)
+                self.assertEqual(self.core_inspects, 1)
+                self.assertEqual(self.project_lists, 1)
+
+    def test_project_capture_rejects_worker_core_or_daemon_drift_without_retry(self):
+        for drift in ("worker", "start", "endpoint", "daemon"):
+            with self.subTest(drift=drift):
+                self.setUp()
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.capture_project(drift=drift)
+                self.assertEqual(self.project_lists, 2)
+                self.assertEqual(self.core_inspects, 1 if drift == "worker" else 2)
+                self.assertIsNone(self.project_observer._deadline)
+                self.assertFalse(self.project_observer._observation_lock.locked())
+
+    def test_project_capture_malformed_or_duplicate_json_lines_are_fixed_refusals(self):
+        for raw in (
+            "",
+            "[]",
+            '{"id":"one","id":"private-canary"}',
+            '{"id":NaN}',
+            "{broken",
+            "x" * 16385,
+        ):
+            with self.subTest(length=len(raw)):
+                self.setUp()
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.capture_project(raw=raw)
+                self.assertEqual(self.project_lists, 1)
+                self.assertEqual(self.core_inspects, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -120,6 +120,24 @@ _NETWORK_INSPECT = (
 )
 
 
+_CORE_SERVICES = ("api", "db", "proxy", "web")
+_PROJECT_LIST = (
+    '{"id":{{json .ID}},"project":{{json (.Label "com.docker.compose.project")}},'
+    '"service":{{json (.Label "com.docker.compose.service")}},'
+    '"oneoff":{{json (.Label "com.docker.compose.oneoff")}},'
+    '"managed":{{json (.Label "io.vardrsec.managed-worker")}}}'
+)
+_CORE_INSPECT = (
+    '{"id":{{json .Id}},"image":{{json .Image}},"started_at":{{json .State.StartedAt}},'
+    '"status":{{json .State.Status}},"running":{{json .State.Running}},'
+    '"paused":{{json .State.Paused}},"restarting":{{json .State.Restarting}},"dead":{{json .State.Dead}},'
+    '"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}},'
+    '"project":{{json (index .Config.Labels "com.docker.compose.project")}},'
+    '"service":{{json (index .Config.Labels "com.docker.compose.service")}},'
+    '"oneoff":{{json (index .Config.Labels "com.docker.compose.oneoff")}}}'
+)
+
+
 _NETWORK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
 _NETWORK_RESOURCE = (
     '{"id":{{json .Id}},"name":{{json .Name}},"driver":{{json .Driver}},'
@@ -488,6 +506,138 @@ class LocalDocker:
                 "network": network,
             }
         except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
+            raise RuntimeRefused("worker_runtime_refused") from None
+        finally:
+            self._deadline = None
+            self._observation_lock.release()
+
+    def _project_containers(self, project):
+        from worker_volumes import parse_document
+
+        raw = self._command(
+            "container",
+            "ls",
+            "--all",
+            "--no-trunc",
+            "--filter",
+            "label=com.docker.compose.project=" + project,
+            "--format",
+            _PROJECT_LIST,
+        )
+        rows, ids = [], set()
+        for line in raw.splitlines():
+            row = parse_document(line)
+            require(set(row) == {"id", "project", "service", "oneoff", "managed"})
+            cid, service = row["id"], row["service"]
+            require(type(cid) is str and _ID.fullmatch(cid) and cid not in ids)
+            require(
+                row["project"] == project
+                and type(service) is str
+                and (service == "" or _NETWORK_NAME.fullmatch(service))
+                and row["oneoff"] in ("", "True", "False")
+            )
+            require(row["managed"] == ("1" if service == "managed-worker" else ""))
+            if service in (*_CORE_SERVICES, "managed-worker"):
+                require(row["oneoff"] == "False")
+            ids.add(cid)
+            rows.append(row)
+        return sorted(rows, key=lambda row: row["id"])
+
+    def _core_containers(self, project, rows):
+        from worker_volumes import parse_document
+
+        selected = [
+            (row["service"], row["id"])
+            for row in rows
+            if row["service"] in _CORE_SERVICES
+        ]
+        require(
+            len(selected) == len(_CORE_SERVICES)
+            and {service for service, _ in selected} == set(_CORE_SERVICES)
+        )
+        core = dict(selected)
+        raw = self._command(
+            "container",
+            "inspect",
+            "--format",
+            _CORE_INSPECT,
+            *(core[service] for service in _CORE_SERVICES),
+        )
+        observed = {}
+        for line in raw.splitlines():
+            row = parse_document(line)
+            require(
+                set(row)
+                == {
+                    "id",
+                    "image",
+                    "started_at",
+                    "status",
+                    "running",
+                    "paused",
+                    "restarting",
+                    "dead",
+                    "health",
+                    "project",
+                    "service",
+                    "oneoff",
+                }
+            )
+            service = row["service"]
+            require(
+                type(service) is str
+                and service in core
+                and service not in observed
+                and row["id"] == core[service]
+                and row["project"] == project
+                and row["oneoff"] == "False"
+            )
+            require(type(row["image"]) is str and _IMAGE.fullmatch(row["image"]))
+            _timestamp(row["started_at"])
+            require(
+                row["status"] == "running"
+                and row["health"] == "healthy"
+                and row["running"] is True
+                and all(row[key] is False for key in ("paused", "restarting", "dead"))
+            )
+            observed[service] = {
+                "service": service,
+                "container_id": row["id"],
+                "image_id": row["image"],
+                "started_at": row["started_at"],
+                "status": row["status"],
+                "health": row["health"],
+            }
+        require(set(observed) == set(core))
+        return [observed[service] for service in _CORE_SERVICES]
+
+    def capture_project_containers(self, project):
+        """Observe healthy cores and all same-project worker IDs without Compose filters."""
+        require(
+            type(project) is str and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project)
+        )
+        require(self._observation_lock.acquire(blocking=False))
+        try:
+            self._deadline = time.monotonic() + 30
+            context = self.context
+            endpoint, daemon = self._daemon_binding()
+            rows = self._project_containers(project)
+            core = self._core_containers(project, rows)
+            require(self._project_containers(project) == rows)
+            require(self._core_containers(project, rows) == core)
+            require(
+                self._daemon_binding() == (endpoint, daemon) and self.context == context
+            )
+            return {
+                "context": context,
+                "local_endpoint": endpoint,
+                "daemon_id": daemon,
+                "core": core,
+                "all_worker_ids": [
+                    row["id"] for row in rows if row["service"] == "managed-worker"
+                ],
+            }
+        except (KeyError, TypeError, ValueError, AttributeError, OverflowError):
             raise RuntimeRefused("worker_runtime_refused") from None
         finally:
             self._deadline = None

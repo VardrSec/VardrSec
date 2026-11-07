@@ -299,3 +299,21 @@ an absent config hash and its own intent marker on the fresh readiness volume.
 The reader cannot prove volume content, an actual mount, fresh creation or an
 unsent operation. It never reads volume files or creates resources. Existing
 running and Created mount custody keep the same command projection and order.
+
+
+## Independent container inventory
+
+Before proposing a worker-only create, the controller needs a complete local
+project/service list independent of Compose's configuration-hash selection.
+The direct observer reads all same-project containers, including stopped rows,
+and checks the literal project, service, oneoff and managed-worker labels. It
+joins one exact `api`, `db`, `proxy` and `web` CID to a positive running/healthy
+inspection with immutable image and start time. Recheck both views on the same
+context endpoint and daemon. Missing, duplicate, changing or unhealthy core
+rows fail closed. Metadata excludes command environment and arbitrary labels.
+
+The returned worker IDs are the all-state Docker list, not Compose's separate
+visible set or proof of retirement. The future launcher must compare the two
+sets, validate each predecessor and protect the selected state volume against
+unexpected users. An empty local list is not a first-installation proof. This
+reader has no mutation, job or startup authority.
