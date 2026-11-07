@@ -986,6 +986,17 @@ def failure_projection(raw, selection):
         if raw.get("reason") in reasons
         else "unclassified_refusal",
     }
+    if (
+        raw["schema"] == LAUNCH_SCHEMA
+        and raw.get("scenario") == LAUNCH_STOPPED_PREDECESSOR_SCENARIO
+        and value["stage"] == "launch_refuse_unresolved_predecessor"
+        and value["reason"] == "launch_unresolved_predecessor_refusal_missing"
+    ):
+        from nm2_worker_launch_acceptance import launch_refusal_failure_detail
+
+        diagnostic = launch_refusal_failure_detail(raw.get("launch_refusal_failure"))
+        if diagnostic is not None:
+            value["launch_refusal_failure"] = diagnostic
     command_failure = raw.get("command_failure")
     if (
         value["reason"] == "fixture_command_failed"

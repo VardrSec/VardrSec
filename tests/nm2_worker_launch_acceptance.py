@@ -57,6 +57,68 @@ def duration_witness_count(raw):
     return budget_witness_count(raw, "duration")
 
 
+_EXPECTED_LAUNCH_REFUSAL = ("launch_catalog", "validation_refused")
+_LAUNCH_REPLY_CHECKPOINTS = {"runtime_mismatch", "refusal_mismatch", "reply_format"}
+_LAUNCH_PROCESS_CHECKPOINTS = {
+    "timeout", "spawn", "unexpected_success", "unexpected_exit",
+    "empty_stdout", "output_limit", "invalid_stdout",
+}
+
+
+class UnresolvedLaunchRefused(AcceptanceRefused):
+    def __init__(self, checkpoint, phase=None, code=None):
+        super().__init__("launch_unresolved_predecessor_refusal_missing")
+        self.public = {"checkpoint": checkpoint, "failure_phase": phase, "failure_code": code}
+
+
+def launch_refusal_failure_detail(value):
+    """Return only fixed diagnostic categories from the selected refusal boundary."""
+    from worker_cli import FAILURE_CODES, FAILURE_PHASES
+
+    if type(value) is not dict or set(value) != {"checkpoint", "failure_phase", "failure_code"}:
+        return None
+    checkpoint, phase, code = (value[key] for key in ("checkpoint", "failure_phase", "failure_code"))
+    if type(checkpoint) is not str:
+        return None
+    if checkpoint in _LAUNCH_REPLY_CHECKPOINTS:
+        if (type(phase) is not str or phase not in FAILURE_PHASES
+                or type(code) is not str or code not in FAILURE_CODES):
+            return None
+        if checkpoint == "reply_format" and (phase, code) != _EXPECTED_LAUNCH_REFUSAL:
+            return None
+        if checkpoint == "refusal_mismatch" and (phase, code) == _EXPECTED_LAUNCH_REFUSAL:
+            return None
+    elif checkpoint not in _LAUNCH_PROCESS_CHECKPOINTS or phase is not None or code is not None:
+        return None
+    return {"checkpoint": checkpoint, "failure_phase": phase, "failure_code": code}
+
+
+def _unexpected_launch_reply(raw, expected):
+    from worker_host import HostRefused, _json, _uuid
+
+    try:
+        reply = _json(raw)
+        if (set(reply) != set(expected) or reply["schema"] != expected["schema"]
+                or reply["state"] != expected["state"]):
+            return UnresolvedLaunchRefused("invalid_stdout")
+        selected = reply["runtime_id"]
+        if selected is not None:
+            _uuid(selected)
+    except HostRefused:
+        return UnresolvedLaunchRefused("invalid_stdout")
+    phase, code = reply["failure_phase"], reply["failure_code"]
+    if selected != expected["runtime_id"]:
+        checkpoint = "runtime_mismatch"
+    elif (phase, code) != _EXPECTED_LAUNCH_REFUSAL:
+        checkpoint = "refusal_mismatch"
+    else:
+        checkpoint = "reply_format"
+    refusal = UnresolvedLaunchRefused(checkpoint, phase, code)
+    if launch_refusal_failure_detail(refusal.public) is None:
+        return UnresolvedLaunchRefused("invalid_stdout")
+    return refusal
+
+
 def expect_unresolved_launch(arguments, runtime_id, *, cwd, env, stdin):
     """Require the exact refusal from one ordinary launch invocation."""
     try:
@@ -64,18 +126,26 @@ def expect_unresolved_launch(arguments, runtime_id, *, cwd, env, stdin):
             arguments, cwd=cwd, env=env, input=stdin.encode(), capture_output=True,
             timeout=240, check=False,
         )
+    except subprocess.TimeoutExpired:
+        raise UnresolvedLaunchRefused("timeout") from None
     except (OSError, subprocess.SubprocessError):
-        raise AcceptanceRefused("launch_unresolved_predecessor_refusal_missing") from None
+        raise UnresolvedLaunchRefused("spawn") from None
+    if result.returncode != 1:
+        raise UnresolvedLaunchRefused("unexpected_success" if result.returncode == 0 else "unexpected_exit")
+    raw = result.stdout
+    if type(raw) is not bytes:
+        raise UnresolvedLaunchRefused("invalid_stdout")
+    if not raw:
+        raise UnresolvedLaunchRefused("empty_stdout")
+    if len(raw) > 4096:
+        raise UnresolvedLaunchRefused("output_limit")
+    phase, code = _EXPECTED_LAUNCH_REFUSAL
     expected = {
         "schema": "vardr.worker-cli/1", "state": "held", "runtime_id": runtime_id,
-        "failure_phase": "launch_catalog", "failure_code": "validation_refused",
+        "failure_phase": phase, "failure_code": code,
     }
-    require(
-        result.returncode == 1 and type(result.stdout) is bytes
-        and len(result.stdout) <= 4096
-        and result.stdout.splitlines() == [json.dumps(expected, sort_keys=True).encode()],
-        "launch_unresolved_predecessor_refusal_missing",
-    )
+    if raw.splitlines() != [json.dumps(expected, sort_keys=True).encode()]:
+        raise _unexpected_launch_reply(raw, expected)
 
 
 def grant_time_ns(value):
@@ -819,10 +889,14 @@ print(len(directories))
         require(ready_name not in before["volumes"], "launch_successor_volume_exists")
 
         self.receipt["stage"] = "launch_refuse_unresolved_predecessor"
-        expect_unresolved_launch(
-            arguments, self.successor_id, cwd=self.install, env=self.environment,
-            stdin=self.password + "\n",
-        )
+        try:
+            expect_unresolved_launch(
+                arguments, self.successor_id, cwd=self.install, env=self.environment,
+                stdin=self.password + "\n",
+            )
+        except UnresolvedLaunchRefused as error:
+            self.receipt["launch_refusal_failure"] = error.public
+            raise
         observer.confirm_exit(exit_proof)
         require(
             canonical(catalog()) == canonical(old)

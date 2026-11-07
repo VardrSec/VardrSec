@@ -3,6 +3,7 @@
 from copy import deepcopy
 import json
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -10,6 +11,7 @@ from unittest.mock import Mock, patch
 from nm2_worker_launch_acceptance import (
     AcceptanceRefused,
     LaunchFixture,
+    UnresolvedLaunchRefused,
     canonical,
     digest,
     expect_unresolved_launch,
@@ -17,7 +19,7 @@ from nm2_worker_launch_acceptance import (
 
 
 SELECTED = "e4a346a6-3982-4a13-a0a5-5b025bedbde0"
-OTHER = "980d0f49-75c3-4f02-84cc-3fba35ff2e3da"
+OTHER = "980d0f49-75c3-4f02-84cc-3fba35ff2e3d"
 REFUSAL = {
     "schema": "vardr.worker-cli/1",
     "state": "held",
@@ -43,24 +45,59 @@ class StoppedPredecessorTests(unittest.TestCase):
             timeout=240, check=False,
         )
 
-    def test_wrong_status_identity_or_refusal_is_not_evidence(self):
-        for code, raw in (
-            (0, reply(REFUSAL)),
-            (130, reply(REFUSAL)),
-            (1, reply({**REFUSAL, "runtime_id": OTHER})),
-            (1, reply({**REFUSAL, "failure_phase": "launch_preflight"})),
-            (1, reply({**REFUSAL, "failure_code": "host_refused"})),
-            (1, reply({**REFUSAL, "raw": "secret-canary"})),
-            (1, b'{"runtime_id": "duplicate", ' + reply(REFUSAL)[1:]),
+    def test_wrong_status_identity_or_refusal_is_classified_without_acceptance(self):
+        for code, raw, checkpoint, phase, failure in (
+            (0, reply(REFUSAL), "unexpected_success", None, None),
+            (130, reply(REFUSAL), "unexpected_exit", None, None),
+            (1, b"", "empty_stdout", None, None),
+            (1, b"x" * 4097, "output_limit", None, None),
+            (1, reply({**REFUSAL, "runtime_id": OTHER}),
+             "runtime_mismatch", "launch_catalog", "validation_refused"),
+            (1, reply({**REFUSAL, "runtime_id": None, "failure_phase": "arguments"}),
+             "runtime_mismatch", "arguments", "validation_refused"),
+            (1, reply({**REFUSAL, "failure_phase": "launch_preflight"}),
+             "refusal_mismatch", "launch_preflight", "validation_refused"),
+            (1, reply({**REFUSAL, "failure_code": "host_refused"}),
+             "refusal_mismatch", "launch_catalog", "host_refused"),
+            (1, b" " + reply(REFUSAL), "reply_format", "launch_catalog", "validation_refused"),
+            (1, b"secret-canary\n" + reply(REFUSAL), "invalid_stdout", None, None),
+            (1, reply({**REFUSAL, "raw": "secret-canary"}), "invalid_stdout", None, None),
+            (1, reply({**REFUSAL, "failure_phase": "secret-canary"}), "invalid_stdout", None, None),
+            (1, b'{"runtime_id": "duplicate", ' + reply(REFUSAL)[1:],
+             "invalid_stdout", None, None),
         ):
-            with self.subTest(code=code), patch("nm2_worker_launch_acceptance.subprocess.run") as child:
-                child.return_value = SimpleNamespace(returncode=code, stdout=raw)
+            with self.subTest(checkpoint=checkpoint), patch(
+                "nm2_worker_launch_acceptance.subprocess.run"
+            ) as child:
+                child.return_value = SimpleNamespace(returncode=code, stdout=raw, stderr=b"secret-canary")
                 with self.assertRaisesRegex(
-                    AcceptanceRefused, "^launch_unresolved_predecessor_refusal_missing$"
-                ):
+                    UnresolvedLaunchRefused, "^launch_unresolved_predecessor_refusal_missing$"
+                ) as failure_received:
                     expect_unresolved_launch(
-                        [], SELECTED, cwd=Path("."), env={}, stdin="fixture\n"
+                        ["secret-canary"], SELECTED, cwd=Path("."), env={}, stdin="secret-canary\n"
                     )
+                self.assertEqual(failure_received.exception.public, {
+                    "checkpoint": checkpoint, "failure_phase": phase, "failure_code": failure,
+                })
+                child.assert_called_once()
+
+    def test_launch_process_exception_details_never_enter_receipt(self):
+        for failure, checkpoint in (
+            (OSError("secret-canary"), "spawn"),
+            (subprocess.TimeoutExpired(
+                ["secret-canary"], 240, output=b"secret-canary", stderr=b"secret-canary"
+            ), "timeout"),
+        ):
+            with self.subTest(checkpoint=checkpoint), patch(
+                "nm2_worker_launch_acceptance.subprocess.run", side_effect=failure
+            ) as child:
+                with self.assertRaisesRegex(
+                    UnresolvedLaunchRefused, "^launch_unresolved_predecessor_refusal_missing$"
+                ) as caught:
+                    expect_unresolved_launch([], SELECTED, cwd=Path("."), env={}, stdin="fixture\n")
+                self.assertEqual(caught.exception.public, {
+                    "checkpoint": checkpoint, "failure_phase": None, "failure_code": None,
+                })
                 child.assert_called_once()
 
     def test_only_host_failed_terminal_can_close_reservation_without_refund(self):

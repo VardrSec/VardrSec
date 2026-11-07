@@ -444,3 +444,36 @@ class HostedStoppedPredecessorTests(unittest.TestCase):
                 "reason": "unclassified_refusal",
             },
         )
+
+
+    def test_launch_refusal_detail_is_fixed_and_scoped_to_one_boundary(self):
+        raw, selection, _ = evidence()
+        detail = {
+            "checkpoint": "refusal_mismatch",
+            "failure_phase": "launch_compose_inventory",
+            "failure_code": "operation_failed",
+        }
+        raw.update(
+            status="held", stage="launch_refuse_unresolved_predecessor",
+            reason="launch_unresolved_predecessor_refusal_missing",
+            launch_refusal_failure=detail,
+        )
+        self.assertEqual(hosted.failure_projection(raw, selection), {
+            "stage": raw["stage"], "reason": raw["reason"], "launch_refusal_failure": detail,
+        })
+        for altered in (
+            {"launch_refusal_failure": {**detail, "stdout": PRIVATE_CANARY}},
+            {"launch_refusal_failure": {**detail, "failure_phase": PRIVATE_CANARY}},
+            {"launch_refusal_failure": {**detail, "failure_code": PRIVATE_CANARY}},
+            {"launch_refusal_failure": {**detail, "checkpoint": PRIVATE_CANARY}},
+            {"launch_refusal_failure": {**detail, "checkpoint": ["refusal_mismatch"]}},
+            {"launch_refusal_failure": {**detail, "checkpoint": "timeout"}},
+            {"launch_refusal_failure": {**detail, "checkpoint": "reply_format"}},
+            {"stage": "launch_predecessor_active"},
+            {"reason": "launch_unresolved_refusal_changed_state"},
+            {"scenario": hosted.LAUNCH_DURATION_SCENARIO},
+        ):
+            with self.subTest(altered=altered):
+                projected = hosted.failure_projection({**raw, **altered}, selection)
+                self.assertNotIn("launch_refusal_failure", projected)
+                self.assertNotIn(PRIVATE_CANARY.encode(), canonical(projected))
