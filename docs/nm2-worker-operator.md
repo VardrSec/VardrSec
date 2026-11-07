@@ -1,5 +1,42 @@
 # Prepared managed-worker controls
 
+## Explicit launch candidate
+
+`python vardrsec.py worker launch` selects one worker in the existing Full
+installation. It uses the same API, enrollment, Runner ID, owner login and
+public signing trust options as `enable`. Run `worker launch --help` for the
+exact selectors. Supply an existing, dedicated `--admission-root` outside
+the private host root and CA directory, the original `--state-volume` and
+`--runner-network`, and the reviewed `--launch-config`. Each launch gets
+its own public subdirectory and readiness volume. The existing explicit
+Runner setup initializes the original journal before the first launch.
+
+The launch config is a JSON object with `docker`, `docker_sha256`, `compose`,
+`compose_sha256`, `docker_config`, `local_endpoint`, `daemon_id`, `override`,
+`empty_env`, `credential_file`, `credential_names`, `https_port`,
+`core_images` and `source`. Use absolute local paths and the existing
+Docker context. The override contains only external `runner` network and
+`runner-state` volume mappings. `core_images` maps api, db, proxy and web
+to their reviewed full image IDs. `source` follows the source bindings in
+[the lifecycle ADR](adr/0006-host-lifecycle-intent-storage.md). Use the
+raw override SHA-256, the normalized worker model SHA-256, and the canonical
+JSON digests of `core_images` and of the object containing
+`credential_names` and `https_port`.
+
+Keep the explicit credentials file and a separate zero-byte dotenv file
+in the existing protected private root. Supply the enrolled Runner key via
+the process environment. Launch passes no credential values in argv or
+lifecycle records. Keep the credential file at mode 0600 on Linux and
+inside the operator's restricted directory on Windows.
+
+A subsequent launch requires each prior worker from this command to be
+physically exited, retired in Map, and locally reconciled. A held result
+preserves the resources and durable intent for inspection. Follow the
+original report and reconciliation flow for an admitted worker. Installed
+first and subsequent acceptance on Windows and Linux is still pending.
+
+## Admission of a prepared worker
+
 This is a default-disabled NM-2 development candidate. The retained one-attempt
 Desktop slice passed; current v2 Desktop/Linux acceptance remains open. Ordinary
 installation, Full/Mapless startup and manual

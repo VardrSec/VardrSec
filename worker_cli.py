@@ -49,6 +49,12 @@ FAILURE_PHASES = frozenset(
         "arguments",
         "installation",
         "dispatch",
+        "launch_inputs",
+        "launch_preflight",
+        "launch_intent",
+        "launch_resources",
+        "launch_create",
+        "launch_start",
         "enable_inputs",
         "enable_observer_setup",
         "enable_api_setup",
@@ -137,6 +143,9 @@ def parser():
         aliases=["register"],
         help="Admit an exact already running worker; never start one",
     )
+    launch = actions.add_parser(
+        "launch", help="Explicitly create, start and admit one managed worker"
+    )
     for name in (
         "api-url",
         "ca",
@@ -155,33 +164,23 @@ def parser():
         "public-trust",
     ):
         enable.add_argument("--" + name, required=True)
-    enable.add_argument("--runtime-id", type=runtime_id)
-    enable.add_argument(
-        "--protocol",
-        choices=("persistent-v3", "finite-v2", "legacy-v1"),
-        default="persistent-v3",
-        help="Explicit matching image protocol; normal background availability uses v3",
-    )
-    enable.add_argument(
-        "--max-attempts",
-        help="Optional v3 finite job limit; required1..32 for explicit finite-v2",
-    )
-    enable.add_argument(
-        "--idle-timeout-seconds",
-        type=int,
-        help="Optional v3 finite idle limit1..86400; omission leaves persistent idle unbounded",
-    )
-    enable.add_argument(
-        "--expires-in",
-        type=int,
-        help="Legacy/finite admission seconds60..604800 (default900); not a v3 lifetime",
-    )
-    enable.add_argument("--username", default="operator")
-    enable.add_argument(
-        "--password-stdin",
-        action="store_true",
-        help="Explicitly read one bounded password line from stdin instead of hidden TTY input",
-    )
+        if name not in {"container-id", "admission-source", "readiness-volume", "trust-source"}:
+            launch.add_argument("--" + name, required=True)
+    for name in ("admission-root", "runner-network", "launch-config"):
+        launch.add_argument("--" + name, required=True)
+    for action in (enable, launch):
+        action.add_argument("--runtime-id", type=runtime_id)
+        action.add_argument("--protocol", choices=("persistent-v3", "finite-v2", "legacy-v1"),
+                            default="persistent-v3")
+        action.add_argument("--max-attempts",
+                            help="Optional v3 finite job limit; required1..32 for explicit finite-v2")
+        action.add_argument("--idle-timeout-seconds", type=int,
+                            help="Optional v3 finite idle limit1..86400")
+        action.add_argument("--expires-in", type=int,
+                            help="Legacy/finite admission seconds60..604800 (default900)")
+        action.add_argument("--username", default="operator")
+        action.add_argument("--password-stdin", action="store_true",
+                            help="Explicitly read one bounded password line from stdin")
     for name in ("status", "disable", "stop", "report-exit", "reconcile", "revoke"):
         action = actions.add_parser(name)
         action.add_argument("--runtime-id", required=True, type=runtime_id)
@@ -677,6 +676,10 @@ def stop(records, selected_id):
 
 
 def dispatch(installation, args):
+    if args.action == "launch":
+        import worker_launch
+
+        return worker_launch.launch(installation, args)
     if args.action in {"enable", "register"}:
         return enable(installation, args)
     records = records_for(installation, args.private_root, existing=True)
@@ -835,7 +838,7 @@ def main(argv=None, *, installation=None):
             else Path(installation)
         )
         require(installation.is_absolute() and installation.is_dir())
-        if args.action in {"enable", "register"} and args.runtime_id is None:
+        if args.action in {"enable", "register", "launch"} and args.runtime_id is None:
             args.runtime_id = str(uuid.uuid4())
         selected_id = args.runtime_id
         args._failure_phase = "dispatch"

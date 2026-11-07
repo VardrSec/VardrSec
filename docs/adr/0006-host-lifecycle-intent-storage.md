@@ -1,8 +1,9 @@
 # ADR 0006: Store lifecycle uncertainty before effects
 
-Status: Private lifecycle candidate. The sections below record incremental storage,
-original registration and publication boundaries. No supported create/start launcher,
-recovery action or platform acceptance is provided.
+Status: Development lifecycle candidate. The sections below record incremental
+storage, original registration and publication boundaries, and the explicit
+launcher. Installed lifecycle acceptance and recovery of held preparations
+remain open.
 
 Existing HostRecords require real registration and a runtime STOP secret. A
 pre-start preparation cannot use that schema or reserve the future runtime's
@@ -404,3 +405,20 @@ hash is required to find a retained volume. The observer rechecks the full
 project list, exact readiness metadata, root and local daemon, and never
 mounts, creates or removes a volume. The caller still compares the retained
 set with the protected intent history and checks the exact proposed new name.
+
+## Explicit launch
+
+The development `worker launch` command obtains the read-only observations
+under one installation operation. The first intent uses schema 4, its own
+MAC domain and an immutable audit digest for the selected Runner. Schema 3
+continues to require at least one retired predecessor. A new first intent
+rechecks the empty protected catalog before allocating its custody key.
+
+The command persists uncertainty before creating the public directory,
+readiness volume and exact worker replica. It checks the Engine and Compose
+delta, original resources, direct Created profile and private mount custody
+before fencing and starting the one full CID. Only the directly observed
+running incarnation proceeds through the original registration and
+publication code. Subsequent launches recheck the original stopped
+containers against their protected exit reports, Map retirement receipts and
+offline Runner audits. The launcher does not retry an ambiguous effect.

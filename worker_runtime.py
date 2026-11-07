@@ -656,7 +656,7 @@ class LocalDocker:
         except (ValueError, TypeError):
             raise RuntimeRefused("worker_runtime_refused") from None
 
-    def _network(self, container_id):
+    def _network(self, container_id, *, created=False):
         """Require one actual attachment to the selected full network identity."""
         selected = _network_binding(self.network_binding)
         require(selected is not None)
@@ -670,7 +670,18 @@ class LocalDocker:
         require(set(value) == {"id", "mode", "attachments"})
         name, network_id = selected
         require(value["id"] == container_id and value["mode"] == name)
-        require(value["attachments"] == [{"name": name, "id": network_id}, None])
+        allowed = {network_id, ""} if created else {network_id}
+        attachments = value["attachments"]
+        require(type(attachments) is list and len(attachments) == 2)
+        attachment, sentinel = attachments
+        require(
+            sentinel is None
+            and type(attachment) is dict
+            and set(attachment) == {"name", "id"}
+            and attachment["name"] == name
+            and type(attachment["id"]) is str
+            and attachment["id"] in allowed
+        )
 
     def _bound(self, identity):
         checkpoint = "daemon"

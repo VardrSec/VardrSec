@@ -1,3 +1,4 @@
+import copy
 import json
 import unittest
 from unittest.mock import patch
@@ -33,6 +34,49 @@ class FirstEnableEvidenceTests(unittest.TestCase):
             output=host.canonical(audit) if output is None else output,
             returncode=returncode,
         )
+
+    def initial_intent(self):
+        row = copy.deepcopy(self.f.row)
+        row["predecessors"] = []
+        row["resources"]["expected_ordinal"] = 1
+        raw = host.canonical(self.bootstrap_document())
+        row["bootstrap_audit_sha256"] = host.digest(self.bootstrap_document())
+        return row, raw
+
+    def test_first_intent_requires_the_original_audit_and_keeps_it_immutable(self):
+        row, raw = self.initial_intent()
+        with self.f.records.operation() as operation:
+            with self.assertRaises(intent.IntentRefused):
+                self.f.store.create(row, operation=operation)
+            self.assertEqual(self.f.backend.calls, [])
+            saved = self.f.store.create(row, operation=operation, first_audit=raw)
+            self.assertEqual(
+                self.f.store.inventory(operation=operation)["intents"],
+                {row["operation_id"]: row},
+            )
+            with self.assertRaises(intent.IntentRefused):
+                self.f.next(
+                    saved,
+                    operation,
+                    lambda value: value.update(bootstrap_audit_sha256="a" * 64),
+                )
+            self.assertEqual(
+                self.f.store.read(row["operation_id"], operation=operation), saved
+            )
+        self.assertEqual(
+            host._json(self.f.path.read_bytes())["schema"],
+            "vardr.worker-lifecycle-intent/4",
+        )
+
+    def test_first_intent_never_treats_a_preexisting_catalog_as_empty(self):
+        row, raw = self.initial_intent()
+        with self.f.records.operation() as operation:
+            self.f.store.create(self.f.row, operation=operation)
+            with self.assertRaises(intent.IntentRefused):
+                self.f.store.create(row, operation=operation, first_audit=raw)
+            self.assertEqual(
+                self.f.store.read(row["operation_id"], operation=operation), self.f.row
+            )
 
     def test_first_enable_joins_exact_empty_original_catalog_and_bootstrap_audit(self):
         audit = self.bootstrap_document()

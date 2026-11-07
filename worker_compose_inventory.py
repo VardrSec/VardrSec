@@ -1,5 +1,6 @@
-"""Exact read-only Compose visibility for worker lifecycle planning."""
+"""Pin Compose inputs for the independent inventory and worker-only creation."""
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 import hashlib
 import json
@@ -162,7 +163,7 @@ def _files(client, project):
     )
 
 
-def _run(argv, *, cwd, env, deadline):
+def _run(argv, *, cwd, env, deadline, command_timeout=12):
     remaining = deadline - time.monotonic()
     _require(remaining > 0)
     result = subprocess.run(
@@ -172,7 +173,7 @@ def _run(argv, *, cwd, env, deadline):
         input=b"",
         capture_output=True,
         check=False,
-        timeout=min(12, remaining),
+        timeout=min(command_timeout, remaining),
     )
     _require(result.returncode == 0 and len(result.stdout) <= _MAX_OUTPUT)
     return result.stdout
@@ -188,12 +189,8 @@ def _ids(raw):
     return sorted(rows)
 
 
-def capture_visible_workers(client, project):
-    """Read Compose's view only; compare with independent Engine observations.
-
-    The caller must surround this read with direct Engine resource and daemon
-    checks under its lifecycle operation. The empty list is not bootstrap proof.
-    """
+@contextmanager
+def _selected(client, project):
     try:
         _require(type(client) is LocalClient and type(project) is WorkerProject)
         _matches(client.context, r"[A-Za-z0-9_.-]{1,128}")
@@ -251,33 +248,18 @@ def capture_visible_workers(client, project):
             str(override),
             "--profile",
             "managed-worker",
-            "ps",
-            "--all",
-            "--no-trunc",
-            "--quiet",
-            "managed-worker",
         ]
-        visible = _ids(
-            read(
-                args,
-                {
-                    **env,
-                    "VARDRSEC_WORKER_IMAGE": project.image,
-                    "VARDRSEC_WORKER_PUBLIC_DIR": str(public),
-                    "VARDRSEC_WORKER_READY_VOLUME": project.ready_volume,
-                    "VARDRSEC_WORKER_CREDENTIAL_FILE": str(empty),
-                    "VARDRMAP_API_KEY": "synthetic_read_only_compose_ps",
-                },
-            )
-        )
+        selected_env = {
+            **env,
+            "VARDRSEC_WORKER_IMAGE": project.image,
+            "VARDRSEC_WORKER_PUBLIC_DIR": str(public),
+            "VARDRSEC_WORKER_READY_VOLUME": project.ready_volume,
+            "VARDRSEC_WORKER_CREDENTIAL_FILE": str(empty),
+            "VARDRMAP_API_KEY": "synthetic_read_only_compose_ps",
+        }
+        yield args, selected_env, read
         _require(json.loads(read(inspect)) == client.endpoint)
         _require(_files(client, project) == original and time.monotonic() < deadline)
-        return {
-            "context": client.context,
-            "local_endpoint": client.endpoint,
-            "project": project.name,
-            "compose_worker_ids": visible,
-        }
     except (
         OSError,
         ValueError,
@@ -287,3 +269,52 @@ def capture_visible_workers(client, project):
         subprocess.SubprocessError,
     ):
         raise ComposeInventoryRefused() from None
+
+
+def capture_visible_workers(client, project):
+    """Read only Compose's view. The caller independently verifies Engine state."""
+    with _selected(client, project) as (argv, env, read):
+        visible = _ids(
+            read(argv + ["ps", "--all", "--no-trunc", "--quiet", "managed-worker"], env)
+        )
+    return {
+        "context": client.context,
+        "local_endpoint": client.endpoint,
+        "project": project.name,
+        "compose_worker_ids": visible,
+    }
+
+
+def create_worker(
+    client, project, ordinal, *, api_key, credentials, names, port, before_send
+):
+    """Send one fixed Compose create request behind the caller's durable fence."""
+    _require(type(ordinal) is int and 1 <= ordinal <= 256)
+    _require(type(port) is int and 1 <= port <= 65535)
+    _matches(api_key, r"vmap_[A-Za-z0-9_-]{1,256}")
+    credential_file = _regular(credentials, 65536)
+    with _selected(client, project) as (argv, env, read):
+        env.update(
+            VARDRMAP_API_KEY=api_key,
+            VARDRSEC_WORKER_CREDENTIAL_FILE=str(credential_file),
+            VARDRRUNNER_WORKER_CREDENTIAL_ENV=names,
+            HTTPS_PORT=str(port),
+        )
+        before_send()
+        read(
+            argv
+            + [
+                "up",
+                "--no-start",
+                "--no-recreate",
+                "--no-build",
+                "--pull",
+                "never",
+                "--no-deps",
+                "--remove-orphans=false",
+                "--scale",
+                f"managed-worker={ordinal}",
+                "managed-worker",
+            ],
+            env,
+        )

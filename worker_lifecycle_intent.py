@@ -20,7 +20,8 @@ import worker_runtime as runtime
 
 
 SCHEMA = "vardr.worker-lifecycle-intent/3"
-_DOMAIN = b"vardr.worker-lifecycle-intent/3\0"
+_BOOTSTRAP_SCHEMA = "vardr.worker-lifecycle-intent/4"
+_BOOTSTRAP_FIELD = "bootstrap_audit_sha256"
 _LIMIT = 65536
 _MAX_REVISION = 9223372036854775807
 _FLAGS = frozenset(
@@ -70,6 +71,15 @@ def require(value):
 def fields(value, names):
     require(type(value) is dict and set(value) == names)
     return value
+
+
+def _schema(payload):
+    require(type(payload) is dict)
+    return _BOOTSTRAP_SCHEMA if _BOOTSTRAP_FIELD in payload else SCHEMA
+
+
+def _domain(schema):
+    return schema.encode("ascii") + b"\0"
 
 
 def bootstrap_audit(*, runner_id, output, returncode):
@@ -169,9 +179,11 @@ def registration_policy(value):
 
 
 def _checked(payload):
+    first = _schema(payload) == _BOOTSTRAP_SCHEMA
+    immutable = _IMMUTABLE | {_BOOTSTRAP_FIELD} if first else _IMMUTABLE
     fields(
         payload,
-        _IMMUTABLE
+        immutable
         | {"revision", "previous_sha256", "effects", "observations", "disposition"},
     )
     host._uuid(payload["operation_id"])
@@ -239,7 +251,9 @@ def _checked(payload):
         and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", binding["project"])
     )
     predecessors = payload["predecessors"]
-    require(type(predecessors) is list and bool(predecessors))
+    require(type(predecessors) is list and bool(predecessors) != first)
+    if first:
+        host._hash(payload[_BOOTSTRAP_FIELD])
     ids, runtimes = set(), set()
     for ordinal, row in enumerate(predecessors, 1):
         fields(
@@ -415,7 +429,11 @@ def _checked(payload):
             )
         )
     require(
-        len(host.canonical({"schema": SCHEMA, "payload": payload, "mac": "0" * 64}))
+        len(
+            host.canonical(
+                {"schema": _schema(payload), "payload": payload, "mac": "0" * 64}
+            )
+        )
         <= _LIMIT
     )
     return payload
@@ -749,7 +767,8 @@ class IntentStore:
             and 0 < len(raw) <= _LIMIT
         )
         wrapped = fields(host._json(raw), {"schema", "payload", "mac"})
-        require(wrapped["schema"] == SCHEMA)
+        schema = _schema(wrapped["payload"])
+        require(wrapped["schema"] == schema)
         key = host._hash(
             self.records.backend.read_intent(
                 operation_id, records=self.records, operation=operation
@@ -757,7 +776,7 @@ class IntentStore:
         )
         expected = hmac.new(
             bytes.fromhex(key),
-            _DOMAIN + host.canonical(wrapped["payload"]),
+            _domain(schema) + host.canonical(wrapped["payload"]),
             hashlib.sha256,
         ).hexdigest()
         require(hmac.compare_digest(host._hash(wrapped["mac"]), expected))
@@ -787,13 +806,14 @@ class IntentStore:
                 payload["operation_id"], records=self.records, operation=operation
             )
         )
+        schema = _schema(payload)
         raw = host.canonical(
             {
-                "schema": SCHEMA,
+                "schema": schema,
                 "payload": payload,
                 "mac": hmac.new(
                     bytes.fromhex(key),
-                    _DOMAIN + host.canonical(payload),
+                    _domain(schema) + host.canonical(payload),
                     hashlib.sha256,
                 ).hexdigest(),
             }
@@ -806,7 +826,7 @@ class IntentStore:
         )
         return host._json(host.canonical(payload))
 
-    def create(self, payload, *, operation):
+    def create(self, payload, *, operation, first_audit=None):
         try:
             require(type(payload) is dict)
             path = self._access(operation, payload["operation_id"])
@@ -819,6 +839,17 @@ class IntentStore:
                 and not any(payload["effects"].values())
                 and all(value is None for value in payload["observations"].values())
             )
+            if _schema(payload) == _BOOTSTRAP_SCHEMA:
+                require(type(first_audit) is bytes)
+                evidence = self.first_enable_evidence(
+                    operation=operation,
+                    runner_id=payload["registration_policy"]["runner_id"],
+                    output=first_audit,
+                    returncode=0,
+                )
+                require(evidence["sha256"] == payload[_BOOTSTRAP_FIELD])
+            else:
+                require(first_audit is None)
             require(
                 not path.exists()
                 and not path.is_symlink()
@@ -863,6 +894,10 @@ class IntentStore:
                     host.canonical(payload[k]) == host.canonical(old[k])
                     for k in _IMMUTABLE
                 )
+            )
+            require(
+                _schema(payload) == _schema(old)
+                and payload.get(_BOOTSTRAP_FIELD) == old.get(_BOOTSTRAP_FIELD)
             )
             require(all(not old["effects"][k] or payload["effects"][k] for k in _FLAGS))
             require(

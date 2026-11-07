@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- NM-2 development candidate: add explicit `worker launch` for the first or
+  next persistent worker. Retain earlier incarnations and record create and
+  start uncertainty before sending either request.
+
 - NM-2 private lifecycle: inventory every same-project readiness volume,
   including retained volumes with no attached worker.
 
