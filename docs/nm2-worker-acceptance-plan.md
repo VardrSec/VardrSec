@@ -9,7 +9,9 @@ Allocated duration exhaustion also passed on both platforms, preserving one
 target charge, 30 seconds allocated and zero capacity reservations through
 refusal and reconciliation. Represented-origin and concurrency exhaustion
 remain open.
-The [installed receipts](nm2-worker-acceptance-evidence.md) record the exact
+Both platforms also passed the Strict authority-change check. A stale
+signed registration was refused, and a fresh one stayed unissued and
+uncharged. The [installed receipts](nm2-worker-acceptance-evidence.md) record the exact
 sources and scope. The [closeout control record](nm1-nm2-closeout.md) tracks
 the remaining failure and containment gates. NM-3 remains paused.
 

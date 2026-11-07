@@ -266,9 +266,10 @@ The Ubuntu sanitized receipt SHA-256 is
 Distribution `176d4d47a8f743c04fabe00d92bfe89e91e57046` uses the exact
 Map diagnostic revision `40bf4e37076d6a85648f817dd8b6bc69104bd863`,
 Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9`, and Gate
-`d80d4730b8486b75be72431b5af88e0ddb45020b`. The fixture completes one approved synthetic job and waits for its
-native completion, release, and local audit. It then submits a second,
-separately approved job in the same engagement. The first job has allocated
+`d80d4730b8486b75be72431b5af88e0ddb45020b`. The fixture completes one
+approved synthetic job and waits for its native completion, release, and
+local audit. It then submits a second, separately approved job in the same
+engagement. The first job has allocated
 the full 30-second duration budget. One concurrency slot remains free and
 target allowance remains available.
 
@@ -290,6 +291,26 @@ before operator stop, and the original Runner had zero holds after
 reconciliation. The sanitized Ubuntu receipt SHA-256 is
 `94fc329e879b89f33b973eb7b4f139a51721594e9e588ba0cb0351dd3b6b5e93`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42399656129)
+
+### Strict approval after an authority change
+
+Distribution `5983f5c882b469c8947bec10038d3d472ca16326`,
+Map `40bf4e37076d6a85648f817dd8b6bc69104bd863`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` passed on Windows Docker Desktop and
+Ubuntu 24.04. The fixture signed an unregistered Strict approval, verified the original
+signature against the configured public key, then revoked and restored the
+synthetic engagement authorization. Its authority revision advanced twice.
+
+Map refused the stale signed registration with HTTP 409. The before and
+after inventories matched. A fresh review and signed registration for the
+same job returned HTTP 200. The new approval stayed unissued. There were
+zero requests, target charges, duration allocations, or reservations, and
+no managed worker started. The five owned fixture containers stopped.
+
+Windows receipt SHA-256 `eb2cf91847fdcbeb3dea0323727819bccd85fa488435756116b07fbed75660ad`.
+Ubuntu sanitized receipt SHA-256 `1490e5ca62d7205f48062266e95f2185c139969accac35a242613b497d82add2`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42401753135)
 
 ## Verified Desktop development slices (2026-11-06)
 
@@ -558,7 +579,8 @@ both cases. No test result here establishes physical failure-path acceptance.
 
 The installed evidence above covers first and subsequent startup, selected
 cancellation paths, active grant revocation, expiry before claim and expiry
-during active work, and allocated duration exhaustion. The open cases include
+during active work, allocated duration exhaustion, and Strict registration
+refusal after an authority change. The open cases include
 represented-origin and concurrency exhaustion, the remaining Strict denials,
 retained partial evidence, disconnect, crash and restart, duplicate and lost
 replies, and persisted preclaim recovery.

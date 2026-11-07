@@ -100,6 +100,11 @@ concurrency exhaustion remain separate cases.
 [Installed duration evidence](nm2-worker-acceptance-evidence.md#allocated-duration-exhaustion)
 [Development CI](https://github.com/VardrSec/VardrMap/actions/runs/42397162144)
 
+Windows Docker Desktop and Ubuntu refused stale signed Strict registration
+after an authority change. Fresh signed registration for the same job passed
+with no execution or charges.
+[Installed Strict evidence](nm2-worker-acceptance-evidence.md#strict-approval-after-an-authority-change)
+
 The open NM-2 exit requirements stay in NM-2. NM-3's independent
 Runner, Full/Mapless, Docker, Windows and cross-platform objectives remain required
 and preserved. NM-4 testing intelligence and NM-5 validation/release keep their
