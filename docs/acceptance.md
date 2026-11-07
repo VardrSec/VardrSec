@@ -229,6 +229,10 @@ for the existing optional60-second limit. One reviewed job must complete, follow
 by native124 without operator stop and exact retirement/reconciliation. Actual
 Linux/Desktop idle acceptance remains open. See the [bounded acceptance plan](nm2-worker-acceptance-plan.md).
 
+That implementation-stage snapshot is superseded for the selected idle slice by
+the [later ledger](#accepted-optional-idle-and-zero-issued-job-slices-2026-11-06).
+The wider phase matrix remains open.
+
 
 ### Selected NM-2 platform evidence, 2026-11-06
 
@@ -295,3 +299,67 @@ These selected records leave optional idle, zero-issued-job, stop/re-enable and
 the remaining containment matrix open. The Linux pass does not identify earlier
 Linux refusal causes. NM-2 remains incomplete; NM-3 is not resumed, and no release
 or deployment is authorized by this evidence update.
+
+### Accepted optional idle and zero-issued-job slices, 2026-11-06
+
+These are selected physical slices on separate exact Linux and Docker Desktop
+cohorts. All use Runner `09008e5d9c3edf619e55eeacdfd9ea1db31aba89`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c`, Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b` and Map revision
+`0041persistentruntime`. Linux and Desktop images were built and verified
+separately; this record grants no capability to a later Runner image.
+
+| Observation | Distribution cohort | Disposition and exact public receipt |
+| --- | --- | --- |
+| [Linux idle run42312084921](https://github.com/VardrSec/VardrSec/actions/runs/42312084921) | `036a142e938c10d3d4dbc75d5d8434e4079c0f52` | [Selected idle slice passed](evidence/nm2-linux-idle-control-verified-2026-11-06.json), SHA-256 `2793a1362925bac15846f41f96ef3e138bd89c55d3070f913102c289e9f85a0d`. |
+| Desktop idle cohort `96160766c3ec4572` | `036a142e938c10d3d4dbc75d5d8434e4079c0f52` | [Selected idle slice passed](evidence/nm2-desktop-idle-control-verified-2026-11-06.json), SHA-256 `6f20a6d78b345c1a782d843ed8a9722fbb2735092b6e86d1c810e591e97b87f1`. |
+| [Earlier Linux zero-job run42312463253](https://github.com/VardrSec/VardrSec/actions/runs/42312463253) | `036a142e938c10d3d4dbc75d5d8434e4079c0f52` | [Held/unobserved](evidence/nm2-linux-empty-stop-unobserved-2026-11-06.json): `receipt_unavailable_or_invalid`; no lifecycle measurements or acceptance credit. SHA-256 `f81c2277062896a4c005faa7617e928928d2176c8c9d801c9c04549334b97329`. |
+| Earlier Desktop zero-job cohort `09887e7cca964f29` | `036a142e938c10d3d4dbc75d5d8434e4079c0f52` | [Diagnostic retained](evidence/nm2-desktop-empty-stop-controller-held-diagnostic-2026-11-06.json): independent measurements passed but the controller remained held; `acceptance_credit:false`. SHA-256 `e329001e32c2e2e49e3d5f901ee91fe3a4c9c97dbf0791881386a368f4716e42`. |
+| [Fresh Linux zero-job run42316282747](https://github.com/VardrSec/VardrSec/actions/runs/42316282747) | `d73c89c37c7e4f852fce56ae099edebb297fa9f5` | [Selected empty-stop slice passed](evidence/nm2-linux-empty-stop-verified-2026-11-06.json), SHA-256 `7fe0e231d53cda6b952b03d39642284c88ce96f9c856a1d3485a44d19fb89845`. |
+| Fresh Desktop zero-job cohort `def01c1675534138` | `d73c89c37c7e4f852fce56ae099edebb297fa9f5` | [Selected empty-stop slice passed](evidence/nm2-desktop-empty-stop-verified-2026-11-06.json), SHA-256 `4771a7e08447cc66773c6e814c1b333338a71a6518a58b3f83a29ad755716d4b`. |
+
+Both successful idle receipts require one reviewed job, five GET requests and
+evidence records, native exit124 with no operator stop, zero local holds,
+unbound last1 retirement/original-run reconciliation and six stopped containers.
+Their optional idle limit is60 seconds with no count limit. They do not replace
+the separate default-unlimited 70-second/35-job availability evidence.
+
+Both fresh zero-job receipts require zero issued attempts, associated runs and
+claims, engagements, target traffic and local holds. They prove explicit operator
+stop and positive unbound host/Map retirement at last0, with both finite limits
+unset and six stopped containers. The complete local result remains
+`not_applicable_empty_unissued`; it adds no physical/server proof and fabricates
+no RunRecord or local retirement.
+
+The Linux named artifact ZIP digests and all four immutable source/tree bindings
+were independently checked; Ubuntu and Windows compatibility passed for each
+recorded run. Desktop projections used the strict independent reader, exact
+cohort/image/source pins, unchanged-input/source guards and zero blocked
+operations. The six copied JSON files contain only their existing sanitized
+public output; raw receipts, inventories, credentials and private provenance
+paths remain excluded.
+
+The corrected fixture CLI success footer explains the observed Desktop098
+controller hold after its measured slice. It does not establish the cause of the
+earlier Linux unobserved receipt. The original [792 idle hold](evidence/nm2-desktop-idle-limit-held-2026-11-06.json),
+[a55 lookup hold](evidence/nm2-desktop-idle-limit-lookup-held-2026-11-06.json),
+Linux unobserved record and Desktop098 diagnostic remain unchanged.
+
+The host-operation component at commit
+`400f3c6d248d150fc470408dd75c6a1535a5f3e4`, tree
+`95fe1c18d3f7c87e6e319f9a22d392b3cd62cb4d`, completed the normal569-test
+Distribution suite with18 existing skips and no failures or errors, including
+the three real-module token/CLI cases. [Compatibility run42318325511](https://github.com/VardrSec/VardrSec/actions/runs/42318325511)
+passed its Ubuntu and Windows jobs; coupled/installation/update/certificate jobs
+were intentionally skipped. This verifies locking groundwork. Durable intents
+and physical same-installation next-enable acceptance remain open.
+
+These passes close only their selected idle and normal zero-issued-job stop
+criteria. Integrated cancellation/partial evidence, native containment and the
+remaining bootstrap/channel/owner-loss/pressure/clock matrix retain their own
+physical gates. [The host operation scope](adr/0005-host-worker-operation-scope.md)
+is component groundwork: durable intents, supported next-enable, ambiguous and
+preclaim recovery, a matching new reconciliation-capable image and physical
+same-installation reuse remain open. NM-2 is incomplete and NM-3 remains paused.
+No requirement is deferred to NM-3/NM-5; no component pin, release or deployment
+is authorized by this evidence.

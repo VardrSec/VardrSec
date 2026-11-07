@@ -282,3 +282,13 @@ experiments stay stopped. Missing proof is neither an accepted risk nor an NM-5
 deferral. The selected Desktop unlimited-availability slice now has separate
 evidence; Linux, optional idle and checked next enablement remain open. No new infrastructure,
 automatic restart, component pin or release is accepted by this evidence.
+
+### Later selected-control evidence
+
+The open-gate paragraph above is the earlier evidence snapshot. The
+[current ledger](acceptance.md#accepted-optional-idle-and-zero-issued-job-slices-2026-11-06)
+records separate accepted Linux/Desktop optional-idle and normal zero-issued-job
+stop slices, with the earlier held/unobserved receipts preserved. Cancellation,
+native containment, durable recovery, a matching new image and checked
+same-installation next enable remain separate open gates. NM-2 stays incomplete
+and NM-3 stays paused; none of the historical receipts is rewritten.

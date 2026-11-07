@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Record separate verified Linux/Desktop optional60-second idle and zero-issued-job
+  stop slices, with six exact sanitized public receipts. Preserve the earlier
+  held/unobserved Linux and Desktop diagnostic attempts without acceptance credit
+  or inferred causes. NM-2 stays open, NM-3 stays paused, and cancellation,
+  containment, durable recovery, next-enable and matching-image gates remain.
+
 - Keep existing worker enablement under one installation-lock operation with a
   live, thread/owner/lifetime-bound capability for nested host calls. Preserve
   token-free direct-call locking, registration/publication order and original
