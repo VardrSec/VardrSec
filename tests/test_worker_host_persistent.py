@@ -840,5 +840,240 @@ class PersistentHostTests(unittest.TestCase):
         self.assertIsNone(f.backend.read(f.runtime_id))
 
 
+class OriginalAuditJoinTests(unittest.TestCase):
+    def fixture(self, *, last="2", kind="retired"):
+        record = {
+            "runtime_id": "11111111-1111-4111-8111-111111111111",
+            "registration_state": "acknowledged",
+            "stop_state": "observed",
+            "disable_state": "none",
+            "revocation_state": "none",
+            "registration": {
+                "enrollment_id": "fixture-enrollment",
+                "runner_id": "22222222-2222-4222-8222-222222222222",
+                "origin": "https://owned.example/backend",
+                "mode": "persistent",
+                "capability_sha256": "a" * 64,
+                "limits": {"max_attempts": None, "idle_timeout_seconds": None},
+                "reporting_authority": dict(persistent.REPORTING_AUTHORITY),
+                "identity": {
+                    "daemon_id": "fixture-daemon",
+                    "container_id": "b" * 64,
+                    "image_id": "sha256:" + "c" * 64,
+                    "project": "owned-fixture",
+                    "started_at": "2026-11-05T20:00:00Z",
+                    "owner_nonce": "d" * 64,
+                },
+            },
+        }
+        record["admission"] = original = persistent.expected_admission(record)
+        binding = {
+            key: original[key]
+            for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256")
+        }
+        receipt = {
+            "schema": "vardr.worker-retirement/3",
+            **binding,
+            "origin": original["origin"],
+            "enrollment_id": original["enrollment_id"],
+            "runtime_sequence": None,
+            "last_sequence": last,
+            "binding": None,
+            "attempt_receipt": None,
+            "report_sha256": "e" * 64,
+            "retired": True,
+        }
+        receipt["receipt_sha256"] = host.digest(receipt)
+        record["receipt"] = copy.deepcopy(receipt)
+        cursor = {"last_sequence": last, "phase": "idle"}
+        observed = {
+            "schema": "vardr.worker-receipt-observation/3",
+            **{k: binding[k] for k in binding if k != "runner_id"},
+            "cursor": cursor,
+            "active": None,
+            "retirement": receipt,
+            "new_work_disabled": True,
+            "reporting_revoked": False,
+            "availability": {
+                "state": "stopped",
+                "observed_at": None,
+                "fresh_until": None,
+                "cursor": dict(cursor),
+            },
+        }
+        selections = 0 if kind == "empty_unissued" else int(last) + 1
+        audit = {
+            "schema": "vardr.worker-state-audit/1",
+            "status": kind,
+            "reason": None,
+            "complete": True,
+            "binding": binding,
+            "parent": {
+                "state": "idle" if kind == "empty_unissued" else "retired",
+                "last_sequence": last,
+                "head_sequence": None if last == "0" else last,
+                "active_sequence": None,
+            },
+            "counts": {
+                "attempts": int(last),
+                "selections": selections,
+                "associated_runs": selections,
+                "associated_claims": selections,
+            },
+            "global_holds": 0,
+            "retirement_receipt_sha256": None
+            if kind == "empty_unissued"
+            else receipt["receipt_sha256"],
+        }
+        return record, observed, audit
+
+    def join(self, record, observed, audit, *, output=None, returncode=0):
+        return persistent.original_local_audit(
+            record,
+            observed,
+            output=host.canonical(audit) if output is None else output,
+            returncode=returncode,
+        )
+
+    def test_original_audit_joins_retired_positive_history_and_reconciled_parent_zero(
+        self,
+    ):
+        for last in ("2", "0"):
+            with self.subTest(last=last):
+                record, observed, audit = self.fixture(last=last)
+                self.assertEqual(
+                    self.join(record, observed, audit),
+                    {
+                        "kind": "retired",
+                        "last_sequence": last,
+                        "original_local_audit_sha256": host.digest(audit),
+                    },
+                )
+
+    def test_empty_unissued_requires_positive_zero_map_retirement_and_no_local_retirement(
+        self,
+    ):
+        record, observed, audit = self.fixture(last="0", kind="empty_unissued")
+        result = self.join(record, observed, audit)
+        self.assertEqual(
+            result,
+            {
+                "kind": "empty_unissued",
+                "last_sequence": "0",
+                "original_local_audit_sha256": host.digest(audit),
+            },
+        )
+        self.assertIsNone(audit["retirement_receipt_sha256"])
+        self.assertFalse(any(audit["counts"].values()))
+        for row in (
+            dict(audit, retirement_receipt_sha256=record["receipt"]["receipt_sha256"]),
+            dict(audit, status="retired"),
+        ):
+            with self.assertRaises(host.HostRefused):
+                self.join(record, observed, row)
+        other_record, other_observed, _ = self.fixture(last="1")
+        with self.assertRaises(host.HostRefused):
+            self.join(other_record, other_observed, audit)
+
+    def test_missing_original_host_or_map_retirement_does_not_use_local_audit_as_authority(
+        self,
+    ):
+        for change in (
+            "host_unacknowledged",
+            "host_not_observed",
+            "map_missing",
+            "map_disabled_false",
+            "map_not_stopped",
+            "map_changed",
+        ):
+            with self.subTest(change=change):
+                record, observed, audit = self.fixture()
+                if change == "host_unacknowledged":
+                    record["registration_state"] = "unknown"
+                elif change == "host_not_observed":
+                    record["stop_state"] = "prepared"
+                elif change == "map_missing":
+                    observed["retirement"] = None
+                elif change == "map_disabled_false":
+                    observed["new_work_disabled"] = False
+                elif change == "map_not_stopped":
+                    observed["availability"]["state"] = "held"
+                else:
+                    observed["retirement"]["report_sha256"] = "f" * 64
+                    value = {
+                        k: v
+                        for k, v in observed["retirement"].items()
+                        if k != "receipt_sha256"
+                    }
+                    observed["retirement"]["receipt_sha256"] = host.digest(value)
+                with self.assertRaisesRegex(
+                    host.HostRefused, "^worker_predecessor_refused$"
+                ):
+                    self.join(record, observed, audit)
+
+    def test_incomplete_held_or_cross_bound_original_audits_are_refused(self):
+        changes = [
+            dict(status="held"),
+            dict(complete=1),
+            dict(reason="private-canary"),
+            dict(global_holds=1),
+            dict(global_holds=False),
+            dict(schema="vardr.worker-state-audit/2"),
+            dict(unselected="private-canary"),
+            dict(retirement_receipt_sha256="f" * 64),
+            dict(binding={}),
+        ]
+        for change in changes:
+            with self.subTest(fields=sorted(change)):
+                record, observed, audit = self.fixture()
+                with self.assertRaisesRegex(
+                    host.HostRefused, "^worker_predecessor_refused$"
+                ):
+                    self.join(record, observed, {**audit, **change})
+        for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256"):
+            record, observed, audit = self.fixture()
+            audit["binding"][key] = "foreign"
+            with self.assertRaises(host.HostRefused):
+                self.join(record, observed, audit)
+
+    def test_parent_cursor_and_count_types_and_relationships_are_exact(self):
+        changes = (
+            ("parent", "active_sequence", "2"),
+            ("parent", "last_sequence", "02"),
+            ("parent", "head_sequence", "1"),
+            ("counts", "attempts", 1),
+            ("counts", "selections", True),
+            ("counts", "associated_claims", -1),
+            ("counts", "associated_runs", 0),
+            ("counts", "associated_runs", 6),
+            ("counts", "extra", 0),
+        )
+        for container, key, value in changes:
+            with self.subTest(container=container, key=key):
+                record, observed, audit = self.fixture()
+                audit[container][key] = value
+                with self.assertRaises(host.HostRefused):
+                    self.join(record, observed, audit)
+
+    def test_exit_status_and_bounded_strict_original_json_are_required(self):
+        record, observed, audit = self.fixture()
+        for code in (1, False, "0", None):
+            with self.assertRaisesRegex(
+                host.HostRefused, "^worker_predecessor_refused$"
+            ):
+                self.join(record, observed, audit, returncode=code)
+        for raw in (
+            b"",
+            b'{"status":"held","status":"private-canary"}',
+            b'{"counts":NaN}',
+            b"[]",
+            b"x" * 65537,
+            "not bytes",
+        ):
+            with self.assertRaisesRegex(
+                host.HostRefused, "^worker_predecessor_refused$"
+            ):
+                self.join(record, observed, audit, output=raw)
+
 if __name__ == "__main__":
     unittest.main()

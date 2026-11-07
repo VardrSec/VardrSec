@@ -263,6 +263,112 @@ def lookup(record, value):
     return value
 
 
+def original_local_audit(record, map_observation, *, output, returncode):
+    """Join already observed original state; never produce observation or authority.
+
+    The caller still owns direct original Runner inspection, authenticated fresh
+    Map receipt, protected HostRecords read and exact physical exit.
+    """
+    try:
+        host.require(type(returncode) is int and returncode == 0)
+        host.require(type(output) is bytes and 0 < len(output) <= 65536)
+        host.require(
+            type(record) is dict
+            and record["registration_state"] == "acknowledged"
+            and record["stop_state"] == "observed"
+        )
+        original = admission(record, record["admission"])
+        retained = retirement(record, record["receipt"])
+        observed = lookup(record, map_observation)
+        host.require(
+            observed["retirement"] == retained
+            and observed["new_work_disabled"] is True
+            and observed["availability"]["state"] == "stopped"
+        )
+        last = retained["last_sequence"]
+        value = host._json(output)
+        host.require(
+            set(value)
+            == {
+                "schema",
+                "status",
+                "reason",
+                "complete",
+                "binding",
+                "parent",
+                "counts",
+                "global_holds",
+                "retirement_receipt_sha256",
+            }
+        )
+        host.require(
+            value["schema"] == "vardr.worker-state-audit/1"
+            and value["reason"] is None
+            and value["complete"] is True
+            and type(value["global_holds"]) is int
+            and value["global_holds"] == 0
+        )
+        expected_binding = {
+            key: original[key]
+            for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256")
+        }
+        host.require(value["binding"] == expected_binding)
+        counts = value["counts"]
+        host.require(
+            type(counts) is dict
+            and set(counts)
+            == {"attempts", "selections", "associated_runs", "associated_claims"}
+            and all(
+                type(count) is int and 0 <= count <= MAX_SEQUENCE
+                for count in counts.values()
+            )
+        )
+        host.require(
+            counts["attempts"] == decimal(last)
+            and counts["associated_runs"] == counts["associated_claims"]
+            and max(counts["attempts"], counts["selections"])
+            <= counts["associated_runs"]
+            <= counts["attempts"] + counts["selections"]
+        )
+        if value["status"] == "empty_unissued":
+            host.require(
+                last == "0"
+                and retained["runtime_sequence"] is None
+                and value["retirement_receipt_sha256"] is None
+                and not any(counts.values())
+            )
+            state = "idle"
+        else:
+            host.require(
+                value["status"] == "retired"
+                and counts["selections"] > 0
+                and value["retirement_receipt_sha256"] == retained["receipt_sha256"]
+            )
+            state = "retired"
+        host.require(
+            value["parent"]
+            == {
+                "state": state,
+                "last_sequence": last,
+                "head_sequence": None if last == "0" else last,
+                "active_sequence": None,
+            }
+        )
+        return {
+            "kind": value["status"],
+            "last_sequence": last,
+            "original_local_audit_sha256": host.digest(value),
+        }
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        AttributeError,
+        OverflowError,
+        RecursionError,
+    ):
+        raise host.HostRefused("worker_predecessor_refused") from None
+
 def register_runtime(
     client,
     records,

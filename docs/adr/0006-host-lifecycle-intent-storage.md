@@ -317,3 +317,22 @@ visible set or proof of retirement. The future launcher must compare the two
 sets, validate each predecessor and protect the selected state volume against
 unexpected users. An empty local list is not a first-installation proof. This
 reader has no mutation, job or startup authority.
+
+
+## Original local audit and retirement join
+
+For a retained persistent predecessor, join only a successful closed
+`worker-state-audit/1` document to the acknowledged host registration and exact
+retirement receipt, also present in a fresh authenticated Map observation.
+Reuse the existing persistent admission, retirement and lookup validators. The
+local binding, sequence, complete audit and zero global holds must agree. A
+retired local audit must anchor the exact receipt. A truly empty unissued
+parent may be accounted for separately only when Map also retired it at
+sequence zero with no issued attempt. This branch uses no fake local retirement
+or RunRecord. A reconciled preclaim parent at zero remains locally retired.
+
+The join is descriptive and performs no I/O. The caller must independently
+retain original direct `worker-state` output, exact protected record, fresh
+authenticated Map observation and actual exit. A serialized match is no start,
+recovery or execution authority. This is for known predecessors; it does not
+authorize the first worker from an empty inventory.

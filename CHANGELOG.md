@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: join original Runner state to the exact host and Map
+  retirement, keeping zero-issued and locally retired predecessors distinct.
+
 - NM-2 private lifecycle: independently observe the four healthy core services
   and every same-project worker CID, including stopped replicas, without creating
   resources or applying Compose's configuration-hash filter.
