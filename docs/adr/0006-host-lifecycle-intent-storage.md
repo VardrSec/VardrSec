@@ -282,3 +282,20 @@ still requires that exact name and ID before registration. The result is observe
 metadata for the same live controller, not an attestation, permission or a way to
 adopt resources after uncertain effects. Ordinary daemon reads retain their
 request order. No worker is started and no lifecycle acceptance is claimed.
+
+
+## Independent volume metadata before worker creation
+
+The existing managed volume reader can also inspect either existing state or
+readiness metadata, selected by the exact layout and logical role. Reuse its
+default-local source, owner and daemon-root checks without inventing mount
+observations. Compare name, creation timestamp, source and the closed label
+projection twice, with the same daemon, endpoint and root on both sides. The
+new readiness intent label is `io.vardrsec.managed-worker-intent`.
+
+An absent label is distinct from an explicitly empty value. Retained Compose
+volumes may carry the original config hash; a future controller still requires
+an absent config hash and its own intent marker on the fresh readiness volume.
+The reader cannot prove volume content, an actual mount, fresh creation or an
+unsent operation. It never reads volume files or creates resources. Existing
+running and Created mount custody keep the same command projection and order.

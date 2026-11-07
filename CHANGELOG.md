@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: observe exact existing state and readiness volume
+  metadata without creating or mounting them; retain creation and label identity.
+
 - NM-2 private lifecycle: independently observe one existing runner network by
   name and full ID, verifying the exact local daemon and public network metadata.
   This supplies a resource pin without attaching or starting a worker.

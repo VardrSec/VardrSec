@@ -410,6 +410,254 @@ class ManagedVolumeTests(unittest.TestCase):
         self.assertIsNone(observer._deadline)
         self.assertFalse(observer._observation_lock.locked())
 
+    def volume_resource_row(self, logical):
+        ready = logical == "worker-ready"
+        name = self.layout.readiness_volume if ready else self.layout.state_volume
+        return {
+            **self.rows[name],
+            "created_at": "2026-11-06T01:00:00Z",
+            "ready": ["1", None] if ready else [None],
+            "intent_id": ["22222222-2222-4222-8222-222222222222", None]
+            if ready
+            else [None],
+            "config_hash": [None] if ready else ["f" * 64, None],
+        }
+
+    def capture_volume_resource(self, logical, row=None, *, drift=None, raw=None):
+        self.resource_reads = 0
+        self.calls = []
+        observer = self.resource_observer = self.observer()
+        original = self.command
+        row = row if row is not None else self.volume_resource_row(logical)
+
+        def command(argv, **options):
+            args = argv[3:]
+            if args[:2] == ["context", "inspect"]:
+                value = (
+                    "unix:///owned/changed.sock"
+                    if drift == "endpoint" and self.resource_reads == 2
+                    else "npipe:////./pipe/dockerDesktopLinuxEngine"
+                )
+            elif args == ["info", "--format", "{{json .ID}}"]:
+                value = (
+                    "foreign-daemon"
+                    if drift == "daemon" and self.resource_reads == 2
+                    else self.identity.daemon_id
+                )
+            elif args[:4] == [
+                "volume",
+                "inspect",
+                "--format",
+                volumes.VOLUME_RESOURCE_FORMAT,
+            ]:
+                name = (
+                    self.layout.readiness_volume
+                    if logical == "worker-ready"
+                    else self.layout.state_volume
+                )
+                self.assertEqual(args[4:], [name])
+                self.resource_reads += 1
+                value = copy.deepcopy(row)
+                if self.resource_reads == 2:
+                    if drift == "created_at":
+                        value["created_at"] = "2026-11-06T01:00:01Z"
+                    elif drift == "config_hash":
+                        value["config_hash"] = ["b" * 64, None]
+                    elif drift == "layout":
+                        observer.layout = runtime.WorkerLayout(
+                            "/different/trust",
+                            "/owned/admission",
+                            self.layout.state_volume,
+                            self.layout.readiness_volume,
+                        )
+                if raw is not None:
+                    self.calls.append((argv, options))
+                    return subprocess.CompletedProcess(argv, 0, raw, "")
+            elif (
+                args == ["info", "--format", volumes.DAEMON_FORMAT]
+                and drift == "root"
+                and self.resource_reads == 2
+            ):
+                value = {"root": "/different/docker", "os": "linux"}
+            else:
+                return original(argv, **options)
+            self.calls.append((argv, options))
+            return subprocess.CompletedProcess(argv, 0, json.dumps(value), "")
+
+        with patch.object(runtime.subprocess, "run", command):
+            return volumes.capture_volume_resource(
+                observer, self.identity.project, logical
+            )
+
+    def test_volume_resource_binds_exact_selected_role_daemon_root_and_creation_labels(
+        self,
+    ):
+        for logical in ("runner-state", "worker-ready"):
+            with self.subTest(logical=logical):
+                row = self.volume_resource_row(logical)
+                with (
+                    patch("pathlib.Path.resolve") as resolve,
+                    patch("pathlib.Path.stat") as stat,
+                ):
+                    result = self.capture_volume_resource(logical, row)
+                expected = {
+                    key: row[key]
+                    for key in (
+                        "name",
+                        "source",
+                        "driver",
+                        "scope",
+                        "options",
+                        "project",
+                        "created_at",
+                    )
+                }
+                expected.update(
+                    logical=logical,
+                    ready_marker=row["ready"][0],
+                    config_hash=row["config_hash"][0],
+                    intent_id=row["intent_id"][0],
+                )
+                self.assertEqual(
+                    result,
+                    {
+                        "context": "fixture-local",
+                        "local_endpoint": "npipe:////./pipe/dockerDesktopLinuxEngine",
+                        "daemon_id": self.identity.daemon_id,
+                        "daemon_root": self.root,
+                        "volume": expected,
+                    },
+                )
+                resolve.assert_not_called()
+                stat.assert_not_called()
+                self.resource_observer._bound.assert_not_called()
+                self.assertEqual(
+                    [argv[3] for argv, _ in self.calls],
+                    [
+                        "context",
+                        "info",
+                        "info",
+                        "volume",
+                        "volume",
+                        "info",
+                        "context",
+                        "info",
+                    ],
+                )
+                self.assertTrue(
+                    all(0 < opts["timeout"] <= 15 for _, opts in self.calls)
+                )
+                self.assertIsNone(self.resource_observer._deadline)
+                self.assertFalse(self.resource_observer._observation_lock.locked())
+
+    def test_volume_resource_refuses_unknown_role_or_project_and_busy_reader_before_io(
+        self,
+    ):
+        observer = self.observer()
+        with patch.object(runtime.subprocess, "run") as command:
+            for project, logical in (
+                ("fixture", "unselected"),
+                ("Wrong Project", "runner-state"),
+                ("fixture", True),
+                ("a" * 64, "worker-ready"),
+            ):
+                with (
+                    self.subTest(role_type=type(logical).__name__),
+                    self.assertRaises(runtime.RuntimeRefused),
+                ):
+                    volumes.capture_volume_resource(observer, project, logical)
+            observer._observation_lock.acquire()
+            observer._deadline = 17
+            try:
+                with self.assertRaises(runtime.RuntimeRefused):
+                    volumes.capture_volume_resource(observer, "fixture", "runner-state")
+                self.assertEqual(observer._deadline, 17)
+            finally:
+                observer._observation_lock.release()
+            command.assert_not_called()
+
+    def test_volume_resource_distinguishes_absent_labels_from_explicit_empty_and_malformed(
+        self,
+    ):
+        for key, value in (
+            ("ready", ["", None]),
+            ("ready", ["1", None]),
+            ("intent_id", ["", None]),
+            ("intent_id", [True, None]),
+            ("intent_id", []),
+            ("config_hash", ["", None]),
+            ("config_hash", ["f" * 64]),
+            ("config_hash", ["f" * 64, "e" * 64, None]),
+        ):
+            with self.subTest(key=key):
+                row = self.volume_resource_row("runner-state")
+                row[key] = value
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.capture_volume_resource("runner-state", row)
+                self.assertEqual(self.resource_reads, 1)
+        row = self.volume_resource_row("worker-ready")
+        row["ready"] = [None]
+        with self.assertRaises(runtime.RuntimeRefused):
+            self.capture_volume_resource("worker-ready", row)
+
+    def test_volume_resource_rejects_foreign_custom_or_changed_source_and_bad_time(
+        self,
+    ):
+        for key, value in (
+            ("source", "/other/data"),
+            ("name", "foreign"),
+            ("project", "foreign"),
+            ("volume", "worker-ready"),
+            ("scope", "global"),
+            ("options", {"o": "bind"}),
+            ("created_at", "not-a-time"),
+            ("created_at", "2026-13-06T01:00:00Z"),
+            ("unselected", "private-canary"),
+        ):
+            with self.subTest(key=key):
+                row = self.volume_resource_row("runner-state")
+                row[key] = value
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.capture_volume_resource("runner-state", row)
+                self.assertEqual(self.resource_reads, 1)
+
+    def test_volume_resource_refuses_every_drift_without_retry_and_releases_lock(self):
+        for drift in (
+            "created_at",
+            "config_hash",
+            "root",
+            "endpoint",
+            "daemon",
+            "layout",
+        ):
+            with self.subTest(drift=drift):
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.capture_volume_resource("runner-state", drift=drift)
+                self.assertEqual(self.resource_reads, 2)
+                self.assertIsNone(self.resource_observer._deadline)
+                self.assertFalse(self.resource_observer._observation_lock.locked())
+
+    def test_volume_resource_duplicate_or_invalid_metadata_remains_value_free(self):
+        for raw in (
+            '{"name":"one","name":"private-canary"}',
+            '{"created_at":NaN}',
+            "[{}]",
+            "{broken",
+            "x" * 16385,
+        ):
+            with self.subTest(length=len(raw)):
+                with self.assertRaisesRegex(
+                    runtime.RuntimeRefused, "^worker_runtime_refused$"
+                ):
+                    self.capture_volume_resource("runner-state", raw=raw)
+                self.assertEqual(self.resource_reads, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,20 +6,43 @@ Host bind mounts and private custody paths still require their own strict checks
 
 import json
 from pathlib import PurePosixPath
+import re
 import time
 
 import worker_runtime as runtime
 
 
 DAEMON_FORMAT = '{"root":{{json .DockerRootDir}},"os":{{json .OSType}}}'
-VOLUME_FORMAT = (
+_VOLUME_COMMON = (
     '{"name":{{json .Name}},"driver":{{json .Driver}},'
     '"scope":{{json .Scope}},"options":{{json .Options}},'
     '"source":{{json .Mountpoint}},"project":'
     '{{json (index .Labels "com.docker.compose.project")}},'
     '"volume":{{json (index .Labels "com.docker.compose.volume")}},'
-    '"ready":{{json (index .Labels "io.vardrsec.managed-worker-ready")}}}'
 )
+VOLUME_FORMAT = (
+    _VOLUME_COMMON
+    + '"ready":{{json (index .Labels "io.vardrsec.managed-worker-ready")}}}'
+)
+
+# An absent label produces [null]; an explicitly empty one produces ["",null].
+# Only these three literal public labels are projected. Do not copy all Labels.
+VOLUME_RESOURCE_FORMAT = (
+    _VOLUME_COMMON + '"created_at":{{json .CreatedAt}},'
+    '"ready":[{{range $k,$v := .Labels}}{{if eq $k "io.vardrsec.managed-worker-ready"}}{{json $v}},{{end}}{{end}}null],'
+    '"intent_id":[{{range $k,$v := .Labels}}{{if eq $k "io.vardrsec.managed-worker-intent"}}{{json $v}},{{end}}{{end}}null],'
+    '"config_hash":[{{range $k,$v := .Labels}}{{if eq $k "com.docker.compose.config-hash"}}{{json $v}},{{end}}{{end}}null]}'
+)
+_VOLUME_FIELDS = {
+    "name",
+    "driver",
+    "scope",
+    "options",
+    "source",
+    "project",
+    "volume",
+    "ready",
+}
 
 
 def parse_document(raw):
@@ -69,6 +92,22 @@ def daemon_root(raw):
     return value["root"]
 
 
+def _volume_source(volume, root, name, project, logical):
+    runtime.require(
+        type(volume) is dict
+        and set(volume) == _VOLUME_FIELDS
+        and volume["name"] == name
+        and volume["driver"] == volume["scope"] == "local"
+        and volume["options"] in (None, {})
+        and volume["project"] == project
+        and volume["volume"] == logical
+        and (logical != "worker-ready" or volume["ready"] == "1")
+    )
+    source = _path(volume["source"])
+    runtime.require(source == root / "volumes" / name / "_data")
+    return source
+
+
 def validate_sources(layout, project, mounts, docker_root_dir, volume_rows):
     """Validate projected metadata; caller must bind it to its local daemon."""
     runtime.require(isinstance(layout, runtime.WorkerLayout))
@@ -86,39 +125,106 @@ def validate_sources(layout, project, mounts, docker_root_dir, volume_rows):
         attached = [m for m in mounts if m.get("Destination") == destination]
         runtime.require(len(attached) == 1)
         mount, volume = attached[0], volume_rows[name]
+        source = _volume_source(volume, root, name, project, logical)
         runtime.require(
-            type(volume) is dict
-            and set(volume)
-            == {
-                "name",
-                "driver",
-                "scope",
-                "options",
-                "source",
-                "project",
-                "volume",
-                "ready",
-            }
-            and volume["name"] == name
-            and volume["driver"] == "local"
-            and volume["scope"] == "local"
-            and volume["options"] in (None, {})
-            and volume["project"] == project
-            and volume["volume"] == logical
-            and (logical != "worker-ready" or volume["ready"] == "1")
-            and mount.get("Type") == "volume"
+            mount.get("Type") == "volume"
             and mount.get("Name") == name
             and mount.get("RW") is True
+            and _path(mount.get("Source")) == source
         )
-        source = _path(volume["source"])
-        runtime.require(source == root / "volumes" / name / "_data")
-        runtime.require(_path(mount.get("Source")) == source)
         result.append(source)
     names = [m.get("Name") for m in mounts if m.get("Type") == "volume"]
     runtime.require(
         len(names) == 2 and all(type(n) is str and n in volume_rows for n in names)
     )
     return tuple(result)
+
+
+def _optional_label(value):
+    runtime.require(type(value) is list and len(value) in (1, 2) and value[-1] is None)
+    if len(value) == 1:
+        return None
+    runtime.require(type(value[0]) is str)
+    return value[0]
+
+
+def _resource(observer, root, name, project, logical):
+    row = parse_document(
+        observer._command("volume", "inspect", "--format", VOLUME_RESOURCE_FORMAT, name)
+    )
+    runtime.require(
+        set(row) == _VOLUME_FIELDS | {"created_at", "intent_id", "config_hash"}
+    )
+    selected = {key: row[key] for key in _VOLUME_FIELDS}
+    selected["ready"] = _optional_label(selected["ready"])
+    _volume_source(selected, root, name, project, logical)
+    runtime.require(selected["ready"] == ("1" if logical == "worker-ready" else None))
+    intent_id = _optional_label(row["intent_id"])
+    config_hash = _optional_label(row["config_hash"])
+    runtime.require(
+        intent_id is None
+        or re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", intent_id)
+    )
+    runtime.require(config_hash is None or re.fullmatch(r"[0-9a-f]{64}", config_hash))
+    runtime._timestamp(row["created_at"])
+    return {
+        **{
+            key: selected[key]
+            for key in ("name", "source", "driver", "scope", "options", "project")
+        },
+        "logical": logical,
+        "ready_marker": selected["ready"],
+        "created_at": row["created_at"],
+        "intent_id": intent_id,
+        "config_hash": config_hash,
+    }
+
+
+def capture_volume_resource(observer, project, logical):
+    """Read existing resource metadata only; a matching mount remains separate."""
+    runtime.require(isinstance(observer, runtime.LocalDocker))
+    runtime.require(
+        type(project) is str and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project)
+    )
+    runtime.require(
+        type(logical) is str and logical in {"runner-state", "worker-ready"}
+    )
+    runtime.require(observer._observation_lock.acquire(blocking=False))
+    try:
+        observer._deadline = time.monotonic() + 30
+        context, layout = observer.context, observer.layout
+        runtime.require(type(layout) is runtime.WorkerLayout)
+        name = (
+            layout.state_volume
+            if logical == "runner-state"
+            else layout.readiness_volume
+        )
+        endpoint, daemon = observer._daemon_binding()
+        raw_root = daemon_root(observer._command("info", "--format", DAEMON_FORMAT))
+        root = _path(raw_root)
+        volume = _resource(observer, root, name, project, logical)
+        runtime.require(_resource(observer, root, name, project, logical) == volume)
+        runtime.require(
+            daemon_root(observer._command("info", "--format", DAEMON_FORMAT))
+            == raw_root
+        )
+        runtime.require(
+            observer._daemon_binding() == (endpoint, daemon)
+            and observer.context == context
+            and observer.layout == layout
+        )
+        return {
+            "context": context,
+            "local_endpoint": endpoint,
+            "daemon_id": daemon,
+            "daemon_root": raw_root,
+            "volume": volume,
+        }
+    except (KeyError, TypeError, ValueError, AttributeError, OverflowError):
+        raise runtime.RuntimeRefused("worker_runtime_refused") from None
+    finally:
+        observer._deadline = None
+        observer._observation_lock.release()
 
 
 def _observed_profile(observer, identity):
