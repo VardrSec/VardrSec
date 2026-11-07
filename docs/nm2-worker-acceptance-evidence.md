@@ -879,6 +879,29 @@ The distribution's two-job candidate passed 308 unit methods: 290 passed and 18
 explicitly skipped. Its real Map/Runner approval preparation regression passed
 both cases. No test result here establishes physical failure-path acceptance.
 
+## Independent source review for C10, 2026-11-07
+
+A separate reviewer who authored none of the reviewed code inspected Runner
+`5ecc869d80f53ae7fdbca25b971838976a6c41e9` and the Distribution boundary
+sources at `8c9dd9d9c5b863d93236635588879de05b416ca4`. The reviewed product
+boundary files were also unchanged at `377eea6138bcb8b816ceff25175bd590e00634c1`.
+The review found no concrete source defect within ADR 0043's trusted-host,
+immutable-image, closed-lineage and responsive-OS assumptions.
+
+The review covered UID/GID transitions, the five capability sets and NNP,
+kernel sender credentials and inherited descriptors, host STOP custody,
+subreaper drain and refresh-thread quiescence, loss handling and finite
+BOOTTIME deadlines. Runner and tools share UID 10001 and writable state.
+The credential boundary retains that declared shared-principal limitation
+and the owner-approved trusted-host false-exit risk.
+[Native owner](https://github.com/VardrSec/VardrRunner/blob/5ecc869d80f53ae7fdbca25b971838976a6c41e9/container/worker_owner.c),
+[lifecycle adapter](https://github.com/VardrSec/VardrRunner/blob/5ecc869d80f53ae7fdbca25b971838976a6c41e9/vardrrunner/worker_lifecycle.py),
+[approved assumptions](https://github.com/VardrSec/VardrRunner/blob/5ecc869d80f53ae7fdbca25b971838976a6c41e9/docs/adr/0043-proposed-linux-worker-lifecycle-owner.md).
+
+This completes C10's independent source-review portion. C07–C09 still need
+their platform evidence. Artifact/cohort consistency and the final phase
+disposition remain in C10. Previously stopped experiments remain stopped.
+
 ## Open phase gates
 
 The installed evidence above covers first and subsequent startup, selected
