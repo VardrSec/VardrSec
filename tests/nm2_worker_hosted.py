@@ -85,12 +85,17 @@ STRICT_REVIEW_SCENARIO = "strict-review-authority"
 STRICT_REVIEW_SCHEMA = "vardr.nm2-worker-strict-review-acceptance/1"
 STRICT_REVIEW_HOSTED = "vardr.nm2-hosted/13"
 STRICT_REVIEW_MAP = "05dc78cf9a385255de459c8a5b833842d6528a63"
+STALE_CLAIM_SCENARIO = "strict-stale-registered-claim"
+STALE_CLAIM_SCHEMA = "vardr.nm2-worker-strict-stale-claim-acceptance/1"
+STALE_CLAIM_HOSTED = "vardr.nm2-hosted/15"
+STALE_CLAIM_MAP = "ebb1bc8dd6cc0c3215ad468a2dd1c848d812842a"
 COMPOSE_ASSET = "https://github.com/docker/compose/releases/download/v5.6.1/docker-compose-linux-x86_64"
 COMPOSE_SHA256 = "47737f4236e6d3ccea7291995203f8f018058783b4c3a9469119811a0b5db8c0"
 COMPOSE_BYTES = 32676477
 PERSISTENT_SCENARIOS = {
     "persistent-availability", "persistent-count-limit", "persistent-idle-limit",
-    "persistent-empty-stop", STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, *LAUNCH_SCENARIOS,
+    "persistent-empty-stop", STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO,
+    STALE_CLAIM_SCENARIO, *LAUNCH_SCENARIOS,
 }
 REPOSITORIES = {
     name: "VardrSec/" + repo
@@ -659,6 +664,8 @@ def execution_options(env):
         _require_budget_source(LAUNCH_BUDGETS[scenario], env.get("NM2_MAP_SHA"))
     if scenario == STRICT_REVIEW_SCENARIO:
         require(env.get("NM2_MAP_SHA") == STRICT_REVIEW_MAP)
+    if scenario == STALE_CLAIM_SCENARIO:
+        require(STALE_CLAIM_MAP is not None and env.get("NM2_MAP_SHA") == STALE_CLAIM_MAP)
     if scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
         from nm2_worker_launch_acceptance import MAP_DISCONNECT_SOURCES
 
@@ -744,7 +751,7 @@ def failure_projection(raw, selection):
             "vardr.nm2-worker-idle-acceptance/1",
             "vardr.nm2-worker-empty-acceptance/1",
             LAUNCH_SCHEMA,
-            STRICT_DRIFT_SCHEMA, STRICT_REVIEW_SCHEMA,
+            STRICT_DRIFT_SCHEMA, STRICT_REVIEW_SCHEMA, STALE_CLAIM_SCHEMA,
         }
         and raw.get("status") == "held"
         and raw.get("sources") == selection["sources"]
@@ -771,6 +778,9 @@ def failure_projection(raw, selection):
     if raw["schema"] in {STRICT_DRIFT_SCHEMA, STRICT_REVIEW_SCHEMA}:
         scenario = STRICT_DRIFT_SCENARIO if raw["schema"] == STRICT_DRIFT_SCHEMA else STRICT_REVIEW_SCENARIO
         require(raw.get("scenario") == scenario
+                and raw.get("expected_database_revision") == "0041persistentruntime")
+    if raw["schema"] == STALE_CLAIM_SCHEMA:
+        require(raw.get("scenario") == STALE_CLAIM_SCENARIO
                 and raw.get("expected_database_revision") == "0041persistentruntime")
     if raw["schema"] == LAUNCH_SCHEMA:
         require(raw.get("scenario") in LAUNCH_SCENARIOS
@@ -811,6 +821,8 @@ def failure_projection(raw, selection):
         "strict_scope_setup",
         "strict_scope_denial",
         "strict_review_missing", "strict_review_expired", "selected_strict_review_complete",
+        "strict_stale_claim_register", "strict_stale_claim_mutation", "strict_stale_claim_refusal",
+        "selected_strict_stale_claim_complete",
         "strict_authority_drift_setup", "strict_authority_drift_mutation",
         "strict_authority_drift_refusal", "strict_authority_drift_positive_control",
         "selected_strict_drift_complete",
@@ -922,6 +934,11 @@ def failure_projection(raw, selection):
         "strict_review_map_source_required", "strict_review_authority_mode", "strict_review_traffic_changed",
         "strict_review_authority_precondition", "strict_review_refusal_shape",
         "strict_review_window_binding", "strict_review_positive_binding", "strict_review_proof_shape",
+        "strict_stale_claim_map_source_required", "strict_stale_claim_no_worker_required",
+        "strict_stale_claim_api_identity_required", "strict_stale_claim_bearer_required",
+        "strict_stale_claim_original_binding", "strict_stale_claim_retained_approval_required",
+        "strict_stale_claim_mutation_required", "strict_stale_claim_refusal_required",
+        "strict_stale_claim_window_required", "strict_stale_claim_proof_shape",
         "count_baseline_not_empty",
         "count_complete_traffic_changed",
         "count_enrollment_changed",
@@ -1644,6 +1661,13 @@ def stopped_predecessor_desktop_projection(raw, selection, *, inventories):
 
 def public_projection(raw, selection, *, inventories=()):
     """Project only fixed statuses and measured hashes, never raw nested data."""
+    if type(raw) is dict and raw.get("schema") == STALE_CLAIM_SCHEMA:
+        from nm2_worker_strict_projection import project
+
+        try:
+            return project(raw, selection, *inventories)
+        except (ValueError, TypeError, KeyError, IndexError):
+            raise HostedRefused("nm2_hosted_strict_stale_claim_receipt_refused") from None
     if type(raw) is dict and raw.get("schema") in (STRICT_DRIFT_SCHEMA, STRICT_REVIEW_SCHEMA):
         from nm2_worker_strict_projection import project
 
@@ -1877,6 +1901,10 @@ class Hosted:
             self.receipt.update(schema="vardr.nm2-hosted/6", scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope="Explicit zero-issued-job stop with offline empty audit; NM2 remains incomplete")
+        elif self.scenario == STALE_CLAIM_SCENARIO:
+            self.receipt.update(schema=STALE_CLAIM_HOSTED, scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope="Stale registered Strict approval refused by installed Map claim; NM2 remains incomplete")
         elif self.scenario == STRICT_REVIEW_SCENARIO:
             self.receipt.update(schema=STRICT_REVIEW_HOSTED, scenario=self.scenario,
                 expected_database_revision=self.database_revision,
@@ -2264,10 +2292,11 @@ class Hosted:
                     LAUNCH_CONCURRENCY_SCENARIO: LAUNCH_SCHEMA,
                     STRICT_DRIFT_SCENARIO: STRICT_DRIFT_SCHEMA,
                     STRICT_REVIEW_SCENARIO: STRICT_REVIEW_SCHEMA,
+                    STALE_CLAIM_SCENARIO: STALE_CLAIM_SCHEMA,
                 }[self.scenario]
             )
             if self.scenario in {
-                STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO,
+                STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO,
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO,
                 LAUNCH_MAP_DISCONNECT_SCENARIO,
             }:
@@ -2283,6 +2312,10 @@ class Hosted:
                 elif self.scenario == STRICT_REVIEW_SCENARIO:
                     self.receipt["remaining_required_cases"]["strict_other_denials"] = (
                         "missing_and_expired_reviews_verified_stale_registered_claim_open"
+                    )
+                elif self.scenario == STALE_CLAIM_SCENARIO:
+                    self.receipt["remaining_required_cases"]["strict_other_denials"] = (
+                        "stale_registered_claim_refusal_verified_selected_cohort"
                     )
                 elif self.scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
                     self.receipt["remaining_required_cases"]["map_disconnect"] = (
@@ -2349,6 +2382,7 @@ class Hosted:
                     **LAUNCH_BUDGET_SCHEMAS,
                     STRICT_DRIFT_SCENARIO: STRICT_DRIFT_HOSTED,
                     STRICT_REVIEW_SCENARIO: STRICT_REVIEW_HOSTED,
+                    STALE_CLAIM_SCENARIO: STALE_CLAIM_HOSTED,
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],

@@ -59,12 +59,24 @@ STRICT_REVIEW_SCOPE = "strict_review_denials_only"
 STRICT_REVIEW_PASS = "selected_strict_review_slice_passed"
 STRICT_REVIEW_COMPLETE = "selected_strict_review_complete"
 STRICT_REVIEW_MAP = "05dc78cf9a385255de459c8a5b833842d6528a63"
+STALE_CLAIM_SCENARIO = "strict-stale-registered-claim"
+STALE_CLAIM_CASE = "strict_stale_registered_claim"
+STALE_CLAIM_SCHEMA = "vardr.nm2-worker-strict-stale-claim-acceptance/1"
+STALE_CLAIM_SCOPE = "strict_stale_registered_claim_only"
+STALE_CLAIM_PASS = "selected_strict_stale_claim_slice_passed"
+STALE_CLAIM_COMPLETE = "selected_strict_stale_claim_complete"
+STALE_CLAIM_MAP = "ebb1bc8dd6cc0c3215ad468a2dd1c848d812842a"
+STALE_CLAIM_MARKER = re.compile(
+    rb"[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]{3}"
+    rb" WARNING managed_http managed_claim_authority_revision_changed"
+)
 CLOSED_WINDOW_WARNING = {
     "reason": "outside_testing_window", "message": "The testing window has closed.",
 }
 SCENARIOS = (
     STRICT_DRIFT_SCENARIO,
     STRICT_REVIEW_SCENARIO,
+    STALE_CLAIM_SCENARIO,
     "healthy",
     "persistent-availability",
     "persistent-count-limit",
@@ -80,7 +92,7 @@ IDLE_SCENARIO = "persistent-idle-limit"
 EMPTY_SCENARIO = "persistent-empty-stop"
 PERSISTENT_SCENARIOS = {
     "persistent-availability", COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO,
-    STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO,
+    STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO,
 }
 
 
@@ -428,11 +440,107 @@ def strict_review_measurements(proof):
             "duration_allocated": 0, "capacity_reserved_count": 0}
 
 
+def stale_claim_measurements(proof):
+    require(type(proof) is dict and set(proof) == {
+        "original", "fresh", "plan", "request", "mutation", "refusal", "observed_at",
+        "marker_counts", "api_container_id", "before", "after", "traffic_before", "traffic_after",
+        "services",
+    }, "strict_stale_claim_proof_shape")
+    old, fresh = proof["original"], proof["fresh"]
+    require(all(type(row) is dict and set(row) == {"context", "authority_snapshot"}
+                for row in (old, fresh)), "strict_stale_claim_proof_shape")
+    context, authority = old["context"], old["authority_snapshot"]
+    revision = context["authority_revision"]
+    engagement, job = context["engagement_id"], context["job_id"]
+    plan = proof["plan"]
+    require(
+        type(revision) is int and revision >= 0
+        and authority["schema"] == "vardr.map-managed-authority/1"
+        and authority["authority"]["engagement_id"] == engagement
+        and authority["authority"]["authorization"]["status"] == "active"
+        and canonical(authority["authority_revision"]) == canonical(revision)
+        and canonical(authority["limits"]) == b'{"concurrency":1,"duration":120,"targets":5}'
+        and context["mode"] == "strict" and context["control"] == "managed_online"
+        and context["authority_sha256"] == digest(canonical(authority))
+        and context["runner_id"] == authority["enrollment"]["runner_id"]
+        and context["plan_sha256"] == digest(canonical(plan))
+        and plan["profile"] == "gate-fixed-http/1"
+        and re.fullmatch(r"[a-f0-9]{64}", plan["case_hash"]) is not None,
+        "strict_stale_claim_original_binding",
+    )
+    expected_authority = {
+        **authority, "authority_revision": revision + 1,
+        "limits": {**authority["limits"], "targets": 4},
+    }
+    expected_context = {
+        **context, "not_before": fresh["context"]["not_before"],
+        "authority_revision": revision + 1,
+        "authority_sha256": digest(canonical(expected_authority)),
+    }
+    require(
+        canonical(fresh["authority_snapshot"]) == canonical(expected_authority)
+        and canonical(fresh["context"]) == canonical(expected_context)
+        and canonical(proof["mutation"]) == canonical({
+            "limit": 4, "spent": 0, "unit": "represented_origin_attempts/1",
+        }),
+        "strict_stale_claim_mutation_required",
+    )
+    before, after = proof["before"], proof["after"]
+    count_approval_context(before, context)
+    strict_drift_empty({**before, "approvals": [], "approval_context_sha256": {}}, engagement, job)
+    approval = before["approvals"][0]
+    require(
+        canonical(after) == canonical(before)
+        and approval["id"].endswith(":fixture-" + STALE_CLAIM_SCENARIO)
+        and canonical([approval["issued"], approval["revoked"]]) == b"[0,false]"
+        and all(canonical(approval[key]) == canonical(context[key]) for key in (
+            "expires_at", "max_executions", "max_duration_seconds", "credential_grants",
+        )),
+        "strict_stale_claim_retained_approval_required",
+    )
+    earlier, signed, refreshed, observed, expiry = (
+        datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+        for value in (
+            context["not_before"], approval["approved_at"], fresh["context"]["not_before"],
+            proof["observed_at"], context["expires_at"],
+        )
+    )
+    require(earlier <= signed <= refreshed <= observed < expiry, "strict_stale_claim_window_required")
+    expected_request = {
+        "origin": authority["origin"], "runner_id": context["runner_id"],
+        "concurrency_budget": True, "duration_seconds": 30,
+        "target_binding": {
+            "profile": "gate-fixed-http/1", "case_sha256": plan["case_hash"], "origins": [ORIGIN],
+        },
+    }
+    require(
+        canonical(proof["request"]) == canonical(expected_request)
+        and canonical(proof["refusal"]) == canonical({
+            "status": 409, "cache_control": "no-store", "body": {"detail": "managed_request_refused"},
+        })
+        and canonical(proof["marker_counts"]) == b"[0,1]"
+        and re.fullmatch(r"[a-f0-9]{64}", proof["api_container_id"]) is not None
+        and proof["services"] == STRICT_DRIFT_SERVICES
+        and proof["traffic_before"] == proof["traffic_after"] == [],
+        "strict_stale_claim_refusal_required",
+    )
+    return {
+        "stored_authority_revision": revision, "current_authority_revision": revision + 1,
+        "refusal_status": 409, "cache_control": "no-store", "marker_count": 1,
+        "registered_context_sha256": digest(canonical(context)), "approval_issued": 0,
+        "targets_spent": 0, "duration_allocated": 0, "capacity_reserved_count": 0,
+        "target_requests": 0, "worker_containers": 0,
+    }
+
+
 def target_environment(scenario):
     require(scenario in SCENARIOS, "fixture_scenario_refused")
     if scenario == "persistent-availability":
         return {"NM2_FIXTURE_REQUEST_CEILING": "175"}
-    if scenario in {COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO, STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO}:
+    if scenario in {
+        COUNT_SCENARIO, IDLE_SCENARIO, EMPTY_SCENARIO,
+        STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO,
+    }:
         return {}
     if scenario != "healthy":
         return {"NM2_FIXTURE_DELAY_SECONDS": "15"}
@@ -1085,9 +1193,18 @@ class OwnerAPI:
         )
         self.csrf = None
 
-    def request(self, path, body=None, *, method=None, csrf=True, expected=200):
+    def request(self, path, body=None, *, method=None, csrf=True, expected=200, bearer=None):
         require(digest(self.ca.read_bytes()) == self.ca_sha256, "fixture_ca_changed")
         headers = {"Origin": self.url}
+        if bearer is not None:
+            require(
+                type(bearer) is str and re.fullmatch(r"vmap_[A-Za-z0-9_-]{1,128}", bearer) is not None
+                and self.csrf is None and len(self.jar) == 0 and csrf is False
+                and method == "POST" and expected == 409
+                and re.fullmatch(r"/jobs/[A-Za-z0-9_-]{1,128}/managed/claim", path) is not None,
+                "strict_stale_claim_bearer_required",
+            )
+            headers["Authorization"] = "Bearer " + bearer
         if body is not None:
             headers["Content-Type"] = "application/json"
         if csrf and self.csrf:
@@ -1107,6 +1224,9 @@ class OwnerAPI:
                 raise HTTPStatusRefused(
                     request.get_method(), path, expected, response.status
                 )
+            if bearer is not None:
+                require(response.headers.get("Cache-Control") == "no-store",
+                        "strict_stale_claim_refusal_required")
             raw = response.read(1024 * 1024 + 1)
             require(len(raw) <= 1024 * 1024, "fixture_http_bound")
             return json.loads(raw) if raw else None
@@ -1183,6 +1303,9 @@ class Fixture:
         require(scenario != STRICT_REVIEW_SCENARIO
                 or selection["sources"]["map"]["commit"] == STRICT_REVIEW_MAP,
                 "strict_review_map_source_required")
+        require(scenario != STALE_CLAIM_SCENARIO
+                or (STALE_CLAIM_MAP is not None and selection["sources"]["map"]["commit"] == STALE_CLAIM_MAP),
+                "strict_stale_claim_map_source_required")
         self.scenario = scenario
         self.protocol = (
             "persistent-v3" if scenario in PERSISTENT_SCENARIOS else "finite-v2"
@@ -1271,6 +1394,12 @@ class Fixture:
                 acceptance_scope=STRICT_REVIEW_SCOPE, nm2_exit_status="incomplete",
             )
             self.receipt["cases"][STRICT_REVIEW_CASE] = {"status": "not_run"}
+        elif scenario == STALE_CLAIM_SCENARIO:
+            self.receipt.update(
+                schema=STALE_CLAIM_SCHEMA, scenario=scenario,
+                acceptance_scope=STALE_CLAIM_SCOPE, nm2_exit_status="incomplete",
+            )
+            self.receipt["cases"][STALE_CLAIM_CASE] = {"status": "not_run"}
         elif scenario != "healthy":
             self.receipt.update(
                 schema="vardr.nm2-worker-failure-acceptance/1",
@@ -1683,7 +1812,8 @@ print(json.dumps({'files':hashes,'executables':executables}))
                     | (
                         {"count_approval_contexts": True}
                         if getattr(self, "scenario", None)
-                        in {COUNT_SCENARIO, IDLE_SCENARIO, STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO}
+                        in {COUNT_SCENARIO, IDLE_SCENARIO, STRICT_DRIFT_SCENARIO,
+                            STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO}
                         else {}
                     )
                     | ({"include_capacity": True} if include_capacity else {})
@@ -2174,6 +2304,101 @@ print(json.dumps({'files':hashes,'executables':executables}))
         strict_drift_measurements(proof)
         self.receipt["cases"][STRICT_DRIFT_CASE] = {"status": "passed", "proof": proof}
         self.receipt["status"], self.receipt["stage"] = STRICT_DRIFT_PASS, STRICT_DRIFT_COMPLETE
+
+    def stale_claim_marker(self):
+        selected = self.compose("ps", "--quiet", "api").decode().split()
+        require(len(selected) == 1 and re.fullmatch(r"[a-f0-9]{64}", selected[0]) is not None,
+                "strict_stale_claim_api_identity_required")
+        cid = selected[0]
+        template = (
+            '{"id":{{json .Id}},"image":{{json .Image}},'
+            '"project":{{json (index .Config.Labels "com.docker.compose.project")}},'
+            '"service":{{json (index .Config.Labels "com.docker.compose.service")}},'
+            '"started_at":{{json .State.StartedAt}},"running":{{json .State.Running}},'
+            '"restarts":{{json .RestartCount}}}'
+        )
+        api = json.loads(self.docker("container", "inspect", "--format", template, cid))
+        require(
+            api["id"] == cid and api["project"] == self.project and api["service"] == "api"
+            and api["image"] == self.images["api"] and api["running"] is True
+            and type(api["restarts"]) is int and api["restarts"] == 0,
+            "strict_stale_claim_api_identity_required",
+        )
+        raw = self.docker("container", "logs", "--tail", "100", cid, timeout=8)
+        return api, sum(STALE_CLAIM_MARKER.fullmatch(line) is not None for line in raw.splitlines())
+
+    def strict_stale_registered_claim(self):
+        self.receipt["stage"] = "strict_stale_claim_register"
+        traffic_before = self.traffic()
+        services = sorted(self.compose("ps", "--all", "--services").decode().split())
+        require(traffic_before == [] and services == STRICT_DRIFT_SERVICES,
+                "strict_stale_claim_no_worker_required")
+        name = STALE_CLAIM_SCENARIO
+        engagement, authorization, job, case = self.new_job(name)
+        review_input, context, authority = {}, {}, {}
+        runner, enrollment = self.approve(
+            name, engagement, authorization, job, case, local_grants=False,
+            review_snapshot=review_input, review_context=context, review_authority=authority,
+        )
+        plan = review_input["plan"]
+        require(
+            authority["enrollment"]["id"] == enrollment and authority["enrollment"]["runner_id"] == runner
+            and authority["origin"] == self.issuer_origin
+            and plan["case_hash"] == digest(canonical(case["spec"])),
+            "strict_stale_claim_original_binding",
+        )
+        before = self.inventory(engagement, job, include_capacity=True)
+        count_approval_context(before, context)
+        strict_drift_empty({**before, "approvals": [], "approval_context_sha256": {}}, engagement, job)
+        require(
+            before["approvals"][0]["id"] == self.issuer_id + ":fixture-" + name
+            and canonical([before["approvals"][0]["issued"], before["approvals"][0]["revoked"]])
+            == b"[0,false]",
+            "strict_stale_claim_retained_approval_required",
+        )
+
+        self.receipt["stage"] = "strict_stale_claim_mutation"
+        mutation = self.api.request(f"/engagements/{engagement}/target-policy", {"limit": 4}, method="PUT")
+        require(canonical(mutation) == canonical({
+            "limit": 4, "spent": 0, "unit": "represented_origin_attempts/1",
+        }), "strict_stale_claim_mutation_required")
+        reviewed = self.api.request(f"/jobs/{job}/managed/approval/review", review_input)
+        fresh = {key: reviewed[key] for key in ("context", "authority_snapshot")}
+        api, prior = self.stale_claim_marker()
+        require(prior == 0, "strict_stale_claim_refusal_required")
+
+        self.receipt["stage"] = "strict_stale_claim_refusal"
+        body = {
+            "origin": self.issuer_origin, "runner_id": runner, "concurrency_budget": True,
+            "duration_seconds": 30, "target_binding": {
+                "profile": "gate-fixed-http/1", "case_sha256": plan["case_hash"], "origins": [ORIGIN],
+            },
+        }
+        transport = OwnerAPI(self.url, self.api.ca)
+        require(transport.ca_sha256 == self.api.ca_sha256, "fixture_ca_changed")
+        refusal = transport.request(
+            f"/jobs/{job}/managed/claim", body, method="POST", csrf=False,
+            expected=409, bearer=self.key["token"],
+        )
+        observed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        same_api, count = self.stale_claim_marker()
+        require(canonical(same_api) == canonical(api), "strict_stale_claim_api_identity_required")
+        require(
+            self.api.request(f"/engagements/{engagement}/evidence?job_id={job}")["evidence"] == []
+            and sorted(self.compose("ps", "--all", "--services").decode().split()) == services,
+            "strict_stale_claim_no_worker_required",
+        )
+        proof = {
+            "original": {"context": context, "authority_snapshot": authority}, "fresh": fresh,
+            "plan": plan, "request": body, "mutation": mutation, "observed_at": observed_at,
+            "refusal": {"status": 409, "cache_control": "no-store", "body": refusal},
+            "marker_counts": [prior, count], "api_container_id": api["id"],
+            "before": before, "after": self.inventory(engagement, job, include_capacity=True),
+            "traffic_before": traffic_before, "traffic_after": self.traffic(), "services": services,
+        }
+        stale_claim_measurements(proof)
+        self.receipt["cases"][STALE_CLAIM_CASE] = {"status": "passed", "proof": proof}
+        self.receipt["status"], self.receipt["stage"] = STALE_CLAIM_PASS, STALE_CLAIM_COMPLETE
 
     def strict_review_authority(self):
         traffic_before = self.traffic()
@@ -5164,6 +5389,9 @@ print(json.dumps(result))
             if self.scenario == STRICT_REVIEW_SCENARIO:
                 self.strict_review_authority()
                 return
+            if self.scenario == STALE_CLAIM_SCENARIO:
+                self.strict_stale_registered_claim()
+                return
             self.receipt["stage"] = "strict_scope_setup"
             engagement, authorization, job, case = self.new_job(
                 "strict-denial", in_scope=False
@@ -5358,6 +5586,9 @@ def main(argv=None):
     require(args.scenario != STRICT_REVIEW_SCENARIO
             or selection["sources"]["map"]["commit"] == STRICT_REVIEW_MAP,
             "strict_review_map_source_required")
+    require(args.scenario != STALE_CLAIM_SCENARIO
+            or (STALE_CLAIM_MAP is not None and selection["sources"]["map"]["commit"] == STALE_CLAIM_MAP),
+            "strict_stale_claim_map_source_required")
     if not args.execute:
         receipt = {
             "schema": "vardr.nm2-worker-source-validation/1",
@@ -5389,6 +5620,11 @@ def main(argv=None):
             receipt.update(
                 initial_cases=("default_disabled", STRICT_REVIEW_CASE),
                 acceptance_scope=STRICT_REVIEW_SCOPE,
+            )
+        if args.scenario == STALE_CLAIM_SCENARIO:
+            receipt.update(
+                initial_cases=("default_disabled", STALE_CLAIM_CASE),
+                acceptance_scope=STALE_CLAIM_SCOPE,
             )
         if args.scenario == STRICT_DRIFT_SCENARIO:
             receipt.update(
@@ -5430,7 +5666,7 @@ def main(argv=None):
             "selected_count_control_slice_passed",
             "selected_idle_control_slice_passed",
             "selected_empty_stop_slice_passed",
-            STRICT_DRIFT_PASS, STRICT_REVIEW_PASS,
+            STRICT_DRIFT_PASS, STRICT_REVIEW_PASS, STALE_CLAIM_PASS,
         }
         else 1
     )

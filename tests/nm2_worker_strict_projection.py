@@ -21,6 +21,14 @@ def _project(raw, selection, before, after, *, desktop):
             "vardr.nm2-strict-review-public/1",
         )
         require(selection["sources"]["map"]["commit"] == fixture.STRICT_REVIEW_MAP)
+    elif raw["schema"] == fixture.STALE_CLAIM_SCHEMA:
+        scenario, scope, status, stage, case, verify, projected_schema = (
+            fixture.STALE_CLAIM_SCENARIO, fixture.STALE_CLAIM_SCOPE, fixture.STALE_CLAIM_PASS,
+            fixture.STALE_CLAIM_COMPLETE, fixture.STALE_CLAIM_CASE, fixture.stale_claim_measurements,
+            "vardr.nm2-strict-stale-claim-public/1",
+        )
+        require(fixture.STALE_CLAIM_MAP is not None
+                and selection["sources"]["map"]["commit"] == fixture.STALE_CLAIM_MAP)
     else:
         require(raw["schema"] == fixture.STRICT_DRIFT_SCHEMA)
         scenario, scope, status, stage, case, verify, projected_schema = (
@@ -99,6 +107,8 @@ def _project(raw, selection, before, after, *, desktop):
         row = after["containers"][cid]
         labels = row["labels"]
         service = labels["com.docker.compose.service"]
+        if case == fixture.STALE_CLAIM_CASE and service == "api":
+            require(cid == selected["proof"]["api_container_id"])
         require(re.fullmatch(r"[a-f0-9]{64}", cid) and row["id"] == cid
                 and labels["com.docker.compose.project"] == project
                 and service in expected and row["image"] == expected.pop(service)

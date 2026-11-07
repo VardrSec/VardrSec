@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an opt-in installed Map claim witness for a registered Strict approval
+  whose authority revision became stale. Verify the unchanged approval and zero
+  charges, attempts, and target requests without launching a worker.
+
 - Add an opt-in installed check for ordinary Map API outage during approved
   work. Measure the configured worker exit bound, then verify that API recovery
   leaves the old reservation held until authenticated reconciliation.
