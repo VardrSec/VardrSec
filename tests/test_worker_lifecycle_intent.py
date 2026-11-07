@@ -20,6 +20,13 @@ import worker_lifecycle_intent as intent
 import worker_secrets as custody
 
 
+SIGNING_TRUST = host.canonical([{
+    "issuer_id": "synthetic-issuer", "key_id": "synthetic-public-key",
+    "public_key": "A" * 43, "purposes": ["approval", "contract"],
+    "origins": ["map"], "revoked": False,
+}])
+
+
 OPERATION = "11111111-1111-4111-8111-111111111111"
 FUTURE = "22222222-2222-4222-8222-222222222222"
 PREVIOUS = "33333333-3333-4333-8333-333333333333"
@@ -149,6 +156,7 @@ def payload(records):
             },
             "trust_source": "synthetic-trust",
             "trust_sha256": "e" * 64,
+            "signing_trust_sha256": hashlib.sha256(SIGNING_TRUST).hexdigest(),
             "public_directory": "synthetic-new-public",
             "readiness_volume": "synthetic-new-ready",
             "readiness_marker": "synthetic-marker",
@@ -531,12 +539,13 @@ class LifecycleIntentTests(unittest.TestCase):
                 original.replace(b'"schema":', b'"schema":"duplicate","schema":', 1),
                 original.replace(b'"revision":1', b'"revision":NaN'),
                 original.replace(
-                    b'"vardr.worker-lifecycle-intent/2"',
+                    ('"' + intent.SCHEMA + '"').encode(),
                     b'"vardr.worker-host-record/3"',
                 ),
                 original.replace(b'"mac":"', b'"mac":"0', 1),
             ]
             for raw in variants:
+                self.assertNotEqual(raw, original)
                 self.path.write_bytes(raw)
                 with self.assertRaises(intent.IntentRefused):
                     self.store.read(OPERATION, operation=operation)

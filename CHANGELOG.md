@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- NM-2 private lifecycle: bind canonical public signing trust separately from TLS
+  CA trust, fence the existing public writer with original-call ACK custody and
+  durable publication uncertainty, refuse partial writes and retain unknown states.
+  Old private intent schemas stay held; no create/start launcher is enabled.
+
 - NM-2 private lifecycle: bind original registration ACK success to its live send/validation/save scope; interrupted or retained ACKs grant no publication marker. No launcher or publication path is enabled.
 
 - Add a private single-use registration-send capability bound to one live host
@@ -285,7 +290,7 @@
 
 - Include the existing database-role helper in version 4 recovery snapshots so
   generated bundles can restore without the original checkout. Continue accepting
-  snapshot versions 1–3; older bundles are not retroactively made portable.
+  snapshot versions 1â€“3; older bundles are not retroactively made portable.
 
 - Support standard-layout Full fresh-install preflight with once-generated prospective
   configuration, normal Compose/process precedence and exclusive publication of the
@@ -494,7 +499,7 @@
   pin receives fresh installed/image checks.
 
 - Integrate Map #127 (coverage, evidence-backed candidates, boundary hypotheses and
-  corrected tenant-boundary drafts through #120–#127) with Runner #96's Nuclei go-jose
+  corrected tenant-boundary drafts through #120â€“#127) with Runner #96's Nuclei go-jose
   fix. Rebuild Caddy 2.11.7 with go-jose 4.1.6 for CVE-2026-116587. Installed acceptance
   now verifies coverage and boundary drafting through the real browser without saving
   cases, queueing jobs or contacting a target. Both component PRs are merged and their exact

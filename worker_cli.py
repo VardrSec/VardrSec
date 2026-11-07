@@ -301,10 +301,14 @@ def public_trust(path):
     return host.canonical(anchors)
 
 
-def publish_public(path, data):
+def publish_public(path, data, *, publication_step=None):
     """Atomic exclusive public publication; no overwrite or implicit replay."""
     require(path.parent.is_dir() and not path.exists() and not path.is_symlink())
     temporary = path.with_name("." + path.name + "." + uuid.uuid4().hex + ".prepared")
+    if publication_step is not None:
+        import worker_lifecycle_intent
+
+        worker_lifecycle_intent.before_public_open(publication_step, path=path, data=data)
     descriptor = os.open(
         temporary,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
@@ -312,7 +316,7 @@ def publish_public(path, data):
     )
     try:
         with os.fdopen(descriptor, "wb") as output:
-            output.write(data)
+            require(output.write(data) == len(data))
             output.flush()
             os.fsync(output.fileno())
         if os.name == "nt":
@@ -330,6 +334,8 @@ def publish_public(path, data):
             os.fsync(directory)
         finally:
             os.close(directory)
+    if publication_step is not None:
+        worker_lifecycle_intent.complete_publication_step(publication_step)
 
 
 def records_for(installation, private_root, *, existing=False):
@@ -489,13 +495,40 @@ def _enable_owned(args, records, operation, setup, *, registration_capability=No
         )
         args._failure_phase = "enable_mount_custody"
         records.outside_mounts(observer, identity)
-        args._failure_phase = "enable_publish_trust"
-        if not (public / "trust.json").exists():
-            publish_public(public / "trust.json", trust)
-        else:
-            require(public_trust(public / "trust.json") == trust)
-        args._failure_phase = "enable_publish_admission"
-        publish_public(public / "admission.json", host.canonical(admission))
+        with host.ExitStack() as publications:
+            sequence = None
+            if registration_capability is not None:
+                import worker_lifecycle_intent
+
+                args._failure_phase = "enable_publication_checks"
+                sequence = publications.enter_context(
+                    worker_lifecycle_intent.publication_sequence(
+                        registration_capability, public=public, trust=trust, admission=admission
+                    )
+                )
+            args._failure_phase = "enable_publish_trust"
+            if not (public / "trust.json").exists():
+                publish_public(public / "trust.json", trust, **({} if sequence is None else {
+                    "publication_step": worker_lifecycle_intent.publication_step(
+                        sequence, kind="trust", path=public / "trust.json", data=trust
+                    )
+                }))
+            else:
+                validated = public_trust(public / "trust.json")
+                require(validated == trust)
+                if sequence is not None:
+                    worker_lifecycle_intent.skip_existing_trust(
+                        sequence, path=public / "trust.json", validated_trust=validated
+                    )
+            args._failure_phase = "enable_publish_admission"
+            raw_admission = host.canonical(admission)
+            publish_public(public / "admission.json", raw_admission, **({} if sequence is None else {
+                "publication_step": worker_lifecycle_intent.publication_step(
+                    sequence, kind="admission", path=public / "admission.json", data=raw_admission
+                )
+            }))
+            if sequence is not None:
+                worker_lifecycle_intent.finish_publication(sequence)
     return admission, identity
 
 

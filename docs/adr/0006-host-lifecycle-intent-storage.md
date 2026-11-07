@@ -1,7 +1,8 @@
 # ADR 0006: Store lifecycle uncertainty before effects
 
-Status: Private storage candidate. No launcher, activation, registration fence,
-publication fence, recovery action or platform acceptance is implemented here.
+Status: Private lifecycle candidate. The sections below record incremental storage,
+original registration and publication boundaries. No supported create/start launcher,
+recovery action or platform acceptance is provided.
 
 Existing HostRecords require real registration and a runtime STOP secret. A
 pre-start preparation cannot use that schema or reserve the future runtime's
@@ -52,7 +53,7 @@ acceptance remain required. NM-2 and release gates remain open.
 
 ## Schema/2: bind reviewed public registration policy
 
-The current format is `vardr.worker-lifecycle-intent/2` with a separate `/2` MAC
+The Schema/2 increment uses `vardr.worker-lifecycle-intent/2` with a separate `/2` MAC
 domain. An immutable `registration_policy` has exactly seven mandatory fields:
 `origin`, `enrollment_id`, `runner_id`, `protocol`, `expires_in_seconds`, `limits`
 and `reporting_authority`. Limits always has exactly `max_attempts` and
@@ -147,3 +148,50 @@ TLS CA pins (HostClient.ca_sha256) and signing-anchor bytes (public_trust) are
 distinct. Future publication must bind the reviewed canonical signing anchors and
 literal destination; it must not substitute the CA hash. No field is reinterpreted
 or schema migrated in this ACK-only increment.
+
+
+## Schema/3 and original publication sequence
+
+The current `vardr.worker-lifecycle-intent/3` uses a distinct `/3` MAC domain and
+requires immutable `resources.signing_trust_sha256`: SHA-256 of the reviewed
+canonical signing-anchor bytes returned by the existing `public_trust` validator.
+The mounted-trust metadata and HostClient's TLS CA pin remain separate; neither
+can substitute for these signing bytes. This field closes a demonstrated binding
+gap before a future wrapper publishes permission. Old intent/1 and intent/2 files
+are held before custody-key access, never migrated, overwritten or adopted.
+
+One noncopyable live sequence can be claimed from the original registration
+capability only after its original ACK/save scope completed. Claiming burns that
+choice before validation or I/O. Exact original ACK hashes, intent digest, records,
+operation/thread and client/observer pins are rechecked. Literal destination paths
+and immutable trust/admission bytes are bound; retained ACK files and persisted
+flags cannot reconstruct this authority.
+
+The already-owned enable path preserves its fresh capture and mount-custody
+checks and uses the existing atomic public writer. Its fixed optional sealed-type
+hook runs immediately before that writer's first temporary-file open. Before the
+first public effect it CAS-publishes and authenticates readback of the original
+ACK hashes and sticky publication-may-have-happened flag. Trust must finish its
+existing write/publication/sync path before admission can be attempted. An existing
+trust file may instead pass the existing validator with identical canonical bytes;
+it is never overwritten. Admission then requires that same live successful
+sequence and exact post-fence intent. No callback or second writer is introduced.
+
+A malformed reserved step, failed CAS/readback, partial write, failed publication,
+sync/cleanup failure or interruption cannot mint a replacement or retry. The
+writer now checks its write count before publishing, including ordinary calls.
+Already visible files and uncertain flags stay held. Only successful completion
+of both existing publication paths permits the final enabled-disposition CAS.
+An unknown final save remains a held operation even if permission is visible.
+Scope exit performs no I/O and does not mask the original exception.
+
+None defaults omit all new lifecycle imports/keywords/hooks. Ordinary CLI behavior,
+registration engines, diagnostic order and startup remain unchanged. These are
+trusted-host sequencing controls, not anti-rollback storage, remote attestation,
+protection from a concurrent privileged filesystem writer, or a power-loss
+durability guarantee. Model receipts are not platform containment evidence.
+
+Owner authentication before startup, actual create/start orchestration and source/
+resource inventories, abandoned preparation and ambiguous recovery, a matched
+immutable image and fresh same-installation Linux/Desktop acceptance remain open.
+No requirement is moved to NM-3, and no release or deployment is authorized.

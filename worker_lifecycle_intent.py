@@ -8,6 +8,7 @@ from dataclasses import asdict
 import hashlib
 import hmac
 import os
+from pathlib import Path
 import re
 import secrets
 import stat
@@ -17,8 +18,8 @@ import worker_host as host
 import worker_runtime as runtime
 
 
-SCHEMA = "vardr.worker-lifecycle-intent/2"
-_DOMAIN = b"vardr.worker-lifecycle-intent/2\0"
+SCHEMA = "vardr.worker-lifecycle-intent/3"
+_DOMAIN = b"vardr.worker-lifecycle-intent/3\0"
 _LIMIT = 65536
 _MAX_REVISION = 9223372036854775807
 _FLAGS = frozenset(
@@ -253,6 +254,7 @@ def _checked(payload):
             "runner_state",
             "trust_source",
             "trust_sha256",
+            "signing_trust_sha256",
             "public_directory",
             "readiness_volume",
             "readiness_marker",
@@ -293,6 +295,7 @@ def _checked(payload):
         text(resources[name])
     require(resources["readiness_volume"] != state["name"])
     host._hash(resources["trust_sha256"])
+    host._hash(resources["signing_trust_sha256"])
     require(integer(resources["expected_ordinal"]) == len(predecessors) + 1)
     effects = fields(payload["effects"], _FLAGS)
     require(all(type(value) is bool for value in effects.values()))
@@ -777,6 +780,7 @@ class _RegistrationCapability:
         "_fenced_digest",
         "_attempt",
         "_acknowledged",
+        "_publication_claimed",
     )
 
     def __init__(
@@ -809,6 +813,7 @@ class _RegistrationCapability:
             ("_fenced_digest", None),
             ("_attempt", None),
             ("_acknowledged", None),
+            ("_publication_claimed", False),
         ):
             object.__setattr__(self, name, value)
 
@@ -1076,3 +1081,283 @@ def stage_original_ack(attempt, *, record, admission):
         RecursionError,
     ):
         raise IntentRefused() from None
+
+
+def _publication_current(cap, expected_digest, *, started):
+    """Authenticate the original ACK and exact live intent; never recover authority."""
+    require(type(cap) is _RegistrationCapability and cap._proof is _REGISTRATION_PROOF)
+    require(
+        type(cap._attempt) is _OriginalRegistration
+        and cap._attempt._closed
+        and cap._attempt._stage_used
+        and cap._acknowledged is not None
+        and cap._acknowledged == cap._attempt._staged
+    )
+    records, operation = cap._records, cap._operation
+    records._require_operation(operation)
+    require(
+        type(cap._store) is IntentStore
+        and cap._store.records is records
+        and host.canonical(cap._client.pin()) == cap._client_pin
+        and _observer_pin(cap._observer) == cap._observer_pin
+    )
+    expected = host._json(cap._intent)
+    current = cap._store.read(expected["operation_id"], operation=operation)
+    require(
+        host.digest(current) == expected_digest
+        and current["disposition"] == "active"
+        and current["effects"]["registration_may_have_sent"]
+        and current["effects"]["publication_may_have_happened"] is started
+    )
+    observations = current["observations"]
+    require(
+        (observations["host_record_sha256"], observations["admission_sha256"])
+        == (cap._acknowledged if started else (None, None))
+    )
+    record = records.read(expected["future_runtime_id"])
+    host._client(record, cap._client)
+    host._observer(record, cap._observer)
+    require(
+        record["registration_state"] == "acknowledged"
+        and host.digest(record) == cap._acknowledged[0]
+        and host.digest(record["admission"]) == cap._acknowledged[1]
+    )
+    return current
+
+
+class _PublicationSequence:
+    __slots__ = (
+        "_cap",
+        "_public",
+        "_trust",
+        "_admission",
+        "_entered",
+        "_closed",
+        "_phase",
+        "_step",
+        "_fenced",
+        "_finished",
+    )
+    __setattr__ = _RegistrationCapability.__setattr__
+    __copy__ = _RegistrationCapability.__copy__
+    __deepcopy__ = _RegistrationCapability.__deepcopy__
+    __reduce_ex__ = _RegistrationCapability.__reduce_ex__
+
+    def __init__(self, cap, public, trust, admission, proof):
+        require(proof is _REGISTRATION_PROOF)
+        for name, value in (
+            ("_cap", cap),
+            ("_public", public),
+            ("_trust", trust),
+            ("_admission", admission),
+            ("_entered", False),
+            ("_closed", False),
+            ("_phase", "trust"),
+            ("_step", None),
+            ("_fenced", None),
+            ("_finished", False),
+        ):
+            object.__setattr__(self, name, value)
+
+    def __enter__(self):
+        require(not self._entered and not self._closed)
+        object.__setattr__(self, "_entered", True)
+        try:
+            self._cap._records._require_operation(self._cap._operation)
+        except BaseException:
+            object.__setattr__(self, "_closed", True)
+            raise
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        object.__setattr__(self, "_closed", True)
+        return False
+
+
+class _PublicationStep:
+    __slots__ = (
+        "_sequence",
+        "_kind",
+        "_path",
+        "_data",
+        "_opened",
+        "_fenced",
+        "_complete",
+    )
+    __setattr__ = _RegistrationCapability.__setattr__
+    __copy__ = _RegistrationCapability.__copy__
+    __deepcopy__ = _RegistrationCapability.__deepcopy__
+    __reduce_ex__ = _RegistrationCapability.__reduce_ex__
+
+    def __init__(self, sequence, kind, path, data, proof):
+        require(proof is _REGISTRATION_PROOF)
+        for name, value in (
+            ("_sequence", sequence),
+            ("_kind", kind),
+            ("_path", path),
+            ("_data", data),
+            ("_opened", False),
+            ("_fenced", False),
+            ("_complete", False),
+        ):
+            object.__setattr__(self, name, value)
+
+
+def publication_sequence(capability, *, public, trust, admission):
+    """Claim one publication sequence from this original call's live ACK only."""
+    require(
+        type(capability) is _RegistrationCapability
+        and capability._proof is _REGISTRATION_PROOF
+    )
+    require(not capability._publication_claimed)
+    object.__setattr__(capability, "_publication_claimed", True)
+    require(
+        type(public) is type(Path())
+        and public.is_absolute()
+        and type(trust) is bytes
+        and 0 < len(trust) <= 32768
+    )
+    expected = host._json(capability._intent)
+    resources = expected["resources"]
+    require(
+        public == Path(resources["public_directory"])
+        and hashlib.sha256(trust).hexdigest() == resources["signing_trust_sha256"]
+    )
+    # The expected digest alone grants nothing; original ACK checks precede I/O.
+    _publication_current(capability, capability._fenced_digest, started=False)
+    raw_admission = host.canonical(admission)
+    require(host.digest(admission) == capability._acknowledged[1])
+    return _PublicationSequence(
+        capability, public, trust, raw_admission, _REGISTRATION_PROOF
+    )
+
+
+def _live_publication(sequence):
+    require(
+        type(sequence) is _PublicationSequence
+        and sequence._entered
+        and not sequence._closed
+        and not sequence._finished
+    )
+    sequence._cap._records._require_operation(sequence._cap._operation)
+
+
+def publication_step(sequence, *, kind, path, data):
+    _live_publication(sequence)
+    require(
+        sequence._step is None
+        and sequence._phase == kind
+        and kind in {"trust", "admission"}
+    )
+    # Even a malformed reserved step cannot mint another attempt in this scope.
+    object.__setattr__(sequence, "_step", object())
+    require(
+        type(path) is type(Path())
+        and path == sequence._public / (kind + ".json")
+        and type(data) is bytes
+        and data == (sequence._trust if kind == "trust" else sequence._admission)
+    )
+    step = _PublicationStep(sequence, kind, path, data, _REGISTRATION_PROOF)
+    object.__setattr__(sequence, "_step", step)
+    return step
+
+
+def skip_existing_trust(sequence, *, path, validated_trust):
+    """Only the existing CLI validator's identical canonical trust may be reused."""
+    _live_publication(sequence)
+    require(sequence._phase == "trust" and sequence._step is None)
+    object.__setattr__(sequence, "_step", object())
+    require(
+        type(path) is type(Path())
+        and path == sequence._public / "trust.json"
+        and type(validated_trust) is bytes
+        and validated_trust == sequence._trust
+    )
+    object.__setattr__(sequence, "_phase", "admission")
+    object.__setattr__(sequence, "_step", None)
+
+
+def before_public_open(step, *, path, data):
+    """Durable uncertainty immediately before the existing publisher's first open."""
+    require(type(step) is _PublicationStep and not step._opened)
+    object.__setattr__(step, "_opened", True)
+    sequence = step._sequence
+    _live_publication(sequence)
+    require(
+        sequence._step is step
+        and sequence._phase == step._kind
+        and type(path) is type(Path())
+        and path == step._path
+        and type(data) is bytes
+        and data == step._data
+    )
+    cap = sequence._cap
+    started = sequence._fenced is not None
+    current = _publication_current(
+        cap, sequence._fenced if started else cap._fenced_digest, started=started
+    )
+    if not started:
+        updated = host._json(host.canonical(current))
+        updated.update(
+            revision=current["revision"] + 1, previous_sha256=host.digest(current)
+        )
+        updated["effects"]["publication_may_have_happened"] = True
+        updated["observations"].update(
+            host_record_sha256=cap._acknowledged[0],
+            admission_sha256=cap._acknowledged[1],
+        )
+        observed = cap._store.advance(
+            updated,
+            expected_revision=current["revision"],
+            expected_sha256=host.digest(current),
+            operation=cap._operation,
+        )
+        require(host.canonical(observed) == host.canonical(updated))
+        object.__setattr__(sequence, "_fenced", host.digest(observed))
+        _publication_current(cap, sequence._fenced, started=True)
+    object.__setattr__(step, "_fenced", True)
+
+
+def complete_publication_step(step):
+    """Called only after the existing publisher's write, publication and sync succeed."""
+    require(
+        type(step) is _PublicationStep
+        and step._opened
+        and step._fenced
+        and not step._complete
+    )
+    sequence = step._sequence
+    _live_publication(sequence)
+    require(sequence._step is step and sequence._phase == step._kind)
+    object.__setattr__(step, "_complete", True)
+    object.__setattr__(
+        sequence, "_phase", "admission" if step._kind == "trust" else "complete"
+    )
+    object.__setattr__(sequence, "_step", None)
+
+
+def finish_publication(sequence):
+    """Record completion only after both original publication steps succeeded."""
+    _live_publication(sequence)
+    require(
+        sequence._phase == "complete"
+        and sequence._step is None
+        and sequence._fenced is not None
+    )
+    cap = sequence._cap
+    current = _publication_current(cap, sequence._fenced, started=True)
+    updated = host._json(host.canonical(current))
+    updated.update(
+        revision=current["revision"] + 1,
+        previous_sha256=host.digest(current),
+        disposition="enabled",
+    )
+    observed = cap._store.advance(
+        updated,
+        expected_revision=current["revision"],
+        expected_sha256=host.digest(current),
+        operation=cap._operation,
+    )
+    require(host.canonical(observed) == host.canonical(updated))
+    cap._records._require_operation(cap._operation)
+    object.__setattr__(sequence, "_finished", True)

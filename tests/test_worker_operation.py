@@ -187,7 +187,7 @@ class World:
         # enable's existing persistent import is a supplied pure limits namespace.
         class SupplyLimits(ast.NodeTransformer):
             def visit_Import(self,node):
-                assert [a.name for a in node.names] == ["worker_host_persistent"]
+                assert [a.name for a in node.names] in (["worker_host_persistent"], ["worker_lifecycle_intent"])
                 return None
         tree = ast.parse((SOURCE/"worker_cli.py").read_text(encoding="utf-8"))
         nodes = [n for n in tree.body if isinstance(n,ast.FunctionDef)
