@@ -18,7 +18,8 @@ startup after original Runner reconciliation.
 Both platforms also passed the Strict authority-change check. A stale
 signed registration was refused, and a fresh one stayed unissued and
 uncharged. The Strict review checks for missing authorization and a closed
-testing window also passed. A stale registered approval at claim remains open.
+testing window also passed. Both platforms verified the installed API refusal
+of a stale registered approval. Persistent discovery and claim ordering remain open.
 The [installed receipts](nm2-worker-acceptance-evidence.md) record the exact
 sources and scope. The [closeout control record](nm1-nm2-closeout.md) tracks
 the remaining failure and containment gates. NM-3 remains paused.

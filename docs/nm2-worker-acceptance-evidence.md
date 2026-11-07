@@ -449,6 +449,31 @@ Windows held receipt SHA-256 `6e46666dabe6cf926f50d8d03cc2e504ec89d76f56a97feeb5
 Ubuntu sanitized receipt SHA-256 `650d3b9ada4d7f7ba4cf0c35fe303609176e55e205e291b1282dc0ee31549100`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42410862666)
 
+### Strict claim against a stale registered approval
+
+Distribution `59f43c3b37730604788be1c02d3e95578c6eb732`,
+Map `ebb1bc8dd6cc0c3215ad468a2dd1c848d812842a`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` passed on Windows Docker Desktop
+and Ubuntu 24.04. The fixture registered a valid Strict approval and
+retained its exact signed context. The owner lowered the target allowance
+from five to four, which advanced the authority revision by one and still
+left enough allowance for the requested claim.
+
+The original enrolled Runner identity sent one claim to the installed
+managed API using the retained stale approval. Map returned HTTP 409
+with no-store and emitted one stale-authority-revision refusal marker.
+The original approval and job ledger matched before and after the claim.
+There were zero issued attempts, target requests, charges, reservations,
+and managed workers. Each fixture retained five stopped containers.
+
+This verifies the installed API refusal. Persistent worker discovery and
+the ordering between polling and claim remain separate.
+
+Windows receipt SHA-256 `71b713eb380579374a6ec2ba8b4927f607271279c2ab7a5155588226851586c2`.
+Ubuntu sanitized receipt SHA-256 `2f64e614471913aed7d43d2fedba81d215127a233ca45f2a6a75ab379f145364`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42411672568)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
@@ -694,6 +719,34 @@ image configuration keys. The corrected lookup handles missing optional fields
 without weakening their accepted values. That refusal remains retained and is
 not rewritten as a bootstrap result.
 
+## Current Runner Windows bootstrap configuration refusals (2026-11-07)
+
+A fresh target-free Docker Desktop check used Runner
+`5ecc869d80f53ae7fdbca25b971838976a6c41e9`, Git tree
+`24644cd467d433bba0ddffd1f27aea88f7ca3c1c`. The qualified private build
+receipt SHA-256 is
+`807be3790392d95c87f607c9b88bdd6e74896e2f3b599634f975075bf12505a2`.
+It identifies image
+`sha256:8886f14a82d69d27768bbd9d5cb1c61669d16c239e536496a2daca0dbb657cb0`
+and measured owner executable SHA-256
+`8880528d5043b89b1e164769ec3b49a2cefe81db3545c5ef9093fe28192ad104`.
+
+The private configuration receipt SHA-256 is
+`9534b62c9d1446aeeaef89642624f128e9f994d3e09e46af9bc6472c19259133`.
+Both ordinary misconfigurations exited 125 before readiness. The tested profiles
+were UID 10001 with all capabilities dropped, and UID 0 with SETUID/SETGID but missing
+SETPCAP. Successful archive reads verified empty readiness directories with
+mode `0700` and UID/GID 10000. The containers used network-none profiles with no
+authentication, admission, work or targets. Both stopped containers remain
+retained. All three inventory checkpoints reported no admitted metadata changes.
+
+The distribution helper at `3a5a6e28acbb6b3f310fa55dd9d21781f1de5343`
+has Git blob `5720b24a428102f71c29c0be6109ba34c8b17a1d`, matching the existing
+helper used for this evidence. This records Windows configuration refusals on the
+current Runner source. Ubuntu verification remains open. Descendant absence was
+not independently observed. The wider bootstrap and containment matrix remains
+open, and previously blocked probes remain stopped.
+
 ## Cancellation work in progress
 
 The first local emergency-stop fixture was held before sending its stop command:
@@ -720,8 +773,8 @@ during active work, allocated duration and represented-origin exhaustion, and
 Strict registration refusal after an authority change. The ordinary
 stopped-predecessor recovery check and shared concurrency exhaustion also
 passed. Both platforms also passed the Strict review checks for missing
-authorization and a closed testing window. The open cases include a stale
-registered approval at claim,
+authorization and a closed testing window, and the installed API refusal of a
+stale registered approval. Open cases include persistent discovery and claim ordering,
 retained partial evidence, disconnect, crash and restart, duplicate and lost
 replies, and persisted preclaim recovery.
 
