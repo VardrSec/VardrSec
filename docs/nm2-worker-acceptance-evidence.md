@@ -378,6 +378,10 @@ and the original charge of one target and 30 seconds remained. The same
 successor command then started a distinct worker on the original state
 volume. Both exited workers and their fixture were retained.
 
+This cohort also satisfies the ordinary exact-container stop portion of the
+failure matrix. Unexpected Runner/PID-1 loss, channel faults and competing
+managed claims retain their separate acceptance requirements.
+
 Windows receipt SHA-256 `13a6c3c4050b60b7cce893392a6c8f5e512be3e5c165be62d294aa86fcdaf1c8`.
 Ubuntu sanitized receipt SHA-256 `60b278e123af9a7a0b60ebfeb897c1689117e6bbad574443c62d8c1dbc084a6f`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42406589467)
@@ -508,6 +512,36 @@ the ordering between polling and claim remain separate.
 Windows receipt SHA-256 `71b713eb380579374a6ec2ba8b4927f607271279c2ab7a5155588226851586c2`.
 Ubuntu sanitized receipt SHA-256 `2f64e614471913aed7d43d2fedba81d215127a233ca45f2a6a75ab379f145364`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42411672568)
+
+### Ordinary Map API outage, journal observed after exit
+
+Distribution `5366b397af063366d887931702434f994ea70340`,
+Map `05dc78cf9a385255de459c8a5b833842d6528a63`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` passed the selected
+ordinary outage check on Windows Docker Desktop. The exact worker exited
+9.385096635 seconds after API exit and 13.020017889 seconds after the third
+request. The three requests remained unchanged. Restarting the same API
+preserved the reserved slot. Authenticated exit reporting and original Runner
+reconciliation released capacity from one to zero with zero local holds and
+the original one-target, 30-second charge. Six owned containers stopped and
+were retained. The operator profile hashes matched before and after.
+
+This fixture moved the existing controlled executing-journal check after the
+physical exit and cutoff checks, before API restart or host reporting. Its
+Windows private receipt SHA-256 is
+`c202b2e58685efc6020083ac3ede69cc59a4d8af1baeaddddf52de424d715809`.
+
+The Ubuntu attempt held at `launch_map_disconnect_journal_after_exit` with
+`cancellation_original_run_not_active`. The differing journal field remains
+unidentified in the sanitized receipt. Its SHA-256 is
+`bcab98649cde23305e6e2cef7c711043725aafe9f1079c03a42e32c1746fae9c`.
+Both compatibility jobs passed. The complete Ubuntu outage result for this
+cohort remains unverified. The earlier Ubuntu passes retain their separate
+source and observation chronology. Same-cohort cross-platform acceptance
+remains open, along with the exact last native lease acknowledgement and the
+wider failure and containment matrix.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42415067332)
 
 ## Verified Desktop development slices (2026-11-06)
 
