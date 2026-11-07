@@ -3252,27 +3252,31 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             "selected_failure_complete",
         )
 
-    def observe_active_run(self, engagement, job, case):
+    def observe_target_prefix(self, case, *, minimum=3):
         until = time.monotonic() + 25
         marker = parse_qs(urlsplit(case["spec"]["request"]["url"]).query)["nm2_case"]
         while True:
+            sample_started_ns = time.monotonic_ns()
             observed = self.timed_traffic()
             requests = observed["requests"]
-            require(len(requests) <= 3, "cancellation_dispatch_advanced_before_action")
-            if len(requests) == 3:
+            count = len(requests)
+            require(count <= 3, "cancellation_dispatch_advanced_before_action")
+            if count >= minimum:
                 require(
-                    [row["identity"] for row in requests] == ["owner", "peer", "owner"]
+                    [row["identity"] for row in requests] == ["owner", "peer", "owner"][:count]
                     and [urlsplit(row["path"]).path for row in requests]
-                    == ["/session", "/session", "/fixed/records/42"]
+                    == ["/session", "/session", "/fixed/records/42"][:count]
                     and all(
                         parse_qs(urlsplit(row["path"]).query).get("nm2_case") == marker
                         for row in requests
                     ),
                     "cancellation_request_binding_mismatch",
                 )
-                break
+                return observed, sample_started_ns
             require(time.monotonic() < until, "cancellation_resource_not_observed")
             time.sleep(0.1)
+
+    def observe_executing_run_id(self, engagement, job):
         records = json.loads(
             self.helper("audit", "list", "--json", "--engagement", engagement)
         )
@@ -3289,7 +3293,11 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
             re.fullmatch(r"[0-9a-f]{32}", run_id) is not None,
             "cancellation_run_id_invalid",
         )
-        return run_id, observed
+        return run_id
+
+    def observe_active_run(self, engagement, job, case):
+        observed, _ = self.observe_target_prefix(case)
+        return self.observe_executing_run_id(engagement, job), observed
 
     def cancellation_action(self, engagement, job, case):
         run_id, observed = self.observe_active_run(engagement, job, case)

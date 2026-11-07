@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Complete slow installed-outage observations before the final target sample.
+  Refuse a stale sample before stopping the API and distinguish worker, traffic,
+  and API-state observation failures.
+
 - Add an opt-in installed Map claim witness for a registered Strict approval
   whose authority revision became stale. Verify the unchanged approval and zero
   charges, attempts, and target requests without launching a worker.

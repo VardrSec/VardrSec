@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -20,6 +21,7 @@ WORKER_EXIT = "2026-11-07T01:00:06.001001001Z"
 API_AFTER = "2026-11-07T01:00:07.001001001Z"
 API_CID = "2" * 64
 SCENARIO = local.MAP_DISCONNECT_SCENARIO
+CASE = ("engagement", "job", {})
 
 
 def evidence(*, desktop=False):
@@ -182,13 +184,18 @@ class MapDisconnectHostedTests(unittest.TestCase):
             reason="launch_map_disconnect_exit_or_traffic",
             map_disconnect={"raw": retained.PRIVATE_CANARY},
         )
-        self.assertEqual(
-            hosted.failure_projection(raw, selection),
-            {
-                "stage": "launch_map_disconnect_observe_worker",
-                "reason": "launch_map_disconnect_exit_or_traffic",
-            },
-        )
+        for reason in (
+            "launch_map_disconnect_exit_or_traffic",
+            "launch_map_disconnect_worker_exit_code",
+            "launch_map_disconnect_target_count_changed",
+            "launch_map_disconnect_target_rows_changed",
+            "launch_map_disconnect_api_exit_changed",
+        ):
+            with self.subTest(reason=reason):
+                self.assertEqual(
+                    hosted.failure_projection({**raw, "reason": reason}, selection),
+                    {"stage": "launch_map_disconnect_observe_worker", "reason": reason},
+                )
 
 
 class MapDisconnectLocalTests(unittest.TestCase):
@@ -239,13 +246,35 @@ class MapDisconnectLocalTests(unittest.TestCase):
                 "observed_monotonic_ns": 5_000_000_001,
             }
         )
-        fixture.traffic = Mock(return_value=requests)
-        identity = SimpleNamespace(container_id=retained.CID_ONE, daemon_id="owned")
+        fixture.traffic = Mock(side_effect=[[], requests])
+        fixture.persistent_idle = Mock()
+        fixture.pending_approval = {
+            "approval": {"synthetic": "signed"},
+            "plan": {},
+            "enrollment_id": "fixture",
+            "authorization_id": "fixture",
+        }
+        fixture.api = SimpleNamespace(request=Mock())
+        fixture.final_sample = {"requests": requests, "observed_monotonic_ns": 2}
+        fixture.observe_target_prefix = Mock(
+            side_effect=lambda _, minimum=3: (
+                {"requests": requests[:1]} if minimum == 1 else fixture.final_sample,
+                time.monotonic_ns(),
+            )
+        )
+        fixture.observe_executing_run_id = Mock(return_value="f" * 32)
+        identity = SimpleNamespace(
+            container_id=retained.CID_ONE,
+            daemon_id="owned",
+            image_id="sha256:" + "1" * 64,
+            project=retained.PROJECT,
+        )
         proof = SimpleNamespace(
             exit_code=125, finished_at=worker_exit, identity=identity
         )
         observer = Mock()
         observer.daemon.return_value = identity.daemon_id
+        observer.capture_running.return_value = identity
         observer.capture_project_containers.return_value = {
             "daemon_id": identity.daemon_id,
             "all_worker_ids": [identity.container_id],
@@ -253,6 +282,16 @@ class MapDisconnectLocalTests(unittest.TestCase):
         }
         history = Mock()
         history.attach_mock(observer, "observer")
+        for name, child in (
+            ("idle", fixture.persistent_idle),
+            ("core", fixture.disconnect_core_state),
+            ("traffic", fixture.traffic),
+            ("register", fixture.api.request),
+            ("target", fixture.observe_target_prefix),
+            ("map_read", fixture.unreported_attempt),
+            ("audit", fixture.observe_executing_run_id),
+        ):
+            history.attach_mock(child, name)
         fixture.docker = history.docker
         observer.observe_exit.return_value = proof
         return fixture, observer, identity, requests, history
@@ -277,10 +316,32 @@ class MapDisconnectLocalTests(unittest.TestCase):
             )
 
     def test_restarts_only_exact_api_after_independent_worker_exit(self):
-        fixture, observer, identity, requests, history = self.fixture()
-        fixture.observe_map_disconnect(
-            observer, identity, {}, ("engagement", "job"), {"requests": requests}
+        fixture, observer, identity, _, history = self.fixture()
+        run_id, _, _ = fixture.observe_map_disconnect(observer, identity, {}, CASE)
+        self.assertEqual(run_id, "f" * 32)
+        before_cut = [entry[0] for entry in history.mock_calls]
+        self.assertEqual(
+            before_cut[: before_cut.index("docker")],
+            [
+                "idle",
+                "observer.capture_running",
+                "traffic",
+                "core",
+                "observer.daemon",
+                "register",
+                "target",
+                "map_read",
+                "audit",
+                "target",
+            ],
         )
+        fixture.api.request.assert_called_once_with(
+            "/jobs/job/managed/approval/register", fixture.pending_approval
+        )
+        self.assertEqual(
+            fixture.observe_target_prefix.call_args_list[0].kwargs, {"minimum": 1}
+        )
+        self.assertEqual(fixture.observe_target_prefix.call_args_list[1].kwargs, {})
         calls = [
             (name, args[3] if name == "docker" else None)
             for name, args, _ in history.mock_calls
@@ -305,17 +366,132 @@ class MapDisconnectLocalTests(unittest.TestCase):
             3_000_000_000,
         )
 
+    def test_freshness_accounts_for_target_age_and_entire_host_sample(self):
+        observed = {
+            "observed_monotonic_ns": 100,
+            "requests": [{"received_monotonic_ns": 1}],
+        }
+        boundary = local.MAP_DISCONNECT_CUT_WINDOW_NS - 99
+        local.require_fresh_map_disconnect_sample(observed, 1000, 1000 + boundary - 1)
+        with self.assertRaisesRegex(
+            local.AcceptanceRefused, "launch_map_disconnect_sample_stale"
+        ):
+            local.require_fresh_map_disconnect_sample(observed, 1000, 1000 + boundary)
+        with self.assertRaisesRegex(
+            local.AcceptanceRefused, "launch_map_disconnect_sample_stale"
+        ):
+            local.require_fresh_map_disconnect_sample(observed, 1000, 999)
+
+    def test_stale_third_request_holds_before_api_stop(self):
+        fixture, observer, identity, _, _ = self.fixture()
+        fixture.final_sample["observed_monotonic_ns"] = (
+            local.MAP_DISCONNECT_CUT_WINDOW_NS + 1
+        )
+        with self.assertRaisesRegex(
+            local.AcceptanceRefused, "launch_map_disconnect_sample_stale"
+        ):
+            fixture.observe_map_disconnect(observer, identity, {}, CASE)
+        fixture.docker.assert_not_called()
+        fixture.api.request.assert_called_once()
+        fixture.unreported_attempt.assert_called_once()
+        fixture.observe_executing_run_id.assert_called_once()
+        observer.observe_exit.assert_not_called()
+
+    def test_wrong_daemon_refuses_before_registration_or_stop(self):
+        fixture, observer, identity, _, _ = self.fixture()
+        observer.daemon.return_value = "foreign"
+        with self.assertRaisesRegex(
+            local.AcceptanceRefused, "launch_map_disconnect_api_identity"
+        ):
+            fixture.observe_map_disconnect(observer, identity, {}, CASE)
+        fixture.api.request.assert_not_called()
+        fixture.docker.assert_not_called()
+
+    def test_shared_observer_preserves_existing_three_rows_before_audit(self):
+        fixture = object.__new__(local.LaunchFixture)
+        fixture.issuer_origin = "https://fixture"
+        case = {
+            "spec": {"request": {"url": "http://fixture/fixed/records/42?nm2_case=one"}}
+        }
+        requests = [
+            {"identity": who, "path": path + "?nm2_case=one"}
+            for who, path in (
+                ("owner", "/session"),
+                ("peer", "/session"),
+                ("owner", "/fixed/records/42"),
+            )
+        ]
+        history = Mock()
+        fixture.timed_traffic, fixture.helper = history.target, history.audit
+        fixture.timed_traffic.return_value = {"requests": requests}
+        fixture.helper.return_value = json.dumps(
+            [
+                {
+                    "job_id": "job",
+                    "run_id": "f" * 32,
+                    "phase": "executing",
+                    "backend_url": fixture.issuer_origin,
+                    "command_profile": {"controlled": True},
+                }
+            ]
+        ).encode()
+        run_id, observed = fixture.observe_active_run("engagement", "job", case)
+        self.assertEqual((run_id, observed), ("f" * 32, {"requests": requests}))
+        self.assertEqual(
+            [entry[0] for entry in history.mock_calls], ["target", "audit"]
+        )
+        fixture.timed_traffic.return_value = {
+            "requests": [{**requests[0], "identity": "foreign"}]
+        }
+        with self.assertRaisesRegex(
+            local.AcceptanceRefused, "cancellation_request_binding_mismatch"
+        ):
+            fixture.observe_target_prefix(case, minimum=1)
+
     def test_no_api_restart_after_ambiguous_exit_timing(self):
-        fixture, observer, identity, requests, _ = self.fixture(worker_exit=API_CUT)
+        fixture, observer, identity, _, _ = self.fixture(worker_exit=API_CUT)
         with self.assertRaisesRegex(
             local.AcceptanceRefused, "launch_map_disconnect_timing_refused"
         ):
-            fixture.observe_map_disconnect(
-                observer, identity, {}, ("engagement", "job"), {"requests": requests}
-            )
+            fixture.observe_map_disconnect(observer, identity, {}, CASE)
         fixture.docker.assert_called_once()
         self.assertEqual(fixture.docker.call_args.args[3], "stop")
         self.assertNotIn("map_disconnect", fixture.receipt)
+
+    def test_observation_refusals_are_distinct_and_never_restart_api(self):
+        for change in (
+            "worker_exit_code",
+            "target_count_changed",
+            "target_rows_changed",
+            "api_exit_changed",
+        ):
+            with self.subTest(change=change):
+                fixture, observer, identity, requests, _ = self.fixture()
+                if change == "worker_exit_code":
+                    observer.observe_exit.return_value.exit_code = 1
+                elif change == "target_count_changed":
+                    fixture.timed_traffic.return_value["requests"] = [*requests, {}]
+                elif change == "target_rows_changed":
+                    fixture.timed_traffic.return_value["requests"] = [
+                        *requests[:-1],
+                        {"opaque": retained.PRIVATE_CANARY},
+                    ]
+                else:
+                    healthy, stopped, *_ = list(
+                        fixture.disconnect_core_state.side_effect
+                    )
+                    fixture.disconnect_core_state.side_effect = [
+                        healthy,
+                        stopped,
+                        {**stopped, "FinishedAt": WORKER_EXIT},
+                    ]
+                with self.assertRaisesRegex(
+                    local.AcceptanceRefused, "^launch_map_disconnect_" + change + "$"
+                ):
+                    fixture.observe_map_disconnect(observer, identity, {}, CASE)
+                fixture.docker.assert_called_once()
+                self.assertEqual(fixture.docker.call_args.args[3], "stop")
+                self.assertNotIn("map_disconnect", fixture.receipt)
 
     def test_core_identity_refuses_foreign_service_before_mutation(self):
         fixture, _, _, _, _ = self.fixture()

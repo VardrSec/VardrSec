@@ -33,6 +33,7 @@ MAP_DISCONNECT_SCENARIO = "persistent-launch-map-disconnect"
 MAP_DISCONNECT_PASS = "selected_map_disconnect_slice_passed"
 MAP_DISCONNECT_SCOPE = "ordinary_map_api_outage"
 MAP_DISCONNECT_LEASE_NS = 10 * SECOND_NS
+MAP_DISCONNECT_CUT_WINDOW_NS = 15 * SECOND_NS - MAP_DISCONNECT_LEASE_NS
 MAP_DISCONNECT_SOURCES = {
     "map": "05dc78cf9a385255de459c8a5b833842d6528a63",
     "runner": "5ecc869d80f53ae7fdbca25b971838976a6c41e9",
@@ -210,6 +211,20 @@ def engine_timestamp_ns(value):
 
     second, fraction = _timestamp(value)
     return timegm(second.utctimetuple()) * SECOND_NS + fraction
+
+
+def require_fresh_map_disconnect_sample(observed, sample_started_ns, now_ns):
+    observed_ns = observed["observed_monotonic_ns"]
+    received_ns = observed["requests"][-1]["received_monotonic_ns"]
+    require(
+        all(type(value) is int for value in (observed_ns, received_ns, sample_started_ns, now_ns))
+        and 0 <= received_ns <= observed_ns
+        and 0 <= sample_started_ns <= now_ns
+        # The complete host-side sample duration conservatively covers time since
+        # the target sampled its clock, without comparing different clock epochs.
+        and observed_ns - received_ns + now_ns - sample_started_ns < MAP_DISCONNECT_CUT_WINDOW_NS,
+        "launch_map_disconnect_sample_stale",
+    )
 
 
 def map_disconnect_timing(request, after, api_finished_at, worker_finished_at):
@@ -1148,11 +1163,17 @@ print(len(directories))
         )
         return state
 
-    def observe_map_disconnect(self, observer, identity, admission, case, observed):
+    def observe_map_disconnect(self, observer, identity, admission, case):
         self.receipt["stage"] = "launch_map_disconnect_active"
-        original = self.unreported_attempt(admission, case, identity, disabled=False)
-        requests = observed["requests"]
-        require(len(requests) == 3, "launch_map_disconnect_target_changed")
+        self.persistent_idle(admission, 0)
+        require(
+            observer.capture_running(
+                container_id=identity.container_id, image_id=identity.image_id,
+                project=identity.project,
+            ) == identity,
+            "launch_map_disconnect_api_identity",
+        )
+        require(self.traffic() == [], "launch_map_disconnect_prework_traffic")
         api = next(row for row in self.disconnect_core if row["service"] == "api")
         proxy = next(row for row in self.disconnect_core if row["service"] == "proxy")
         prior = self.disconnect_core_state(api)
@@ -1163,8 +1184,25 @@ print(len(directories))
             and observer.daemon() == identity.daemon_id,
             "launch_map_disconnect_api_identity",
         )
+        self.receipt["stage"] = "launch_map_disconnect_register"
+        engagement, job, stored = case[:3]
+        self.api.request(f"/jobs/{job}/managed/approval/register", self.pending_approval)
+
+        self.receipt["stage"] = "launch_map_disconnect_active"
+        # A matching dispatched prefix makes the pre-cut inventory and executing
+        # journal reads meaningful without polling intermediate claim states.
+        prefix, _ = self.observe_target_prefix(stored, minimum=1)
+        original = self.unreported_attempt(admission, case, identity, disabled=False)
+        run_id = self.observe_executing_run_id(engagement, job)
+        observed, sample_started_ns = self.observe_target_prefix(stored)
+        requests = observed["requests"]
+        require(
+            len(requests) == 3 and requests[:len(prefix["requests"])] == prefix["requests"],
+            "launch_map_disconnect_target_changed",
+        )
         self.receipt["stage"] = "launch_map_disconnect_stop_api"
         cid = api["container_id"]
+        require_fresh_map_disconnect_sample(observed, sample_started_ns, time.monotonic_ns())
         self.docker("--config", str(self.docker_config), "container", "stop", "--time", "10", cid,
                     timeout=20)
         stopped = self.disconnect_core_state(api)
@@ -1178,12 +1216,17 @@ print(len(directories))
         exit_proof = observer.observe_exit(identity)
         after = self.timed_traffic()
         still_stopped = self.disconnect_core_state(api)
+        require(exit_proof.exit_code == 125, "launch_map_disconnect_worker_exit_code")
         require(
-            exit_proof.exit_code == 125 and after["requests"] == requests
-            and all(still_stopped[key] == stopped[key] for key in (
+            len(after["requests"]) == len(requests),
+            "launch_map_disconnect_target_count_changed",
+        )
+        require(after["requests"] == requests, "launch_map_disconnect_target_rows_changed")
+        require(
+            all(still_stopped[key] == stopped[key] for key in (
                 "Status", "Running", "StartedAt", "FinishedAt", "ExitCode",
             )),
-            "launch_map_disconnect_exit_or_traffic",
+            "launch_map_disconnect_api_exit_changed",
         )
         elapsed, cut_to_exit = map_disconnect_timing(
             requests[-1], after, stopped["FinishedAt"], exit_proof.finished_at
@@ -1232,7 +1275,7 @@ print(len(directories))
             "physical_exit_elapsed_ns": elapsed, "api_cut_to_worker_exit_ns": cut_to_exit,
             "target_requests": len(requests),
         }
-        return exit_proof, original
+        return run_id, exit_proof, original
 
     def launch_arguments(self, config, signing, binding, runtime_id):
         runner, enrollment = binding
@@ -1384,17 +1427,8 @@ print(len(directories))
         elif self.local_grant_denial:
             unissued = self.await_local_grant_denial(admission, case)
         elif disconnecting:
-            self.receipt["stage"] = "launch_map_disconnect_active"
-            require(
-                observer.capture_running(
-                    container_id=identity.container_id, image_id=identity.image_id,
-                    project=identity.project,
-                ) == identity,
-                "launch_map_disconnect_api_identity",
-            )
-            run_id, observed = self.observe_active_run(*case[:3])
-            exit_proof, before_report = self.observe_map_disconnect(
-                observer, identity, admission, case, observed
+            run_id, exit_proof, before_report = self.observe_map_disconnect(
+                observer, identity, admission, case
             )
         elif stopping_predecessor:
             self.receipt["stage"] = "launch_predecessor_active"
@@ -1684,7 +1718,7 @@ print(len(directories))
                 peer_job, peer_case = self.job_in_engagement(
                     peer_name, engagement, marker=True
                 )
-            self.pending_approval = {} if self.expire_active_grant else None
+            self.pending_approval = {} if self.expire_active_grant or self.map_disconnect else None
             self.expiry_review = {} if self.expire_active_grant else None
             require(
                 self.approve(
@@ -1716,6 +1750,8 @@ print(len(directories))
             before = self.inventory(engagement, job)
             if self.expire_active_grant:
                 require(before["approvals"] == [], "launch_active_grant_expiry_window")
+            if self.map_disconnect:
+                require(before["approvals"] == [], "launch_map_disconnect_approval_not_deferred")
             if self.local_grant_denial:
                 self.denied_grant_snapshot = (
                     self.prepare_expired_grant(engagement) if self.expire_grant
