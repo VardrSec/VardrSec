@@ -168,6 +168,7 @@ jobs:
           PY
       - name: Prepare the existing PostgreSQL integration fixture
         if: matrix.database == 'postgres'
+        working-directory: .nm1/map/backend
         run: |
           python - <<'PY'
           import os, psycopg
@@ -176,7 +177,7 @@ jobs:
               conn.execute('CREATE DATABASE vardrmap_test_integration')
               conn.execute("ALTER DATABASE vardrmap_test_integration SET timezone TO 'America/Chicago'")
           PY
-          python -m pytest .nm1/map/backend/postgres_tests -q
+          python -m pytest postgres_tests -q
       - name: Complete existing backend suite on the selected database
         working-directory: .nm1/map/backend
         run: python -m pytest tests -q

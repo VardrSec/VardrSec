@@ -18,8 +18,10 @@ was merged as `f50f9a2b725ab8a90339d53cbc72c1444601950a` on 2026-11-07 UTC.
 This isolated Distribution candidate starts from main
 `523c69657928c83bb203f738343da8d96ddb4402` and retains the archival evidence,
 four byte-exact sanitized receipts and maintained normalized-semantics comparison.
-Runner's strengthened future-version regression is isolated in
-[PR112](https://github.com/VardrSec/VardrRunner/pull/112).
+Runner's strengthened future-version regression was merged in
+[PR112](https://github.com/VardrSec/VardrRunner/pull/112) as merge commit
+0ce139a392165b93a9a41cdd7d60b2f309a42bc0; its tree matches the CI-selected Runner
+source below.
 
 The CI-only source selections now use Runner
 `9a27417c45fd5347c4d1d6de3c23c2904fe079a7`, Map main
