@@ -74,6 +74,16 @@ class HostedLaunchTests(unittest.TestCase):
             (hosted.LAUNCH_COMPLETED_SCENARIO, "0041persistentruntime"),
         )
 
+    def test_stop_work_requires_explicit_persistent_revision(self):
+        selection = {"NM2_SCENARIO": hosted.LAUNCH_STOP_WORK_SCENARIO}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(selection)
+        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        self.assertEqual(
+            hosted.execution_options(selection),
+            (hosted.LAUNCH_STOP_WORK_SCENARIO, "0041persistentruntime"),
+        )
+
     def test_launch_receipt_checks_the_preserved_predecessor_and_only_projects_closed_fields(
         self,
     ):
@@ -151,3 +161,32 @@ class HostedLaunchTests(unittest.TestCase):
         completed["completed_job"]["retirement_sha256"] = "0" * 64
         with self.assertRaises(hosted.HostedRefused):
             hosted.public_projection(completed, selection)
+        stopped = {
+            **raw,
+            "scenario": hosted.LAUNCH_STOP_WORK_SCENARIO,
+            "acceptance_scope": "stop_work_then_next_launch",
+            "cancelled_job": {
+                "job_id": "ddd8e594-dfcb-4ca2-83f8-abfda598e1a7",
+                "retirement_sha256": first["retirement_sha256"],
+                "audit_sha256": "e" * 64,
+                "target_requests": 3,
+                "terminal_sha256": "f" * 64,
+                "exit_observed_within_ns": 2_000_000_000,
+            },
+        }
+        self.assertEqual(
+            hosted.public_projection(stopped, selection)["cancelled_job"],
+            stopped["cancelled_job"],
+        )
+        for changed in (
+            {"retirement_sha256": "0" * 64},
+            {"target_requests": 4},
+            {"exit_observed_within_ns": 15_000_000_000},
+            {"credential": "discard this"},
+        ):
+            bad = copy.deepcopy(stopped)
+            bad["cancelled_job"].update(changed)
+            with self.subTest(changed=changed), self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection(bad, selection)
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection({**raw, "cancelled_job": stopped["cancelled_job"]}, selection)

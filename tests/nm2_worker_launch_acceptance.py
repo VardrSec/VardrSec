@@ -1,4 +1,4 @@
-"""Opt-in same-installation first and next zero-job worker launch on Docker."""
+"""Opt-in first and subsequent worker launch in a retained Docker installation."""
 
 import argparse
 from dataclasses import asdict
@@ -23,11 +23,12 @@ from nm2_worker_acceptance import (
 
 class LaunchFixture(Fixture):
     def __init__(
-        self, selection, *, compose, compose_sha256, docker_config, completed=False
+        self, selection, *, compose, compose_sha256, docker_config,
+        completed=False, stop_work=False,
     ):
         super().__init__(
             selection,
-            scenario=EMPTY_SCENARIO,
+            scenario="stop-work" if stop_work else EMPTY_SCENARIO,
             database_revision="0041persistentruntime",
         )
         self.compose_executable = compose.resolve(strict=True)
@@ -42,14 +43,19 @@ class LaunchFixture(Fixture):
         )
         self.compose_sha256 = compose_sha256
         self.completed = completed
+        self.stop_work = stop_work
+        self.protocol = "persistent-v3"
+        self.max_attempts = None
+        require(not (completed and stop_work), "launch_fixture_mode_conflict")
+        scenario = "persistent-launch-empty"
+        scope = "first_and_next_empty_launch"
+        if completed:
+            scenario, scope = "persistent-launch-completed", "completed_then_next_launch"
+        elif stop_work:
+            scenario, scope = "persistent-launch-stop-work", "stop_work_then_next_launch"
         self.receipt.update(
             schema="vardr.nm2-worker-launch-acceptance/1",
-            scenario="persistent-launch-completed"
-            if completed
-            else "persistent-launch-empty",
-            acceptance_scope="completed_then_next_launch"
-            if completed
-            else "first_and_next_empty_launch",
+            scenario=scenario, acceptance_scope=scope, nm2_exit_status="incomplete",
         )
 
     def launch_config(self, observer, core):
@@ -145,19 +151,7 @@ class LaunchFixture(Fixture):
             self.persistent_metadata(admission, 1), admission, 1
         )
 
-    def completed_reconciliation(self, physical, admission, retired, case):
-        engagement, job, stored, before = case
-        requests = self.traffic()
-        _, measured = self.verify_fixed(
-            engagement,
-            job,
-            stored,
-            physical,
-            before,
-            requests,
-            self.inventory(engagement, job),
-            persistent=True,
-        )
+    def reconcile_original(self, admission, retired):
         binding = {
             key: admission[key]
             for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256")
@@ -165,7 +159,7 @@ class LaunchFixture(Fixture):
         selectors = []
         for key, value in binding.items():
             selectors.extend(("--" + key.replace("_", "-"), value))
-        self.receipt["stage"] = "launch_reconcile_completed"
+        self.receipt["stage"] = "launch_reconcile_original"
         reconciled = json.loads(
             self.helper(
                 "worker-reconcile",
@@ -196,16 +190,108 @@ class LaunchFixture(Fixture):
             and type(audit["global_holds"]) is int
             and audit["global_holds"] == 0
             and audit["retirement_receipt_sha256"] == retired["receipt_sha256"]
-            and audit["counts"]["attempts"] == 1
-            and len(requests) == 5,
+            and audit["counts"]["attempts"] == 1,
             "launch_completed_audit_not_observed",
         )
+        return audit
+
+    def completed_reconciliation(self, physical, admission, retired, case):
+        engagement, job, stored, before = case
+        requests = self.traffic()
+        require(len(requests) == 5, "launch_completed_traffic_changed")
+        _, measured = self.verify_fixed(
+            engagement, job, stored, physical, before, requests,
+            self.inventory(engagement, job), persistent=True,
+        )
+        audit = self.reconcile_original(admission, retired)
         self.receipt["completed_job"] = {
             "job_id": job,
             "retirement_sha256": retired["receipt_sha256"],
             "audit_sha256": digest(canonical(audit)),
             "target_requests": len(requests),
             "fixed_evidence_sha256": measured["evidence_sha256"],
+        }
+
+    def cancelled_reconciliation(self, physical, admission, retired, case, action, after):
+        import worker_host_persistent as persistent
+
+        engagement, job, stored, _ = case
+        requests = after["requests"]
+        require(requests == action["requests"] and len(requests) == 3,
+                "launch_stop_work_traffic_changed")
+        stop_elapsed = after["observed_monotonic_ns"] - requests[-1]["received_monotonic_ns"]
+        require(0 < stop_elapsed < 15_000_000_000, "launch_stop_work_exit_not_observed")
+        inventory = self.inventory(engagement, job)
+        require(
+            inventory["job_status"] == "failed"
+            and len(inventory["contracts"]) == len(inventory["runtimes"]) == 1
+            and (len(inventory["results"]), len(inventory["stops"])) in {(1, 0), (0, 1)}
+            and inventory["targets_spent"] == 1 and inventory["duration_allocated"] == 30
+            and inventory["execution"]["capacity_reserved"] is False
+            and inventory["execution"]["target_charge"] == 1
+            and inventory["execution"]["duration_seconds"] == 30,
+            "launch_stop_work_capacity_not_released",
+        )
+        runtime = inventory["runtimes"][0]
+        require(
+            runtime["id"] == physical["runtime_id"]
+            and runtime["runtime_sha256"] == physical["runtime_sha256"]
+            and runtime["identity"] == physical["identity"]
+            and runtime["mode"] == "persistent" and runtime["retired"] is True
+            and runtime["new_work_disabled"] is True
+            and runtime["last_sequence"] == "1" and len(runtime["attempts"]) == 1,
+            "launch_stop_work_runtime_not_retired",
+        )
+        record = {
+            "runtime_id": admission["runtime_id"],
+            "registration": {k: v for k, v in admission.items() if k not in
+                             {"schema", "runtime_id", "runtime_sha256", "admission_sha256"}},
+        }
+        persistent.retirement(record, retired)
+        binding = retired["binding"]
+        terminal = retired["attempt_receipt"]
+        attempt = runtime["attempts"][0]
+        require(
+            attempt["binding"] == binding and attempt["job_id"] == job
+            and attempt["runtime_sequence"] == "1"
+            and attempt["runtime_id"] == runtime["id"]
+            and attempt["confirmed_at"] is not None
+            and attempt["release_receipt"] is None and attempt["released_at"] is None
+            and attempt["native_done_sha256"] is None
+            and terminal["capacity_reserved"] is False
+            and inventory["execution"]["state"] == terminal["outcome"],
+            "launch_stop_work_attempt_reused",
+        )
+        local = self.local_metadata(action["run_id"], engagement, job)
+        require(
+            local["consumption_sent"] == local["consumption_acknowledged"] == 1
+            and local["local_stop_requested"] is False,
+            "launch_stop_work_original_run_not_preserved",
+        )
+        if inventory["results"]:
+            require(
+                local.get("failure_reason") == "remote_stop_requested",
+                "launch_stop_work_terminal_not_proven",
+            )
+            self.verify_failed_partial(engagement, job, stored, binding, terminal, inventory, local)
+        else:
+            require(
+                terminal.get("cause") == "remote_stop_requested"
+                and inventory["stops"][0] == {
+                    "contract_id": binding["contract_id"],
+                    "receipt_sha256": terminal["receipt_sha256"],
+                    "outcome": "cancelled",
+                    "cause": "remote_stop_requested",
+                },
+                "launch_stop_work_terminal_not_proven",
+            )
+        audit = self.reconcile_original(admission, retired)
+        require(self.timed_traffic()["requests"] == requests, "launch_stop_work_traffic_changed")
+        self.receipt["cancelled_job"] = {
+            "job_id": job, "retirement_sha256": retired["receipt_sha256"],
+            "audit_sha256": digest(canonical(audit)), "target_requests": len(requests),
+            "terminal_sha256": digest(canonical(terminal)),
+            "exit_observed_within_ns": stop_elapsed,
         }
 
     def launch_and_retire(
@@ -305,30 +391,39 @@ class LaunchFixture(Fixture):
             == ([] if predecessor is None else [predecessor["container_id"]]),
             "launch_durable_chain_not_observed",
         )
-        if self.completed and predecessor is not None:
+        if predecessor is not None and (self.completed or self.stop_work):
+            proof = self.receipt["cancelled_job" if self.stop_work else "completed_job"]
             require(
                 row["predecessors"][0]["original_local_audit_sha256"]
-                == self.receipt["completed_job"]["audit_sha256"],
+                == proof["audit_sha256"],
                 "launch_completed_audit_changed",
             )
+        cancelling = self.stop_work and case is not None
         if case is None:
             self.persistent_idle(admission, 0)
             before = self.verify_empty_worker_state(
                 self.empty_worker_state(admission), admission
             )
+        elif cancelling:
+            self.receipt["stage"] = "launch_stop_work_observe"
+            action = self.cancellation_action(*case[:3])
         else:
             self.await_completed_job(admission, case)
         self.receipt["stage"] = f"launch_stop_{ordinal}"
-        stopped = self.worker_action("stop", selected)
+        stopped = None if cancelling else self.worker_action("stop", selected)
         exit_proof = observer.observe_exit(identity)
-        require(
-            stopped["state"] == "stopped_observed"
-            and stopped["identity"] == asdict(identity)
-            and stopped["exit_code"] == exit_proof.exit_code
-            and stopped["finished_at"] == exit_proof.finished_at
-            and stopped["new_work_disable_state"] == "acknowledged",
-            "launch_exact_exit_not_observed",
-        )
+        if cancelling:
+            after = self.timed_traffic()
+            require(exit_proof.exit_code != 0, "launch_stop_work_exit_not_observed")
+        else:
+            require(
+                stopped["state"] == "stopped_observed"
+                and stopped["identity"] == asdict(identity)
+                and stopped["exit_code"] == exit_proof.exit_code
+                and stopped["finished_at"] == exit_proof.finished_at
+                and stopped["new_work_disable_state"] == "acknowledged",
+                "launch_exact_exit_not_observed",
+            )
         physical = {
             "identity": asdict(identity),
             "runtime_id": selected,
@@ -336,15 +431,15 @@ class LaunchFixture(Fixture):
             "admission_sha256": admission["admission_sha256"],
             "finished_at": exit_proof.finished_at,
             "exit_code": exit_proof.exit_code,
-            "operator_stop_state": stopped["state"],
+            "operator_stop_state": "not_requested" if cancelling else stopped["state"],
         }
         retired = self.report_exit(physical)
         reconciled = self.worker_action("reconcile", selected, timeout=120)
         require(
             retired["last_sequence"] == ("0" if case is None else "1")
-            and retired["runtime_sequence"] is None
+            and retired["runtime_sequence"] == ("1" if cancelling else None)
             and retired["retired"] is True
-            and retired["attempt_receipt"] is None
+            and (retired["attempt_receipt"] is not None) == cancelling
             and reconciled["state"] == "terminal_observed"
             and reconciled["receipt"]["retirement"] == retired,
             "launch_retirement_not_observed",
@@ -357,6 +452,8 @@ class LaunchFixture(Fixture):
                 ),
                 "launch_empty_retirement_not_observed",
             )
+        elif cancelling:
+            self.cancelled_reconciliation(physical, admission, retired, case, action, after)
         else:
             self.completed_reconciliation(physical, admission, retired, case)
         return (
@@ -380,12 +477,19 @@ class LaunchFixture(Fixture):
             exit_proof,
         )
 
+    def cancelled_http(self):
+        self.launch_pair()
+
     def persistent_empty_stop(self):
+        self.launch_pair()
+
+    def launch_pair(self):
         from worker_runtime import LocalDocker, WorkerLayout
 
         self.receipt["stage"] = "launch_prepare"
         require(self.traffic() == [], "launch_unexpected_target_traffic")
-        self.empty_engagements()
+        if not self.stop_work:
+            self.empty_engagements()
         self.helper("init", "--non-interactive", "--no-install-tools")
         binding = self.enroll_runner()
         self.empty_audit_volumes = []
@@ -403,12 +507,11 @@ class LaunchFixture(Fixture):
         require(initial["all_worker_ids"] == [], "launch_preexisting_worker")
         config, signing = self.launch_config(observer, initial)
         case = None
-        if self.completed:
-            engagement, authorization, job, stored = self.new_job(
-                "launch-completed", marker=True
-            )
+        if self.completed or self.stop_work:
+            name = "launch-stop-work" if self.stop_work else "launch-completed"
+            engagement, authorization, job, stored = self.new_job(name, marker=True)
             require(
-                self.approve("launch-completed", engagement, authorization, job, stored)
+                self.approve(name, engagement, authorization, job, stored)
                 == binding,
                 "launch_completed_enrollment_changed",
             )
@@ -416,6 +519,8 @@ class LaunchFixture(Fixture):
             require(
                 before["job_status"] == "pending"
                 and before["execution"] is None
+                and before["contracts"] == []
+                and before["targets_spent"] == before["duration_allocated"] == 0
                 and self.traffic() == [],
                 "launch_completed_job_not_pending",
             )
@@ -436,7 +541,7 @@ class LaunchFixture(Fixture):
             and self.traffic() == baseline,
             "launch_preservation_or_traffic_not_observed",
         )
-        if not self.completed:
+        if not (self.completed or self.stop_work):
             self.empty_engagements()
         self.receipt["launch_pair"] = [first, second]
         self.receipt["status"] = "selected_launch_slice_passed"
@@ -449,7 +554,9 @@ def main(argv=None):
     parser.add_argument("--compose-executable", required=True, type=Path)
     parser.add_argument("--compose-sha256", required=True)
     parser.add_argument("--docker-config", required=True, type=Path)
-    parser.add_argument("--completed-job", action="store_true")
+    workload = parser.add_mutually_exclusive_group()
+    workload.add_argument("--completed-job", action="store_true")
+    workload.add_argument("--stop-work", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -462,6 +569,7 @@ def main(argv=None):
             compose_sha256=args.compose_sha256,
             docker_config=args.docker_config,
             completed=args.completed_job,
+            stop_work=args.stop_work,
         )
         fixture.run()
         return 0 if fixture.receipt["status"] == "selected_launch_slice_passed" else 1

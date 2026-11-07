@@ -28,7 +28,13 @@ sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
 LAUNCH_SCENARIO = "persistent-launch-empty"
 LAUNCH_COMPLETED_SCENARIO = "persistent-launch-completed"
-LAUNCH_SCENARIOS = {LAUNCH_SCENARIO, LAUNCH_COMPLETED_SCENARIO}
+LAUNCH_STOP_WORK_SCENARIO = "persistent-launch-stop-work"
+LAUNCH_SCOPES = {
+    LAUNCH_SCENARIO: "first_and_next_empty_launch",
+    LAUNCH_COMPLETED_SCENARIO: "completed_then_next_launch",
+    LAUNCH_STOP_WORK_SCENARIO: "stop_work_then_next_launch",
+}
+LAUNCH_SCENARIOS = set(LAUNCH_SCOPES)
 LAUNCH_SCHEMA = "vardr.nm2-worker-launch-acceptance/1"
 COMPOSE_ASSET = "https://github.com/docker/compose/releases/download/v5.6.1/docker-compose-linux-x86_64"
 COMPOSE_SHA256 = "47737f4236e6d3ccea7291995203f8f018058783b4c3a9469119811a0b5db8c0"
@@ -696,7 +702,8 @@ def failure_projection(raw, selection):
                 and raw.get("expected_database_revision") == "0041persistentruntime")
     stages = {
         "launch_prepare", "launch_1", "launch_2", "launch_stop_1", "launch_stop_2",
-        "launch_reconcile_completed", "launch_audit_retired",
+        "launch_reconcile_original", "launch_audit_retired",
+        "launch_stop_work_observe", "cancellation_request",
         "selected_launch_complete",
         "empty_stop_setup", "empty_stop_ready", "empty_operator_stop",
         "empty_stop_reconciliation", "selected_empty_stop_complete",
@@ -741,6 +748,12 @@ def failure_projection(raw, selection):
         "launch_completed_reconciliation_not_observed", "launch_completed_enrollment_changed",
         "launch_completed_job_not_pending", "launch_completed_audit_changed",
         "launch_completed_audit_not_observed",
+        "launch_stop_work_exit_not_observed", "launch_stop_work_traffic_changed",
+        "launch_stop_work_capacity_not_released", "launch_stop_work_runtime_not_retired",
+        "launch_stop_work_attempt_reused", "launch_stop_work_original_run_not_preserved",
+        "launch_stop_work_terminal_not_proven", "cancellation_stop_work_not_recorded",
+        "cancellation_dispatch_advanced_before_action", "cancellation_request_binding_mismatch",
+        "cancellation_original_run_not_active", "cancellation_resource_not_observed",
         "empty_audit_volume_not_bound", "empty_audit_volume_changed",
         "empty_local_state_not_proven", "empty_map_inventory_not_empty",
         "empty_target_traffic_not_empty", "empty_operator_stop_not_proven",
@@ -943,11 +956,9 @@ def failure_projection(raw, selection):
 def launch_projection(raw, selection):
     scenario = raw.get("scenario")
     require(type(scenario) is str and scenario in LAUNCH_SCENARIOS)
-    completed = scenario == LAUNCH_COMPLETED_SCENARIO
-    scope = "completed_then_next_launch" if completed else "first_and_next_empty_launch"
     require(
         raw.get("expected_database_revision") == "0041persistentruntime"
-        and raw.get("acceptance_scope") == scope
+        and raw.get("acceptance_scope") == LAUNCH_SCOPES[scenario]
         and raw.get("status") == "selected_launch_slice_passed"
         and raw.get("stage") == "selected_launch_complete"
         and raw.get("retained") is True and raw.get("platform") == "linux"
@@ -980,7 +991,7 @@ def launch_projection(raw, selection):
         and _physical_time(first["finished_at"]) < _physical_time(second["started_at"])
     )
     result = {"launch_pair": pair, "nm2_exit_status": "incomplete", "resources_retained": True}
-    if completed:
+    if scenario == LAUNCH_COMPLETED_SCENARIO:
         proof = raw.get("completed_job")
         require(
             type(proof) is dict
@@ -995,6 +1006,23 @@ def launch_projection(raw, selection):
         result["completed_job"] = proof
     else:
         require("completed_job" not in raw)
+    if scenario == LAUNCH_STOP_WORK_SCENARIO:
+        proof = raw.get("cancelled_job")
+        require(
+            type(proof) is dict
+            and set(proof) == {"job_id", "retirement_sha256", "audit_sha256",
+                               "target_requests", "terminal_sha256", "exit_observed_within_ns"}
+            and type(proof["target_requests"]) is int and proof["target_requests"] == 3
+            and type(proof["exit_observed_within_ns"]) is int
+            and 0 < proof["exit_observed_within_ns"] < 15_000_000_000
+            and proof["retirement_sha256"] == first["retirement_sha256"]
+        )
+        _uuid(proof["job_id"])
+        _hash(proof["audit_sha256"])
+        _hash(proof["terminal_sha256"])
+        result["cancelled_job"] = proof
+    else:
+        require("cancelled_job" not in raw)
     return result
 
 
@@ -1216,11 +1244,7 @@ class Hosted:
             self.receipt.update(
                 schema="vardr.nm2-hosted/7", scenario=self.scenario,
                 expected_database_revision=self.database_revision,
-                scope=(
-                    "Complete and reconcile one approved job before subsequent launch"
-                    if self.scenario == LAUNCH_COMPLETED_SCENARIO
-                    else "First and next worker launch, physical stop and zero-job reconciliation"
-                ),
+                scope=LAUNCH_SCOPES[self.scenario],
             )
         elif self.scenario == "persistent-idle-limit":
             self.receipt.update(schema="vardr.nm2-hosted/5", scenario=self.scenario,
@@ -1414,7 +1438,11 @@ class Hosted:
             str(SOURCE / "tests/nm2_worker_launch_acceptance.py"),
             "--cohort", str(path), "--compose-executable", str(compose),
             "--compose-sha256", COMPOSE_SHA256, "--docker-config", str(config),
-            *(["--completed-job"] if self.scenario == LAUNCH_COMPLETED_SCENARIO else []),
+            *{
+                LAUNCH_SCENARIO: [],
+                LAUNCH_COMPLETED_SCENARIO: ["--completed-job"],
+                LAUNCH_STOP_WORK_SCENARIO: ["--stop-work"],
+            }[self.scenario],
             "--execute",
         ]
 
@@ -1553,6 +1581,7 @@ class Hosted:
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
                     LAUNCH_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_COMPLETED_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_STOP_WORK_SCENARIO: LAUNCH_SCHEMA,
                 }[self.scenario]
             )
             self.receipt.update(public_projection(observed, selection))
@@ -1565,6 +1594,7 @@ class Hosted:
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
                     LAUNCH_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_COMPLETED_SCENARIO: "vardr.nm2-hosted/7",
+                    LAUNCH_STOP_WORK_SCENARIO: "vardr.nm2-hosted/7",
                 }[self.scenario],
                 stage="complete",
                 status=observed["status"],

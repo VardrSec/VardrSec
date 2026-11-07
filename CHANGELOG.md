@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add an opt-in installed test for Map stop-work during an approved job,
+  retirement and offline audit, and a subsequent worker launch.
+
 - Verify the completed-job reconciliation summary and a separate offline
   Runner audit before checking the successor launch.
 

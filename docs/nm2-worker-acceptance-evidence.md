@@ -24,8 +24,23 @@ tests retained the original Runner state volume and the stopped containers.
   runs held before writing a startup intent. The corrected image inspection
   accepts the omitted Volumes key and still refuses a nonempty declaration.
 
-Completed-job successor, active cancellation, and containment acceptance
-have separate requirements.
+The completed-job successor sequence passed on the same platforms using
+distribution `08c12cf648fdb441ff7097ac9210cd8b243946da` and the same component
+sources. One approved synthetic job made five target requests and produced
+fixed evidence. The first worker retired, and Runner's original
+reconciliation and independent offline audit agreed on Map's retirement
+receipt. The next launch used that audit and retained the state volume.
+
+- The Ubuntu sanitized receipt SHA-256 is
+  `3d5eb412338ad4b5fdb2c7c27fa03b777b9f3de4d65d5f25c4d4d07c13f0897d`.
+  [Installed Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42376295944)
+
+- The Windows private receipt SHA-256 is
+  `2479120f61329a1d2bdc185d76f21b2a1a282102ae08ccd147e7045f3b17c56b`.
+  Both workers stopped and were retained. The operator profile hashes matched
+  before and after.
+
+Active cancellation and containment acceptance have separate requirements.
 
 ## Verified Desktop development slices (2026-11-06)
 
