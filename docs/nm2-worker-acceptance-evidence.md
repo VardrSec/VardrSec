@@ -312,6 +312,31 @@ Windows receipt SHA-256 `eb2cf91847fdcbeb3dea0323727819bccd85fa488435756116b07fb
 Ubuntu sanitized receipt SHA-256 `1490e5ca62d7205f48062266e95f2185c139969accac35a242613b497d82add2`.
 [Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42401753135)
 
+### Represented-origin allowance exhaustion
+
+Distribution `bf9a6924c059c5d4616b54172d0d906eda5cdfb5`,
+Map `41635f9a75598c84192b4b53be95e025bf0b9b9d`,
+Runner `5ecc869d80f53ae7fdbca25b971838976a6c41e9` and
+Gate `d80d4730b8486b75be72431b5af88e0ddb45020b` passed on Windows Docker Desktop
+and Ubuntu 24.04. Two separately approved jobs used the same synthetic
+origin and engagement. The first completed and used the one-target
+allowance. At refusal, 90 of the engagement's 120 allocated-duration seconds
+and one concurrency slot were available.
+
+Map emitted one fixed target-exhaustion marker. The second job stayed
+pending and unissued with no target requests. Charges stayed at one target
+and 30 seconds, and capacity reservations stayed at zero through original-key
+reconciliation. The worker exited naturally, the first receipt stayed intact,
+and the original Runner audit ended with zero local holds.
+
+The first Windows run stopped and was retained after a Runner initialization
+command exited with code 1 before managed launch. The same exact source
+and images passed on a fresh installation. The held Windows receipt SHA-256 is
+`8954639339178f78beeb1e69d42bde0c25607de2255c22a0615051b65b72986b`.
+The passing Windows receipt SHA-256 is `49975b7e3ed77ff0ea2fa5b6cb39017cf2e887a8ba04975a426d9943cf1ae1ff`.
+The sanitized Ubuntu receipt SHA-256 is `43d0077862fb19ba379902d46c14f4c080ed1645930078ac710c46bd85aab9fd`.
+[Ubuntu workflow](https://github.com/VardrSec/VardrSec/actions/runs/42402880527)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)
@@ -579,9 +604,9 @@ both cases. No test result here establishes physical failure-path acceptance.
 
 The installed evidence above covers first and subsequent startup, selected
 cancellation paths, active grant revocation, expiry before claim and expiry
-during active work, allocated duration exhaustion, and Strict registration
-refusal after an authority change. The open cases include
-represented-origin and concurrency exhaustion, the remaining Strict denials,
+during active work, allocated duration and represented-origin exhaustion, and
+Strict registration refusal after an authority change. The open cases include
+concurrency exhaustion, the remaining Strict denials,
 retained partial evidence, disconnect, crash and restart, duplicate and lost
 replies, and persisted preclaim recovery.
 
