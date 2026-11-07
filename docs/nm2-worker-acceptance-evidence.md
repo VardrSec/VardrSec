@@ -52,6 +52,19 @@ checks for clock disagreement, and verifies Map's `cancel_requested` state
 while the exact contract still holds capacity. This earlier run receives no
 active cancellation or successor credit.
 
+On Windows, the corrected `887e134caa523bf438bcf0d5f4d71aecbeef165e` fixture
+observed physical exit 13.674 seconds after the third target request. Map
+retired the exact active attempt and released capacity, Runner's offline audit
+cleared the original hold, and the next worker reused the state volume. Both
+workers stopped and were retained. The operator profile hashes matched before
+and after. The private receipt SHA-256 is
+`19159a3adccedcf4a95a763ffb5813bda2c04641ca9067daf179abd2d853abe7`.
+
+Ubuntu held on the same revision during stop-work verification with an
+unclassified assertion. Its sanitized receipt SHA-256 is
+`a726428e0113b737354cedf3b27fd3272d222c5971d06562c94eefa54066371b`.
+[Installed Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42378261446)
+
 ## Verified Desktop development slices (2026-11-06)
 
 The [default-unlimited availability slice](evidence/nm2-desktop-persistent-availability-2026-11-06.json)

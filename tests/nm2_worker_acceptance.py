@@ -2261,9 +2261,9 @@ if record.run_dir is not None:
                 assert all(type(value) is str and value in {'owner','peer','anonymous'} for value in identities+preflights)
                 partial={'error':'execution_cancelled','case_sha256':data['case_hash'],'execution_count':len(data['executions']),'preflight_count':len(data['preflight']),'finding_count':len(data['findings']),'cancelled_execution_count':sum(row.get('error')=='execution_cancelled' for row in data['executions']),'passed_preflight_count':len(preflights),'execution_identity_ids':identities,'cancelled_identity_ids':[row['identity_id'] for row in data['executions'] if row.get('error')=='execution_cancelled'],'passed_preflight_identity_ids':preflights,'response_identity_ids':[row['identity_id'] for row in data['executions'] if row.get('status_code',0)]}
 reason=getattr(record,'failure_reason',None)
-assert reason in {None,'local_emergency_stop','remote_stop_requested','control_lease_expired','authorization_deadline','tool_timeout','descendants_after_tool_exit','control_cap_unavailable'}
+assert reason in {None,'local_emergency_stop','remote_stop_requested','control_lease_expired','authorization_deadline','tool_timeout','descendants_after_tool_exit','control_cap_unavailable','observed_failed_completion'}
 event=getattr(record,'last_event',None)
-print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':record.engagement_id,'phase':record.phase.value,'status':record.status,'failure_reason':reason,'last_event':event if event=='managed_completion_receipt' else 'other','local_stop_requested':journal.stop_requested(record.run_id),'claim_state':claim['state'],'consumption_sent':claim['consumption_sent'],'consumption_acknowledged':claim['consumption_acknowledged'],'partial_files':files,'partial_result':partial}))
+print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':record.engagement_id,'phase':record.phase.value,'status':record.status,'failure_reason':reason,'last_event':event if event in {'managed_completion_receipt','managed_failed_completion_receipt'} else 'other','local_stop_requested':journal.stop_requested(record.run_id),'claim_state':claim['state'],'consumption_sent':claim['consumption_sent'],'consumption_acknowledged':claim['consumption_acknowledged'],'partial_files':files,'partial_result':partial}))
 """
         return json.loads(
             self.helper(
@@ -2662,7 +2662,8 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
         return {"run_id": run_id, "requests": requests}
 
     def verify_failed_partial(
-        self, engagement, job, case, binding, terminal, inventory, local
+        self, engagement, job, case, binding, terminal, inventory, local, *,
+        completion_event="managed_completion_receipt",
     ):
         result = inventory["results"][0]
         summary = local.get("partial_result")
@@ -2696,7 +2697,7 @@ print(json.dumps({'runs':len([row for row in journal.list(engagement_id=selectio
                 "response_identity_ids": [],
             }
             and local["phase"] == local["status"] == "failed"
-            and local["last_event"] == "managed_completion_receipt",
+            and local["last_event"] == completion_event,
             "cancelled_partial_result_not_proven",
         )
         files = {row["name"]: row for row in local["partial_files"]}

@@ -240,6 +240,7 @@ class LaunchFixture(Fixture):
     def cancelled_reconciliation(self, physical, admission, retired, case, action, after):
         import worker_host_persistent as persistent
 
+        self.receipt["stage"] = "launch_stop_work_inventory"
         engagement, job, stored, _ = case
         requests = after["requests"]
         require(requests == action["requests"] and len(requests) == 3,
@@ -289,19 +290,38 @@ class LaunchFixture(Fixture):
             and inventory["execution"]["state"] == terminal["outcome"],
             "launch_stop_work_attempt_reused",
         )
+        self.receipt["stage"] = "launch_stop_work_local_attempt"
         local = self.local_metadata(action["run_id"], engagement, job)
         require(
             local["consumption_sent"] == local["consumption_acknowledged"] == 1
             and local["local_stop_requested"] is False,
             "launch_stop_work_original_run_not_preserved",
         )
+        audit = self.reconcile_original(admission, retired)
         if inventory["results"]:
+            self.receipt["stage"] = "launch_stop_work_partial_evidence"
             cause = local.get("failure_reason")
+            retained = self.local_metadata(action["run_id"], engagement, job)
             require(
-                cause in {"remote_stop_requested", "control_lease_expired"},
-                "launch_stop_work_terminal_not_proven",
+                all(retained[key] == local[key] for key in (
+                    "run_id", "job_id", "engagement_id", "partial_files", "partial_result",
+                    "consumption_sent", "consumption_acknowledged", "local_stop_requested",
+                )),
+                "launch_stop_work_original_run_not_preserved",
             )
-            self.verify_failed_partial(engagement, job, stored, binding, terminal, inventory, local)
+            completion_event = "managed_completion_receipt"
+            if retained["claim_state"] == "failed_completion_observed":
+                require(retained["failure_reason"] == "observed_failed_completion",
+                        "launch_stop_work_terminal_not_proven")
+                completion_event = "managed_failed_completion_receipt"
+                cause = "observed_exit"
+            else:
+                require(cause in {"remote_stop_requested", "control_lease_expired"},
+                        "launch_stop_work_terminal_not_proven")
+            self.verify_failed_partial(
+                engagement, job, stored, binding, terminal, inventory, retained,
+                completion_event=completion_event,
+            )
         else:
             cause = terminal.get("cause")
             require(
@@ -314,7 +334,6 @@ class LaunchFixture(Fixture):
                 },
                 "launch_stop_work_terminal_not_proven",
             )
-        audit = self.reconcile_original(admission, retired)
         require(self.timed_traffic()["requests"] == requests, "launch_stop_work_traffic_changed")
         self.receipt["cancelled_job"] = {
             "job_id": job, "retirement_sha256": retired["receipt_sha256"],
@@ -459,7 +478,7 @@ class LaunchFixture(Fixture):
             }
         else:
             self.await_completed_job(admission, case)
-        self.receipt["stage"] = f"launch_stop_{ordinal}"
+        self.receipt["stage"] = "launch_stop_work_exit" if cancelling else f"launch_stop_{ordinal}"
         stopped = None if cancelling else self.worker_action("stop", selected)
         exit_proof = observer.observe_exit(identity)
         if cancelling:
@@ -483,6 +502,8 @@ class LaunchFixture(Fixture):
             "exit_code": exit_proof.exit_code,
             "operator_stop_state": "not_requested" if cancelling else stopped["state"],
         }
+        if cancelling:
+            self.receipt["stage"] = "launch_stop_work_retirement"
         retired = self.report_exit(physical)
         reconciled = self.worker_action("reconcile", selected, timeout=120)
         require(

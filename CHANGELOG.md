@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Separate stop-work exit, retirement, local attempt, and partial-evidence
+  failures in sanitized diagnostics. Verify retained partial evidence against
+  the original reconciled attempt.
+
 - Bind the stop-work fixture to Map's active cancellation and the Engine's
   physical exit time. Preserve the failed receipt from the earlier test.
 

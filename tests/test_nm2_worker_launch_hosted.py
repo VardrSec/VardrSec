@@ -104,6 +104,27 @@ class HostedLaunchTests(unittest.TestCase):
             ):
                 stop_exit_elapsed_ns(request, sample, exit_at)
 
+    def test_stop_work_failure_reports_fixed_partial_evidence_diagnostics(self):
+        selection = {"project": "fixture", "sources": {}, "images": {}}
+        raw = {
+            **selection,
+            "schema": hosted.LAUNCH_SCHEMA,
+            "scenario": hosted.LAUNCH_STOP_WORK_SCENARIO,
+            "expected_database_revision": "0041persistentruntime",
+            "status": "held",
+            "platform": "linux",
+            "stage": "launch_stop_work_partial_evidence",
+            "reason": "cancelled_partial_receipt_mismatch",
+        }
+        self.assertEqual(hosted.failure_projection(raw, selection), {
+            "stage": "launch_stop_work_partial_evidence",
+            "reason": "cancelled_partial_receipt_mismatch",
+        })
+        raw["reason"] = "discard raw exception detail"
+        self.assertEqual(
+            hosted.failure_projection(raw, selection)["reason"], "unclassified_refusal"
+        )
+
     def test_launch_receipt_checks_the_preserved_predecessor_and_only_projects_closed_fields(
         self,
     ):
