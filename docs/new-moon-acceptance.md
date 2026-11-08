@@ -19,7 +19,8 @@ The merged integration adds explicit mode selection, state-only Mapless recovery
 private issuer custody, one-shot contained execution and host-owned export using
 existing component protocols. Compatible pins and Ubuntu Full/Mapless workflows
 are verified. Configured Windows Docker Desktop workflows and subsequent canonical
-new-installation/recovery operations passed. General Recon execution,
+new-installation/recovery operations passed. Bounded standalone Recon now has
+installed development evidence below. Broader Recon execution,
 automatic mode transition, Mapless controlled updates, C09 sleep behavior and
 NM-4/NM-5 acceptance remain deferred capabilities, not accepted ones.
 
@@ -32,10 +33,17 @@ is Map `14a80a8540c6c7053b1f0630f19a512a2351013a`, Runner
 `5feea8d6de373b4bbc5a3951310c69a16ae7179b`, Gate
 `57cfedfaf59b11cf626288c343f34a34c7b1df13`.
 
+The next focused compatibility change selects reviewed Runner PR116 head
+`dfcd8f2a48eca451f91e2f5b06a636f5c393100d`, retaining Map and Gate. Its Windows
+finite Recon result is recorded below; the required existing Ubuntu installed
+Full/Mapless workflow must pass for the new pin before integration is merged.
+Earlier Full/Mapless results retain their exact source boundary.
+
 | Requirement | Verified boundary / remaining work |
 |---|---|
 | Full install and research workflow | Fresh Ubuntu one-command source install, trusted HTTPS, six installed Gate scenarios, evidence/finding/retest/report and restart passed. Configured Windows Docker Desktop Full journey passed. |
 | Independent Mapless workflow | Install, separate private issuer, interactive authorization, bounded five-GET native execution, terminal evidence, redacted export and identical re-export without execution replay passed on Ubuntu and configured Windows Docker Desktop. Map is absent. |
+| Finite Recon | Runner PR116 provides explicit signed DNS-A to original HTTPS/443 GET-root candidates through the existing controlled Runner. Windows Docker Desktop observed one DNS question, one HTTPS 200 with original Host/SNI, native/journal DONE and identical redacted re-export without further requests. Broader discovery and automatic Gate execution are not accepted. |
 | Distribution lifecycle | Full controlled update, interrupted-install resume, backup/recovery, failed migration and certificate renewal passed in the existing Ubuntu jobs. Windows Full and Mapless portable recovery subsequently passed with retained exact images, state and new isolated projects. |
 | Cross-platform installation | Windows/Linux script compatibility passed. Windows 11 Docker Desktop canonical Full/Mapless installation passed from new private checkouts, with existing prerequisites and retained Docker resources. This is an existing-host installation result, not OS provisioning. Native components remain available; integrated native installation is unverified. |
 | State preservation | Separate mode installations, original journal/evidence, portable exports and mode-aware backup preserve data. Automatic history import/mode conversion and Mapless controlled updates remain deferred, unaccepted capabilities. |
@@ -60,9 +68,24 @@ with volumes retained. Private receipt SHA256:
 The earlier refused attempt found Docker stopped before configuration or resource
 creation; its receipt is retained separately. Docker was resumed before this pass.
 
+Recon's bounded installed observation used distribution `fb610bf`, Runner
+`dfcd8f2a48eca451f91e2f5b06a636f5c393100d` and unchanged Gate `57cfedf` in a new
+canonical Mapless installation on Windows 11 Docker Desktop. The synthetic target
+observed exactly one UDP A question and one HTTPS GET with the approved Host and
+TLS SNI; the response was 200. The original journal and native owner acknowledged
+DONE. All three redacted export files were byte-identical on re-export, with
+unchanged request counters. Both synthetic targets were stopped; state and the
+earlier held attempt remain retained. That earlier attempt sent no requests:
+DNSx rejected incompatible file/stream flags, corrected before the successful
+fresh authorization. Neither consumed authorization was replayed.
+Private receipt SHA256:
+`05da6c425c1c81abd8d8294eefaf3544647fa245b0af98e91d8dd06a4ffa0de4`.
+This establishes the finite profile on Linux containers under Windows Docker
+Desktop; it does not claim native Windows DNSx/HTTPx or broader Recon acceptance.
+
 The installation/distribution implementation now has canonical Windows and Ubuntu
 evidence. Remaining broader NM-3 requirements concern the justified native
-deployment boundary and the required but deferred Recon, mode-transition and
+deployment boundary and the required but deferred broader Recon, mode-transition and
 Mapless update capabilities. C09 sleep remains unaccepted under NM-2;
 the owner stopped further manual fault/sleep testing. No release, image publication,
 security-risk acceptance or completion of NM-4/NM-5 is implied.

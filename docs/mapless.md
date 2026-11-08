@@ -79,6 +79,22 @@ issuer volume; recreating a volume or issuer is not authority recovery.
 
 ## Execute, inspect and export
 
+### Finite Recon
+
+The compatible Runner source also provides explicit `workspace authorize
+--profile recon`. Prepare exact DNS seeds, numeric resolvers, destination CIDRs
+and original HTTPS/443 GET-root candidates, then use the same private issuer,
+six-document bundle, controlled execution and export commands below. The complete
+input format and review procedure are in Runner's
+[finite Recon walkthrough](https://github.com/VardrSec/VardrRunner/blob/dfcd8f2a48eca451f91e2f5b06a636f5c393100d/docs/finite-recon.md).
+
+Recon binds both managed tool hashes and consumes one finite permission across
+DNS and HTTP. It preserves the original Host/TLS name while connecting to a
+validated numeric address. Discovered URLs require a new review and a separate
+Gate authorization. No background execution is enabled.
+
+### Gate or Recon execution
+
 Run one explicitly selected signed job. For example, if the case references
 `OWNER_TOKEN`, provide its value privately in the caller's environment, set
 `VARDRRUNNER_WORKER_CREDENTIAL_ENV` to `OWNER_TOKEN`, then run:
@@ -124,8 +140,9 @@ moving hosts. Restoring execution state does not issue new permission or replay 
 job. Controlled Mapless updates and automatic Full/Mapless migration remain
 deferred; separate installations and explicit evidence export preserve data.
 
-This path targets the existing fixed HTTP Gate assessment. The dormant
-Recon projection still refuses executable use until its exact tool bytes and
-destination/count enforcement are connected. C09 sleep acceptance, general Recon,
+This path supports the fixed HTTP Gate assessment and explicit finite Recon
+profile described above. The older Recon projection remains dormant; execution
+requires the separately compiled profile and verified managed tool bytes.
+C09 sleep acceptance, broader Recon,
 independent benchmarks and release acceptance remain separate roadmap gates;
 these are not silently accepted or removed.
