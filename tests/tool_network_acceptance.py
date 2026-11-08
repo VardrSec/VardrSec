@@ -14,7 +14,6 @@ from tools.server import Target
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = "vardrsec-tools-review"
 LABEL = "com.vardrsec.acceptance=tools-network"
-IMAGE = "vardrrunner:development"
 
 
 def docker(*args, **kwargs):
@@ -30,6 +29,8 @@ def docker(*args, **kwargs):
 
 
 def main():
+    model = json.loads(docker("compose", "--profile", "tools", "config", "--format", "json").stdout)
+    image = model["services"]["runner"]["image"]
     info = json.loads(docker("info", "--format", "{{json .}}").stdout)
     assert info["OSType"] == "linux", "Acceptance requires Linux containers"
     private, outside, state = [
@@ -58,7 +59,7 @@ def main():
             for k in ("OSType", "Architecture", "ServerVersion", "OperatingSystem")
         },
         "image_id": docker(
-            "image", "inspect", IMAGE, "--format", "{{.Id}}"
+            "image", "inspect", image, "--format", "{{.Id}}"
         ).stdout.strip(),
         "declared_source_pins": json.loads(
             (ROOT / "versions.json").read_text(encoding="utf-8")
@@ -93,7 +94,7 @@ def main():
             f"type=bind,source={ROOT / 'tests/tools'},target=/fixture,readonly",
             "--entrypoint",
             "python",
-            IMAGE,
+            image,
             *command,
         )
         created.append(("container", name))
@@ -128,7 +129,7 @@ def main():
             *extra,
             "--entrypoint",
             "python",
-            IMAGE,
+            image,
             "/fixture/runtime.py",
             mode,
             *args,
@@ -157,7 +158,7 @@ def main():
             "ALL",
             "--security-opt",
             "no-new-privileges:true",
-            IMAGE,
+            image,
             "tools",
             "verify",
         )

@@ -162,7 +162,9 @@ def compose(*args, **kwargs):
     return recovery.compose(ROOT, *args, project=PROJECT, **kwargs)
 
 
-def candidate(tag, parent, revision, fail=False):
+def candidate(tag, parent, revision, base, fail=False):
+    alias = f"vardrsec-api:{tag}-base"
+    recovery.command("docker", "tag", base, alias)
     directory = ARTIFACTS / tag
     directory.mkdir(parents=True)
     script = f"""
@@ -179,9 +181,8 @@ def downgrade():
     raise RuntimeError('fixture downgrade is not supported; restore the snapshot')
 """
     (directory / "migration.py").write_text(script, encoding="utf-8")
-    base = "vardrsec-api:successful-fixture" if fail else "vardrmap-api:development"
     (directory / "Dockerfile").write_text(
-        f"FROM {base}\nCOPY migration.py /app/migrations/versions/{revision}.py\n",
+        f"FROM {alias}\nCOPY migration.py /app/migrations/versions/{revision}.py\n",
         encoding="utf-8",
     )
     recovery.command(
@@ -249,18 +250,9 @@ def main():
     print(
         "PASS: full image/data/CA backup sealed and authenticated with age before recovery"
     )
-    current_base = recovery.command(
-        "docker",
-        "image",
-        "inspect",
-        "vardrmap-api:development",
-        "--format",
-        "{{.Id}}",
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    current_base = recovery.container(ROOT, "api", PROJECT)["Image"]
     assert current_base == snapshot["images"]["api"]
-    successful = candidate("successful-fixture", baseline_revision, "0032restorefixture")
+    successful = candidate("successful-fixture", baseline_revision, "0032restorefixture", current_base)
     recovery.json_write(
         ROOT / ".active-images.json", {"services": {"api": {"image": successful}}}
     )
@@ -290,7 +282,7 @@ def main():
     )
     compose("stop", "proxy", "web", "api")
     failed = candidate(
-        "failed-fixture", "0032restorefixture", "0033failedfixture", fail=True
+        "failed-fixture", "0032restorefixture", "0033failedfixture", successful, fail=True
     )
     (ROOT / ".active-images.json").write_text(
         json.dumps({"services": {"api": {"image": failed}}}), encoding="utf-8"

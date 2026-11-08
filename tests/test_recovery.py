@@ -13,6 +13,19 @@ import recovery
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_explicit_bridge_refuses_overlap_and_inventory_failure(self):
+        network = [{"IPAM": {"Config": [{"Subnet": "172.30.0.0/16"}, {"Subnet": "fd00::/64"}]}}]
+        replies = [subprocess.CompletedProcess([], 0, stdout="existing\n"),
+                   subprocess.CompletedProcess([], 0, stdout=json.dumps(network))]
+        with patch.object(recovery, "command", side_effect=replies):
+            with self.assertRaisesRegex(ValueError, "overlaps"):
+                recovery.available_subnet("172.30.100.0/24")
+        with patch.object(recovery, "command", side_effect=replies):
+            self.assertEqual(str(recovery.available_subnet("10.230.100.0/24")), "10.230.100.0/24")
+        with patch.object(recovery, "command", side_effect=subprocess.CalledProcessError(1, "docker")):
+            with self.assertRaises(subprocess.CalledProcessError):
+                recovery.available_subnet("10.230.100.0/24")
+
     def test_service_lookup_ignores_retained_oneoffs(self):
         canonical = {"Id": "service", "Config": {"Labels": {
             "com.docker.compose.oneoff": "False", "com.docker.compose.service": "runner",

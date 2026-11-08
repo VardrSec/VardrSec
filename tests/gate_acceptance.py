@@ -201,6 +201,11 @@ def verify_authorization_surface(request, base):
 
 
 def run_gate_workflow(compose, request, key, password):
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    import recovery
+
     # This helper never runs against an arbitrary/default installation or target.
     containers = compose(
         "ps", "--format", "json", capture_output=True, text=True
@@ -314,7 +319,7 @@ def run_gate_workflow(compose, request, key, password):
             "FIXTURE_READER_TOKEN",
             "--entrypoint",
             "python",
-            "vardrmap-api:development",
+            recovery.container(ROOT, "api", PROJECT)["Image"],
             "/fixture/target.py",
             env=env,
             capture_output=True,

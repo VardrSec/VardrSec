@@ -25,7 +25,9 @@ jobs:
         run: |
           python - <<'PY'
           import json, subprocess
-          for image in ("vardrsec-proxy:development", "vardrsec-db:development", "vardrrunner:development"):
+          model = json.loads(subprocess.check_output(["docker", "compose", "--profile", "tools", "config", "--format", "json"]))
+          for service in ("proxy", "db", "runner"):
+              image = model["services"][service]["image"]
               config = json.loads(subprocess.check_output(["docker", "image", "inspect", image]))[0]["Config"]
               assert not any(value.startswith("GODEBUG=") for value in config.get("Env") or []), image
           print("PASS: build-only Go transport settings are absent from all three runtime images")
@@ -41,7 +43,8 @@ jobs:
         run: |
           set -euo pipefail
           GODEBUG=http2client=0 GOBIN="$RUNNER_TEMP/proxy-go-bin" go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
-          id=$(docker create vardrsec-proxy:development)
+          proxy=$(docker compose --profile tools config --format json | python -c 'import json,sys; print(json.load(sys.stdin)["services"]["proxy"]["image"])')
+          id=$(docker create "$proxy")
           docker cp "$id:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
           docker rm "$id" > /dev/null
           set +e

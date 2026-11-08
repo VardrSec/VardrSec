@@ -169,6 +169,15 @@ in shared logs. Source preparation checks out exact manifest pins and refuses to
 overwrite dirty or different checkouts. Advanced development may supply MAP_SOURCE,
 RUNNER_SOURCE and GATE_SOURCE paths to Compose explicitly.
 
+For separate Full installations, choose a distinct `COMPOSE_PROJECT_NAME` before
+`install` or `configure` (`export COMPOSE_PROJECT_NAME=assessment-local` on Linux,
+`$env:COMPOSE_PROJECT_NAME='assessment-local'` in PowerShell). New configuration
+retains this explicit name across shells and assigns installation-specific build
+tags for all five images. Existing configuration keeps its previous tags. Keep
+the checkout and `.env` together; changing the project name selects different
+volumes rather than moving data. Separate Full installations also need distinct
+HTTPS ports and non-overlapping application networks as described below.
+
 For an existing installation, skip `configure`; it preserves and refuses to
 replace `.env`. An installation made before the least-privilege database role needs the
 one-time upgrade in [database-roles.md](database-roles.md) (back up first, then

@@ -133,3 +133,17 @@ class FreshInstallPreflightTests(unittest.TestCase):
     def test_standard_crlf_checkout_is_supported(self):
         (self.root / "compose.yaml").write_bytes(STANDARD.replace(b"\n", b"\r\n"))
         vardrsec.require_standard_fresh_layout()
+
+    def test_fresh_configuration_retains_project_and_isolates_build_tags(self):
+        with patch.dict(vardrsec.os.environ, {"COMPOSE_PROJECT_NAME": "assessment-local"}):
+            first = vardrsec.configuration_values()
+            second = vardrsec.configuration_values()
+            vardrsec.configure(first)
+        written = dict(line.split("=", 1) for line in (self.root / ".env").read_text().splitlines())
+        self.assertEqual(written["COMPOSE_PROJECT_NAME"], "assessment-local")
+        self.assertNotEqual(first["VARDRSEC_IMAGE_TAG"], second["VARDRSEC_IMAGE_TAG"])
+        self.assertRegex(first["VARDRSEC_IMAGE_TAG"], r"^local-[0-9a-f]{32}$")
+        for project in ("bad\nPOSTGRES_PASSWORD=changed", "", "UPPER"):
+            with patch.dict(vardrsec.os.environ, {"COMPOSE_PROJECT_NAME": project}):
+                with self.assertRaises(ValueError):
+                    vardrsec.configuration_values()

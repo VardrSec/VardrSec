@@ -1,8 +1,10 @@
 # Standalone Community workflow
 
-This is the development Full/Mapless integration. Compatible component pins and
-installed acceptance must be completed before describing it as a delivered
-Community release. Windows 11 with Docker Desktop Linux containers and Ubuntu
+This is the merged, source-built Full/Mapless integration. Compatible component
+pins and Ubuntu installed workflows passed; configured Windows Docker Desktop
+workflows also passed. Fresh Windows installation/recovery and release acceptance
+remain open in the [New Moon ledger](new-moon-acceptance.md#current-nm-3-distribution-status).
+Windows 11 with Docker Desktop Linux containers and Ubuntu
 24.04 remain required; no native-only substitute is selected.
 
 ## Install and keep state

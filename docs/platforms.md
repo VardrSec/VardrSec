@@ -30,6 +30,13 @@ installation and recovery workflows have their own acceptance evidence.
 
 ## Native component evidence
 
+New Moon retains Windows 11 with Docker Desktop as a required distribution target.
+The merged Full/Mapless cohort has configured Windows Docker Desktop workflow
+evidence and fresh Ubuntu installation/workflow/recovery evidence; see the
+[current NM-3 boundaries](new-moon-acceptance.md#current-nm-3-distribution-status).
+Fresh Windows installation and recovery remain required. The historical native
+results below do not replace that requirement.
+
 Run on 2026-10-31 on native Windows 11 (no Docker, no WSL2), Python 3.14, Node 24 and Go 1.26,
 without changing any checkout: Map and Runner in fresh virtual environments from an export of
 `main`, Gate from its checkout (Go reused cached test results):

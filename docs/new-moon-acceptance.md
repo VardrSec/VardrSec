@@ -1,6 +1,6 @@
 # New Moon acceptance ledger
 
-Updated: 2026-11-05. Development evidence; no release acceptance is implied.
+Updated: 2026-11-08. Development evidence; no release acceptance is implied.
 
 This ledger tracks changing implementation evidence. The approved New Moon charter
 remains the architectural authority: one Runner engine, optional Map, shared
@@ -15,12 +15,47 @@ and Mapless installation and authorize/execute/evidence/export take priority.
 Reuse existing checks; no further manual fault/sleep campaign is authorized.
 This changes sequencing, not the C09 acceptance result or release gates.
 
-The integration branch adds explicit mode selection, state-only Mapless recovery,
+The merged integration adds explicit mode selection, state-only Mapless recovery,
 private issuer custody, one-shot contained execution and host-owned export using
-existing component protocols. Compatible component pins and installed Windows
-Docker Desktop/Ubuntu workflow verification remain open. General Recon execution,
+existing component protocols. Compatible pins and Ubuntu Full/Mapless workflows
+are verified. Configured Windows Docker Desktop workflows passed; fresh Windows
+installation and recovery remain open. General Recon execution,
 automatic mode transition, Mapless controlled updates, C09 sleep behavior and
 NM-4/NM-5 acceptance remain deferred capabilities, not accepted ones.
+
+## Current NM-3 distribution status
+
+Distribution [#68](https://github.com/VardrSec/VardrSec/pull/68), Runner
+[#114](https://github.com/VardrSec/VardrRunner/pull/114) and compatibility
+[#69](https://github.com/VardrSec/VardrSec/pull/69) are merged. The exact cohort
+is Map `14a80a8540c6c7053b1f0630f19a512a2351013a`, Runner
+`5feea8d6de373b4bbc5a3951310c69a16ae7179b`, Gate
+`57cfedfaf59b11cf626288c343f34a34c7b1df13`.
+
+| Requirement | Verified boundary / remaining work |
+|---|---|
+| Full install and research workflow | Fresh Ubuntu one-command source install, trusted HTTPS, six installed Gate scenarios, evidence/finding/retest/report and restart passed. Configured Windows Docker Desktop Full journey passed. |
+| Independent Mapless workflow | Install, separate private issuer, interactive authorization, bounded five-GET native execution, terminal evidence, redacted export and identical re-export without execution replay passed on Ubuntu and configured Windows Docker Desktop. Map is absent. |
+| Distribution lifecycle | Full controlled update, interrupted-install resume, backup/recovery, failed migration and certificate renewal passed in the existing Ubuntu jobs. Mapless state-only backup/restore implementation retains exact image and state; installed Windows recovery is still unverified. |
+| Cross-platform installation | Windows/Linux script compatibility passed. Windows 11 Docker Desktop remains a required target; configured-host observations do not establish a fresh Windows installer or complete recovery qualification. Native components remain available; integrated native installation is unverified. |
+| State preservation | Separate mode installations, original journal/evidence, portable exports and mode-aware backup preserve data. Automatic history import/mode conversion and Mapless controlled updates remain deferred, unaccepted capabilities. |
+
+Exact-head [Compose run 42505203697](https://github.com/VardrSec/VardrSec/actions/runs/42505203697)
+passed installation, Full and Mapless workflows, portable recovery/migration failure,
+controlled updates, Windows/Linux compatibility and renewal. All five PR workflows
+passed at `c376699719c0a899da04207dfd4396a21eaf5e8c`; merged main
+`e72d7170285b48d866a271dabc8306c1ab7de2bb` has the same tree.
+Windows observations used private configured projects and explicit unused networks;
+existing data, image aliases and retained networks were preserved.
+
+Remaining NM-3 acceptance is fresh Windows 11 installation/recovery, the justified
+native deployment boundary, and disposition of the required but deferred Recon,
+mode-transition and update capabilities. C09 sleep remains unaccepted under NM-2;
+the owner stopped further manual fault/sleep testing. No release, image publication,
+security-risk acceptance or completion of NM-4/NM-5 is implied.
+
+The sections below retain historical evidence and earlier open-gate statements.
+This current status takes precedence where later merged work supersedes them.
 
 ## Fresh source baseline
 

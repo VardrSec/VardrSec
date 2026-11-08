@@ -214,7 +214,9 @@ class LifecycleTests(unittest.TestCase):
         calls, out, _, error, _ = self._install(env_present=False, started=False)
         self.assertIsNone(error)
         self.assertEqual(list(vardrsec.INSTALL_STEPS), calls)
-        self.assertIn("update-ca-certificates", out)
+        trust_step = ("Import-Certificate" if vardrsec.os.name == "nt" else
+                      "macOS CA enrollment" if sys.platform == "darwin" else "update-ca-certificates")
+        self.assertIn(trust_step, out)
         self.assertIn("No scans were started", out)
 
     def test_install_resumes_without_regenerating_secrets(self):
@@ -235,7 +237,8 @@ class LifecycleTests(unittest.TestCase):
         calls, _, err, error, kept = self._install(env_present=True, started=False, fail_at="build")
         self.assertIsInstance(error, RuntimeError)
         self.assertEqual(["sources", "build"], calls)
-        self.assertIn("run `python3 vardrsec.py install` again", err)
+        python = "python" if vardrsec.os.name == "nt" else "python3"
+        self.assertIn(f"run `{python} vardrsec.py install` again", err)
         self.assertIn("Nothing was deleted", err)
         self.assertEqual("POSTGRES_PASSWORD=keep", kept)
 

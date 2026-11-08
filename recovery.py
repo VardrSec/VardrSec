@@ -502,7 +502,7 @@ def validate(backup_path):
     return metadata
 
 
-def available_subnet():
+def available_subnet(requested=None):
     """Reuse the restore selector without changing any existing Docker network."""
     networks = command(
         "docker", "network", "ls", "-q", capture_output=True, text=True
@@ -526,6 +526,11 @@ def available_subnet():
                 for c in network["IPAM"].get("Config") or []
                 if c.get("Subnet")
             )
+    if requested is not None:
+        subnet = ipaddress.ip_network(requested, strict=True)
+        if any(subnet.overlaps(n) for n in occupied if n.version == subnet.version):
+            raise ValueError("Selected Runner subnet overlaps an existing Docker network; choose an unused subnet")
+        return subnet
     subnet = next(
         (
             ipaddress.ip_network(f"172.30.{i}.0/24")

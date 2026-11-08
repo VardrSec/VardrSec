@@ -23,6 +23,8 @@ def compose(*args, **kwargs):
 
 
 def image(name, parent, revision, base, failure=""):
+    alias = f"vardrsec-api:{name}-base"
+    recovery.command("docker", "tag", base, alias)
     folder = ARTIFACTS / name
     folder.mkdir()
     code = f"""
@@ -41,7 +43,7 @@ def downgrade():
 """
     (folder / "migration.py").write_text(code, encoding="utf-8")
     (folder / "Dockerfile").write_text(
-        f"FROM {base}\nCOPY migration.py /app/migrations/versions/{revision}.py\n",
+        f"FROM {alias}\nCOPY migration.py /app/migrations/versions/{revision}.py\n",
         encoding="utf-8",
     )
     recovery.command(
@@ -157,11 +159,12 @@ def main():
     baseline = recovery.database_fingerprint(ROOT, PROJECT)
     baseline_revision = recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT)
     assert baseline_revision and len(baseline_revision.splitlines()) == 1, "Expected one baseline migration revision"
+    baseline_image = recovery.container(ROOT, "api", PROJECT)["Image"]
     bad = image(
         "update-bad",
         baseline_revision,
         "0032updatebad",
-        "vardrmap-api:development",
+        baseline_image,
         "raise RuntimeError('intentional rehearsal failure')",
     )
     try:
@@ -184,7 +187,7 @@ def main():
         "PASS: failed private rehearsal preserves original data, blocks startup and permits verified baseline cancellation"
     )
     good = image(
-        "update-good", baseline_revision, "0032updategood", "vardrmap-api:development"
+        "update-good", baseline_revision, "0032updategood", baseline_image
     )
     run("successful", manifest("good", good))
     assert not (ROOT / updater.STATE).exists()

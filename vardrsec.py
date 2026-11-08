@@ -80,7 +80,7 @@ def compose(*args, **kwargs):
 
 # Exact shipped Full model, normalized for checkout line endings. Updating the
 # model requires reviewing this fresh-install boundary alongside its tests.
-STANDARD_FULL_SHA256 = "b4c68355d7076b78f20db61dd6ee6d9231faaad62f325066bd8b49f682a5bbac"
+STANDARD_FULL_SHA256 = "f37b23086000958ca23e1244109457f7fd5949dd9fb5bacfc601b4d51c967d0b"
 STANDARD_MAPLESS_SHA256 = "80653a1435ab148ec6943a4145e0a0d52675a51a3f2eef245c95100cfc921e6f"
 
 
@@ -105,8 +105,15 @@ def require_standard_fresh_layout():
 
 
 def configuration_values():
+    project = os.environ.get("COMPOSE_PROJECT_NAME")
+    if project is not None and not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):
+        raise ValueError("COMPOSE_PROJECT_NAME must be a lowercase project name of at most 63 characters")
     return {
         "HTTPS_PORT": "8443",
+        # Keep a fresh installation's build aliases separate from other projects.
+        # Existing .env files retain their original development aliases.
+        "VARDRSEC_IMAGE_TAG": "local-" + uuid.uuid4().hex,
+        **({"COMPOSE_PROJECT_NAME": project} if project is not None else {}),
         **{name: secrets.token_hex(32) for name in (
             "POSTGRES_PASSWORD", "POSTGRES_APP_PASSWORD", "BACKEND_JWT_SECRET", "AUTH_SECRET"
         )},
@@ -401,6 +408,9 @@ def select_mapless_image(subnet=None):
                     capture_output=True, text=True).stdout.splitlines()
         if model["networks"]["runner"]["name"] in names:
             raise ValueError("The existing Runner network is preserved; subnet selection requires an installation without that network")
+        # Reuse recovery's inventory before publishing an unusable selection.
+        import recovery
+        recovery.available_subnet(subnet)
         record["networks"] = {"runner": {"ipam": {"config": [{"subnet": subnet}]}}}
     updater.save(path, record)
 
@@ -604,6 +614,22 @@ Installed. Remaining manual steps (they change your machine, so they are never a
 No scans were started."""
 
 
+def installation_instructions():
+    if os.name == "nt":
+        return """
+Installed. Remaining manual steps in PowerShell:
+  1. Compare the public CA fingerprint above before explicitly trusting it:
+       $cert = Import-Certificate -FilePath .\\trust\\root.crt -CertStoreLocation Cert:\\CurrentUser\\Root
+       $cert.Thumbprint
+     Record the thumbprint for removal. Firefox keeps its own store; see docs/installation.md.
+  2. Create the first account:  python vardrsec.py bootstrap --username operator
+  3. Open https://localhost:8443 and follow the first-assessment walkthrough in docs/installation.md.
+No scans were started."""
+    if sys.platform == "darwin":
+        return "Installed. Follow docs/installation.md for explicit macOS CA enrollment, then run python3 vardrsec.py bootstrap --username operator. No scans were started."
+    return INSTALL_NEXT
+
+
 def dispatch(args, parser):
     mapless = read_mode(ROOT) == "mapless" or (args.action in ("install", "sources") and getattr(args, "mapless", False))
     if mapless and args.action in ("configure", "database-role", "bootstrap", "export-ca", "update", "cancel-update"):
@@ -644,17 +670,18 @@ def dispatch(args, parser):
                     "prepared_configuration": prospective if step == "configure" else None,
                 }), parser)
             except Exception as error:
+                python = "python" if os.name == "nt" else "python3"
                 print(
                     f"\nInstall stopped at '{step}': {error}\n"
                     "Nothing was deleted and your credentials are untouched. Fix the cause "
-                    "(network, disk space, Docker) and run `python3 vardrsec.py install` again "
+                    f"(network, disk space, Docker) and run `{python} vardrsec.py install` again "
                     "to resume. If it stopped at database-role or later, the database volume "
-                    "exists: run the failed step yourself (`python3 vardrsec.py database-role`, "
+                    f"exists: run the failed step yourself (`{python} vardrsec.py database-role`, "
                     "then `start` and `export-ca`).",
                     file=sys.stderr,
                 )
                 raise
-        print(INSTALL_NEXT)
+        print(installation_instructions())
     elif args.action == "configure":
         configure(getattr(args, "prepared_configuration", None))
     elif args.action == "sources":

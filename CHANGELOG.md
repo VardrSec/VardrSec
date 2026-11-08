@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Retain explicitly selected Full installation projects in generated configuration
+  and isolate new Full build aliases with an installation-specific tag. Existing
+  configurations retain their aliases. Show PowerShell trust/bootstrap guidance
+  on Windows, and refuse overlapping Mapless bridge selections before saving.
+- Reconcile NM-3 documentation with merged Full/Mapless workflow evidence; retain
+  fresh Windows installation/recovery, native exceptions and release gates.
+
 - Advance the reviewed development compatibility pins to Map PR151, Runner PR114
   and Gate PR31. Add the explicit installed Mapless authorization, native Gate,
   evidence and re-export flow to the existing required Ubuntu Compose job.
