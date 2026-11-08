@@ -286,7 +286,7 @@ def backup_mapless(root, destination):
                "--filter", "label=com.docker.compose.service=runner",
                capture_output=True, text=True).stdout.strip():
         raise ValueError("Finish or stop the explicitly invoked Runner before backup")
-    compose(root, "--profile", "tools", "create", "--no-build", "--no-deps", "runner")
+    compose(root, "--profile", "tools", "create", "--no-build", "runner")
     info = container(root, "runner", project)
     images = {"runner": info["Image"]}
     if not IMAGE_ID.fullmatch(images["runner"]):
@@ -502,14 +502,14 @@ def validate(backup_path):
     return metadata
 
 
-def available_subnet(requested=None):
+def available_subnet(requested=None, *, reserved=()):
     """Reuse the restore selector without changing any existing Docker network."""
     networks = command(
         "docker", "network", "ls", "-q", capture_output=True, text=True
     ).stdout.split()
     import ipaddress
 
-    occupied = []
+    occupied = [ipaddress.ip_network(value, strict=True) for value in reserved]
     if networks:
         for network in json.loads(
             command(
@@ -587,6 +587,14 @@ def restore(root, backup_path, destination, project):
     if mapless:
         active_images["name"] = project
         active_images["networks"] = {"runner": {"ipam": {"config": [{"subnet": str(available_subnet())}]}}}
+    else:
+        subnet = available_subnet()
+        database_subnet = available_subnet(reserved=(subnet,))
+        runner_subnet = available_subnet(reserved=(subnet, database_subnet))
+        active_images["networks"] = {
+            name: {"ipam": {"config": [{"subnet": str(selected)}]}}
+            for name, selected in (("database", database_subnet), ("runner", runner_subnet))
+        }
     json_write(
         destination / (".active-images.mapless.json" if mapless else ".active-images.json"),
         active_images,
@@ -595,7 +603,6 @@ def restore(root, backup_path, destination, project):
         restore_mapless(backup_path, destination, project, metadata)
         return
     # An explicit different network permits retention of the stopped source stack.
-    subnet = available_subnet()
     prefix = str(subnet.network_address).rsplit(".", 1)[0]
     with (destination / ".env").open("a", encoding="utf-8") as output:
         output.write(

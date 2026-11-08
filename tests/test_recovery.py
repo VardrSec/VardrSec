@@ -25,6 +25,9 @@ class RecoveryTests(unittest.TestCase):
         with patch.object(recovery, "command", side_effect=subprocess.CalledProcessError(1, "docker")):
             with self.assertRaises(subprocess.CalledProcessError):
                 recovery.available_subnet("10.230.100.0/24")
+        with patch.object(recovery, "command", return_value=subprocess.CompletedProcess([], 0, stdout="")):
+            self.assertEqual(str(recovery.available_subnet(reserved=("172.30.100.0/24", "172.30.101.0/24"))),
+                             "172.30.102.0/24")
 
     def test_service_lookup_ignores_retained_oneoffs(self):
         canonical = {"Id": "service", "Config": {"Labels": {

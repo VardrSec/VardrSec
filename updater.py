@@ -137,9 +137,13 @@ def candidate_set(path, baseline, origin):
 
 
 def set_images(root, images):
+    path = root / ".active-images.json"
+    previous = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    selection = {key: previous[key] for key in ("name", "networks") if key in previous}
+    selection["services"] = {s: {"image": i} for s, i in images.items()}
     save(
-        root / ".active-images.json",
-        {"services": {s: {"image": i} for s, i in images.items()}},
+        path,
+        selection,
     )
 
 

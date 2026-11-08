@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Restore Full installations onto three explicitly unused bridges, including
+  hosts with exhausted automatic Docker address pools; retain selected networks
+  through controlled image updates. Remove an unsupported Compose create option
+  from Mapless backup.
+
 - Retain explicitly selected Full installation projects in generated configuration
   and isolate new Full build aliases with an installation-specific tag. Existing
   configurations retain their aliases. Show PowerShell trust/bootstrap guidance
