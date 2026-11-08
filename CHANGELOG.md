@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Close C05 using its independently qualified Windows repetition component,
+  retained PostgreSQL competition and accepted recovery evidence. Keep the
+  surrounding Windows attempt held and preserve full-reader retirement checks.
+- Record both one-shot PID-1 attempts as held after original reconciliation;
+  retain the separately passing unchanged-SDK audit of the Windows state copy.
+
 - Close C04's paired Windows/Ubuntu result and completion reply-loss evidence;
   retain the passing Ubuntu C05 repetition and its pending Windows counterpart.
 

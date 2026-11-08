@@ -1170,6 +1170,37 @@ the slot without a refund, reached zero holds and admitted the same-volume
 successor. Seven owned containers were stopped and retained. Windows receipt-25
 acceptance remains pending.
 
+The subsequent Windows attempt at Distribution `4f12cae`, with the same Map,
+Runner and Gate pins, remains held at `launch_repeat_original_held` /
+`launch_repeat_original_not_held`. Raw receipt SHA-256:
+`ea5c7de91af6cfe804c5819842335a97d301bab221de8b267e0791554de664e7`.
+Its already recorded active repetition component was independently qualified:
+one actual 409, one issued attempt and physical worker, one reserved slot,
+one target and 30 seconds allocated, and identical complete before/after state
+hashes. All original request, case, binding, identity, run and refusal hashes
+were recomputed. A read-only immutable copy of the original journal independently
+confirmed exactly one run, claim, persistent attempt, selection and local contract,
+with no result, DONE or release. Cleanup retained six stopped owned containers,
+with no foreign inventory or operator-profile change.
+
+The separate component projection SHA-256 is
+`4730da2bced0d4d5dffe69da6604a90e6d7fcaac42e99171e7a12c996f2f4791`.
+It explicitly reports the parent as held and retirement/successor as unobserved
+in that parent. Eleven focused tests passed under the unchanged unit guard,
+including refusal to promote the held parent or omit a full reader's genuine
+terminal/retirement. The qualified active predicates are shared with that full
+reader; its existing acceptance requirements remain intact.
+
+**C05 is closed within its fixed pass condition**, which expressly permits
+reuse of accepted predecessor/successor evidence. This combines the real
+PostgreSQL competition, the Ubuntu repetition, the Windows repetition component
+and the [accepted Windows/Ubuntu recovery](#stopped-predecessor-recovery-after-exact-exit-reporting).
+The Windows recovery receipt is
+`13a6c3c4050b60b7cce893392a6c8f5e512be3e5c165be62d294aa86fcdaf1c8`,
+at Distribution `ca935589`, Map `41635f9`, Runner `5ecc869`, Gate `d80d473`.
+Each cohort retains its exact scope; no held parent is relabelled passed and no
+fresh retirement, successor or latency result is inferred for it.
+
 The separate ordinary Ubuntu diagnostic at `1f5f1cf`
 ([42437596689](https://github.com/VardrSec/VardrSec/actions/runs/42437596689))
 held on engine equality. Sanitized receipt SHA-256
@@ -1182,6 +1213,36 @@ Its four focused tests passed under the unchanged permanent unit guard, with
 source/operator hashes unchanged and no network, SDK, engine or child processes.
 The earlier held trials remain held; the one-shot PID-1 tests retain the complete
 engine comparison and will still refuse a genuine change.
+
+## C08 one-shot PID-1 attempts, 2026-11-07
+
+The owner approved one bounded KILL per platform with no fault retries. Both
+attempts at Distribution `4f12cae`, Map `05dc78c`, Runner `f3dc7e9`, Gate `57cfedf`
+held at `launch_audit_retired` / `fixture_command_failed`. The Ubuntu
+[run 42439657110](https://github.com/VardrSec/VardrSec/actions/runs/42439657110)
+has sanitized receipt SHA-256
+`d6daaf673879d28f1cf9e3f5ad43c0687a1aa693a37dae1d3ad478b22fac1f46`.
+Both Windows/Ubuntu compatibility jobs passed. The Windows raw receipt SHA-256
+is `36dfec7934539c3855a0c52f39d7a2ab157af42f7d8897dfbb4985647c8a90eb`.
+
+Windows recorded exactly one KILL against the verified original container,
+physical exit137 and three target requests. Physical exit followed the third
+request by 8,779,851,173 ns. The unreported predecessor remained refused and the
+full engine comparison passed with no admitted differences. Original reporting
+and reconciliation completed before the later audit invocation failed. Independent
+cleanup verified six stopped retained owned containers and unchanged operator
+hashes. No second KILL, claim or reconciliation was performed for diagnosis.
+
+A later diagnostic mounted the original state read-only, cloned only the original
+journal and identity into owned ephemeral memory, and invoked the unchanged
+Runner SDK's offline inspector. Initial clone hashes matched; original database,
+identity and absent WAL/SHM hashes remained unchanged. The audit returned retired,
+complete, zero holds, retired parent last/head1 with no active sequence, and one
+attempt/selection/associated run/claim. Diagnostic receipt SHA-256:
+`499a0ef0f1ce6a7166d0f1e8714d5e4d39d57cb8422757281306f22e7f73f40f`.
+This is scoped retained-state evidence, not a rerun or a passing parent receipt.
+It gives no basis for a Runner product patch. The original standalone audit
+invocation failure remains unexplained. C08 and the phase remain open.
 
 ## Independent source review for C10, 2026-11-07
 
