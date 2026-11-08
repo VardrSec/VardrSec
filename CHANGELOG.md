@@ -6,7 +6,8 @@
   and Gate PR31. Add the explicit installed Mapless authorization, native Gate,
   evidence and re-export flow to the existing required Ubuntu Compose job.
   Retain development/non-runnable status; require fresh Ubuntu Full/Mapless
-  installed acceptance for the exact selected cohort.
+  installed acceptance for the exact selected cohort. Bind update fixtures to
+  its actual baseline schema and retain bounded, secret-checked refusal output.
 
 - Forward explicit Runner environment names correctly after the outer `--`
   separator, including controlled invocations without an additional command.

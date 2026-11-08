@@ -610,6 +610,36 @@ def run_mapless_workflow():
         result = subprocess.run(argv, cwd=install, env=env, capture_output=True,
                                 text=True, input="APPROVE\n" if tty else None, timeout=timeout)
         no_secrets(result.stdout + result.stderr)
+        if result.returncode:
+            print(json.dumps({"mapless_returncode": result.returncode,
+                              "stdout_tail": result.stdout[-4096:],
+                              "stderr_tail": result.stderr[-4096:]}), flush=True)
+            if "--controlled" in args:
+                diagnostic = {"host_free_bytes": shutil.disk_usage(private).free}
+                try:
+                    diagnostic["target_request_count"] = len(traffic())
+                except Exception:
+                    diagnostic["target_observation"] = "unavailable"
+                retained = re.search(r"retained container (vardrsec-invocation-[a-f0-9]{32})\b", result.stderr)
+                if retained:
+                    state = docker("inspect", "--format",
+                                   '{"exit_code":{{.State.ExitCode}},"oom_killed":{{.State.OOMKilled}},"running":{{.State.Running}}}',
+                                   retained[1], capture_output=True, text=True, check=False)
+                    if state.returncode == 0:
+                        diagnostic["container_state"] = json.loads(state.stdout)
+                audit = subprocess.run(
+                    [sys.executable, str(install / "vardrsec.py"), "runner", "--",
+                     "audit", "list", "--engagement", workspace, "--json"],
+                    cwd=install, env=env, capture_output=True, text=True, timeout=30)
+                no_secrets(audit.stdout + audit.stderr)
+                if audit.returncode == 0:
+                    diagnostic["runs"] = [{key: row.get(key) for key in
+                                            ("phase", "status", "pid", "failure_category", "failure_reason")}
+                                           for row in json.loads(audit.stdout)[:4]]
+                else:
+                    diagnostic["audit_returncode"] = audit.returncode
+                no_secrets(diagnostic)
+                print(json.dumps(diagnostic, sort_keys=True), flush=True)
         assert result.returncode == 0, "Mapless command failed; retain private fixture evidence"
         return result.stdout
 

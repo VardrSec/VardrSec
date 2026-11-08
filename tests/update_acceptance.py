@@ -155,9 +155,11 @@ def main():
     )["token"]
     os.environ["VARDRMAP_API_KEY"] = token
     baseline = recovery.database_fingerprint(ROOT, PROJECT)
+    baseline_revision = recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT)
+    assert baseline_revision and len(baseline_revision.splitlines()) == 1, "Expected one baseline migration revision"
     bad = image(
         "update-bad",
-        "0031localauth",
+        baseline_revision,
         "0032updatebad",
         "vardrmap-api:development",
         "raise RuntimeError('intentional rehearsal failure')",
@@ -182,7 +184,7 @@ def main():
         "PASS: failed private rehearsal preserves original data, blocks startup and permits verified baseline cancellation"
     )
     good = image(
-        "update-good", "0031localauth", "0032updategood", "vardrmap-api:development"
+        "update-good", baseline_revision, "0032updategood", "vardrmap-api:development"
     )
     run("successful", manifest("good", good))
     assert not (ROOT / updater.STATE).exists()

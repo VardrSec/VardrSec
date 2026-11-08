@@ -16,9 +16,15 @@ native DONE acknowledgement and journal DONE, three redacted evidence exports,
 secret/canary checks and byte-identical re-export without further target requests.
 Its private receipt SHA-256 is
 `81f7878cb3d8151c65785bbc5a97e84d876ae3356600b56526b48b05ad51f38e`.
-This records the observed standalone path; it does not pre-credit Ubuntu or a
-Full deployment. Windows 11/Docker Desktop and Linux remain required targets;
-this observation does not waive the other original platform gates.
+The configured Windows Full installation at the same source cohort also passed
+the unchanged six-scenario UI/assessment/evidence/finding/report workflow and
+normal stop/start retention. HTTPS verified the exported CA and hostname;
+migrations were current at `0041persistentruntime`. Its private result receipt
+SHA-256 is `454a8c218f90ec70f4d4fc6aa636aaed44861023e0df96d5232c62977ed2d1c3`.
+Both Windows observations used separate configured state and explicit free
+subnets on an existing host; neither is a fresh-default Windows installer claim.
+They do not pre-credit Ubuntu. Windows 11/Docker Desktop and Linux remain required
+targets, and the other original platform gates remain separate.
 `versions.json` remains development,
 `runnable:false`, with no image or distribution release declaration. Existing
 unaccepted clock/suspend, recon and transition limits remain in force.
