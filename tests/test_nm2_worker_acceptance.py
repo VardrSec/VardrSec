@@ -1424,6 +1424,8 @@ class AcceptanceGuards(unittest.TestCase):
                     batches.append((args[0], selected))
                     rows = [{"id": value, "labels": None} for value in selected]
                     if args[0] == "container":
+                        for row in rows:
+                            row["mounts"] = []
                         if fault == "missing":
                             rows.pop()
                         elif fault == "duplicate":
@@ -1454,6 +1456,67 @@ class AcceptanceGuards(unittest.TestCase):
                     self.assertTrue(
                         all(row["labels"] == {} for row in result[kind].values())
                     )
+
+    def mount_snapshot(self, mounts):
+        fixture = object.__new__(acceptance.Fixture)
+        row = {"id": "a" * 64, "image": "sha256:" + "b" * 64,
+               "labels": {"retained": "unrelated"}, "state": {"running": False},
+               "restarts": 0, "networks": {"network": {"NetworkID": "original"}},
+               "mounts": copy.deepcopy(mounts)}
+        def docker(*args):
+            if args[0] == "ps": return row["id"].encode()
+            if args[1] == "ls": return b""
+            self.assertEqual(args[:3], ("container", "inspect", "--format"))
+            self.assertEqual(args[4:], (row["id"],))
+            self.assertNotIn(".Config.Env", args[3])
+            return json.dumps(row).encode()
+        fixture.docker = docker
+        return fixture.snapshot(), row
+
+    def test_snapshot_mount_permutations_preserve_complete_rows_and_guard(self):
+        null, row = self.mount_snapshot(None)
+        self.assertIsNone(null["containers"][row["id"]]["mounts"])
+        self.assertEqual(self.mount_snapshot(None)[0], null)
+        empty, _ = self.mount_snapshot([])
+        with self.assertRaisesRegex(acceptance.AcceptanceRefused, "preexisting_containers_changed"):
+            acceptance.unchanged_inventory(null, empty, "owned")
+        from itertools import permutations
+        mounts = [
+            {"Type": "volume", "Name": "retained", "Source": "/volume/data", "Destination": "/state", "Driver": "local", "Mode": "z", "RW": True, "Propagation": "", "FutureField": {"kept": [1, 2]}},
+            {"Type": "bind", "Source": "/public/trust", "Destination": "/trust", "Mode": "ro", "RW": False, "Propagation": "rprivate"},
+            {"Type": "tmpfs", "Source": "", "Destination": "/tmp", "Mode": "", "RW": True, "Propagation": ""},
+        ]
+        original = copy.deepcopy(mounts)
+        for selected in ([], mounts):
+            before, row = self.mount_snapshot(selected)
+            for ordering in permutations(selected):
+                with self.subTest(destinations=[item["Destination"] for item in ordering]):
+                    after, _ = self.mount_snapshot(list(ordering))
+                    self.assertEqual(acceptance.unchanged_inventory(before, after, "owned"), [])
+                    self.assertEqual(before, after)
+            self.assertEqual(before["containers"][row["id"]], {**row, "mounts": sorted(selected, key=lambda item: item["Destination"])})
+        self.assertEqual(mounts, original)
+
+    def test_snapshot_mount_tampering_still_refuses_original_inventory(self):
+        original = [{"Type": "volume", "Name": "retained", "Source": "/data", "Destination": "/state", "Driver": "local", "Mode": "z", "RW": True, "Propagation": "", "FutureField": {"kept": True}}]
+        before, _ = self.mount_snapshot(original)
+        for field, value in (("Type", "bind"), ("Name", "different"), ("Source", "/other"), ("Destination", "/other"), ("Driver", "other"), ("Mode", "ro"), ("RW", False), ("Propagation", "rshared"), ("FutureField", {"kept": False})):
+            changed = copy.deepcopy(original); changed[0][field] = value
+            with self.subTest(field=field):
+                after, _ = self.mount_snapshot(changed)
+                with self.assertRaisesRegex(acceptance.AcceptanceRefused, "preexisting_containers_changed"):
+                    acceptance.unchanged_inventory(before, after, "owned")
+        for changed in ([], original + [{"Destination": "/extra", "FutureField": True}]):
+            with self.subTest(mount_count=len(changed)):
+                after, _ = self.mount_snapshot(changed)
+                with self.assertRaisesRegex(acceptance.AcceptanceRefused, "preexisting_containers_changed"):
+                    acceptance.unchanged_inventory(before, after, "owned")
+
+    def test_snapshot_malformed_or_duplicate_mount_destinations_refuse(self):
+        for mounts in ({}, "mounts", False, [None], [False], [[]], [{}], [{"Destination": None}], [{"Destination": ""}], [{"Destination": 1}], [{"Destination": "/state"}, {"Destination": "/state", "Source": "other"}]):
+            with self.subTest(mounts=mounts):
+                with self.assertRaisesRegex(acceptance.AcceptanceRefused, "inventory_batch_mismatch"):
+                    self.mount_snapshot(mounts)
 
     def test_case_and_scope_use_same_unambiguous_owned_fixture_origin(self):
         from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases

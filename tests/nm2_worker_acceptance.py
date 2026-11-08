@@ -1570,6 +1570,20 @@ class Fixture:
                         "inventory_batch_mismatch",
                     )
                     observed.add(row["id"])
+                    if kind == "containers":
+                        mounts = row.get("mounts")
+                        require(
+                            "mounts" in row and (mounts is None or (
+                                type(mounts) is list
+                                and all(type(mount) is dict
+                                        and type(mount.get("Destination")) is str
+                                        and mount["Destination"] for mount in mounts)
+                                and len({mount["Destination"] for mount in mounts}) == len(mounts)
+                            )),
+                            "inventory_batch_mismatch",
+                        )
+                        if mounts is not None:
+                            row["mounts"] = sorted(mounts, key=lambda mount: mount["Destination"])
                     row["labels"] = row.get("labels") or {}
                     rows[row["id"]] = row
                 require(observed == set(selected), "inventory_batch_mismatch")

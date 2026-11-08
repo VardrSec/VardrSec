@@ -653,3 +653,16 @@ Real PostgreSQL four-session competition and Runner CAS remain independent
 evidence; this installed selection does not claim two simultaneous workers.
 Earlier held receipt19 trials remain held. New installed proof is required on
 both Windows Docker Desktop and Ubuntu for receipt25.
+
+
+### Ordinary inventory mount ordering
+
+Fixture snapshots retain complete mount rows and compare them in unique,
+nonempty `Destination` order. Null remains null and an empty array remains empty;
+those representations remain distinct. Missing/malformed rows and duplicate destinations
+refuse; all sources, access modes, propagation and future fields remain guarded.
+The API mount array is not a stable ordering: [Moby28.5.1 inspect](https://github.com/moby/moby/blob/v28.5.1/daemon/inspect.go#L43)
+uses [GetMountPoints](https://github.com/moby/moby/blob/v28.5.1/container/container_unix.go#L396),
+which ranges a map; [Go specifies no stable map iteration order](https://go.dev/ref/spec#For_range).
+This changes comparison representation only. It does not identify the cause of
+any retained held trial or grant acceptance to it.

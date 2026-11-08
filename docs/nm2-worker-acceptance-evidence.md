@@ -1081,7 +1081,8 @@ All three named boundaries now have paired installed proof: C03 is closed.
 
 The Ubuntu cases passed at Distribution `07840b2`, Map `05dc78c`, Runner
 `f3dc7e9` and Gate `57cfedf`. All Windows/Ubuntu compatibility jobs for these
-cohorts also passed. The Windows installed pair remains pending.
+cohorts also passed. The Windows installed pair subsequently passed at
+Distribution `1f5f1cf` with the same exact Map, Runner and Gate source pins.
 
 | Lost reply | Ubuntu run | Sanitized receipt SHA-256 |
 | --- | --- | --- |
@@ -1097,7 +1098,17 @@ with one target and 30 seconds allocated, no refund or publication replay and
 zero local holds. No native DONE or idle-release ACK was manufactured. Six
 owned containers remained stopped and retained. A separate sanitized-receipt
 audit checked all closed fields, counts, hash shapes, pins and source trees.
-C04 remains open until its Windows installed pair passes.
+The independent Windows projections verified the same counters, immutable
+provenance, original recovery and six stopped retained containers. Raw receipts:
+
+| Lost reply | Windows receipt SHA-256 |
+| --- | --- |
+| Result | `323b35541c37e1d9ee4d521c08c01c481d486d29f6e01321c4aca71747dedba8` |
+| Completion | `1edc5967f6db866c6f71ef118a352c5662f4a2fbe0d489110b07cc7d07e89160` |
+
+Both controller receipts recorded unchanged operator configuration and journal,
+zero guard blocks and zero admitted inventory differences. C04 is closed within
+these two named publication boundaries on both platforms.
 
 ## C05 managed competition and repetition, 2026-11-07
 
@@ -1146,6 +1157,31 @@ The C05 correction will exercise its own duplicate-claim/accounting/recovery
 criterion and explicitly reuse accepted predecessor and cancellation evidence;
 it must not claim those duplicated assertions ran. The full engine-equality
 guard remains required and unchanged for the ordinary and approved PID-1 cases.
+
+Receipt 25 passed on Ubuntu at Distribution `1f5f1cf`, Map `05dc78c`, Runner
+`5ecc869` and Gate `d80d473` in
+[run 42437542708](https://github.com/VardrSec/VardrSec/actions/runs/42437542708).
+Its sanitized receipt SHA-256 is
+`63cd83e620a38487b4bdbdcae1b2ff828736b808404cbb2e50c1aa1cd02ca64e`.
+The actual repeated claim returned 409, with one issued attempt, three target
+requests, identical before/after state hashes, one slot held, one target spent
+and 30 seconds allocated. Exact original stop/report/reconciliation released
+the slot without a refund, reached zero holds and admitted the same-volume
+successor. Seven owned containers were stopped and retained. Windows receipt-25
+acceptance remains pending.
+
+The separate ordinary Ubuntu diagnostic at `1f5f1cf`
+([42437596689](https://github.com/VardrSec/VardrSec/actions/runs/42437596689))
+held on engine equality. Sanitized receipt SHA-256
+`5e7d735311ae883276f2fbfaeeeae7062d57c7bced63a55114417ea47f6625a0`
+reports only `mounts` differing on two existing containers; no resource was added
+or removed and no image, network or volume changed. This does not establish
+whether values or array order changed. The subsequent comparison correction
+sorts complete mount rows by unique destination and preserves every value.
+Its four focused tests passed under the unchanged permanent unit guard, with
+source/operator hashes unchanged and no network, SDK, engine or child processes.
+The earlier held trials remain held; the one-shot PID-1 tests retain the complete
+engine comparison and will still refuse a genuine change.
 
 ## Independent source review for C10, 2026-11-07
 

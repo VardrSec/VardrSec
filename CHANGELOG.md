@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Close C04's paired Windows/Ubuntu result and completion reply-loss evidence;
+  retain the passing Ubuntu C05 repetition and its pending Windows counterpart.
+
+- Compare fixture inventory mounts by unique destination while retaining every
+  mount field; malformed or duplicate destinations still refuse.
+
 - Limit C05's installed repetition witness to its actual refusal, accounting,
   exact stop, original recovery and same-volume successor. Receipt 25 cites
   accepted predecessor/latency evidence; earlier held receipt 19 stays held.
