@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add opt-in installed reply-loss coverage for consume, runtime-bind, result and
+  completion through the existing proxy and original-key recovery flow. Preserve
+  original artifacts, receipts and ACK uncertainty; installed acceptance remains
+  pending. Keep the original claim case and default-disabled startup unchanged.
+- Identify the exact invariant in an unresolved-successor refusal without
+  relaxing its checks. Pin the existing timer test's mocked clock to remove
+  floating-point noise while preserving its 10-second assertion.
+
 - Close NM-2 retained-partial and trusted-synthetic preclaim recovery acceptance
   on Windows Docker Desktop and Ubuntu. Record the paired committed-claim
   reply-loss proof and retained real PostgreSQL competition evidence; the

@@ -2879,7 +2879,7 @@ class Fixture:
             )
         )
 
-    def local_metadata(self, run_id, engagement, job):
+    def local_metadata(self, run_id, engagement, job, *, include_result=False):
         # Read only exact original association and retained known output metadata.
         # No PID lookup/signal, capability reconstruction or raw file export.
         source = """
@@ -2894,6 +2894,15 @@ assert record is not None and record.job_id==selection['job_id'] and record.enga
 with journal._connection() as con:
     claim=con.execute('SELECT state,consumption_sent,consumption_acknowledged FROM managed_claim_intents WHERE run_id=?',(record.run_id,)).fetchone()
 assert claim is not None
+result_metadata={}
+if selection.get('include_result') is True:
+    with journal._connection() as con:
+        intent=con.execute('SELECT * FROM managed_result_intents WHERE run_id=?',(record.run_id,)).fetchone()
+        attempt=con.execute('SELECT * FROM managed_persistent_attempts WHERE run_id=?',(record.run_id,)).fetchone()
+    assert intent is not None and attempt is not None
+    result_metadata={'upload_state':record.upload_state,
+        'result_intent':{key:(json.loads(intent[key]) if key=='binding' else intent[key]) for key in ('binding','artifact_sha256','artifact_size','case_sha256','receipt_sha256','outcome','state','finish_sent')},
+        'persistent_attempt':{key:(json.loads(attempt[key]) if key in {'binding','completion','release_intent','release_ack'} and attempt[key] is not None else attempt[key]) for key in ('state','binding','completion','native_done_sha256','release_intent','release_ack','retired_from_state')}}
 files=[]
 partial=None
 if record.run_dir is not None:
@@ -2921,7 +2930,7 @@ if record.run_dir is not None:
 reason=getattr(record,'failure_reason',None)
 assert reason in {None,'local_emergency_stop','remote_stop_requested','control_lease_expired','authorization_deadline','tool_timeout','descendants_after_tool_exit','control_cap_unavailable','observed_failed_completion'}
 event=getattr(record,'last_event',None)
-print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':record.engagement_id,'phase':record.phase.value,'status':record.status,'failure_reason':reason,'last_event':event if event in {'managed_completion_receipt','managed_failed_completion_receipt'} else 'other','local_stop_requested':journal.stop_requested(record.run_id),'claim_state':claim['state'],'consumption_sent':claim['consumption_sent'],'consumption_acknowledged':claim['consumption_acknowledged'],'partial_files':files,'partial_result':partial}))
+print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':record.engagement_id,'phase':record.phase.value,'status':record.status,'failure_reason':reason,'last_event':event if event in {'managed_completion_receipt','managed_failed_completion_receipt'} else 'other','local_stop_requested':journal.stop_requested(record.run_id),'claim_state':claim['state'],'consumption_sent':claim['consumption_sent'],'consumption_acknowledged':claim['consumption_acknowledged'],'partial_files':files,'partial_result':partial,**result_metadata}))
 """
         return json.loads(
             self.helper(
@@ -2930,7 +2939,8 @@ print(json.dumps({'run_id':record.run_id,'job_id':record.job_id,'engagement_id':
                 source,
                 python=True,
                 stdin=canonical(
-                    {"run_id": run_id, "engagement_id": engagement, "job_id": job}
+                    {"run_id": run_id, "engagement_id": engagement, "job_id": job,
+                     **({"include_result": True} if include_result else {})}
                 ),
             )
         )
@@ -4061,12 +4071,12 @@ print(json.dumps(result))
             args.extend(["--" + key.replace("_", "-"), admission[key]])
         before = self.empty_audit_volume(admission)  # Absence refuses before run.
         if expected_held is not None:
-            # These two explicit held audits expect the real offline CLI's
+            # These explicit held audits expect the real offline CLI's
             # exit1. Every other reader keeps the ordinary exit0 contract.
             from worker_host import _json
 
             require(type(expected_held) is str
-                    and expected_held in {"closed_preclaim", "claim_unknown"},
+                    and expected_held in {"closed_preclaim", "claim_unknown", "issued_unknown"},
                     "launch_preclaim_parent_not_held")
             try:
                 result = subprocess.run(
@@ -4084,15 +4094,16 @@ print(json.dumps(result))
                 require(type(holds) is int
                         and (holds == 0 if expected_held == "closed_preclaim" else holds > 0),
                         "launch_preclaim_parent_not_held")
+                issued = expected_held == "issued_unknown"
                 expected = {
                     "schema": "vardr.worker-state-audit/1", "status": "held",
                     "reason": "runtime_unretired" if expected_held == "closed_preclaim" else "local_holds",
                     "complete": True,
                     "binding": {key: admission[key] for key in (
                         "runner_id", "runtime_id", "runtime_sha256", "admission_sha256")},
-                    "parent": {"state": "idle", "last_sequence": "0",
-                               "head_sequence": None, "active_sequence": None},
-                    "counts": {"attempts": 0, "selections": 1,
+                    "parent": {"state": "active" if issued else "idle", "last_sequence": str(int(issued)),
+                               "head_sequence": "1" if issued else None, "active_sequence": "1" if issued else None},
+                    "counts": {"attempts": int(issued), "selections": 1,
                                "associated_runs": 1, "associated_claims": 1},
                     "global_holds": holds, "retirement_receipt_sha256": None,
                 }

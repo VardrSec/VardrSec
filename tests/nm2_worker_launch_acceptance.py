@@ -40,7 +40,83 @@ CLAIM_REPLY_LOSS_SOURCES = {
 }
 
 
-def claim_reply_loss_config(original, job):
+POST_CLAIM_REPLY_LOSS_SOURCES = {
+    "map": "05dc78cf9a385255de459c8a5b833842d6528a63",
+    "runner": "f3dc7e92ea0cc04f5aca4bb74cc739fd79f5be19",
+    "gate": "57cfedfaf59b11cf626288c343f34a34c7b1df13",
+}
+TERMINAL_REPLY_LOSS = {
+    "result": {"scenario": "persistent-launch-result-reply-loss", "hosted": "vardr.nm2-hosted/23",
+               "scope": "committed_result_reply_loss", "phase": "uploading",
+               "intent_state": "result_in_flight", "finish_sent": 0, "outcome": None,
+               "reconciliation": "terminal_failed_completion_observed"},
+    "finish": {"scenario": "persistent-launch-finish-reply-loss", "hosted": "vardr.nm2-hosted/24",
+               "scope": "committed_completion_reply_loss", "phase": "finalizing",
+               "intent_state": "finish_in_flight", "finish_sent": 1, "outcome": "completed",
+               "reconciliation": "terminal_receipt_observed"},
+}
+
+
+def terminal_reply_loss_state(operation, inventory, metadata, case_sha256, *, retired=False):
+    """Read only original result facts; observation never supplies a missing ACK."""
+    policy = TERMINAL_REPLY_LOSS[operation]
+    require(type(retired) is bool and len(inventory["results"]) == 1
+            and inventory["stops"] == [], "launch_terminal_loss_result_not_proven")
+    result, runtime = inventory["results"][0], inventory["runtimes"][0]
+    attempt = runtime["attempts"][0]
+    binding = attempt["binding"]
+    intent, local = metadata["result_intent"], metadata["persistent_attempt"]
+    require(set(intent) == {"binding", "artifact_sha256", "artifact_size", "case_sha256",
+                            "receipt_sha256", "outcome", "state", "finish_sent"}
+            and canonical(intent["binding"]) == canonical(binding)
+            and intent["case_sha256"] == case_sha256 and intent["outcome"] == "completed"
+            and type(intent["finish_sent"]) is int and intent["finish_sent"] == policy["finish_sent"]
+            and type(intent["artifact_size"]) is int and 0 < intent["artifact_size"] <= 512000
+            and type(intent["artifact_sha256"]) is str
+            and re.fullmatch(r"[0-9a-f]{64}", intent["artifact_sha256"]) is not None
+            and result["artifact_sha256"] == intent["artifact_sha256"]
+            and result["contract_id"] == binding["contract_id"]
+            and result["receipt_sha256"] == intent["receipt_sha256"] == digest(canonical({
+                "schema": "vardr.managed-result/1", **binding,
+                "artifact_sha256": intent["artifact_sha256"], "case_sha256": case_sha256}))
+            and type(result["evidence_created"]) is int and result["evidence_created"] == 5
+            and type(result["scan_items_created"]) is int and result["scan_items_created"] == 0,
+            "launch_terminal_loss_result_not_proven")
+    require(set(local) == {"state", "binding", "completion", "native_done_sha256",
+                           "release_intent", "release_ack", "retired_from_state"}
+            and canonical(local["binding"]) == canonical({**binding,
+                "runtime_id": runtime["id"], "runtime_sha256": runtime["runtime_sha256"],
+                "admission_sha256": runtime["admission_sha256"], "runtime_sequence": "1"})
+            and all(local[key] is None for key in (
+                "completion", "native_done_sha256", "release_intent", "release_ack"))
+            and local["state"] == ("physical_retirement_observed" if retired else "bound")
+            and local["retired_from_state"] == ("bound" if retired else None)
+            and metadata["consumption_sent"] == metadata["consumption_acknowledged"] == 1
+            and all(type(metadata[key]) is int for key in ("consumption_sent", "consumption_acknowledged"))
+            and metadata["local_stop_requested"] is False and metadata["partial_result"] is None
+            and metadata["partial_files"] == [{"name": "vardrgate_result.json",
+                "size": intent["artifact_size"], "sha256": intent["artifact_sha256"]}],
+            "launch_terminal_loss_local_not_proven")
+    outcome = "failed" if retired and operation == "result" else policy["outcome"]
+    require(result["outcome"] == outcome
+            and inventory["job_status"] == ("running" if outcome is None else "done" if outcome == "completed" else "failed")
+            and canonical(inventory["execution"]) == canonical({"state": "active" if outcome is None else outcome,
+                "capacity_reserved": outcome is None, "target_charge": 1, "duration_seconds": 30})
+            and type(inventory["capacity_reserved_count"]) is int
+            and inventory["capacity_reserved_count"] == (1 if outcome is None else 0)
+            and metadata["phase"] == (policy["phase"] if not retired else "done" if operation == "finish" else "failed")
+            and metadata["upload_state"] == ("in_progress" if operation == "result" else "succeeded")
+            and intent["state"] == (policy["intent_state"] if not retired else "server_retired" if operation == "result" else "terminal")
+            and metadata["claim_state"] == ("failed_completion_observed" if retired and operation == "result" else "consume_acknowledged"),
+            "launch_terminal_loss_state_not_proven")
+    return {"schema": "vardr.managed-completion/1", **binding,
+            "receipt_sha256": result["receipt_sha256"],
+            "outcome": "failed" if operation == "result" else "completed", "capacity_reserved": False}
+
+
+def claim_reply_loss_config(original, job, *, operation="claim"):
+    require(type(operation) is str and operation in {"claim", "consume", "runtime-bind", "result", "finish"},
+            "launch_claim_loss_config_required")
     require(type(original) is bytes and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", job) is not None,
             "launch_claim_loss_config_required")
     old = """    handle_path /backend/* {
@@ -72,7 +148,7 @@ def claim_reply_loss_config(original, job):
             }
         }
     }
-""".replace("JOB", job)
+""".replace("JOB", job).replace("/managed/claim", "/managed/" + operation)
     return text.replace(old, selected, 1).encode("utf-8")
 
 
@@ -319,7 +395,7 @@ class LaunchFixture(Fixture):
         revoke_grant=False, expire_grant=False, expire_active_grant=False,
         duration_exhaustion=False, target_exhaustion=False, stopped_predecessor=False,
         concurrency_exhaustion=False, map_disconnect=False, preclaim_recovery=False, claim_reply_loss=False,
-        repeat_managed_claim=False,
+        repeat_managed_claim=False, reply_loss_operation=None,
     ):
         super().__init__(
             selection,
@@ -350,7 +426,10 @@ class LaunchFixture(Fixture):
         self.map_disconnect = map_disconnect
         self.preclaim_recovery = preclaim_recovery
         self.concurrency_exhaustion = concurrency_exhaustion
-        self.claim_reply_loss = claim_reply_loss
+        require(reply_loss_operation is None or (type(reply_loss_operation) is str
+                and reply_loss_operation in {"consume", "runtime-bind", *TERMINAL_REPLY_LOSS}), "launch_fixture_mode_conflict")
+        self.claim_reply_loss = claim_reply_loss or reply_loss_operation is not None
+        self.reply_loss_operation = reply_loss_operation or "claim"
         self.cancelling = stop_work or local_stop or revoke_grant or expire_active_grant
         self.local_stop = local_stop
         self.local_grant_denial = missing_grant or expire_grant
@@ -364,7 +443,7 @@ class LaunchFixture(Fixture):
             sum((completed, stop_work, local_stop, missing_grant, revoke_grant,
                  expire_grant, expire_active_grant, duration_exhaustion, target_exhaustion,
                  stopped_predecessor, concurrency_exhaustion, map_disconnect, preclaim_recovery,
-                 claim_reply_loss, repeat_managed_claim)) <= 1
+                 claim_reply_loss, repeat_managed_claim, reply_loss_operation is not None)) <= 1
             and (not queued_peer or stop_work),
             "launch_fixture_mode_conflict",
         )
@@ -405,11 +484,15 @@ class LaunchFixture(Fixture):
                 "launch_map_disconnect_source_required",
             )
             scenario, scope = MAP_DISCONNECT_SCENARIO, MAP_DISCONNECT_SCOPE
-        elif claim_reply_loss:
+        elif self.claim_reply_loss:
+            sources = POST_CLAIM_REPLY_LOSS_SOURCES if reply_loss_operation else CLAIM_REPLY_LOSS_SOURCES
             require(all(selection["sources"][name]["commit"] == commit
-                        for name, commit in CLAIM_REPLY_LOSS_SOURCES.items()),
-                    "launch_claim_loss_source_required")
-            scenario, scope = CLAIM_REPLY_LOSS_SCENARIO, "committed_claim_reply_loss"
+                        for name, commit in sources.items()), "launch_claim_loss_source_required")
+            scenario, scope = ((TERMINAL_REPLY_LOSS[self.reply_loss_operation]["scenario"],
+                                TERMINAL_REPLY_LOSS[self.reply_loss_operation]["scope"])
+                               if self.reply_loss_operation in TERMINAL_REPLY_LOSS else
+                               ("persistent-launch-" + self.reply_loss_operation + "-reply-loss",
+                                "committed_" + self.reply_loss_operation.replace("-", "_") + "_reply_loss"))
         elif completed:
             scenario, scope = "persistent-launch-completed", "completed_then_next_launch"
         elif stop_work:
@@ -613,7 +696,7 @@ class LaunchFixture(Fixture):
 
     def reconcile_original(
         self, admission, retired, *, unissued_run_id=None, host_exit_run_id=None,
-        unissued_parent_zero=False, selected_only_issued=False,
+        unissued_parent_zero=False, selected_only_issued=False, terminal_reply_loss=None,
     ):
         binding = {
             key: admission[key]
@@ -657,7 +740,8 @@ class LaunchFixture(Fixture):
             require(
                 reconciled["selected_run_id"] == host_exit_run_id
                 and reconciled["selected_sequence"] == "1"
-                and reconciled["reconciliation_state"] == "terminal_host_exit_observed",
+                and reconciled["reconciliation_state"] == (TERMINAL_REPLY_LOSS[terminal_reply_loss]["reconciliation"]
+                    if terminal_reply_loss is not None else "terminal_host_exit_observed"),
                 "launch_host_exit_original_reconciliation_missing",
             )
         self.receipt["stage"] = "launch_audit_retired"
@@ -685,6 +769,8 @@ class LaunchFixture(Fixture):
                 }),
                 "launch_concurrency_unbound_reconciliation_required",
             )
+        if terminal_reply_loss is not None:
+            self.receipt["claim_reply_loss"]["reconciliation"] = reconciled
         if selected_only_issued:
             require(
                 host_exit_run_id is not None and retired["last_sequence"] == "1"
@@ -698,6 +784,7 @@ class LaunchFixture(Fixture):
                 }),
                 "launch_claim_loss_original_reconciliation_missing",
             )
+        if getattr(self, "claim_reply_loss", False) and host_exit_run_id is not None:
             self.receipt["claim_reply_loss"]["reconciliation"] = reconciled
         return audit
 
@@ -1253,15 +1340,15 @@ print(len(directories))
             self.receipt["launch_refusal_failure"] = error.public
             raise
         observer.confirm_exit(exit_proof)
-        require(
-            canonical(catalog()) == canonical(old)
-            and canonical(self.snapshot()) == canonical(before)
-            and canonical(self.inventory(engagement, job, include_capacity=True))
-            == canonical(inventory)
-            and canonical(self.local_metadata(run_id, engagement, job)) == canonical(local)
-            and self.traffic() == requests,
-            "launch_unresolved_refusal_changed_state",
-        )
+        require(canonical(catalog()) == canonical(old),
+                "launch_unresolved_refusal_catalog_changed")
+        require(canonical(self.snapshot()) == canonical(before),
+                "launch_unresolved_refusal_engine_changed")
+        require(canonical(self.inventory(engagement, job, include_capacity=True))
+                == canonical(inventory), "launch_unresolved_refusal_server_changed")
+        require(canonical(self.local_metadata(run_id, engagement, job)) == canonical(local),
+                "launch_unresolved_refusal_journal_changed")
+        require(self.traffic() == requests, "launch_unresolved_refusal_traffic_changed")
         self.receipt["stopped_predecessor"] = {
             "refused_runtime_id": self.successor_id,
             "failure_phase": "launch_catalog", "failure_code": "validation_refused",
@@ -1275,6 +1362,8 @@ print(len(directories))
     ):
         from worker_host import _terminal
 
+        if getattr(self, "reply_loss_operation", "claim") in TERMINAL_REPLY_LOSS:
+            return self.verify_terminal_reply_loss(admission, retired, case, run_id, before)
         self.receipt["stage"] = "launch_host_exit_verification"
         runtime = before["runtimes"][0]
         binding = runtime["attempts"][0]["binding"]
@@ -1300,7 +1389,7 @@ print(len(directories))
         audit = self.reconcile_original(
             admission, retired, host_exit_run_id=run_id,
             **({"selected_only_issued": True}
-               if getattr(self, "claim_reply_loss", False) and proof_key == "claim_reply_loss" else {}),
+               if getattr(self, "claim_reply_loss", False) and getattr(self, "reply_loss_operation", "claim") == "claim" and proof_key == "claim_reply_loss" else {}),
         )
         self.retired_predecessor_inventory = after
         self.receipt[proof_key].update(
@@ -1356,7 +1445,7 @@ print(len(directories))
         version = self.docker("exec", cid, "caddy", "version").decode().strip()
         require(re.fullmatch(r"v2\.11\.7(?: h1:[A-Za-z0-9+/=]+)?", version) is not None,
                 "launch_claim_loss_adapter_refused")
-        config = claim_reply_loss_config(original, job)
+        config = claim_reply_loss_config(original, job, operation=getattr(self, "reply_loss_operation", "claim"))
         file_identity = target.stat().st_dev, target.stat().st_ino
         # Same inode: Docker's existing read-only bind must see the selected file.
         target.write_bytes(config)
@@ -1435,7 +1524,86 @@ print(len(directories))
         value["mounts"] = sorted(value["mounts"], key=lambda row: row["Destination"])
         return value
 
+    def observe_terminal_reply_loss(self, observer, identity, admission, case):
+        self.receipt["stage"] = "launch_terminal_loss_register"
+        self.persistent_idle(admission, 0)
+        require(self.traffic() == [], "launch_terminal_loss_state_changed")
+        registered = self.api.request(f"/jobs/{case[1]}/managed/approval/register", self.pending_approval)
+        require(type(registered) is dict and set(registered) == {"approval_record_id"},
+                "launch_terminal_loss_result_not_proven")
+        self.receipt["stage"] = "launch_terminal_loss_observe"
+        physical = observer.observe_exit(identity)
+        require(type(physical.exit_code) is int and physical.exit_code == 125,
+                "launch_terminal_loss_result_not_proven")
+        observer.confirm_exit(physical)
+        before = self.inventory(*case[:2], include_capacity=True)
+        rows = json.loads(self.helper("audit", "list", "--engagement", case[0], "--limit", "3", "--json"))
+        require(type(rows) is list and len(rows) == 1 and rows[0]["job_id"] == case[1],
+                "launch_terminal_loss_local_not_proven")
+        run = rows[0]
+        require(re.fullmatch(r"[0-9a-f]{32}", run["run_id"]) is not None and run["pid"] is None,
+                "launch_terminal_loss_local_not_proven")
+        metadata = self.local_metadata(run["run_id"], *case[:2], include_result=True)
+        terminal_reply_loss_state(self.reply_loss_operation, before, metadata, digest(canonical(case[2]["spec"])))
+        requests = self.traffic()
+        require(len(requests) == 5, "launch_terminal_loss_result_not_proven")
+        evidence = self.api.request(f"/engagements/{case[0]}/evidence?job_id={case[1]}")["evidence"]
+        require(len(evidence) == 5 and all(digest(row["body"].encode()) == row["content_hash"] for row in evidence),
+                "launch_terminal_loss_result_not_proven")
+        job = next(row for row in self.api.request(f"/engagements/{case[0]}/jobs")["jobs"] if row["id"] == case[1])
+        assessment = job["assessment"]
+        require(assessment["status"] == "conclusive" and assessment["baseline_valid"] is True
+                and assessment["case_snapshot_verified"] is True and assessment["preflight"]["status"] == "passed"
+                and assessment["case_hash"] == digest(canonical(case[2]["spec"]))
+                and type(assessment["candidate_findings"]) is int and assessment["candidate_findings"] == 0
+                and self.api.request(f"/engagements/{case[0]}/scans?job_id={case[1]}")["scans"] == [],
+                "launch_terminal_loss_result_not_proven")
+        audit = self.worker_state(admission, expected_held="issued_unknown")
+        self.receipt["claim_reply_loss"] = {
+            "operation": self.reply_loss_operation, "job_id": case[1], "run_id": run["run_id"],
+            "approval_record_id": registered["approval_record_id"], "initial": case[3], "committed": before,
+            "local_unknown": {"run": run, "metadata": metadata, "audit": audit},
+            "proxy": self.claim_loss_proxy_binding, "target_requests": 5, "requests": requests,
+            "case": case[2]["spec"], "assessment": {key: assessment[key] for key in (
+                "status", "baseline_valid", "case_snapshot_verified", "preflight", "case_hash", "candidate_findings")},
+            "evidence_count": 5, "evidence_sha256": digest(canonical(evidence)),
+        }
+        require(canonical(self.inventory(*case[:2], include_capacity=True)) == canonical(before)
+                and self.traffic() == requests
+                and digest((self.install / "Caddyfile").read_bytes()) == self.claim_loss_proxy_binding["config_sha256"],
+                "launch_terminal_loss_state_changed")
+        return run["run_id"], physical, before
+
+    def verify_terminal_reply_loss(self, admission, retired, case, run_id, before):
+        from worker_host import _terminal
+
+        self.receipt["stage"] = "launch_terminal_loss_reconcile"
+        operation = self.reply_loss_operation
+        proof = self.receipt["claim_reply_loss"]
+        original = before["runtimes"][0]["attempts"][0]["binding"]
+        terminal = _terminal(original, retired["attempt_receipt"])
+        expected = terminal_reply_loss_state(operation, before, proof["local_unknown"]["metadata"],
+                                            digest(canonical(proof["case"])))
+        require(canonical(terminal) == canonical(expected), "launch_terminal_loss_result_not_proven")
+        audit = self.reconcile_original(admission, retired, host_exit_run_id=run_id, terminal_reply_loss=operation)
+        after = self.inventory(*case[:2], include_capacity=True)
+        local = self.local_metadata(run_id, *case[:2], include_result=True)
+        terminal_reply_loss_state(operation, after, local, digest(canonical(proof["case"])), retired=True)
+        require(self.traffic() == proof["requests"], "launch_terminal_loss_state_changed")
+        self.retired_predecessor_inventory = after
+        proof.update(after=after, local_after=local, audit=audit,
+            audit_sha256=digest(canonical(audit)), retirement_sha256=retired["receipt_sha256"],
+            host_retirement_sha256=digest(canonical(retired)), terminal_sha256=digest(canonical(terminal)),
+            terminal_cause="retained_result_failure" if operation == "result" else "existing_completed",
+            capacity_before=before["capacity_reserved_count"], capacity_after=after["capacity_reserved_count"],
+            targets_spent=after["targets_spent"], duration_allocated=after["duration_allocated"], remaining_local_holds=0)
+        return audit
+
     def observe_claim_reply_loss(self, observer, identity, admission, case):
+        if getattr(self, "reply_loss_operation", "claim") in TERMINAL_REPLY_LOSS:
+            return self.observe_terminal_reply_loss(observer, identity, admission, case)
+        operation = getattr(self, "reply_loss_operation", "claim")
+        issued = operation != "claim"
         self.receipt["stage"] = "launch_claim_loss_register"
         self.persistent_idle(admission, 0)
         require(self.traffic() == [], "launch_claim_loss_state_changed")
@@ -1465,7 +1633,7 @@ print(len(directories))
                 and runtime["active_sequence"] == runtime["head_sequence"] == runtime["last_sequence"] == "1"
                 and runtime["retired"] is False and runtime["new_work_disabled"] is False
                 and runtime["report_sha256"] is None and len(runtime["attempts"]) == 1
-                and contract["consumed"] is False and contract["ordinal"] == 1
+                and contract["consumed"] is issued and contract["ordinal"] == 1
                 and len(before["approvals"]) == 1
                 and before["approvals"][0]["id"] == registered["approval_record_id"]
                 and before["approvals"][0]["issued"] == 1
@@ -1479,25 +1647,36 @@ print(len(directories))
                     "contract_id": contract["id"],
                     **{k: contract[k] for k in ("attempt_id", "fence", "contract_sha256")},
                 })
-                and all(attempt[k] is None for k in ("confirmed_at", "released_at", "terminal_receipt",
+                and (attempt["confirmed_at"] is not None) == (operation == "runtime-bind")
+                and all(attempt[k] is None for k in ("released_at", "terminal_receipt",
                     "terminal_receipt_sha256", "native_done_sha256", "release_receipt")),
                 "launch_claim_loss_commit_not_observed")
-        run_id = self.unissued_claim_run(*case[:2], {case[1]}, "launch_claim_loss_original_hold_missing")
-        audit = self.worker_state(admission, expected_held='claim_unknown')
+        run_id = None if issued else self.unissued_claim_run(*case[:2], {case[1]}, "launch_claim_loss_original_hold_missing")
+        audit = self.worker_state(admission, expected_held="issued_unknown" if issued else "claim_unknown")
         require(audit["schema"] == "vardr.worker-state-audit/1" and audit["status"] == "held"
                 and audit["complete"] is True and audit["reason"] == "local_holds"
                 and audit["binding"] == {k: admission[k] for k in (
                     "runner_id", "runtime_id", "runtime_sha256", "admission_sha256")}
                 and canonical(audit["parent"]) == canonical({
-                    "state": "idle", "last_sequence": "0", "head_sequence": None, "active_sequence": None})
+                    "state": "active" if issued else "idle", "last_sequence": str(int(issued)),
+                    "head_sequence": "1" if issued else None, "active_sequence": "1" if issued else None})
                 and canonical(audit["counts"]) == canonical({
-                    "attempts": 0, "selections": 1, "associated_runs": 1, "associated_claims": 1})
+                    "attempts": int(issued), "selections": 1, "associated_runs": 1, "associated_claims": 1})
                 and type(audit["global_holds"]) is int and audit["global_holds"] > 0
                 and audit["retirement_receipt_sha256"] is None,
                 "launch_claim_loss_original_hold_missing")
         rows = json.loads(self.helper("audit", "list", "--engagement", case[0], "--limit", "3", "--json"))
+        require(type(rows) is list and len(rows) == 1 and rows[0]["job_id"] == case[1], "launch_claim_loss_original_hold_missing")
+        run_id = rows[0]["run_id"] if issued else run_id
         local = next(row for row in rows if row["run_id"] == run_id)
         metadata = self.local_metadata(run_id, *case[:2])
+        if issued:
+            require(local["phase"] == metadata["phase"] == "executing"
+                    and local["status"] == metadata["status"] == metadata["claim_state"] == "held_after_claim"
+                    and local["pid"] is local["artifact_sha256"] is None
+                    and canonical([metadata["consumption_sent"], metadata["consumption_acknowledged"]]) == b"[1,0]"
+                    and metadata["partial_files"] == [] and metadata["partial_result"] is None,
+                    "launch_claim_loss_original_hold_missing")
         require(self.traffic() == []
                 and canonical(self.inventory(*case[:2], include_capacity=True)) == canonical(before)
                 and digest((self.install / "Caddyfile").read_bytes()) == self.claim_loss_proxy_binding["config_sha256"],
@@ -2228,12 +2407,17 @@ print(len(directories))
             old_observer.confirm_exit(old_exit)
             final = observer.capture_project_containers(self.project)
             require(final["all_worker_ids"] == [first["container_id"]]
-                    and final["core"] == initial["core"] and self.traffic() == []
+                    and final["core"] == initial["core"]
+                    and self.traffic() == self.receipt["claim_reply_loss"].get("requests", [])
                     and canonical(self.inventory(*case[:2], include_capacity=True))
                     == canonical(self.retired_predecessor_inventory),
                     "launch_claim_loss_state_changed")
-            self.receipt.update(launch=first, status=CLAIM_REPLY_LOSS_PASS,
-                                stage="selected_claim_reply_loss_complete")
+            operation = getattr(self, "reply_loss_operation", "claim")
+            slug = operation.replace("-", "_")
+            self.receipt.update(launch=first, status=("selected_terminal_reply_loss_slice_passed"
+                                if operation in TERMINAL_REPLY_LOSS else "selected_" + slug + "_reply_loss_slice_passed"),
+                                stage=("selected_terminal_reply_loss_complete" if operation in TERMINAL_REPLY_LOSS
+                                else "selected_" + slug + "_reply_loss_complete"))
             return
         if self.concurrency_exhaustion:
             old_observer.confirm_exit(old_exit)
@@ -2504,6 +2688,10 @@ def main(argv=None):
     workload.add_argument("--stopped-predecessor", action="store_true")
     workload.add_argument("--map-disconnect", action="store_true")
     workload.add_argument("--claim-reply-loss", action="store_true")
+    workload.add_argument("--result-reply-loss", action="store_true")
+    workload.add_argument("--finish-reply-loss", action="store_true")
+    workload.add_argument("--consume-reply-loss", action="store_true")
+    workload.add_argument("--runtime-bind-reply-loss", action="store_true")
     workload.add_argument("--preclaim-recovery", action="store_true")
     workload.add_argument("--repeat-managed-claim", action="store_true")
     parser.add_argument("--execute", action="store_true")
@@ -2512,6 +2700,8 @@ def main(argv=None):
         print("Launch acceptance requires explicit --execute.")
         return 2
     try:
+        operation = ("consume" if args.consume_reply_loss else "runtime-bind" if args.runtime_bind_reply_loss
+                     else "result" if args.result_reply_loss else "finish" if args.finish_reply_loss else None)
         fixture = LaunchFixture(
             manifest(args.cohort),
             compose=args.compose_executable,
@@ -2531,11 +2721,14 @@ def main(argv=None):
             stopped_predecessor=args.stopped_predecessor,
             map_disconnect=args.map_disconnect,
             **({"claim_reply_loss": True} if args.claim_reply_loss else {}),
+            **({"reply_loss_operation": operation} if operation is not None else {}),
             preclaim_recovery=args.preclaim_recovery,
             repeat_managed_claim=args.repeat_managed_claim,
         )
         fixture.run()
         expected = (
+            "selected_terminal_reply_loss_slice_passed" if args.result_reply_loss or args.finish_reply_loss else
+            "selected_" + operation.replace("-", "_") + "_reply_loss_slice_passed" if operation is not None else
             CLAIM_REPLY_LOSS_PASS if args.claim_reply_loss else
             DURATION_PASS if args.duration_exhaustion else
             TARGET_PASS if args.target_exhaustion else

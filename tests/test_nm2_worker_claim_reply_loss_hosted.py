@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 import ast
+from itertools import product
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,6 +18,7 @@ from worker_runtime import RuntimeIdentity
 
 
 SCENARIO = local.CLAIM_REPLY_LOSS_SCENARIO
+OPERATIONS = ("claim", "consume", "runtime-bind")
 JOB, RUN, ENGAGEMENT, RUNNER, APPROVAL, CONTRACT, ATTEMPT, ENROLLMENT = (
     f"00000000-0000-4000-8000-{index:012d}" for index in range(1, 9)
 )
@@ -29,14 +31,19 @@ PROXY_OLD, PROXY_ARMED = (
 )
 
 
-def evidence(*, desktop=False):
+def evidence(*, desktop=False, operation="claim"):
     raw, selected, (before, after) = (
         retained.desktop_evidence() if desktop else retained.evidence()
     )
     launch, unused = raw.pop("launch_pair")
     raw.pop("stopped_predecessor")
     selected["https_port"] = 28443
-    for name, commit in local.CLAIM_REPLY_LOSS_SOURCES.items():
+    sources = (
+        local.CLAIM_REPLY_LOSS_SOURCES
+        if operation == "claim"
+        else local.POST_CLAIM_REPLY_LOSS_SOURCES
+    )
+    for name, commit in sources.items():
         selected["sources"][name]["commit"] = commit
     del after["containers"][unused["container_id"]]
     del after["volumes"][f"{selected['project']}_worker-ready-{unused['runtime_id']}"]
@@ -371,12 +378,35 @@ def evidence(*, desktop=False):
         duration_allocated=30,
         remaining_local_holds=0,
     )
+    if operation != "claim":
+        committed["contracts"][0]["consumed"] = True
+        attempt["confirmed_at"] = (
+            "2026-11-07T01:00:02.000000Z" if operation == "runtime-bind" else None
+        )
+        for row in (run, metadata):
+            row.update(phase="executing", status="held_after_claim")
+        metadata.update(claim_state="held_after_claim", consumption_sent=1)
+        audit["parent"].update(
+            state="active", last_sequence="1", head_sequence="1", active_sequence="1"
+        )
+        final_audit["parent"].update(last_sequence="1", head_sequence="1")
+        audit["counts"]["attempts"] = 1
+        proof["audit_sha256"] = digest(canonical(final_audit))
+        proxy_binding["config_sha256"] = digest(
+            local.claim_reply_loss_config(config, JOB, operation=operation)
+        )
+    scenario = next(
+        name
+        for name, value in hosted.REPLY_LOSS_OPERATIONS.items()
+        if value == operation
+    )
+    slug = operation.replace("-", "_")
     raw.update(
         sources=selected["sources"],
-        scenario=SCENARIO,
-        acceptance_scope="committed_claim_reply_loss",
-        status=local.CLAIM_REPLY_LOSS_PASS,
-        stage="selected_claim_reply_loss_complete",
+        scenario=scenario,
+        acceptance_scope=hosted.LAUNCH_SCOPES[scenario],
+        status="selected_" + slug + "_reply_loss_slice_passed",
+        stage="selected_" + slug + "_reply_loss_complete",
         launch=launch,
         claim_reply_loss=proof,
         after_sha256=digest(canonical(after)),
@@ -386,100 +416,114 @@ def evidence(*, desktop=False):
 
 class ClaimReplyLossHostedTests(unittest.TestCase):
     def test_explicit_route_requires_all_new_sources_and_preserves_default(self):
-        env = {
-            "NM2_SCENARIO": SCENARIO,
-            "NM2_DATABASE_REVISION": "0041persistentruntime",
-            **{
-                "NM2_" + name.upper() + "_SHA": sha
-                for name, sha in local.CLAIM_REPLY_LOSS_SOURCES.items()
-            },
-        }
-        self.assertEqual(
-            hosted.execution_options(env), (SCENARIO, "0041persistentruntime")
-        )
-        self.assertEqual(
-            hosted.execution_options({}), ("healthy", "0040runtimesequence")
-        )
-        self.assertEqual(hosted.CLAIM_REPLY_LOSS_HOSTED, "vardr.nm2-hosted/18")
-        for key in (
-            "NM2_MAP_SHA",
-            "NM2_RUNNER_SHA",
-            "NM2_GATE_SHA",
-            "NM2_DATABASE_REVISION",
-        ):
-            with self.subTest(key=key), self.assertRaises(hosted.HostedRefused):
-                hosted.execution_options({**env, key: "0" * 40})
-        with patch.object(local, "LaunchFixture") as fixture:
-            self.assertEqual(
-                local.main(
-                    [
-                        "--cohort",
-                        "unused",
-                        "--compose-executable",
-                        "unused-compose",
-                        "--compose-sha256",
-                        "0" * 64,
-                        "--docker-config",
-                        "unused-config",
-                        "--claim-reply-loss",
-                    ]
+        for operation in OPERATIONS:
+            env = {
+                "NM2_SCENARIO": next(
+                    name
+                    for name, value in hosted.REPLY_LOSS_OPERATIONS.items()
+                    if value == operation
                 ),
-                2,
+                "NM2_DATABASE_REVISION": "0041persistentruntime",
+                **{
+                    "NM2_" + name.upper() + "_SHA": sha
+                    for name, sha in (
+                        local.CLAIM_REPLY_LOSS_SOURCES
+                        if operation == "claim"
+                        else local.POST_CLAIM_REPLY_LOSS_SOURCES
+                    ).items()
+                },
+            }
+            self.assertEqual(
+                hosted.execution_options(env),
+                (env["NM2_SCENARIO"], "0041persistentruntime"),
             )
-        fixture.assert_not_called()
-        tree = ast.parse(Path(local.__file__).read_text(encoding="utf-8"))
-        method = next(
-            node
-            for cls in tree.body
-            if isinstance(cls, ast.ClassDef) and cls.name == "LaunchFixture"
-            for node in cls.body
-            if isinstance(node, ast.FunctionDef) and node.name == "launch_pair"
-        )
-        call = next(
-            node.value
-            for node in ast.walk(method)
-            if isinstance(node, ast.Assign)
-            and any(
-                isinstance(target, ast.Name) and target.id == "before"
-                for target in node.targets
+            self.assertEqual(
+                hosted.execution_options({}), ("healthy", "0040runtimesequence")
             )
-            and isinstance(node.value, ast.Call)
-            and isinstance(node.value.func, ast.Attribute)
-            and node.value.func.attr == "inventory"
-        )
-        for flag in (False, True):
-            owner = SimpleNamespace(claim_reply_loss=flag, inventory=Mock())
-            eval(
-                compile(ast.Expression(call), local.__file__, "eval"),
-                {"self": owner, "engagement": ENGAGEMENT, "job": JOB},
+            self.assertEqual(hosted.CLAIM_REPLY_LOSS_HOSTED, "vardr.nm2-hosted/18")
+            for key in (
+                "NM2_MAP_SHA",
+                "NM2_RUNNER_SHA",
+                "NM2_GATE_SHA",
+                "NM2_DATABASE_REVISION",
+            ):
+                with self.subTest(key=key), self.assertRaises(hosted.HostedRefused):
+                    hosted.execution_options({**env, key: "0" * 40})
+            with patch.object(local, "LaunchFixture") as fixture:
+                self.assertEqual(
+                    local.main(
+                        [
+                            "--cohort",
+                            "unused",
+                            "--compose-executable",
+                            "unused-compose",
+                            "--compose-sha256",
+                            "0" * 64,
+                            "--docker-config",
+                            "unused-config",
+                            "--" + operation + "-reply-loss",
+                        ]
+                    ),
+                    2,
+                )
+            fixture.assert_not_called()
+            tree = ast.parse(Path(local.__file__).read_text(encoding="utf-8"))
+            method = next(
+                node
+                for cls in tree.body
+                if isinstance(cls, ast.ClassDef) and cls.name == "LaunchFixture"
+                for node in cls.body
+                if isinstance(node, ast.FunctionDef) and node.name == "launch_pair"
             )
-            owner.inventory.assert_called_once_with(
-                ENGAGEMENT, JOB, **({"include_capacity": True} if flag else {})
+            call = next(
+                node.value
+                for node in ast.walk(method)
+                if isinstance(node, ast.Assign)
+                and any(
+                    isinstance(target, ast.Name) and target.id == "before"
+                    for target in node.targets
+                )
+                and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Attribute)
+                and node.value.func.attr == "inventory"
             )
+            for flag in (False, True):
+                owner = SimpleNamespace(claim_reply_loss=flag, inventory=Mock())
+                eval(
+                    compile(ast.Expression(call), local.__file__, "eval"),
+                    {"self": owner, "engagement": ENGAGEMENT, "job": JOB},
+                )
+                owner.inventory.assert_called_once_with(
+                    ENGAGEMENT, JOB, **({"include_capacity": True} if flag else {})
+                )
 
     def test_proxy_config_exact_post_success_abort_preserves_other_routes_and_tls(self):
-        original = (hosted.SOURCE / "Caddyfile").read_bytes()
-        rendered = local.claim_reply_loss_config(original, JOB).decode()
-        self.assertIn("admin off", rendered)
-        self.assertIn("tls internal", rendered)
-        self.assertIn("reverse_proxy web:3000", rendered)
-        self.assertIn(
-            "method POST\n        path /jobs/" + JOB + "/managed/claim", rendered
-        )
-        self.assertEqual(rendered.count("@committed status 200"), 1)
-        self.assertEqual(rendered.count("abort"), 1)
-        self.assertNotIn("log ", rendered)
-        for job in ("x\nabort", "../other", "x*", "", "/jobs/x"):
-            with self.subTest(job=job), self.assertRaises(AcceptanceRefused):
-                local.claim_reply_loss_config(original, job)
-        with self.assertRaises(AcceptanceRefused):
-            local.claim_reply_loss_config(b"unknown source", JOB)
+        for operation in OPERATIONS:
+            original = (hosted.SOURCE / "Caddyfile").read_bytes()
+            rendered = local.claim_reply_loss_config(
+                original, JOB, operation=operation
+            ).decode()
+            self.assertIn("admin off", rendered)
+            self.assertIn("tls internal", rendered)
+            self.assertIn("reverse_proxy web:3000", rendered)
+            self.assertIn(
+                "method POST\n        path /jobs/" + JOB + "/managed/" + operation,
+                rendered,
+            )
+            self.assertEqual(rendered.count("@committed status 200"), 1)
+            self.assertEqual(rendered.count("abort"), 1)
+            self.assertNotIn("log ", rendered)
+            for job in ("x\nabort", "../other", "x*", "", "/jobs/x"):
+                with self.subTest(job=job), self.assertRaises(AcceptanceRefused):
+                    local.claim_reply_loss_config(original, job)
+            with self.assertRaises(AcceptanceRefused):
+                local.claim_reply_loss_config(b"unknown source", JOB)
 
     def test_reader_joins_positive_commit_original_unknown_and_retirement_on_both_platforms(
         self,
     ):
-        for desktop in (False, True):
-            raw, selected, inventory = evidence(desktop=desktop)
+        for desktop, operation in product((False, True), OPERATIONS):
+            raw, selected, inventory = evidence(desktop=desktop, operation=operation)
             result = (
                 hosted.claim_reply_loss_desktop_projection(
                     raw, selected, inventories=inventory
@@ -487,17 +531,22 @@ class ClaimReplyLossHostedTests(unittest.TestCase):
                 if desktop
                 else hosted.public_projection(raw, selected, inventories=inventory)
             )
-            proof = result["claim_reply_loss"]
+            proof = result[operation.replace("-", "_") + "_reply_loss"]
             self.assertEqual(proof["map_issued_sequence"], "1")
-            self.assertEqual(proof["local_last_sequence"], "0")
+            self.assertEqual(
+                proof["local_last_sequence"], str(int(operation != "claim"))
+            )
             self.assertEqual(
                 (proof["capacity_before"], proof["capacity_after"]), (1, 0)
             )
             self.assertEqual(proof["owned_stopped_container_count"], 6)
-            self.assertFalse(
-                proof["consumed"]
-                or proof["runtime_bind_confirmed"]
-                or proof["operator_stop_requested"]
+            self.assertEqual(
+                (
+                    proof["consumed"],
+                    proof["runtime_bind_confirmed"],
+                    proof["operator_stop_requested"],
+                ),
+                (operation != "claim", operation == "runtime-bind", False),
             )
             for private in (
                 JOB,
@@ -511,25 +560,30 @@ class ClaimReplyLossHostedTests(unittest.TestCase):
                 self.assertNotIn(private.encode(), canonical(result))
 
     def test_reader_refuses_missing_commit_consumption_bind_or_capacity_release(self):
-        for change in (
-            "no_contract",
-            "consumed",
-            "confirmed",
-            "capacity",
-            "target",
-            "local_ack",
-            "local_attempt",
-            "disabled_after_report",
+        for operation, change in product(
+            OPERATIONS,
+            (
+                "no_contract",
+                "consumed",
+                "confirmed",
+                "capacity",
+                "target",
+                "local_ack",
+                "local_attempt",
+                "disabled_after_report",
+            ),
         ):
-            raw, selected, inventory = evidence()
+            raw, selected, inventory = evidence(operation=operation)
             proof = raw["claim_reply_loss"]
             if change == "no_contract":
                 proof["committed"]["contracts"] = []
             elif change == "consumed":
-                proof["committed"]["contracts"][0]["consumed"] = True
+                proof["committed"]["contracts"][0]["consumed"] = operation == "claim"
             elif change == "confirmed":
                 proof["committed"]["runtimes"][0]["attempts"][0]["confirmed_at"] = (
-                    "2026-11-07T01:00:02.000000Z"
+                    None
+                    if operation == "runtime-bind"
+                    else "2026-11-07T01:00:02.000000Z"
                 )
             elif change == "capacity":
                 proof["committed"]["capacity_reserved_count"] = 0
@@ -540,26 +594,29 @@ class ClaimReplyLossHostedTests(unittest.TestCase):
             elif change == "disabled_after_report":
                 proof["after"]["runtimes"][0]["new_work_disabled"] = False
             else:
-                proof["audit"]["counts"]["attempts"] = 1
+                proof["audit"]["counts"]["attempts"] = int(operation == "claim")
             with self.subTest(change=change), self.assertRaises(hosted.HostedRefused):
                 hosted.public_projection(raw, selected, inventories=inventory)
 
     def test_reader_refuses_foreign_original_recovery_or_rehashed_joins(self):
-        for change in (
-            "run",
-            "job",
-            "sequence",
-            "receipt",
-            "source",
-            "terminal",
-            "audit_extra",
-            "reconciliation_extra",
-            "retirement_extra",
-            "final_reason",
-            "run_format",
-            "approval_binding",
+        for operation, change in product(
+            OPERATIONS,
+            (
+                "run",
+                "job",
+                "sequence",
+                "receipt",
+                "source",
+                "terminal",
+                "audit_extra",
+                "reconciliation_extra",
+                "retirement_extra",
+                "final_reason",
+                "run_format",
+                "approval_binding",
+            ),
         ):
-            raw, selected, inventory = evidence()
+            raw, selected, inventory = evidence(operation=operation)
             proof = raw["claim_reply_loss"]
             if change == "run":
                 proof["reconciliation"]["selected_run_id"] = ENGAGEMENT
@@ -611,24 +668,33 @@ class ClaimReplyLossHostedTests(unittest.TestCase):
                 hosted.public_projection(raw, selected, inventories=inventory)
 
     def test_reader_refuses_wrong_proxy_physical_identity_or_typed_values(self):
-        for change in (
-            "proxy",
-            "ca",
-            "config",
-            "exit_bool",
-            "operator",
-            "early_arm",
-            "profile",
-            "counts_bool",
+        for operation, change in product(
+            OPERATIONS,
+            (
+                "proxy",
+                "ca",
+                "config",
+                "exit_bool",
+                "operator",
+                "early_arm",
+                "profile",
+                "counts_bool",
+            ),
         ):
-            raw, selected, inventory = evidence()
+            raw, selected, inventory = evidence(operation=operation)
             proof = raw["claim_reply_loss"]
             if change == "proxy":
                 proof["proxy"]["armed"]["id"] = "8" * 64
             elif change == "ca":
                 proof["proxy"]["ca_sha256"] = "unknown"
             elif change == "config":
-                proof["proxy"]["config_sha256"] = "f" * 64
+                proof["proxy"]["config_sha256"] = digest(
+                    local.claim_reply_loss_config(
+                        (hosted.SOURCE / "Caddyfile").read_bytes(),
+                        JOB,
+                        operation="consume" if operation == "claim" else "claim",
+                    )
+                )
             elif change == "exit_bool":
                 proof["physical"]["exit_code"] = True
             elif change == "operator":
@@ -647,99 +713,119 @@ class ClaimReplyLossHostedTests(unittest.TestCase):
     def test_original_producer_requires_positive_committed_inventory_and_keeps_unknown(
         self,
     ):
-        raw, _, _ = evidence()
-        proof = raw["claim_reply_loss"]
-        fixture = local.LaunchFixture.__new__(local.LaunchFixture)
-        fixture.receipt, fixture.pending_approval = {}, {"synthetic_approval": True}
-        fixture.api = SimpleNamespace(
-            request=Mock(return_value={"approval_record_id": APPROVAL})
-        )
-        fixture.traffic, fixture.persistent_idle = Mock(return_value=[]), Mock()
-        fixture.inventory = Mock(return_value=deepcopy(proof["committed"]))
-        fixture.helper = Mock(return_value=json.dumps([proof["local_unknown"]["run"]]))
-        fixture.local_metadata = Mock(return_value=proof["local_unknown"]["metadata"])
-        fixture.worker_state = Mock(return_value=proof["local_unknown"]["audit"])
-        identity = RuntimeIdentity(**proof["physical"]["identity"])
-        physical = SimpleNamespace(
-            identity=identity,
-            exit_code=125,
-            finished_at=proof["physical"]["finished_at"],
-        )
-        observer = SimpleNamespace(
-            observe_exit=Mock(return_value=physical), confirm_exit=Mock()
-        )
-        runtime = proof["committed"]["runtimes"][0]
-        admission = {
-            **proof["local_unknown"]["audit"]["binding"],
-            "origin": proof["retirement"]["origin"],
-        }
-        with TemporaryDirectory() as folder:
-            fixture.install = Path(folder)
-            (fixture.install / "Caddyfile").write_bytes(b"synthetic armed config")
-            fixture.claim_loss_proxy_binding = {
-                "config_sha256": digest(b"synthetic armed config")
+        for operation in OPERATIONS:
+            raw, _, _ = evidence(operation=operation)
+            proof = raw["claim_reply_loss"]
+            fixture = local.LaunchFixture.__new__(local.LaunchFixture)
+            fixture.receipt, fixture.pending_approval = {}, {"synthetic_approval": True}
+            fixture.reply_loss_operation = operation
+            fixture.api = SimpleNamespace(
+                request=Mock(return_value={"approval_record_id": APPROVAL})
+            )
+            fixture.traffic, fixture.persistent_idle = Mock(return_value=[]), Mock()
+            fixture.inventory = Mock(return_value=deepcopy(proof["committed"]))
+            fixture.helper = Mock(
+                return_value=json.dumps([proof["local_unknown"]["run"]])
+            )
+            fixture.local_metadata = Mock(
+                return_value=proof["local_unknown"]["metadata"]
+            )
+            fixture.worker_state = Mock(return_value=proof["local_unknown"]["audit"])
+            identity = RuntimeIdentity(**proof["physical"]["identity"])
+            physical = SimpleNamespace(
+                identity=identity,
+                exit_code=125,
+                finished_at=proof["physical"]["finished_at"],
+            )
+            observer = SimpleNamespace(
+                observe_exit=Mock(return_value=physical), confirm_exit=Mock()
+            )
+            runtime = proof["committed"]["runtimes"][0]
+            admission = {
+                **proof["local_unknown"]["audit"]["binding"],
+                "origin": proof["retirement"]["origin"],
             }
-            result = fixture.observe_claim_reply_loss(
-                observer, identity, admission, (ENGAGEMENT, JOB, {}, proof["initial"])
-            )
-            self.assertEqual(result[0], RUN)
-            self.assertEqual(
-                fixture.receipt["claim_reply_loss"]["committed"], proof["committed"]
-            )
-            fixture.persistent_idle.assert_called_once_with(admission, 0)
-            fixture.worker_state.assert_called_once_with(
-                admission, expected_held="claim_unknown"
-            )
-            self.assertEqual(fixture.api.request.call_count, 1)
-            fixture.inventory.return_value = {**runtime, "job_status": "pending"}
-            with self.assertRaises(AcceptanceRefused):
-                fixture.observe_claim_reply_loss(
+            with TemporaryDirectory() as folder:
+                fixture.install = Path(folder)
+                (fixture.install / "Caddyfile").write_bytes(b"synthetic armed config")
+                fixture.claim_loss_proxy_binding = {
+                    "config_sha256": digest(b"synthetic armed config")
+                }
+                result = fixture.observe_claim_reply_loss(
                     observer,
                     identity,
                     admission,
                     (ENGAGEMENT, JOB, {}, proof["initial"]),
                 )
+                self.assertEqual(result[0], RUN)
+                self.assertEqual(
+                    fixture.receipt["claim_reply_loss"]["committed"], proof["committed"]
+                )
+                fixture.persistent_idle.assert_called_once_with(admission, 0)
+                fixture.worker_state.assert_called_once_with(
+                    admission,
+                    expected_held="claim_unknown"
+                    if operation == "claim"
+                    else "issued_unknown",
+                )
+                self.assertEqual(fixture.api.request.call_count, 1)
+                fixture.inventory.return_value = {**runtime, "job_status": "pending"}
+                with self.assertRaises(AcceptanceRefused):
+                    fixture.observe_claim_reply_loss(
+                        observer,
+                        identity,
+                        admission,
+                        (ENGAGEMENT, JOB, {}, proof["initial"]),
+                    )
 
     def test_original_reconcile_keeps_parent_zero_without_local_attempt(self):
-        raw, _, _ = evidence()
-        proof = deepcopy(raw["claim_reply_loss"])
-        fixture = local.LaunchFixture.__new__(local.LaunchFixture)
-        fixture.receipt, fixture.claim_reply_loss = {"claim_reply_loss": proof}, True
-        fixture.inventory = Mock(return_value=proof["after"])
-        fixture.helper = Mock(return_value=json.dumps(proof["reconciliation"]))
-        fixture.worker_state = Mock(return_value=proof["audit"])
-        admission = proof["audit"]["binding"]
-        self.assertEqual(
-            fixture.verify_host_exit_reconciliation(
-                admission,
-                proof["retirement"],
-                (ENGAGEMENT, JOB, {}, proof["initial"]),
-                RUN,
-                proof["committed"],
-                proof_key="claim_reply_loss",
-            ),
-            proof["audit"],
-        )
-        self.assertEqual(
-            fixture.receipt["claim_reply_loss"]["reconciliation"],
-            proof["reconciliation"],
-        )
-        fixture.worker_state.return_value = {
-            **proof["audit"],
-            "counts": {**proof["audit"]["counts"], "attempts": 1},
-        }
-        with self.assertRaises(AcceptanceRefused):
-            fixture.verify_host_exit_reconciliation(
-                admission,
-                proof["retirement"],
-                (ENGAGEMENT, JOB, {}, proof["initial"]),
-                RUN,
-                proof["committed"],
-                proof_key="claim_reply_loss",
+        for operation in OPERATIONS:
+            raw, _, _ = evidence(operation=operation)
+            proof = deepcopy(raw["claim_reply_loss"])
+            fixture = local.LaunchFixture.__new__(local.LaunchFixture)
+            fixture.receipt, fixture.claim_reply_loss = (
+                {"claim_reply_loss": proof},
+                True,
             )
+            fixture.reply_loss_operation = operation
+            fixture.inventory = Mock(return_value=proof["after"])
+            fixture.helper = Mock(return_value=json.dumps(proof["reconciliation"]))
+            fixture.worker_state = Mock(return_value=proof["audit"])
+            admission = proof["audit"]["binding"]
+            self.assertEqual(
+                fixture.verify_host_exit_reconciliation(
+                    admission,
+                    proof["retirement"],
+                    (ENGAGEMENT, JOB, {}, proof["initial"]),
+                    RUN,
+                    proof["committed"],
+                    proof_key="claim_reply_loss",
+                ),
+                proof["audit"],
+            )
+            self.assertEqual(
+                fixture.receipt["claim_reply_loss"]["reconciliation"],
+                proof["reconciliation"],
+            )
+            fixture.worker_state.return_value = {
+                **proof["audit"],
+                "counts": {
+                    **proof["audit"]["counts"],
+                    "attempts": int(operation == "claim"),
+                },
+            }
+            with self.assertRaises(AcceptanceRefused):
+                fixture.verify_host_exit_reconciliation(
+                    admission,
+                    proof["retirement"],
+                    (ENGAGEMENT, JOB, {}, proof["initial"]),
+                    RUN,
+                    proof["committed"],
+                    proof_key="claim_reply_loss",
+                )
 
-    def arm_fixture(self, folder, *, wrong_ca=False):
-        raw, selected, _ = evidence()
+    def arm_fixture(self, folder, *, wrong_ca=False, operation="claim"):
+        raw, selected, _ = evidence(operation=operation)
         proxy = deepcopy(raw["claim_reply_loss"]["proxy"])
         fixture = local.LaunchFixture.__new__(local.LaunchFixture)
         fixture.install = Path(folder) / "install"
@@ -752,6 +838,7 @@ class ClaimReplyLossHostedTests(unittest.TestCase):
             selected,
         )
         fixture.receipt = {}
+        fixture.reply_loss_operation = operation
         target = fixture.install / "Caddyfile"
         target.write_bytes((hosted.SOURCE / "Caddyfile").read_bytes())
         (fixture.install / "trust").mkdir()
@@ -801,7 +888,7 @@ class ClaimReplyLossHostedTests(unittest.TestCase):
                 self.assertEqual(
                     target.read_bytes(),
                     local.claim_reply_loss_config(
-                        (hosted.SOURCE / "Caddyfile").read_bytes(), JOB
+                        (hosted.SOURCE / "Caddyfile").read_bytes(), JOB, operation=operation
                     ),
                 )
             return b""
@@ -813,20 +900,27 @@ class ClaimReplyLossHostedTests(unittest.TestCase):
         return fixture, observer, initial, armed, calls
 
     def test_proxy_arms_before_worker_with_same_cid_mount_inode_ca_and_other_core(self):
-        with TemporaryDirectory() as folder:
-            fixture, observer, initial, armed, calls = self.arm_fixture(folder)
-            target = fixture.install / "Caddyfile"
-            before = target.stat().st_dev, target.stat().st_ino
-            self.assertEqual(
-                fixture.arm_claim_reply_loss(observer, initial, JOB), armed
-            )
-            self.assertEqual((target.stat().st_dev, target.stat().st_ino), before)
-            effects = [args for args in calls if "container" in args]
-            self.assertEqual([args[-1] for args in effects], [PROXY_CID, PROXY_CID])
-            self.assertIn("stop", effects[0])
-            self.assertIn("start", effects[1])
-            self.assertEqual(fixture.claim_loss_proxy_binding["ready_http_status"], 200)
-            self.assertEqual(fixture.claim_loss_proxy_binding["web_http_status"], 200)
+        for operation in OPERATIONS:
+            with TemporaryDirectory() as folder:
+                fixture, observer, initial, armed, calls = self.arm_fixture(
+                    folder, operation=operation
+                )
+                target = fixture.install / "Caddyfile"
+                before = target.stat().st_dev, target.stat().st_ino
+                self.assertEqual(
+                    fixture.arm_claim_reply_loss(observer, initial, JOB), armed
+                )
+                self.assertEqual((target.stat().st_dev, target.stat().st_ino), before)
+                effects = [args for args in calls if "container" in args]
+                self.assertEqual([args[-1] for args in effects], [PROXY_CID, PROXY_CID])
+                self.assertIn("stop", effects[0])
+                self.assertIn("start", effects[1])
+                self.assertEqual(
+                    fixture.claim_loss_proxy_binding["ready_http_status"], 200
+                )
+                self.assertEqual(
+                    fixture.claim_loss_proxy_binding["web_http_status"], 200
+                )
 
     def test_wrong_ca_or_existing_worker_refuses_before_proxy_stop_or_registration(
         self,

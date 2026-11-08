@@ -73,10 +73,13 @@ class PreclaimRecoveryTests(unittest.TestCase):
             "global_holds": 0 if mode == "closed_preclaim" else 3,
             "retirement_receipt_sha256": None,
         }
+        if mode == "issued_unknown":
+            value["parent"].update(state="active", last_sequence="1", head_sequence="1", active_sequence="1")
+            value["counts"]["attempts"] = 1
         return fixture, admission, value
 
     def test_real_worker_state_command_accepts_only_explicit_known_held_modes(self):
-        for mode in ("closed_preclaim", "claim_unknown"):
+        for mode in ("closed_preclaim", "claim_unknown", "issued_unknown"):
             fixture, admission, value = self.held_audit_case(mode)
 
             def runner(args, **kwargs):

@@ -40,6 +40,16 @@ LAUNCH_MAP_DISCONNECT_SCENARIO = "persistent-launch-map-disconnect"
 MAP_DISCONNECT_HOSTED = "vardr.nm2-hosted/14"
 LAUNCH_CLAIM_REPLY_LOSS_SCENARIO = "persistent-launch-claim-reply-loss"
 CLAIM_REPLY_LOSS_HOSTED = "vardr.nm2-hosted/18"
+LAUNCH_CONSUME_REPLY_LOSS_SCENARIO = "persistent-launch-consume-reply-loss"
+LAUNCH_BIND_REPLY_LOSS_SCENARIO = "persistent-launch-runtime-bind-reply-loss"
+LAUNCH_RESULT_REPLY_LOSS_SCENARIO = "persistent-launch-result-reply-loss"
+LAUNCH_FINISH_REPLY_LOSS_SCENARIO = "persistent-launch-finish-reply-loss"
+REPLY_LOSS_OPERATIONS = {LAUNCH_CLAIM_REPLY_LOSS_SCENARIO: "claim",
+    LAUNCH_CONSUME_REPLY_LOSS_SCENARIO: "consume", LAUNCH_BIND_REPLY_LOSS_SCENARIO: "runtime-bind",
+    LAUNCH_RESULT_REPLY_LOSS_SCENARIO: "result", LAUNCH_FINISH_REPLY_LOSS_SCENARIO: "finish"}
+REPLY_LOSS_HOSTED = {LAUNCH_CLAIM_REPLY_LOSS_SCENARIO: CLAIM_REPLY_LOSS_HOSTED,
+    LAUNCH_CONSUME_REPLY_LOSS_SCENARIO: "vardr.nm2-hosted/21", LAUNCH_BIND_REPLY_LOSS_SCENARIO: "vardr.nm2-hosted/22",
+    LAUNCH_RESULT_REPLY_LOSS_SCENARIO: "vardr.nm2-hosted/23", LAUNCH_FINISH_REPLY_LOSS_SCENARIO: "vardr.nm2-hosted/24"}
 LAUNCH_COMPLETED_SCENARIO = "persistent-launch-completed"
 LAUNCH_STOP_WORK_SCENARIO = "persistent-launch-stop-work"
 LAUNCH_STOP_WORK_QUEUED_SCENARIO = "persistent-launch-stop-work-queued"
@@ -76,6 +86,10 @@ LAUNCH_SCOPES = {
     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: "stopped_predecessor_then_next_launch",
     LAUNCH_MAP_DISCONNECT_SCENARIO: "ordinary_map_api_outage",
     LAUNCH_CLAIM_REPLY_LOSS_SCENARIO: "committed_claim_reply_loss",
+    LAUNCH_RESULT_REPLY_LOSS_SCENARIO: "committed_result_reply_loss",
+    LAUNCH_FINISH_REPLY_LOSS_SCENARIO: "committed_completion_reply_loss",
+    LAUNCH_CONSUME_REPLY_LOSS_SCENARIO: "committed_consume_reply_loss",
+    LAUNCH_BIND_REPLY_LOSS_SCENARIO: "committed_runtime_bind_reply_loss",
     LAUNCH_COMPLETED_SCENARIO: "completed_then_next_launch",
     LAUNCH_STOP_WORK_SCENARIO: "stop_work_then_next_launch",
     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "stop_work_excludes_queued_job",
@@ -693,10 +707,10 @@ def execution_options(env):
     if scenario == BOOTSTRAP_SCENARIO:
         require(env.get("NM2_RUNNER_SHA") == BOOTSTRAP_RUNNER
                 and env.get("NM2_GATE_SHA") == BOOTSTRAP_GATE)
-    if scenario == LAUNCH_CLAIM_REPLY_LOSS_SCENARIO:
-        from nm2_worker_launch_acceptance import CLAIM_REPLY_LOSS_SOURCES
-        require(all(env.get("NM2_" + n.upper() + "_SHA") == v
-                    for n, v in CLAIM_REPLY_LOSS_SOURCES.items()))
+    if scenario in REPLY_LOSS_OPERATIONS:
+        from nm2_worker_launch_acceptance import CLAIM_REPLY_LOSS_SOURCES, POST_CLAIM_REPLY_LOSS_SOURCES
+        sources = CLAIM_REPLY_LOSS_SOURCES if REPLY_LOSS_OPERATIONS[scenario] == "claim" else POST_CLAIM_REPLY_LOSS_SOURCES
+        require(all(env.get("NM2_" + n.upper() + "_SHA") == v for n, v in sources.items()))
     return scenario, revision
 
 
@@ -815,10 +829,12 @@ def failure_projection(raw, selection):
         "launch_claim_loss_proxy_arm", "launch_claim_loss_register",
         "launch_claim_loss_observe", "launch_claim_loss_original_hold",
         "launch_claim_loss_report_exit", "selected_claim_reply_loss_complete",
+        "selected_consume_reply_loss_complete", "selected_runtime_bind_reply_loss_complete",
         "launch_prepare", "launch_1", "launch_2", "launch_stop_1", "launch_stop_2",
         "launch_preclaim_setup", "launch_preclaim_refuse_successor", "launch_preclaim_reconcile",
         "launch_predecessor_active", "launch_predecessor_unreported",
-        "launch_repeat_managed_claim",
+        "launch_repeat_managed_claim", "launch_terminal_loss_register", "launch_terminal_loss_observe", "launch_terminal_loss_reconcile",
+        "selected_terminal_reply_loss_complete",
         "launch_refuse_unresolved_predecessor", "launch_report_predecessor",
         "launch_host_exit_verification",
         "launch_map_disconnect_active", "launch_map_disconnect_register",
@@ -890,6 +906,8 @@ def failure_projection(raw, selection):
         "launch_claim_loss_eligible_before_arm", "launch_claim_loss_commit_not_observed",
         "launch_claim_loss_original_hold_missing", "launch_claim_loss_state_changed",
         "launch_claim_loss_original_reconciliation_missing",
+        "launch_terminal_loss_result_not_proven", "launch_terminal_loss_local_not_proven",
+        "launch_terminal_loss_state_not_proven", "launch_terminal_loss_state_changed",
         "launch_repeat_sources_required", "launch_repeat_original_not_active",
         "launch_repeat_refusal_required", "launch_repeat_changed_original",
         "launch_preexisting_worker", "launch_unexpected_target_traffic",
@@ -902,6 +920,7 @@ def failure_projection(raw, selection):
         "launch_predecessor_original_attempt_missing", "launch_predecessor_original_run_not_held",
         "launch_predecessor_already_reported", "launch_successor_volume_exists",
         "launch_unresolved_predecessor_refusal_missing", "launch_unresolved_refusal_changed_state",
+        "launch_unresolved_refusal_catalog_changed", "launch_unresolved_refusal_engine_changed", "launch_unresolved_refusal_server_changed", "launch_unresolved_refusal_journal_changed", "launch_unresolved_refusal_traffic_changed",
         "launch_host_exit_original_reconciliation_missing", "launch_host_exit_terminal_not_proven",
         "launch_host_exit_budget_or_history_changed", "launch_host_exit_predecessor_history_changed",
         "launch_host_exit_predecessor_binding_changed", "launch_successor_identity_changed",
@@ -1559,13 +1578,20 @@ def _preclaim_projection(raw, selection, first, second, inventories, *, desktop)
             "empty_builtin_bridge_id_change_count": admitted, "nm2_exit_status": "incomplete", "resources_retained": True}
 
 
-def _claim_reply_loss_projection(raw, selection, inventories, *, desktop):
+def _claim_reply_loss_projection(raw, selection, inventories, *, desktop, operation="claim"):
     """Join the committed claim to original local unknown and physical retirement."""
-    from nm2_worker_launch_acceptance import CLAIM_REPLY_LOSS_SOURCES, claim_reply_loss_config
+    from nm2_worker_launch_acceptance import (CLAIM_REPLY_LOSS_SOURCES, POST_CLAIM_REPLY_LOSS_SOURCES,
+        TERMINAL_REPLY_LOSS, terminal_reply_loss_state, claim_reply_loss_config)
     from worker_host import _terminal
 
+    terminal_loss = operation in TERMINAL_REPLY_LOSS
+    policy = TERMINAL_REPLY_LOSS[operation] if terminal_loss else None
+    require(operation == REPLY_LOSS_OPERATIONS[raw["scenario"]])
+    require(type(operation) is str and operation in {"claim", "consume", "runtime-bind", "result", "finish"})
+    issued = operation != "claim"
+    sources = CLAIM_REPLY_LOSS_SOURCES if not issued else POST_CLAIM_REPLY_LOSS_SOURCES
     require(all(type(commit) is str and selection["sources"][name]["commit"] == commit
-                for name, commit in CLAIM_REPLY_LOSS_SOURCES.items()))
+                for name, commit in sources.items()))
     require(not any(key in raw for key in (
         "launch_pair", "completed_job", "cancelled_job", "unclaimed_job", "unissued_job",
         "duration_exhaustion", "target_exhaustion", "concurrency_exhaustion",
@@ -1582,12 +1608,12 @@ def _claim_reply_loss_projection(raw, selection, inventories, *, desktop):
         "audit_sha256", "retirement_sha256", "host_retirement_sha256", "terminal_sha256",
         "terminal_cause", "capacity_before", "capacity_after", "targets_spent",
         "duration_allocated", "remaining_local_holds",
-    })
+    } | ({"operation", "requests", "case", "assessment", "evidence_count", "evidence_sha256", "local_after"} if terminal_loss else set()))
     _uuid(proof["job_id"])
     require(type(proof["run_id"]) is str and re.fullmatch(r"[0-9a-f]{32}", proof["run_id"]) is not None
             and type(proof["approval_record_id"]) is str
             and re.fullmatch(r"[A-Za-z0-9_.:-]{1,257}", proof["approval_record_id"]) is not None)
-    counts = {"target_requests": 0, "capacity_before": 1, "capacity_after": 0,
+    counts = {"target_requests": 5 if terminal_loss else 0, "capacity_before": 0 if operation == "finish" else 1, "capacity_after": 0,
               "targets_spent": 1, "duration_allocated": 30, "remaining_local_holds": 0}
     require(all(type(proof[key]) is int and proof[key] == value for key, value in counts.items()))
     initial, committed, after = (proof[key] for key in ("initial", "committed", "after"))
@@ -1600,21 +1626,22 @@ def _claim_reply_loss_projection(raw, selection, inventories, *, desktop):
             and all(initial[key] == [] for key in ("approvals", "contracts", "runtimes", "results", "stops"))
             and all(type(initial[key]) is int and initial[key] == 0
                     for key in ("targets_spent", "duration_allocated", "capacity_reserved_count"))
-            and committed["job_status"] == "running"
+            and committed["job_status"] == ("done" if operation == "finish" else "running")
             and all(type(committed[key]) is int and committed[key] == value for key, value in (
-                ("targets_spent", 1), ("duration_allocated", 30), ("capacity_reserved_count", 1)))
-            and committed["results"] == committed["stops"] == []
+                ("targets_spent", 1), ("duration_allocated", 30), ("capacity_reserved_count", 0 if operation == "finish" else 1)))
+            and committed["stops"] == [] and (len(committed["results"]) == 1 if terminal_loss else committed["results"] == [])
             and len(committed["contracts"]) == len(committed["runtimes"]) == len(committed["approvals"]) == 1)
     _uuid(committed["engagement_id"])
     _same(committed["execution"], {
-        "state": "active", "capacity_reserved": True, "target_charge": 1, "duration_seconds": 30,
+        "state": "completed" if operation == "finish" else "active",
+        "capacity_reserved": operation != "finish", "target_charge": 1, "duration_seconds": 30,
     })
     changed = {"job_status", "targets_spent", "duration_allocated", "capacity_reserved_count",
-               "execution", "contracts", "runtimes", "approvals"}
+               "execution", "contracts", "runtimes", "approvals"} | ({"results"} if terminal_loss else set())
     _same({key: value for key, value in initial.items() if key not in changed},
           {key: value for key, value in committed.items() if key not in changed})
     contract, runtime, approval = (committed[key][0] for key in ("contracts", "runtimes", "approvals"))
-    require(contract["consumed"] is False and type(contract["ordinal"]) is int and contract["ordinal"] == 1
+    require(contract["consumed"] is issued and type(contract["ordinal"]) is int and contract["ordinal"] == 1
             and approval["id"] == proof["approval_record_id"] and type(approval["issued"]) is int
             and approval["issued"] == 1 and approval["revoked"] is False
             and runtime["id"] == launch["runtime_id"] and runtime["mode"] == "persistent"
@@ -1673,22 +1700,27 @@ def _claim_reply_loss_projection(raw, selection, inventories, *, desktop):
             and attempt["job_id"] == proof["job_id"]
             and _physical_time(launch["started_at"]) <= _physical_time(attempt["bound_at"])
             <= _physical_time(launch["finished_at"])
-            and all(attempt[key] is None for key in ("confirmed_at", "released_at", "terminal_receipt",
+            and (attempt["confirmed_at"] is not None) == (terminal_loss or operation == "runtime-bind")
+            and all(attempt[key] is None for key in ("released_at", "terminal_receipt",
                 "terminal_receipt_sha256", "native_done_sha256", "release_receipt")))
+    if operation == "runtime-bind":
+        require(_physical_time(attempt["bound_at"]) <= _physical_time(attempt["confirmed_at"]) <= _physical_time(launch["finished_at"]))
     _same(attempt["binding"], original)
     unknown = proof["local_unknown"]
     require(type(unknown) is dict and set(unknown) == {"run", "metadata", "audit"})
     for row in (unknown["run"], unknown["metadata"]):
         require(row["run_id"] == proof["run_id"] and row["job_id"] == proof["job_id"]
                 and row["engagement_id"] == committed["engagement_id"]
-                and row["phase"] == "claiming" and row["status"] == "claim_unknown")
-    require(unknown["run"]["pid"] is None and unknown["run"]["artifact_sha256"] is None
-            and unknown["metadata"]["claim_state"] == "claim_unknown"
-            and unknown["metadata"]["partial_files"] == [] and unknown["metadata"]["partial_result"] is None
-            and all(type(unknown["metadata"][key]) is int and unknown["metadata"][key] == 0
-                    for key in ("consumption_sent", "consumption_acknowledged")))
+                and row["phase"] == (policy["phase"] if terminal_loss else "executing" if issued else "claiming")
+                and row["status"] == ("local_artifact_held" if terminal_loss else "held_after_claim" if issued else "claim_unknown"))
+    require(unknown["run"]["pid"] is None
+            and (unknown["run"]["artifact_sha256"] == committed["results"][0]["artifact_sha256"] if terminal_loss else unknown["run"]["artifact_sha256"] is None)
+            and unknown["metadata"]["claim_state"] == ("consume_acknowledged" if terminal_loss else "held_after_claim" if issued else "claim_unknown")
+            and (terminal_loss or unknown["metadata"]["partial_files"] == []) and unknown["metadata"]["partial_result"] is None
+            and all(type(unknown["metadata"][key]) is int and unknown["metadata"][key] == value
+                    for key,value in (("consumption_sent",int(issued)),("consumption_acknowledged",int(terminal_loss)))))
     retired, audit, reconciliation = (proof[key] for key in ("retirement", "audit", "reconciliation"))
-    for row, state, holds in ((unknown["audit"], "idle", True), (audit, "retired", False)):
+    for row, state, holds in ((unknown["audit"], "active" if issued else "idle", True), (audit, "retired", False)):
         require(set(row) == {"schema", "status", "reason", "complete", "binding", "parent", "counts",
                              "retirement_receipt_sha256", "global_holds"}
                 and row["schema"] == "vardr.worker-state-audit/1" and row["complete"] is True
@@ -1698,8 +1730,8 @@ def _claim_reply_loss_projection(raw, selection, inventories, *, desktop):
                 and (row["global_holds"] > 0 if holds else row["global_holds"] == 0)
                 and row["retirement_receipt_sha256"] == (None if holds else launch["retirement_sha256"]))
         _same(row["binding"], binding)
-        _same(row["parent"], {"state": state, "last_sequence": "0", "head_sequence": None, "active_sequence": None})
-        _same(row["counts"], {"attempts": 0, "selections": 1, "associated_runs": 1, "associated_claims": 1})
+        _same(row["parent"], {"state": state, "last_sequence": str(int(issued)), "head_sequence": "1" if issued else None, "active_sequence": "1" if holds and issued else None})
+        _same(row["counts"], {"attempts": int(issued), "selections": 1, "associated_runs": 1, "associated_claims": 1})
     require(set(reconciliation) == {"schema", "status", "reason", "complete", "binding", "selected_run_id",
                                     "selected_sequence", "reconciliation_state", "remaining_local_holds",
                                     "retirement_receipt_sha256"}
@@ -1710,7 +1742,7 @@ def _claim_reply_loss_projection(raw, selection, inventories, *, desktop):
             and reconciliation["complete"] is True
             and reconciliation["selected_run_id"] == proof["run_id"]
             and reconciliation["selected_sequence"] == "1"
-            and reconciliation["reconciliation_state"] == "terminal_host_exit_observed"
+            and reconciliation["reconciliation_state"] == (policy["reconciliation"] if terminal_loss else "terminal_host_exit_observed")
             and type(reconciliation["remaining_local_holds"]) is int
             and reconciliation["remaining_local_holds"] == 0
             and reconciliation["retirement_receipt_sha256"] == launch["retirement_sha256"])
@@ -1727,14 +1759,37 @@ def _claim_reply_loss_projection(raw, selection, inventories, *, desktop):
             == _digest({key: value for key, value in retired.items() if key != "receipt_sha256"}))
     _same(retired["binding"], original)
     terminal = _terminal(original, retired["attempt_receipt"])
-    require(terminal["schema"] == "vardr.managed-stop-receipt/1"
-            and terminal["outcome"] == "failed" and terminal["cause"] == proof["terminal_cause"] == "observed_exit")
+    if terminal_loss:
+        require(proof["operation"] == operation and type(proof["case"]) is dict
+                and type(proof["evidence_count"]) is int and proof["evidence_count"] == 5)
+        _hash(proof["evidence_sha256"])
+        case_sha = _digest(proof["case"])
+        assessment = proof["assessment"]
+        require(assessment["status"] == "conclusive" and assessment["baseline_valid"] is True
+                and assessment["case_snapshot_verified"] is True and assessment["preflight"]["status"] == "passed"
+                and assessment["case_hash"] == case_sha and type(assessment["candidate_findings"]) is int
+                and assessment["candidate_findings"] == 0)
+        marker = _requests(proof["requests"])
+        require(parse_qs(urlsplit(proof["case"]["request"]["url"]).query).get("nm2_case") == [marker])
+        clocks = [row["received_monotonic_ns"] for row in proof["requests"]]
+        require(all(type(value) is int and value > 0 for value in clocks) and clocks == sorted(clocks))
+        expected_terminal = terminal_reply_loss_state(operation, committed, unknown["metadata"], case_sha)
+        _same(terminal, expected_terminal)
+        terminal_reply_loss_state(operation, after, proof["local_after"], case_sha, retired=True)
+        require(proof["local_after"]["run_id"] == proof["run_id"]
+                and proof["local_after"]["job_id"] == proof["job_id"]
+                and proof["local_after"]["engagement_id"] == committed["engagement_id"]
+                and proof["terminal_cause"] == ("retained_result_failure" if operation == "result" else "existing_completed"))
+    else:
+        require(terminal["schema"] == "vardr.managed-stop-receipt/1"
+                and terminal["outcome"] == "failed" and terminal["cause"] == proof["terminal_cause"] == "observed_exit")
     _hash(retired["report_sha256"])
     _same(after, {
-        **committed, "job_status": "failed", "capacity_reserved_count": 0,
-        "execution": {**committed["execution"], "state": "failed", "capacity_reserved": False},
+        **committed, "job_status": "done" if operation == "finish" else "failed", "capacity_reserved_count": 0,
+        "execution": {**committed["execution"], "state": "completed" if operation == "finish" else "failed", "capacity_reserved": False},
         "runtimes": [{**runtime, "retired": True, "new_work_disabled": True, "report_sha256": retired["report_sha256"]}],
-        "stops": [{key: terminal[key] for key in ("contract_id", "receipt_sha256", "outcome", "cause")}],
+        **({"results": [{**committed["results"][0], "outcome": terminal["outcome"]}], "stops": []}
+           if terminal_loss else {"stops": [{key: terminal[key] for key in ("contract_id", "receipt_sha256", "outcome", "cause")}]}),
     })
     for key, value in (("audit_sha256", audit), ("host_retirement_sha256", retired), ("terminal_sha256", terminal)):
         require(proof[key] == _digest(value))
@@ -1760,7 +1815,7 @@ def _claim_reply_loss_projection(raw, selection, inventories, *, desktop):
             < _physical_time(launch["started_at"]))
     original_config = (SOURCE / "Caddyfile").read_bytes()
     require(proxy["base_config_sha256"] == hashlib.sha256(original_config).hexdigest()
-            and proxy["config_sha256"] == hashlib.sha256(claim_reply_loss_config(original_config, proof["job_id"])).hexdigest()
+            and proxy["config_sha256"] == hashlib.sha256(claim_reply_loss_config(original_config, proof["job_id"], operation=operation)).hexdigest()
             and all(type(proxy[key]) is int and proxy[key] == 200 for key in ("ready_http_status", "web_http_status")))
     for key in ("adapter_sha256", "ca_sha256"):
         _hash(proxy[key])
@@ -1770,11 +1825,17 @@ def _claim_reply_loss_projection(raw, selection, inventories, *, desktop):
             and final_proxy["state"]["started_at"] == armed["state"]["StartedAt"])
     _same(sorted(final_proxy["mounts"], key=lambda row: row["Destination"]), armed["mounts"])
     return {
-        "claim_reply_loss": {**counts, "map_issued_sequence": "1", "local_last_sequence": "0",
-            "consumed": False, "runtime_bind_confirmed": False, "operator_stop_requested": False,
+        operation.replace("-", "_") + "_reply_loss": {**counts, "map_issued_sequence": "1", "local_last_sequence": str(int(issued)),
+            "consumed": issued, "runtime_bind_confirmed": terminal_loss or operation == "runtime-bind", "operator_stop_requested": False,
             "owned_stopped_container_count": owned,
             **{key: proof[key] for key in ("audit_sha256", "retirement_sha256", "host_retirement_sha256", "terminal_sha256")},
-            **{key: proxy[key] for key in ("config_sha256", "ca_sha256", "adapter_sha256")}},
+            **{key: proxy[key] for key in ("config_sha256", "ca_sha256", "adapter_sha256")},
+            **({"evidence_count": 5, "evidence_sha256": proof["evidence_sha256"],
+                "artifact_sha256": committed["results"][0]["artifact_sha256"],
+                "case_sha256": _digest(proof["case"]),
+                "result_receipt_sha256": committed["results"][0]["receipt_sha256"],
+                "server_outcome": terminal["outcome"], "reconciliation_state": policy["reconciliation"]}
+               if terminal_loss else {})},
         "platform": "win32" if desktop else "linux", "container_platform": "linux",
         "empty_builtin_bridge_id_change_count": admitted,
         "nm2_exit_status": "incomplete", "resources_retained": True,
@@ -1908,15 +1969,20 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
         and type(desktop) is bool
         and (not desktop or scenario in {
             LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_CONCURRENCY_SCENARIO,
-            LAUNCH_MAP_DISCONNECT_SCENARIO, LAUNCH_GRANT_REVOKE_SCENARIO, LAUNCH_PRECLAIM_SCENARIO, LAUNCH_CLAIM_REPLY_LOSS_SCENARIO,
+            LAUNCH_MAP_DISCONNECT_SCENARIO, LAUNCH_GRANT_REVOKE_SCENARIO, LAUNCH_PRECLAIM_SCENARIO, *REPLY_LOSS_OPERATIONS,
             LAUNCH_REPEAT_SCENARIO,
         })
     )
     budget = LAUNCH_BUDGETS.get(scenario)
     status = f"selected_{budget}_exhaustion_slice_passed" if budget else "selected_launch_slice_passed"
     stage = f"selected_{budget}_exhaustion_complete" if budget else "selected_launch_complete"
-    if scenario == LAUNCH_CLAIM_REPLY_LOSS_SCENARIO:
-        status, stage = "selected_claim_reply_loss_slice_passed", "selected_claim_reply_loss_complete"
+    if scenario in REPLY_LOSS_OPERATIONS:
+        status, stage = (("selected_claim_reply_loss_slice_passed", "selected_claim_reply_loss_complete")
+                         if scenario == LAUNCH_CLAIM_REPLY_LOSS_SCENARIO else
+                         ("selected_terminal_reply_loss_slice_passed", "selected_terminal_reply_loss_complete")
+                         if REPLY_LOSS_OPERATIONS[scenario] in {"result","finish"} else
+                         ("selected_" + REPLY_LOSS_OPERATIONS[scenario].replace("-","_") + "_reply_loss_slice_passed",
+                          "selected_" + REPLY_LOSS_OPERATIONS[scenario].replace("-","_") + "_reply_loss_complete"))
     if scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
         status, stage = "selected_map_disconnect_slice_passed", "selected_map_disconnect_complete"
     require(
@@ -1931,8 +1997,8 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
         and raw.get("images") == selection["images"]
         and raw.get("project") == selection["project"]
     )
-    if scenario == LAUNCH_CLAIM_REPLY_LOSS_SCENARIO:
-        return _claim_reply_loss_projection(raw, selection, inventories, desktop=desktop)
+    if scenario in REPLY_LOSS_OPERATIONS:
+        return _claim_reply_loss_projection(raw, selection, inventories, desktop=desktop, operation=REPLY_LOSS_OPERATIONS[scenario])
     if scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
         return _map_disconnect_projection(raw, selection, inventories, desktop=desktop)
     if scenario == LAUNCH_CONCURRENCY_SCENARIO:
@@ -2086,7 +2152,7 @@ def concurrency_desktop_projection(raw, selection):
 def claim_reply_loss_desktop_projection(raw, selection, *, inventories):
     """Read only the Windows Desktop committed claim/reply-loss evidence."""
     require(type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA
-            and raw.get("scenario") == LAUNCH_CLAIM_REPLY_LOSS_SCENARIO)
+            and raw.get("scenario") in REPLY_LOSS_OPERATIONS)
     try:
         return launch_projection(raw, selection, inventories=inventories, desktop=True)
     except (KeyError, TypeError, IndexError, ValueError):
@@ -2138,7 +2204,7 @@ def public_projection(raw, selection, *, inventories=()):
             )
             raise HostedRefused(reason) from None
     if type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA:
-        if raw.get("scenario") == LAUNCH_CLAIM_REPLY_LOSS_SCENARIO:
+        if raw.get("scenario") in REPLY_LOSS_OPERATIONS:
             try:
                 return launch_projection(raw, selection, inventories=inventories)
             except (KeyError, TypeError, IndexError, ValueError):
@@ -2378,8 +2444,8 @@ class Hosted:
             self.receipt.update(schema=STRICT_DRIFT_HOSTED, scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope="Strict authority drift only; other Strict denials and NM2 remain incomplete")
-        elif self.scenario == LAUNCH_CLAIM_REPLY_LOSS_SCENARIO:
-            self.receipt.update(schema=CLAIM_REPLY_LOSS_HOSTED, scenario=self.scenario,
+        elif self.scenario in REPLY_LOSS_OPERATIONS:
+            self.receipt.update(schema=REPLY_LOSS_HOSTED[self.scenario], scenario=self.scenario,
                                 expected_database_revision=self.database_revision,
                                 scope=LAUNCH_SCOPES[self.scenario])
         elif self.scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
@@ -2733,6 +2799,10 @@ class Hosted:
                 LAUNCH_REPEAT_SCENARIO: ["--repeat-managed-claim"],
                 LAUNCH_MAP_DISCONNECT_SCENARIO: ["--map-disconnect"],
                 LAUNCH_CLAIM_REPLY_LOSS_SCENARIO: ["--claim-reply-loss"],
+                LAUNCH_RESULT_REPLY_LOSS_SCENARIO: ["--result-reply-loss"],
+                LAUNCH_FINISH_REPLY_LOSS_SCENARIO: ["--finish-reply-loss"],
+                LAUNCH_CONSUME_REPLY_LOSS_SCENARIO: ["--consume-reply-loss"],
+                LAUNCH_BIND_REPLY_LOSS_SCENARIO: ["--runtime-bind-reply-loss"],
                 LAUNCH_COMPLETED_SCENARIO: ["--completed-job"],
                 LAUNCH_STOP_WORK_SCENARIO: ["--stop-work"],
                 LAUNCH_STOP_WORK_QUEUED_SCENARIO: ["--stop-work-queued"],
@@ -2870,7 +2940,7 @@ class Hosted:
                     LAUNCH_PRECLAIM_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_REPEAT_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_MAP_DISCONNECT_SCENARIO: LAUNCH_SCHEMA,
-                    LAUNCH_CLAIM_REPLY_LOSS_SCENARIO: LAUNCH_SCHEMA,
+                    **{scenario: LAUNCH_SCHEMA for scenario in REPLY_LOSS_OPERATIONS},
                     LAUNCH_COMPLETED_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: LAUNCH_SCHEMA,
@@ -2890,7 +2960,7 @@ class Hosted:
             if self.scenario in {
                 STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO,
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_PRECLAIM_SCENARIO, LAUNCH_REPEAT_SCENARIO,
-                LAUNCH_MAP_DISCONNECT_SCENARIO, LAUNCH_CLAIM_REPLY_LOSS_SCENARIO,
+                LAUNCH_MAP_DISCONNECT_SCENARIO, *REPLY_LOSS_OPERATIONS,
             }:
                 inventories = []
                 for name in ("before", "after"):
@@ -2909,10 +2979,13 @@ class Hosted:
                     self.receipt["remaining_required_cases"]["strict_other_denials"] = (
                         "stale_registered_claim_refusal_verified_selected_cohort"
                     )
-                elif self.scenario == LAUNCH_CLAIM_REPLY_LOSS_SCENARIO:
-                    self.receipt["remaining_required_cases"]["lost_claim_consume_bind_reply"] = (
-                        "committed_claim_reply_loss_verified_consume_bind_open"
-                    )
+                elif self.scenario in REPLY_LOSS_OPERATIONS:
+                    operation = REPLY_LOSS_OPERATIONS[self.scenario]
+                    self.receipt["remaining_required_cases"][
+                        "lost_terminal_reply" if operation in {"result","finish"} else "lost_claim_consume_bind_reply"
+                    ] = ("committed_claim_reply_loss_verified_consume_bind_open" if operation == "claim"
+                         else operation + "_reply_loss_verified_other_boundary_independent" if operation in {"result","finish"}
+                         else "committed_" + operation.replace("-","_") + "_reply_loss_verified_other_stages_open")
                 elif self.scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
                     self.receipt["remaining_required_cases"]["map_disconnect"] = (
                         "ordinary_api_outage_verified_selected_cohort"
@@ -2975,7 +3048,7 @@ class Hosted:
                     LAUNCH_PRECLAIM_SCENARIO: PRECLAIM_HOSTED,
                     LAUNCH_REPEAT_SCENARIO: REPEAT_HOSTED,
                     LAUNCH_MAP_DISCONNECT_SCENARIO: MAP_DISCONNECT_HOSTED,
-                    LAUNCH_CLAIM_REPLY_LOSS_SCENARIO: CLAIM_REPLY_LOSS_HOSTED,
+                    **REPLY_LOSS_HOSTED,
                     LAUNCH_COMPLETED_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOP_WORK_QUEUED_SCENARIO: "vardr.nm2-hosted/7",

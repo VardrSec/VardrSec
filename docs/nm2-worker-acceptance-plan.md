@@ -587,3 +587,27 @@ This case qualifies committed claim-response loss only after both installed
 platform witnesses pass. Consume and runtime-bind reply loss remain required
 separate C03 cases. Synthetic units, proxy adaptation, an image pin or a held
 attempt do not close the installed case or NM-2.
+
+### C03 committed consume and runtime-bind replies
+
+The explicit consume and runtime-bind reply-loss scenarios reuse the claim-loss
+proxy, lifecycle and independent reader, with hosted schemas 21 and 22. Both
+require positive server consumption, a local issued sequence one with durable
+sent/ACK flags 1/0, no observed tool PID or artifact, and zero target requests.
+Consume loss requires no server runtime-bind confirmation; bind loss requires
+the original confirmation. Exact physical reporting and original-key recovery
+retire the existing attempt, preserving the unknown ACK and absent DONE/release,
+and clear its hold. The original claim case retains its parent-zero semantics.
+Each new case still requires independent installed Linux and Windows proof.
+
+### C04 committed result and completion replies
+
+The additional explicit `persistent-launch-result-reply-loss` and
+`persistent-launch-finish-reply-loss` selections use Map05dc, Runnerf3dc and
+Gate57cf with schemas23/24. Their direct harness flags are `--result-reply-loss`
+and `--finish-reply-loss`; exact source pins are enforced by the fixture.
+Each observes one original committed response loss,
+five target requests and preserved evidence, then exact physical retirement and
+original-key reconciliation without publication replay or manufactured DONE.
+Result-only retirement fails the retained result; completed retirement preserves
+its original completion. Installed proof remains required for each platform.

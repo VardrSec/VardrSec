@@ -790,6 +790,7 @@ class TransportTests(unittest.TestCase):
             patch.object(host.socket, "socket", return_value=plain),
             patch.object(host.http.client, "HTTPConnection", return_value=connection),
             patch.object(host.threading, "Timer", side_effect=timer_factory),
+            patch.object(host.time, "monotonic", return_value=100.0),
             self.assertRaises(host.HostRefused),
         ):
             client._request("POST", "/fixed", {})
