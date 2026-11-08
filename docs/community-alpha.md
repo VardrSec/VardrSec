@@ -49,10 +49,13 @@ explains the glibc CVE-2026-84243 rise to 25 unknown and its return to 15 (a sca
 reclassification to MEDIUM, not a fix). Strict checking still exits 1 and nothing is accepted.
 The [current security checkpoint](alpha-review-2026-10-28.md) records hashes and reachability limits.
 
-The development pins are Map #151 (`14a80a8`), Runner #114 (`5feea8d`) and Gate #31
-(`57cfedf`), aligned by [distribution #69](https://github.com/VardrSec/VardrSec/pull/69).
-All five exact-head workflows passed, including installed Ubuntu Full/Mapless
-workflows and recovery. Later Windows development evidence is kept in the
+The development pins are Map #151 (`14a80a8`), Runner #117 (`ea4265a`) and Gate #31
+(`57cfedf`), aligned by [distribution #71](https://github.com/VardrSec/VardrSec/pull/71)
+and finished by [#72](https://github.com/VardrSec/VardrSec/pull/72).
+All five exact-head workflows passed at `55772d3`, including installed Ubuntu
+Full/Mapless workflows, encrypted recovery and controlled updates. NM-3
+source-built distribution acceptance is closed; Windows evidence and exact
+requirement mapping are kept in the
 [New Moon ledger](new-moon-acceptance.md#current-nm-3-distribution-status). The Caddy v3 and glibc
 [exposure reviews](caddy-v3-jwk-exposure.md) and [glibc review](glibc-gettext-language-exposure.md)
 identify no path to their vulnerable conditions in the shipped configuration and state their

@@ -76,6 +76,13 @@ installation, and Windows 11 with Docker Desktop preferred, alongside Linux and
 justified native operation. Fresh verification and unfinished requirements are
 tracked in the [New Moon acceptance ledger](docs/new-moon-acceptance.md).
 
+NM-3 source-built Community acceptance is closed for Windows 11 Docker Desktop
+(Linux/amd64 containers) and Ubuntu 24.04/amd64. Full/Mapless installation,
+authorization, finite Recon, reviewed Gate execution, evidence/export and
+state-preserving lifecycle evidence are mapped in the
+[closeout](docs/new-moon-acceptance.md#exit-criteria-closeout).
+NM-4/NM-5 and release-security approval remain separate.
+
 The existing Community Alpha baseline follows the [v0.1.0 stabilization plan](docs/community-alpha.md):
 security and clean Ubuntu installation first, then user-workflow validation and
 release preparation. The initial packaged distribution is officially supported on Ubuntu
