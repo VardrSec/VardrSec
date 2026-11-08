@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add a separately inactive single-job Runner-loss fixture, retaining its exact
+  byte witness, original held accounting and original-key retirement checks.
+  Activation needs a separate owner decision; NM-2 and NM-3 gates stay unchanged.
+
 - Use the standard temporary directory in the new inert boundary tests so they
   also run under Ubuntu's ordinary unprivileged CI user.
 

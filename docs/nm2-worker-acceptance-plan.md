@@ -666,3 +666,23 @@ uses [GetMountPoints](https://github.com/moby/moby/blob/v28.5.1/container/contai
 which ranges a map; [Go specifies no stable map iteration order](https://go.dev/ref/spec#For_range).
 This changes comparison representation only. It does not identify the cause of
 any retained held trial or grant acceptance to it.
+
+## Inactive single Runner-loss fixture
+
+`persistent-fixed-runner-loss` is a separate manual-only `/27` fixture. It uses
+one genuine fixed five-GET job, the original default 20-second signed plan and
+30-second allocation. Its fixture-only wrapper targets only its unchanged direct
+Runner parent after recording a live leaf, then records a one-byte post-syscall
+return witness. Missing, empty or malformed witnesses hold without retry.
+The original failed run must retain its unpromoted Gate file and no native DONE;
+Map must retain capacity and charges before typed exit reporting, then release
+capacity through the original report and Runner reconciliation. The independent
+reader also requires native exit 125 before the conservative natural leaf bound.
+This does not measure signal latency or provide a termination acknowledgement.
+
+The existing C7 image and defaults stay separate. Linux qualifies the fixed
+marker template in the same job before any work, retaining trusted qualification
+bytes and binding; Windows uses its separately byte-qualified marker image.
+Source preparation and byte qualification do not approve the Runner-loss fault.
+The runtime action requires a separate concrete owner decision on both platforms;
+NM-2 remains open and NM-3 remains paused.

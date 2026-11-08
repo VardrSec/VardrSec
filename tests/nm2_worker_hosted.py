@@ -84,8 +84,11 @@ LAUNCH_CANCELLATION_SCENARIOS = {
 }
 BOUNDARY_SCENARIO = "persistent-fixed-boundary-pair"
 BOUNDARY_HOSTED = "vardr.nm2-hosted/26"
+RUNNER_LOSS_SCENARIO = "persistent-fixed-runner-loss"
+RUNNER_LOSS_HOSTED = "vardr.nm2-hosted/27"
 LAUNCH_SCOPES = {
     BOUNDARY_SCENARIO: "fixed_orphan_drain_and_bounded_load_only",
+    RUNNER_LOSS_SCENARIO: "single_live_runner_loss_only",
     LAUNCH_SCENARIO: "first_and_next_empty_launch",
     LAUNCH_PRECLAIM_SCENARIO: "trusted_synthetic_closed_preclaim_parent0",
     LAUNCH_REPEAT_SCENARIO: "installed_repeated_managed_claim_exact_stop_and_successor",
@@ -711,7 +714,7 @@ def execution_options(env):
 
         require(all(env.get("NM2_" + name.upper() + "_SHA") == commit
                     for name, commit in MAP_DISCONNECT_SOURCES.items()))
-    if scenario == BOUNDARY_SCENARIO:
+    if scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO}:
         from nm2_worker_boundary_pair import BOUNDARY_SOURCES
         require(all(env.get("NM2_"+n.upper()+"_SHA") == v for n,v in BOUNDARY_SOURCES.items()))
     if scenario == BOOTSTRAP_SCENARIO:
@@ -2685,6 +2688,9 @@ class Hosted:
         elif self.scenario == BOUNDARY_SCENARIO:
             self.receipt.update(schema=BOUNDARY_HOSTED, scenario=self.scenario,
                 expected_database_revision=self.database_revision, scope=LAUNCH_SCOPES[self.scenario])
+        elif self.scenario == RUNNER_LOSS_SCENARIO:
+            self.receipt.update(schema=RUNNER_LOSS_HOSTED, scenario=self.scenario,
+                expected_database_revision=self.database_revision, scope=LAUNCH_SCOPES[self.scenario])
         elif self.scenario in LAUNCH_SCENARIOS:
             self.receipt.update(
                 schema=LAUNCH_BUDGET_SCHEMAS.get(self.scenario, "vardr.nm2-hosted/7"),
@@ -3012,7 +3018,7 @@ class Hosted:
             "--cohort", str(path), "--compose-executable", str(compose),
             "--compose-sha256", COMPOSE_SHA256, "--docker-config", str(config),
             *{
-                LAUNCH_SCENARIO: [], BOUNDARY_SCENARIO: [],
+                LAUNCH_SCENARIO: [], BOUNDARY_SCENARIO: [], RUNNER_LOSS_SCENARIO: [],
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO: ["--stopped-predecessor"],
                 LAUNCH_PID1_LOSS_SCENARIO: ["--pid1-loss"],
                 LAUNCH_PRECLAIM_SCENARIO: ["--preclaim-recovery"],
@@ -3037,8 +3043,8 @@ class Hosted:
             }[self.scenario],
             "--execute",
         ]
-        if self.scenario == BOUNDARY_SCENARIO:
-            result[0] = str(SOURCE / "tests/nm2_worker_boundary_pair.py")
+        if self.scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO}:
+            result[0] = str(SOURCE / ("tests/nm2_worker_boundary_pair.py" if self.scenario == BOUNDARY_SCENARIO else "tests/nm2_worker_runner_loss.py"))
             result += ["--qualification",str(self.root/"boundary-image-qualification.json"),
                        "--qualification-sha256",hashlib.sha256(self.boundary_fixture[0]).hexdigest()]
         return result
@@ -3091,9 +3097,9 @@ class Hosted:
                 )
                 == toolkit
             )
-            if self.scenario == BOUNDARY_SCENARIO:
+            if self.scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO}:
                 from nm2_worker_boundary_build import qualify_boundary_image
-                self.boundary_fixture = qualify_boundary_image(self)
+                self.boundary_fixture = (qualify_boundary_image(self) if self.scenario == BOUNDARY_SCENARIO else qualify_boundary_image(self,operand="runner-loss"))
                 self.receipt["images"]["worker"] = self.boundary_fixture[1]["image_id"]
             selection = {
                 "schema": "vardr.nm2-worker-cohort/1",
@@ -3164,7 +3170,7 @@ class Hosted:
                     "persistent-count-limit": "vardr.nm2-worker-count-acceptance/1",
                     "persistent-idle-limit": "vardr.nm2-worker-idle-acceptance/1",
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
-                    LAUNCH_SCENARIO: LAUNCH_SCHEMA, BOUNDARY_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_SCENARIO: LAUNCH_SCHEMA, BOUNDARY_SCENARIO: LAUNCH_SCHEMA, RUNNER_LOSS_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_PID1_LOSS_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_PRECLAIM_SCENARIO: LAUNCH_SCHEMA,
@@ -3190,7 +3196,7 @@ class Hosted:
             if self.scenario in {
                 STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO,
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_PRECLAIM_SCENARIO, LAUNCH_REPEAT_SCENARIO,
-                LAUNCH_PID1_LOSS_SCENARIO, LAUNCH_MAP_DISCONNECT_SCENARIO, BOUNDARY_SCENARIO, *REPLY_LOSS_OPERATIONS,
+                LAUNCH_PID1_LOSS_SCENARIO, LAUNCH_MAP_DISCONNECT_SCENARIO, BOUNDARY_SCENARIO, RUNNER_LOSS_SCENARIO, *REPLY_LOSS_OPERATIONS,
             }:
                 inventories = []
                 for name in ("before", "after"):
@@ -3199,6 +3205,9 @@ class Hosted:
                 if self.scenario == BOUNDARY_SCENARIO:
                     from nm2_worker_boundary_pair import boundary_projection
                     self.receipt.update(boundary_projection(observed,selection,inventories,expected_fixture=self.boundary_fixture))
+                elif self.scenario == RUNNER_LOSS_SCENARIO:
+                    from nm2_worker_runner_loss import runner_loss_projection
+                    self.receipt.update(runner_loss_projection(observed,selection,inventories,expected_fixture=self.boundary_fixture))
                 else:
                     self.receipt.update(public_projection(observed, selection, inventories=inventories))
                 if self.scenario == BOUNDARY_SCENARIO:
@@ -3279,7 +3288,7 @@ class Hosted:
                     "persistent-count-limit": "vardr.nm2-hosted/4",
                     "persistent-idle-limit": "vardr.nm2-hosted/5",
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
-                    LAUNCH_SCENARIO: "vardr.nm2-hosted/7", BOUNDARY_SCENARIO: BOUNDARY_HOSTED,
+                    LAUNCH_SCENARIO: "vardr.nm2-hosted/7", BOUNDARY_SCENARIO: BOUNDARY_HOSTED, RUNNER_LOSS_SCENARIO: RUNNER_LOSS_HOSTED,
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: STOPPED_PREDECESSOR_HOSTED,
                     LAUNCH_PID1_LOSS_SCENARIO: PID1_LOSS_HOSTED,
                     LAUNCH_PRECLAIM_SCENARIO: PRECLAIM_HOSTED,

@@ -26,6 +26,8 @@ FIXTURE_IMAGE = "sha256:7e058ceb7118c462e26bb13376b1132509514a8fab0d7a01456e1de7
 NS = 1_000_000_000
 GUARD_NAMES = ("nm2-original-request-guard.json", "nm2-child-request-guard.json", "nm2-guard-delegation.json")
 GUARD_REST = dict(zip(MODES,("53b011334dbd118b9e52ada4ea98a6a592bc57d1799c112064823d7a5db27d18", "ed6673566f7bafc72aa097793ef4dab4e8dd1a6fe1454324eaa62ea3531e8317")))
+RUNNER_LOSS_MODE = 'nm2-c08-live-runner-loss'
+GUARD_REST[RUNNER_LOSS_MODE] = '3681d4c927e7870e697a964c00de5f4944ae4912e88e5d1a130d193d4c9aac4e'
 GATE_SHA = "cc08e48efe7c6a42bcb0bc02ec4fca7ec70c739451cfd54109064cc59e934ae7"
 
 def fixed_case(mode):
@@ -37,14 +39,20 @@ def fixed_case(mode):
         request["url"] = ORIGIN+request["url"][len(original):]+("&" if "?" in request["url"] else "?")+"nm2_case="+mode[4:]
     return spec
 
-def fixture_binding(document, selection, *, desktop, expected_fixture=None):
+def fixture_binding(document, selection, *, desktop, expected_fixture=None, operand="boundary"):
     """Linux expectations come from the trusted host recipe before either job."""
     require(type(document) is bytes, "boundary_fixture_image_refused")
+    require(type(operand) is str and operand in {"boundary","runner-loss"}, "boundary_mode_refused")
+    qualification_sha,image,wrapper = QUALIFICATION_SHA,FIXTURE_IMAGE,WRAPPER
+    if operand == "runner-loss":
+        qualification_sha = "e70bc79bd30c02c93e857e98e31dbf390db003da2792e06e5603fd99e9346927"
+        image = "sha256:b5f1cb3310e4a0bf2c71af18d13c8679509d5bf28a62d4d0c06147e00c023572"
+        wrapper = "df6543705d10dc371b8587f6f5ed6de64c126cb467ac23ad82df79f0faed919d"
     q = json.loads(document)
     if desktop:
-        require(expected_fixture is None and QUALIFICATION_SHA is not None
-                and digest(document) == QUALIFICATION_SHA, "boundary_fixture_image_refused")
-        binding = dict(image_id=FIXTURE_IMAGE,wrapper_sha256=WRAPPER,genuine_gate_sha256=GATE_SHA,
+        require(expected_fixture is None and qualification_sha is not None
+                and digest(document) == qualification_sha, "boundary_fixture_image_refused")
+        binding = dict(image_id=image,wrapper_sha256=wrapper,genuine_gate_sha256=GATE_SHA,
                        owner_sha256=FILE_HASHES["/usr/local/bin/vardr-worker-owner"],source_recipe=None)
     else:
         from nm2_worker_boundary_build import binding_for_qualification
@@ -55,7 +63,7 @@ def fixture_binding(document, selection, *, desktop, expected_fixture=None):
         require(set(binding) == {"image_id","wrapper_sha256","genuine_gate_sha256","owner_sha256","source_recipe"}
                 and type(binding["source_recipe"]) is dict, "boundary_fixture_image_refused")
         validated = binding_for_qualification(q,{n:v["commit"] for n,v in selection["sources"].items()},
-                                            binding["source_recipe"]["source_trees"])
+                                            binding["source_recipe"]["source_trees"],operand=operand)
         require(canonical(validated) == canonical(binding), "boundary_fixture_image_refused")
     expected_files = {**FILE_HASHES,"/usr/local/bin/vardr-worker-owner":binding["owner_sha256"],
         "/usr/local/libexec/vardrgate-"+BOUNDARY_SOURCES["gate"]:binding["genuine_gate_sha256"],
@@ -75,9 +83,11 @@ def stamp(value):
 def fixed_records(rows, mode, physical):
     """Closed ordinary descendant facts, never owner/channel or credential isolation."""
     keys = set("schema mode role event uid gid groups capabilities no_new_privs fd3_absent pid ppid pgrp session boottime_ns utc_ns cpu_ns counters".split())
+    require(mode in {*MODES,RUNNER_LOSS_MODE}, 'boundary_mode_refused')
     expected = {("wrapper", event) for event in ("begin", "gate-return")}
     expected |= ({("wrapper", "exit"), ("intermediate", "begin"), ("intermediate", "exit"), ("leaf", "ready"), ("leaf", "exit")}
                  if mode == MODES[0] else {("leaf", "ready")})
+    if mode == RUNNER_LOSS_MODE: expected.add(('wrapper','parent-kill-intent'))
     require(type(rows) is list and len(rows) == len(expected), "boundary_records_refused")
     selected = {}
     for row in rows:
@@ -113,6 +123,12 @@ def fixed_records(rows, mode, physical):
                 and selected["wrapper", "exit"]["pid"] == begin["pid"]
                 and selected["leaf", "exit"]["pid"] == leaf["pid"]
                 and selected["leaf", "exit"]["boottime_ns"]-leaf["boottime_ns"] <= 8*NS, "boundary_lineage_refused")
+    elif mode == RUNNER_LOSS_MODE:
+        leaf, intent = selected['leaf','ready'], selected['wrapper','parent-kill-intent']
+        chain = [begin,selected['wrapper','gate-return'],leaf,intent]
+        require(begin['ppid'] > 1 and leaf['ppid'] == begin['pid'] and leaf['pid'] != begin['pid']
+                and intent['pid'] == begin['pid'] and intent['ppid'] == begin['ppid']
+                and selected['wrapper','gate-return']['ppid'] == begin['ppid'], 'boundary_lineage_refused')
     else:
         leaf = selected["leaf", "ready"]
         chain = [begin, leaf, selected["wrapper", "gate-return"]]
@@ -148,10 +164,11 @@ def guard_joins(original, mode, plan, claim_plan_sha256, fixture):
     return {**{k:expected[k] for k in ("original_raw_sha256","original_plan_sha256","child_guard_sha256","guard_rest_sha256","child_signed")},
             "provenance_sha256":provenance["sha256"]}
 
-def read_original(fixture, run_id, case):
+def read_original(fixture, run_id, case, *, mode=None):
+    require(mode is None or mode == RUNNER_LOSS_MODE, 'boundary_mode_refused')
     source = (fixture.install/"tests/nm2_worker_boundary_read.py").read_text(encoding="utf-8")
     return json.loads(fixture.helper("-I", "-c", source, python=True,
-        stdin=canonical(dict(run_id=run_id, engagement_id=case[0], job_id=case[1]))))
+        stdin=canonical(dict(run_id=run_id, engagement_id=case[0], job_id=case[1], **({'mode':mode} if mode is not None else {})))))
 
 class BoundaryFixture(LaunchFixture):
     boundary_pair = True

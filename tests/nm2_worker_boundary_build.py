@@ -25,29 +25,38 @@ def require(value):
     if not value:
         raise ValueError('boundary_image_qualification_refused')
 
-def render_boundary_wrapper(genuine_sha):
+RUNNER_LOSS_TEMPLATE_SHA = 'df6543705d10dc371b8587f6f5ed6de64c126cb467ac23ad82df79f0faed919d'
+
+def operand_template(operand):
+    require(type(operand) is str and operand in {'boundary','runner-loss'})
+    return ((TEMPLATES/'wrapper.py',TEMPLATE_SHA) if operand == 'boundary' else
+            (TEMPLATES.parent/'nm2-fixed-runner-loss/wrapper.py',RUNNER_LOSS_TEMPLATE_SHA))
+
+def render_boundary_wrapper(genuine_sha, *, operand='boundary'):
     require(type(genuine_sha) is str and re.fullmatch('[0-9a-f]{64}', genuine_sha))
-    template = (TEMPLATES/'wrapper.py').read_bytes().replace(b'\r\n', b'\n')
+    path, template_sha = operand_template(operand)
+    template = path.read_bytes().replace(b'\r\n', b'\n')
     before = ("ORIGINAL_SHA = '"+ORIGINAL_SHA+"'").encode()
     after = ("ORIGINAL_SHA = '"+genuine_sha+"'").encode()
-    require(digest(template) == TEMPLATE_SHA and template.count(before) == 1)
+    require(digest(template) == template_sha and template.count(before) == 1)
     rendered = template.replace(before, after)
     require(rendered.replace(after, before) == template)
     return rendered
 
-def binding_for_qualification(q, sources, source_trees):
+def binding_for_qualification(q, sources, source_trees, *, operand='boundary'):
     """Validate TrustedHost's pre-job qualification, never authenticate worker JSON."""
+    _, template_sha = operand_template(operand)
     r = q['source_recipe']
     require(set(r) == SOURCE_RECIPE_FIELDS and r['schema'] == 'vardr.nm2-fixed-fixture-linux-source/1')
     require(r['sources'] == sources and r['source_trees'] == source_trees and all(sources[k] == v for k,v in SOURCES.items()))
     require(set(sources) == set(source_trees) == {'distribution','map','runner','gate'} and all(type(v) is str and re.fullmatch('[0-9a-f]{40}',v) for v in (*sources.values(),*source_trees.values())))
-    require(r['copy_only'] is True and r['template_changed_field'] == 'ORIGINAL_SHA' and r['template_sha256'] == TEMPLATE_SHA)
+    require(r['copy_only'] is True and r['template_changed_field'] == 'ORIGINAL_SHA' and r['template_sha256'] == template_sha)
     require(q['schema'] == 'vardr.nm2-fixture-image-byte-qualification/1' and q['status'] == 'passed_fixture_image_byte_qualification' and q['fixture_only'] is True and q['fixture_runtime_approval'] is False and q['genuine_gate_qualified_at_wrapper_path'] is False)
     require(q['runner_commit'] == SOURCES['runner'] and q['gate_commit'] == SOURCES['gate'] and q['source_before_after'] is True and q['project_imports'] is False and type(q['native_startups']) is int and q['native_startups'] == 0 and q['registry_pull'] is q['publication'] is False)
     require(type(q['python_files']) is int and q['python_files'] == 80 and r['sdk_inventory_sha256'] == q['python_inventory_sha256'])
     require(all(type(r[k]) is str and re.fullmatch('[0-9a-f]{64}',r[k]) for k in ('rendered_wrapper_sha256','genuine_gate_sha256','owner_sha256','sdk_inventory_sha256','defaults_sha256')))
     require(all(type(v) is str and re.fullmatch('sha256:[0-9a-f]{64}',v) for v in (q['image'],r['base_image_id'])))
-    require(r['rendered_wrapper_sha256'] == digest(render_boundary_wrapper(r['genuine_gate_sha256'])))
+    require(r['rendered_wrapper_sha256'] == digest(render_boundary_wrapper(r['genuine_gate_sha256'],operand=operand)))
     require(q['file_hashes'] == {OWNER:r['owner_sha256'],GATE:r['rendered_wrapper_sha256'],LIBEXEC:r['genuine_gate_sha256'],WRAPPER:r['rendered_wrapper_sha256'],LEAF:LEAF_SHA})
     require(q['image_defaults'] == {'all_config_field_names_checked':True,'compared_non_env_fields':list(CONFIG_FIELDS),'identical':True,'environment_values_selected_or_output':False,'environment_preservation':'same base; COPY-only/no OnBuild/no ENV or RUN'})
     return dict(image_id=q['image'],wrapper_sha256=r['rendered_wrapper_sha256'],genuine_gate_sha256=r['genuine_gate_sha256'],owner_sha256=r['owner_sha256'],source_recipe=dict(r))
@@ -75,8 +84,9 @@ def _platform(h, image):
     require(set(value) == {'os','arch','variant'} and value['os'] == 'linux' and value['arch'] == 'amd64')
     return value
 
-def qualify_boundary_image(h):
+def qualify_boundary_image(h, *, operand='boundary'):
     """Existing Hosted.build owns effects; qualification starts no product/native code."""
+    _, template_sha = operand_template(operand)
     require(sys.platform == 'linux' and all(h.pins[k] == v for k,v in SOURCES.items()))
     base, base_tag = h.receipt['images']['worker'], h.project+':worker'
     require(h.docker('image','inspect','--format','{{.Id}}',base_tag,capture=True) == base)
@@ -88,7 +98,7 @@ def qualify_boundary_image(h):
     before = _defaults(h,base)
     platform = _platform(h,base)
     require(before[1]['User'] == '0:0' and not before[1]['OnBuild'] and not before[1]['Volumes'])
-    rendered = render_boundary_wrapper(measured['files'][GATE])
+    rendered = render_boundary_wrapper(measured['files'][GATE],operand=operand)
     leaf = (TEMPLATES/'leaf.py').read_bytes().replace(b'\r\n',b'\n')
     dockerfile = (TEMPLATES/'Dockerfile.PROPOSAL').read_text().replace('\r\n','\n')
     require(digest(leaf) == LEAF_SHA and digest(dockerfile.encode()) == DOCKERFILE_SHA and dockerfile.count(OLD_BASE) == 2 and all(line.startswith(('FROM ','COPY ')) for line in dockerfile.splitlines()))
@@ -106,10 +116,10 @@ def qualify_boundary_image(h):
     for name, source in h.sources.items():
         require(h.command(['git','-C',str(source),'rev-parse','HEAD','HEAD^{tree}'],capture=True).splitlines() == [h.pins[name],h.receipt['source_trees'][name]])
         require(not h.command(['git','-C',str(source),'status','--porcelain','--untracked-files=no'],capture=True))
-    recipe = dict(schema='vardr.nm2-fixed-fixture-linux-source/1',sources=dict(h.pins),source_trees=dict(h.receipt['source_trees']),base_image_id=base,template_sha256=TEMPLATE_SHA,rendered_wrapper_sha256=digest(rendered),genuine_gate_sha256=measured['files'][GATE],owner_sha256=measured['files'][OWNER],sdk_inventory_sha256=digest(canonical(expected)),defaults_sha256=digest(canonical(before)),copy_only=True,template_changed_field='ORIGINAL_SHA')
+    recipe = dict(schema='vardr.nm2-fixed-fixture-linux-source/1',sources=dict(h.pins),source_trees=dict(h.receipt['source_trees']),base_image_id=base,template_sha256=template_sha,rendered_wrapper_sha256=digest(rendered),genuine_gate_sha256=measured['files'][GATE],owner_sha256=measured['files'][OWNER],sdk_inventory_sha256=digest(canonical(expected)),defaults_sha256=digest(canonical(before)),copy_only=True,template_changed_field='ORIGINAL_SHA')
     q = dict(schema='vardr.nm2-fixture-image-byte-qualification/1',status='passed_fixture_image_byte_qualification',scope='fixture_image_byte_qualification_only',image=image,file_hashes=hashes,python_files=80,python_inventory_sha256=recipe['sdk_inventory_sha256'],runner_commit=SOURCES['runner'],gate_commit=SOURCES['gate'],source_recipe=recipe,source_before_after=True,native_startups=0,project_imports=False,registry_pull=False,publication=False,fixture_runtime_approval=False,fixture_only=True,genuine_gate_qualified_at_wrapper_path=False,
              image_defaults={'all_config_field_names_checked':True,'compared_non_env_fields':list(CONFIG_FIELDS),'identical':True,'environment_values_selected_or_output':False,'environment_preservation':'same base; COPY-only/no OnBuild/no ENV or RUN'})
-    binding = binding_for_qualification(q,h.pins,h.receipt['source_trees'])
+    binding = binding_for_qualification(q,h.pins,h.receipt['source_trees'],operand=operand)
     data = canonical(q)
     path = h.root/'boundary-image-qualification.json'
     with path.open('xb') as stream: stream.write(data)

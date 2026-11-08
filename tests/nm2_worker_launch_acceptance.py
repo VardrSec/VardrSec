@@ -805,6 +805,8 @@ class LaunchFixture(Fixture):
             )
         if getattr(self, "boundary_pair", False):
             self.boundary_reconciliation = reconciled
+        if getattr(self, 'runner_loss', False):
+            self.runner_loss_reconciliation = reconciled
         if getattr(self, "repeat_managed_claim", False):
             self.receipt["repeat_retirement"]["reconciliation"] = reconciled
         self.receipt["stage"] = "launch_audit_retired"
@@ -1489,7 +1491,7 @@ print(len(directories))
             "runtimes": [{
                 **runtime, "retired": True, "report_sha256": retired["report_sha256"],
                 **({"new_work_disabled": True}
-                   if proof_key in {"map_disconnect", "claim_reply_loss"} or self.pid1_loss else {}),
+                   if proof_key in {"map_disconnect", "claim_reply_loss", "runner_loss"} or self.pid1_loss else {}),
             }],
             "stops": [{key: terminal[key] for key in ("contract_id", "receipt_sha256", "outcome", "cause")}],
         }
@@ -2127,6 +2129,7 @@ print(len(directories))
         disconnecting = self.map_disconnect and case is not None
         lost_claim = getattr(self, "claim_reply_loss", False) and case is not None
         boundary_pair = getattr(self, "boundary_pair", False) and case is not None
+        runner_loss = getattr(self, "runner_loss", False) and case is not None
         exhausted = None
         concurrency_refused = None
         if case is None:
@@ -2183,6 +2186,8 @@ print(len(directories))
                 )
             elif not self.local_stop:
                 self.observe_stop_work(case, action)
+        elif runner_loss:
+            exit_proof = self.observe_runner_loss(observer, identity, admission, case, binding)
         elif boundary_pair:
             exit_proof = self.observe_boundary_pair(observer, identity, admission, case, binding)
         else:
@@ -2191,7 +2196,7 @@ print(len(directories))
                 exhausted = self.observe_budget_exhaustion(
                     observer, identity, admission, case, binding, local
                 )
-        if not (disconnecting or lost_claim or boundary_pair):
+        if not (disconnecting or lost_claim or boundary_pair or runner_loss):
             self.receipt["stage"] = "launch_stop_work_exit" if cancelling else f"launch_stop_{ordinal}"
             losing_pid1 = stopping_predecessor and self.pid1_loss
             if losing_pid1:
@@ -2235,7 +2240,7 @@ print(len(directories))
             "admission_sha256": admission["admission_sha256"],
             "finished_at": exit_proof.finished_at,
             "exit_code": exit_proof.exit_code,
-            "operator_stop_state": "not_requested" if cancelling or disconnecting or lost_claim or boundary_pair or (
+            "operator_stop_state": "not_requested" if cancelling or disconnecting or lost_claim or boundary_pair or runner_loss or (
                 stopping_predecessor and self.pid1_loss
             ) else stopped["state"],
         }
@@ -2266,9 +2271,9 @@ print(len(directories))
             retired["last_sequence"] == (
                 "0" if case is None or self.local_grant_denial or concurrency_refused is not None else "2" if boundary_pair else "1"
             )
-            and retired["runtime_sequence"] == ("2" if boundary_pair else "1" if cancelling or stopping_predecessor or disconnecting or lost_claim else None)
+            and retired["runtime_sequence"] == ("2" if boundary_pair else "1" if cancelling or stopping_predecessor or disconnecting or lost_claim or runner_loss else None)
             and retired["retired"] is True
-            and (retired["attempt_receipt"] is not None) == (cancelling or stopping_predecessor or disconnecting or lost_claim or boundary_pair)
+            and (retired["attempt_receipt"] is not None) == (cancelling or stopping_predecessor or disconnecting or lost_claim or boundary_pair or runner_loss)
             and reconciled["state"] == "terminal_observed"
             and reconciled["receipt"]["retirement"] == retired,
             "launch_retirement_not_observed",
@@ -2299,6 +2304,9 @@ print(len(directories))
             }
         elif self.local_grant_denial:
             self.verify_grant_denial_launch(admission, retired, case, unissued)
+        elif runner_loss:
+            self.close_runner_loss(physical, admission, retired, case)
+            self.receipt["runner_loss"]["host_reconciled"] = reconciled
         elif boundary_pair:
             self.close_boundary_pair(physical, admission, retired, case)
             self.receipt["boundary_pair"]["host_reconciled"] = reconciled
@@ -2570,6 +2578,10 @@ print(len(directories))
         first, old_observer, old_exit = self.launch_and_retire(
             config, signing, binding, 1, None, case=case
         )
+        if getattr(self, "runner_loss", False):
+            old_observer.confirm_exit(old_exit)
+            self.receipt.update(launch=first,status="selected_runner_loss_passed",stage="selected_runner_loss_complete")
+            return
         if getattr(self, "boundary_pair", False):
             old_observer.confirm_exit(old_exit)
             self.receipt.update(launch=first, status="selected_boundary_pair_passed", stage="selected_boundary_pair_complete")
