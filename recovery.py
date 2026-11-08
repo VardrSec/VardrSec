@@ -307,6 +307,8 @@ def backup_mapless(root, destination):
         "schema_version": 6, "mode": "mapless",
         "created_at": datetime.now(timezone.utc).isoformat(), "project": project,
         "images": images, "volumes": fingerprints,
+        "last_update": json.loads((root / ".last-update.json").read_text(encoding="utf-8"))
+        if (root / ".last-update.json").exists() else None,
         "files": {path.name: digest(path) for path in destination.iterdir()},
     })
     print("Mapless backup completed. Runner remains stopped. Treat the bundle as private key material.")

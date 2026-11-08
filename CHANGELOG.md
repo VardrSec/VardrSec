@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Extend the existing controlled updater to Mapless with an explicit Runner-only
+  candidate manifest, verified backup/rehearsal and unchanged state fingerprints.
+  Keep Runner stopped, retain project/networks and carry update history through
+  recovery. Use Runner's standalone diagnostics without Map authentication.
+
 - Record canonical Windows 11 Docker Desktop Full/Mapless source installations
   and isolated recovery, reusing retained synthetic evidence without another
   assessment. Keep native, deferred execution/transition/update and release

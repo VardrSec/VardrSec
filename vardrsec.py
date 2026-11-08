@@ -729,7 +729,7 @@ No scans were started."""
 
 def dispatch(args, parser):
     mapless = read_mode(ROOT) == "mapless" or (args.action in ("install", "sources") and getattr(args, "mapless", False))
-    if mapless and args.action in ("configure", "database-role", "bootstrap", "export-ca", "update", "cancel-update"):
+    if mapless and args.action in ("configure", "database-role", "bootstrap", "export-ca"):
         raise ValueError(f"{args.action} is a Full installation operation; Mapless state is retained. See docs/mapless.md")
     if args.action == "install":
         if mapless:
@@ -793,7 +793,7 @@ def dispatch(args, parser):
         if not mapless and os.path.lexists(ROOT / ".active-images.json"):
             raise ValueError("Full images are frozen; build in a separate workspace and use the controlled updater")
         if mapless and os.path.lexists(ROOT / ".active-images.mapless.json"):
-            raise ValueError("The installed Mapless image is pinned; preserve state and use a separate reviewed installation until controlled Mapless updates are available")
+            raise ValueError("Mapless images are frozen; build in a separate workspace and use the controlled updater")
         build_prerequisites()
         compose("--profile", "tools", "build")
     elif args.action == "database-role":
@@ -865,7 +865,7 @@ def dispatch(args, parser):
             "--no-deps",
             "runner",
             "doctor",
-            *([] if mapless else ["--platform"]),
+            *(["--standalone"] if mapless else ["--platform"]),
             "--offline",
             "--json",
         )
