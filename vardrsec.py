@@ -362,7 +362,7 @@ def install_mapless(args, parser):
     write_mode(ROOT, "mapless")
     sources(mapless=True)
     compose("--profile", "tools", "build", "runner")
-    compose("--profile", "tools", "create", "--no-build", "--no-deps", "runner")
+    compose("--profile", "tools", "create", "--no-build", "runner")
     import recovery
 
     installed = recovery.container(ROOT, "runner")
@@ -645,7 +645,7 @@ def dispatch(args, parser):
         )
     elif args.action == "start":
         if mapless:
-            compose("--profile", "tools", "create", "--no-build", "--no-deps", "runner")
+            compose("--profile", "tools", "create", "--no-build", "runner")
             print("Mapless Runner prepared and stopped. Invoke runner explicitly; no background execution was started.")
             return
         compose(

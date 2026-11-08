@@ -314,7 +314,7 @@ def backup_mapless(root, destination):
 
 def restore_mapless(backup_path, destination, project, metadata):
     load_images(backup_path, metadata)
-    compose(destination, "--profile", "tools", "create", "--no-build", "--no-deps", "runner", project=project)
+    compose(destination, "--profile", "tools", "create", "--no-build", "runner", project=project)
     volume = volume_name(container(destination, "runner", project), VOLUMES["runner-state"][1])
     with (backup_path / "runner-state.tar.gz").open("rb") as source:
         volume_stream(metadata["images"]["runner"], volume, "restore", source)
