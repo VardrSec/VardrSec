@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add a separately inactive fixed host-sleep/guest-clock fixture using existing
+  OS wake mechanisms and original job retirement. Source and model checks do not
+  authorize suspend or establish C09 acceptance. Keep NM-3 paused.
+
 - Pin the inactive Runner-loss CI case to its reviewed branch. Read the original
   journal-backed managed run directory while preserving exact parent, UUID and
   symlink custody checks. The held containment attempt remains held.
@@ -22,7 +26,7 @@
   also run under Ubuntu's ordinary unprivileged CI user.
 
 - Add an inactive fixed two-job containment/load fixture and COPY-only Ubuntu
-  byte qualification. Runtime activation remains an owner decision; C07–C10
+  byte qualification. Runtime activation remains an owner decision; C07â€“C10
   and NM-2 stay open, and NM-3 remains paused.
 
 - Classify fixture worker-state failures at the two volume checks or the offline
@@ -89,7 +93,7 @@
 - Add a bootstrap-only Ubuntu check that qualifies the selected Runner image
   and runs the two existing configuration-refusal cases.
 
-- Fix the remaining NM-2 checklist as C01–C10, credit verified requirements,
+- Fix the remaining NM-2 checklist as C01â€“C10, credit verified requirements,
   and correct stale optional-idle and coverage status entries.
 
 - Complete slow installed-outage observations before the final target sample.
@@ -501,7 +505,7 @@
 
 - Include the existing database-role helper in version 4 recovery snapshots so
   generated bundles can restore without the original checkout. Continue accepting
-  snapshot versions 1â€“3; older bundles are not retroactively made portable.
+  snapshot versions 1Ã¢â‚¬â€œ3; older bundles are not retroactively made portable.
 
 - Support standard-layout Full fresh-install preflight with once-generated prospective
   configuration, normal Compose/process precedence and exclusive publication of the
@@ -710,7 +714,7 @@
   pin receives fresh installed/image checks.
 
 - Integrate Map #127 (coverage, evidence-backed candidates, boundary hypotheses and
-  corrected tenant-boundary drafts through #120â€“#127) with Runner #96's Nuclei go-jose
+  corrected tenant-boundary drafts through #120Ã¢â‚¬â€œ#127) with Runner #96's Nuclei go-jose
   fix. Rebuild Caddy 2.11.7 with go-jose 4.1.6 for CVE-2026-116587. Installed acceptance
   now verifies coverage and boundary drafting through the real browser without saving
   cases, queueing jobs or contacting a target. Both component PRs are merged and their exact

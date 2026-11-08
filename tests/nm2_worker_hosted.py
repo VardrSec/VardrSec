@@ -27,6 +27,7 @@ SOURCE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
 RUNNER_LOSS_BRANCH = "refs/heads/codex/nm2-final-runtime-gates"
+CLOCK_SUSPEND_BRANCH = RUNNER_LOSS_BRANCH
 BOOTSTRAP_SCENARIO = "bootstrap-configurations"
 BOOTSTRAP_RUNNER = "5ecc869d80f53ae7fdbca25b971838976a6c41e9"
 BOOTSTRAP_GATE = "d80d4730b8486b75be72431b5af88e0ddb45020b"
@@ -87,9 +88,12 @@ BOUNDARY_SCENARIO = "persistent-fixed-boundary-pair"
 BOUNDARY_HOSTED = "vardr.nm2-hosted/26"
 RUNNER_LOSS_SCENARIO = "persistent-fixed-runner-loss"
 RUNNER_LOSS_HOSTED = "vardr.nm2-hosted/27"
+CLOCK_SUSPEND_SCENARIO = "persistent-fixed-clock-suspend"
+CLOCK_SUSPEND_HOSTED = "vardr.nm2-hosted/28"
 LAUNCH_SCOPES = {
     BOUNDARY_SCENARIO: "fixed_orphan_drain_and_bounded_load_only",
     RUNNER_LOSS_SCENARIO: "single_live_runner_loss_only",
+    CLOCK_SUSPEND_SCENARIO: "single_clock_sleep_then_original_retirement_only",
     LAUNCH_SCENARIO: "first_and_next_empty_launch",
     LAUNCH_PRECLAIM_SCENARIO: "trusted_synthetic_closed_preclaim_parent0",
     LAUNCH_REPEAT_SCENARIO: "installed_repeated_managed_claim_exact_stop_and_successor",
@@ -715,7 +719,7 @@ def execution_options(env):
 
         require(all(env.get("NM2_" + name.upper() + "_SHA") == commit
                     for name, commit in MAP_DISCONNECT_SOURCES.items()))
-    if scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO}:
+    if scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO,CLOCK_SUSPEND_SCENARIO}:
         from nm2_worker_boundary_pair import BOUNDARY_SOURCES
         require(all(env.get("NM2_"+n.upper()+"_SHA") == v for n,v in BOUNDARY_SOURCES.items()))
     if scenario == BOOTSTRAP_SCENARIO:
@@ -764,11 +768,12 @@ def decode_receipt(data):
 
 def host_guard(env):
     release = platform.freedesktop_os_release()
+    branch = CLOCK_SUSPEND_BRANCH if env.get("NM2_SCENARIO") == CLOCK_SUSPEND_SCENARIO else RUNNER_LOSS_BRANCH if env.get("NM2_SCENARIO") == RUNNER_LOSS_SCENARIO else BRANCH
     require(
         env.get("GITHUB_ACTIONS") == "true"
         and env.get("RUNNER_ENVIRONMENT") == "github-hosted"
         and env.get("GITHUB_REPOSITORY") == "VardrSec/VardrSec"
-        and env.get("GITHUB_REF") == (RUNNER_LOSS_BRANCH if env.get("NM2_SCENARIO") == RUNNER_LOSS_SCENARIO else BRANCH)
+        and env.get("GITHUB_REF") == branch
         and env.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
         and env.get("NM2_COUPLED") == "true"
         and platform.system() == "Linux"
@@ -798,6 +803,9 @@ def host_guard(env):
 
 def failure_projection(raw, selection):
     """Allow only fixed failure categories; no raw nested receipt data escapes."""
+    if type(raw) is dict and raw.get("scenario") == CLOCK_SUSPEND_SCENARIO:
+        from nm2_worker_clock_suspend import failure_projection as clock_failure
+        return clock_failure(raw,selection)
     require(
         type(raw) is dict
         and raw.get("schema")
@@ -2692,6 +2700,9 @@ class Hosted:
         elif self.scenario == RUNNER_LOSS_SCENARIO:
             self.receipt.update(schema=RUNNER_LOSS_HOSTED, scenario=self.scenario,
                 expected_database_revision=self.database_revision, scope=LAUNCH_SCOPES[self.scenario])
+        elif self.scenario == CLOCK_SUSPEND_SCENARIO:
+            self.receipt.update(schema=CLOCK_SUSPEND_HOSTED,scenario=self.scenario,
+                expected_database_revision=self.database_revision,scope=LAUNCH_SCOPES[self.scenario])
         elif self.scenario in LAUNCH_SCENARIOS:
             self.receipt.update(
                 schema=LAUNCH_BUDGET_SCHEMAS.get(self.scenario, "vardr.nm2-hosted/7"),
@@ -3019,7 +3030,7 @@ class Hosted:
             "--cohort", str(path), "--compose-executable", str(compose),
             "--compose-sha256", COMPOSE_SHA256, "--docker-config", str(config),
             *{
-                LAUNCH_SCENARIO: [], BOUNDARY_SCENARIO: [], RUNNER_LOSS_SCENARIO: [],
+                LAUNCH_SCENARIO: [], BOUNDARY_SCENARIO: [], RUNNER_LOSS_SCENARIO: [], CLOCK_SUSPEND_SCENARIO: [],
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO: ["--stopped-predecessor"],
                 LAUNCH_PID1_LOSS_SCENARIO: ["--pid1-loss"],
                 LAUNCH_PRECLAIM_SCENARIO: ["--preclaim-recovery"],
@@ -3044,10 +3055,13 @@ class Hosted:
             }[self.scenario],
             "--execute",
         ]
-        if self.scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO}:
-            result[0] = str(SOURCE / ("tests/nm2_worker_boundary_pair.py" if self.scenario == BOUNDARY_SCENARIO else "tests/nm2_worker_runner_loss.py"))
+        if self.scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO,CLOCK_SUSPEND_SCENARIO}:
+            result[0] = str(SOURCE / ("tests/nm2_worker_boundary_pair.py" if self.scenario == BOUNDARY_SCENARIO else "tests/nm2_worker_clock_suspend.py" if self.scenario == CLOCK_SUSPEND_SCENARIO else "tests/nm2_worker_runner_loss.py"))
             result += ["--qualification",str(self.root/"boundary-image-qualification.json"),
                        "--qualification-sha256",hashlib.sha256(self.boundary_fixture[0]).hexdigest()]
+        if self.scenario == CLOCK_SUSPEND_SCENARIO:
+            result += ["--wake-qualification-sha256",hashlib.sha256(self.clock_wake_inputs[0]).hexdigest(),
+                       "--wake-selection-sha256",hashlib.sha256(self.clock_wake_inputs[1]).hexdigest()]
         return result
 
     def run(self):
@@ -3098,9 +3112,9 @@ class Hosted:
                 )
                 == toolkit
             )
-            if self.scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO}:
+            if self.scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO,CLOCK_SUSPEND_SCENARIO}:
                 from nm2_worker_boundary_build import qualify_boundary_image
-                self.boundary_fixture = (qualify_boundary_image(self) if self.scenario == BOUNDARY_SCENARIO else qualify_boundary_image(self,operand="runner-loss"))
+                self.boundary_fixture = (qualify_boundary_image(self) if self.scenario in {BOUNDARY_SCENARIO,CLOCK_SUSPEND_SCENARIO} else qualify_boundary_image(self,operand="runner-loss"))
                 self.receipt["images"]["worker"] = self.boundary_fixture[1]["image_id"]
             selection = {
                 "schema": "vardr.nm2-worker-cohort/1",
@@ -3117,6 +3131,9 @@ class Hosted:
                 "application_subnet": "172.29.217.0/24",
                 "allow_empty_builtin_bridge_id_change": False,
             }
+            if self.scenario == CLOCK_SUSPEND_SCENARIO:
+                from nm2_worker_clock_suspend import prepare_linux_wake
+                self.clock_wake_inputs = prepare_linux_wake(selection)
             path = self.root / "cohort.json"
             path.write_text(json.dumps(selection))
             path.chmod(0o600)
@@ -3171,7 +3188,7 @@ class Hosted:
                     "persistent-count-limit": "vardr.nm2-worker-count-acceptance/1",
                     "persistent-idle-limit": "vardr.nm2-worker-idle-acceptance/1",
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
-                    LAUNCH_SCENARIO: LAUNCH_SCHEMA, BOUNDARY_SCENARIO: LAUNCH_SCHEMA, RUNNER_LOSS_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_SCENARIO: LAUNCH_SCHEMA, BOUNDARY_SCENARIO: LAUNCH_SCHEMA, RUNNER_LOSS_SCENARIO: LAUNCH_SCHEMA, CLOCK_SUSPEND_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_PID1_LOSS_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_PRECLAIM_SCENARIO: LAUNCH_SCHEMA,
@@ -3197,7 +3214,7 @@ class Hosted:
             if self.scenario in {
                 STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO,
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_PRECLAIM_SCENARIO, LAUNCH_REPEAT_SCENARIO,
-                LAUNCH_PID1_LOSS_SCENARIO, LAUNCH_MAP_DISCONNECT_SCENARIO, BOUNDARY_SCENARIO, RUNNER_LOSS_SCENARIO, *REPLY_LOSS_OPERATIONS,
+                LAUNCH_PID1_LOSS_SCENARIO, LAUNCH_MAP_DISCONNECT_SCENARIO, BOUNDARY_SCENARIO, RUNNER_LOSS_SCENARIO, CLOCK_SUSPEND_SCENARIO, *REPLY_LOSS_OPERATIONS,
             }:
                 inventories = []
                 for name in ("before", "after"):
@@ -3206,6 +3223,10 @@ class Hosted:
                 if self.scenario == BOUNDARY_SCENARIO:
                     from nm2_worker_boundary_pair import boundary_projection
                     self.receipt.update(boundary_projection(observed,selection,inventories,expected_fixture=self.boundary_fixture))
+                elif self.scenario == CLOCK_SUSPEND_SCENARIO:
+                    from nm2_worker_clock_suspend import clock_suspend_projection
+                    self.receipt.update(clock_suspend_projection(observed,selection,inventories,
+                        expected_fixture=self.boundary_fixture,expected_wake=self.clock_wake_inputs))
                 elif self.scenario == RUNNER_LOSS_SCENARIO:
                     from nm2_worker_runner_loss import runner_loss_projection
                     self.receipt.update(runner_loss_projection(observed,selection,inventories,expected_fixture=self.boundary_fixture))
@@ -3289,7 +3310,7 @@ class Hosted:
                     "persistent-count-limit": "vardr.nm2-hosted/4",
                     "persistent-idle-limit": "vardr.nm2-hosted/5",
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
-                    LAUNCH_SCENARIO: "vardr.nm2-hosted/7", BOUNDARY_SCENARIO: BOUNDARY_HOSTED, RUNNER_LOSS_SCENARIO: RUNNER_LOSS_HOSTED,
+                    LAUNCH_SCENARIO: "vardr.nm2-hosted/7", BOUNDARY_SCENARIO: BOUNDARY_HOSTED, RUNNER_LOSS_SCENARIO: RUNNER_LOSS_HOSTED, CLOCK_SUSPEND_SCENARIO: CLOCK_SUSPEND_HOSTED,
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: STOPPED_PREDECESSOR_HOSTED,
                     LAUNCH_PID1_LOSS_SCENARIO: PID1_LOSS_HOSTED,
                     LAUNCH_PRECLAIM_SCENARIO: PRECLAIM_HOSTED,

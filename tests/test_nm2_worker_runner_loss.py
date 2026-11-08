@@ -186,7 +186,7 @@ class RunnerLossTests(unittest.TestCase):
         exec(compile(ast.Module(body=functions,type_ignores=[]),str(Path(loss.__file__).parent/"nm2_worker_boundary_read.py"),"exec"),scope)
         validate=scope["managed_run_folder"]
         with tempfile.TemporaryDirectory() as temporary:
-            runs=Path(temporary)/"runs";runs.mkdir()
+            runs=Path(temporary).resolve(strict=True)/"runs";runs.mkdir()
             # Actual SDK uses a fresh managed-* UUID independent of the run's UUID.
             run_id="a"*32;folder=runs/("managed-"+"b"*32);folder.mkdir()
             self.assertNotEqual(folder.name,run_id)

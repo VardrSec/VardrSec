@@ -686,3 +686,38 @@ bytes and binding; Windows uses its separately byte-qualified marker image.
 Source preparation and byte qualification do not approve the Runner-loss fault.
 The runtime action requires a separate concrete owner decision on both platforms;
 NM-2 remains open and NM-3 remains paused.
+
+## Inactive single clock-sleep fixture
+
+`persistent-fixed-clock-suspend` selects the distinct `/28` fixture. Defaults
+remain inert. A concrete owner decision is required before invoking its explicit
+`--execute` path, which contains the fixed one-shot helper command rather than an
+injectable callback. The fixture uses only the loaded C7 job: five genuine GETs,
+the original 20-second plan and 30-second allocation, one live leaf and no second
+job or successor. The C7 A/B pair and its source/image selection remain separate.
+
+The trusted controller stages fixed wake inputs in the owned `c09-wake` sibling
+of the fresh custody directory. Linux binds the existing `/usr/sbin/rtcwake`
+bytes and selected rtc0; Windows binds the independently compiled helper receipt
+and binary. Source helper templates use LF bytes. No policy, account, service or
+infrastructure change is part of this path. Current Windows hybrid policy is
+preserved; the result reports observed clock-sleep, not a proven precise S-state
+or wake cause.
+
+Separate ordinary metadata helpers sample actual Docker Linux guest clocks and
+boot identity without entering the worker namespace or mounting credentials.
+Both samples must fall inside the controller's UTC invocation brackets. Actual
+guest and host elapsed sleep gaps must be 15–30 seconds, with the UTC/BOOTTIME
+consistency bound retained. The original authority must be live immediately
+before the operation, the helper's after-sample must cross that authority cap,
+and native exit 125 must occur after the cap, before the natural leaf ceiling,
+and no later than two seconds after the helper's actual after-UTC sample. That
+last bound is observation-relative; kernel resume latency is not measured.
+
+The raw proof retains the original unpromoted file, native/Map holds and charges
+before protected reporting, followed by exact original-key reconciliation with
+zero holds and no refund, DONE or result promotion. Helper failure preserves only
+closed return/status/RTC readback enums; an unknown or still-set alarm is never
+cleared automatically. Pure source-authored vectors and a compile-only helper
+receipt do not constitute installed acceptance. C09 and NM-2 remain open until
+reviewed actual evidence passes on each required platform.
