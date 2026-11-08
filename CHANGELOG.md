@@ -2,7 +2,6 @@
 
 ## Unreleased
 
-<<<<<<< HEAD
 - Isolate NM-1 historical closeout evidence and four byte-exact sanitized receipts
   on main; maintain explicit normalized Map/standalone approval and contract
   comparisons in the existing conformance harness. Preserve historical sources
@@ -10,7 +9,7 @@
   merged Gate fix for existing exact-source CI only; production pins and release
   status are unchanged.
   Run PostgreSQL regression collection from the selected Map backend directory.
-=======
+
 - Add a separately inactive single-job Runner-loss fixture, retaining its exact
   byte witness, original held accounting and original-key retirement checks.
   Activation needs a separate owner decision; NM-2 and NM-3 gates stay unchanged.
@@ -536,7 +535,6 @@
   toolkit and state layout without Map/PostgreSQL/secrets/trust dependencies.
   Full files, component pins and lifecycle/recovery remain unchanged. This is
   configuration preparation, not an accepted installer or installed transition.
->>>>>>> 5e3ab7fe032f5f9d07410e3694423204356690b7
 
 - Add bounded NM-1 hosted verification with explicit review-only companion SHAs,
   actual checkout/tree/dependency receipts, common issuance and guarded loopback
