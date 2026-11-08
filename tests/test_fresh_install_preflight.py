@@ -55,6 +55,7 @@ class FreshInstallPreflightTests(unittest.TestCase):
             return subprocess.CompletedProcess([], 0, stdout=inventory)
         with patch.object(vardrsec, "require_standard_fresh_layout", side_effect=layout_check), \
              patch.object(vardrsec, "dispatch", side_effect=dispatch), \
+             patch.object(vardrsec, "select_full_installation"), \
              patch.object(vardrsec.subprocess, "run", side_effect=command), \
              patch.object(vardrsec.secrets, "token_hex", side_effect=[str(i) * 64 for i in range(1, 5)]) as random, \
              contextlib.redirect_stdout(io.StringIO()) as out, \

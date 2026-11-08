@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Freeze fresh Full installations onto their built image IDs and unused bridges
+  before first startup, retaining explicit network settings and supporting
+  interrupted pre-start resume without rebuilding frozen images.
+
 - Restore Full installations onto three explicitly unused bridges, including
   hosts with exhausted automatic Docker address pools; retain selected networks
   through controlled image updates. Remove an unsupported Compose create option

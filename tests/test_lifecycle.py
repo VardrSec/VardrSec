@@ -195,6 +195,7 @@ class LifecycleTests(unittest.TestCase):
                 patch.object(vardrsec, "ROOT", Path(directory)),
                 patch.object(vardrsec, "dispatch", side_effect=routed),
                 patch.object(vardrsec, "has_installation_data", return_value=started),
+                patch.object(vardrsec, "select_full_installation"),
                 contextlib.redirect_stdout(io.StringIO()) as out,
                 contextlib.redirect_stderr(io.StringIO()) as err,
             ):

@@ -355,6 +355,103 @@ def main():
 INSTALL_STEPS = ("configure", "sources", "build", "database-role", "start", "export-ca")
 
 
+def select_full_installation():
+    """Freeze a fresh Full install before its first stateful startup."""
+    import ipaddress
+    import recovery
+
+    path = ROOT / ".active-images.json"
+    network_keys = {"APPLICATION_SUBNET", "APPLICATION_IP_RANGE", "PROXY_IP"}
+
+    def model(environment=None):
+        return json.loads(compose("--profile", "tools", "config", "--format", "json",
+                                  capture_output=True, text=True, env=environment).stdout)
+
+    def application(configuration):
+        entry = configuration["networks"]["application"]["ipam"]["config"][0]
+        return (entry["subnet"], entry["ip_range"],
+                configuration["services"]["proxy"]["networks"]["application"]["ipv4_address"])
+
+    current = model()
+    if set(current["services"]) != recovery.SERVICES:
+        raise ValueError("Full installation requires the shipped five-service model")
+    project = current["name"]
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):
+        raise ValueError("Invalid Full installation project")
+    file_environment = {key: value for key, value in os.environ.items()
+                        if key not in network_keys | {"COMPOSE_PROJECT_NAME"}}
+    if os.path.lexists(path):
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or path.is_symlink()
+                or getattr(info, "st_file_attributes", 0) & 0x400 or info.st_size > 16384):
+            raise ValueError("Frozen Full image selection must be a small regular file")
+        selected = json.loads(path.read_text(encoding="utf-8"))
+        if (not isinstance(selected, dict) or set(selected) != {"services", "networks"}
+                or not isinstance(selected["services"], dict)
+                or set(selected["services"]) != recovery.SERVICES
+                or not isinstance(selected["networks"], dict)
+                or set(selected["networks"]) != {"database", "runner"}):
+            raise ValueError("Existing Full selection is not an interrupted fresh installation")
+        for service, definition in selected["services"].items():
+            if (not isinstance(definition, dict) or set(definition) != {"image"}
+                    or not recovery.IMAGE_ID.fullmatch(str(definition["image"]))):
+                raise ValueError("Frozen Full selection requires exact image IDs")
+            run("docker", "image", "inspect", definition["image"], capture_output=True)
+        subnets = [ipaddress.ip_network(validate_runner_subnet(application(current)[0]))]
+        for definition in selected["networks"].values():
+            try:
+                subnet = validate_runner_subnet(definition["ipam"]["config"][0]["subnet"])
+            except (KeyError, TypeError, IndexError):
+                raise ValueError("Invalid frozen Full network selection") from None
+            if definition != {"ipam": {"config": [{"subnet": subnet}]}}:
+                raise ValueError("Invalid frozen Full network selection")
+            subnets.append(ipaddress.ip_network(subnet))
+        if any(left.overlaps(right) for index, left in enumerate(subnets) for right in subnets[index + 1:]):
+            raise ValueError("Frozen Full networks overlap")
+        persisted = model(file_environment)
+        if persisted["name"] != project or application(persisted) != application(current):
+            raise ValueError("Persist the matching Full project and application network before resuming")
+        return
+
+    images = {}
+    for service in sorted(recovery.SERVICES):
+        image = run("docker", "image", "inspect", "--format", "{{.Id}}",
+                    current["services"][service]["image"], capture_output=True, text=True).stdout.strip()
+        if not recovery.IMAGE_ID.fullmatch(image):
+            raise ValueError("Cannot freeze the built Full image set")
+        images[service] = {"image": image}
+    assignments = {match[1] for match in re.finditer(
+        r"(?m)^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=", (ROOT / ".env").read_text(encoding="utf-8"))}
+    explicit = bool(network_keys & (assignments | set(os.environ)))
+    subnet_text, ip_range, proxy_ip = application(current)
+    subnet_text = validate_runner_subnet(subnet_text)
+    if explicit:
+        subnet = recovery.available_subnet(subnet_text)
+    else:
+        try:
+            subnet = recovery.available_subnet(subnet_text)
+        except ValueError as error:
+            if "overlaps" not in str(error):
+                raise
+            subnet = recovery.available_subnet()
+            prefix = str(subnet.network_address).rsplit(".", 1)[0]
+            ip_range, proxy_ip = prefix + ".128/25", prefix + ".2"
+    if (not ipaddress.ip_network(ip_range, strict=True).subnet_of(subnet)
+            or ipaddress.ip_address(proxy_ip) not in subnet):
+        raise ValueError("Full application address range and proxy must belong to its subnet")
+    database = recovery.available_subnet(reserved=(subnet,))
+    runner = recovery.available_subnet(reserved=(subnet, database))
+    with (ROOT / ".env").open("a", encoding="utf-8") as output:
+        output.write(f"\nCOMPOSE_PROJECT_NAME={project}\nAPPLICATION_SUBNET={subnet}\n"
+                     f"APPLICATION_IP_RANGE={ip_range}\nPROXY_IP={proxy_ip}\n")
+    persisted = model(file_environment)
+    if persisted["name"] != project or application(persisted) != (str(subnet), ip_range, proxy_ip):
+        raise ValueError("Full project/network selection was not durably configured; startup refused")
+    recovery.json_write(path, {"services": images, "networks": {
+        name: {"ipam": {"config": [{"subnet": str(value)}]}}
+        for name, value in (("database", database), ("runner", runner))}})
+
+
 def install_mapless(args, parser):
     """Prepare the existing toolkit and stopped state container, without Map."""
     error = "Mapless install requires the shipped layout in a separate checkout; preserve existing installation state"
@@ -665,10 +762,16 @@ def dispatch(args, parser):
         for step in steps:
             print(f"== {step}", flush=True)
             try:
+                if step == "build" and os.path.lexists(ROOT / ".active-images.json"):
+                    select_full_installation()
+                    print("Reusing the frozen Full image/network selection; build skipped.")
+                    continue
                 dispatch(argparse.Namespace(**{
                     **vars(args), "action": step,
                     "prepared_configuration": prospective if step == "configure" else None,
                 }), parser)
+                if step == "build":
+                    select_full_installation()
             except Exception as error:
                 python = "python" if os.name == "nt" else "python3"
                 print(
@@ -687,6 +790,8 @@ def dispatch(args, parser):
     elif args.action == "sources":
         sources(mapless=mapless)
     elif args.action == "build":
+        if not mapless and os.path.lexists(ROOT / ".active-images.json"):
+            raise ValueError("Full images are frozen; build in a separate workspace and use the controlled updater")
         if mapless and os.path.lexists(ROOT / ".active-images.mapless.json"):
             raise ValueError("The installed Mapless image is pinned; preserve state and use a separate reviewed installation until controlled Mapless updates are available")
         build_prerequisites()

@@ -13,6 +13,7 @@ import urllib.request
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import recovery
 import backup_crypto
+import updater
 from gate_acceptance import verify_retained
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -209,10 +210,19 @@ def main():
     ARTIFACTS.mkdir(parents=True)
     baseline_revision = recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT)
     assert baseline_revision and len(baseline_revision.splitlines()) == 1, "Expected one baseline migration revision"
+    baseline_config, baseline_images = updater.image_set(ROOT)
+    assert baseline_config["name"] == PROJECT
+    assert set(baseline_config["services"]) == recovery.SERVICES
+    for service in recovery.SERVICES:
+        resolved_image = recovery.command(
+            "docker", "image", "inspect", "--format", "{{.Id}}",
+            baseline_config["services"][service]["image"], capture_output=True, text=True,
+        ).stdout.strip()
+        assert resolved_image == baseline_images[service], "Selected image differs from installed baseline"
     if (ROOT / ".active-images.json").exists():
-        raise ValueError(
-            "Recovery fixture requires the unchanged development installation"
-        )
+        selected = json.loads((ROOT / ".active-images.json").read_text(encoding="utf-8"))
+        assert set(selected) <= {"name", "services", "networks"}
+        assert selected["services"] == {service: {"image": image} for service, image in baseline_images.items()}
     # Existing Compose acceptance seeded a real engagement, account and API key.
     compose(
         "run",
@@ -252,10 +262,9 @@ def main():
     )
     current_base = recovery.container(ROOT, "api", PROJECT)["Image"]
     assert current_base == snapshot["images"]["api"]
+    assert snapshot["images"] == baseline_images
     successful = candidate("successful-fixture", baseline_revision, "0032restorefixture", current_base)
-    recovery.json_write(
-        ROOT / ".active-images.json", {"services": {"api": {"image": successful}}}
-    )
+    updater.set_images(ROOT, {**baseline_images, "api": successful})
     compose(
         "up",
         "-d",
@@ -284,9 +293,7 @@ def main():
     failed = candidate(
         "failed-fixture", "0032restorefixture", "0033failedfixture", successful, fail=True
     )
-    (ROOT / ".active-images.json").write_text(
-        json.dumps({"services": {"api": {"image": failed}}}), encoding="utf-8"
-    )
+    updater.set_images(ROOT, {**baseline_images, "api": failed})
     try:
         compose(
             "run",

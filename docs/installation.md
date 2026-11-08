@@ -178,6 +178,18 @@ the checkout and `.env` together; changing the project name selects different
 volumes rather than moving data. Separate Full installations also need distinct
 HTTPS ports and non-overlapping application networks as described below.
 
+The one-command Full installer freezes all five built image IDs before starting
+the database. It retains the project and selects distinct unused database/Runner
+bridges. It keeps the shipped application subnet when free; if that default
+overlaps retained Docker networks, it selects an unused subnet from the existing
+recovery range. Explicit application subnet/range/proxy settings are preserved
+and must be non-overlapping. Existing Docker resources are never deleted to make
+room. These checks concern Docker subnets, not host/VPN route qualification.
+An interruption before the first state volume can reuse the validated frozen
+selection without rebuilding. Once state exists, use the failed step or `start`
+as described above. A frozen installation's `build` refuses; use a separate build
+workspace and the controlled updater for image changes.
+
 For an existing installation, skip `configure`; it preserves and refuses to
 replace `.env`. An installation made before the least-privilege database role needs the
 one-time upgrade in [database-roles.md](database-roles.md) (back up first, then
