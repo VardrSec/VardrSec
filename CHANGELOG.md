@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Close NM-3 source-built Community acceptance against the original exit criteria,
+  retained Windows qualification and final exact-pin CI. Record clean application
+  installation scope, evidence reuse and separate deferred/release gates.
+
 - Add thin interactive/scriptable Full and Mapless installers for PowerShell and
   Bash, plus Runner launchers that delegate to the existing Python CLI. Preserve
   mode selection, argument boundaries and exit status. Carry complete launcher

@@ -1,6 +1,14 @@
 # Distribution acceptance plan
 
-Compatible development cohort proposed on 2026-11-08: Map
+NM-3 source-built Community acceptance is **closed on 2026-11-08**. The
+[criteria-to-evidence closeout](new-moon-acceptance.md#exit-criteria-closeout)
+records the Windows application-installation boundary, reused receipts and
+separate phase/release gates. Accepted main `3fc286a` has the same tree as
+all-five-green reviewed head `55772d3`; final
+[Compose acceptance](https://github.com/VardrSec/VardrSec/actions/runs/42523444635)
+includes Full/Mapless workflows, encrypted recovery and controlled updates.
+
+The compatible development cohort is Map
 `14a80a8540c6c7053b1f0630f19a512a2351013a` ([PR151](https://github.com/VardrSec/VardrMap/pull/151)),
 Runner `ea4265a12a54bc12593aafb4e0855be399e30fd3` ([PR117](https://github.com/VardrSec/VardrRunner/pull/117), including merged Recon PR116)
 and Gate `57cfedfaf59b11cf626288c343f34a34c7b1df13` ([PR31](https://github.com/VardrSec/VardrGate/pull/31)).
@@ -21,19 +29,22 @@ the unchanged six-scenario UI/assessment/evidence/finding/report workflow and
 normal stop/start retention. HTTPS verified the exported CA and hostname;
 migrations were current at `0041persistentruntime`. Its private result receipt
 SHA-256 is `454a8c218f90ec70f4d4fc6aa636aaed44861023e0df96d5232c62977ed2d1c3`.
-Both Windows observations used separate configured state and explicit free
-subnets on an existing host; neither is a fresh-default Windows installer claim.
-They do not pre-credit Ubuntu. Windows 11/Docker Desktop and Linux remain required
-targets, and the other original platform gates remain separate.
+Those two earlier Windows observations used separate configured state and explicit
+free subnets. Subsequent canonical clean application installations and recovery
+on the owner-designated Windows 11/Docker Desktop host satisfy the NM-3 fresh
+application-installation boundary described in the closeout. Windows/Docker and
+Linux remain accepted targets; no operating-system provisioning claim is made.
 `versions.json` remains development,
 `runnable:false`, with no image or distribution release declaration. Existing
-unaccepted clock/suspend, broader Recon and transition limits remain in force.
+unaccepted NM-2 clock/suspend, broader Recon, optional import/sync and release
+limits remain in force.
 
 Current direction: the [Community Alpha plan](community-alpha.md) targets Ubuntu
 24.04 Linux/amd64 first. The [2026-10-27 checkpoint](alpha-checkpoint-2026-10-27.md)
-records the clean installation and remaining gates. Windows/macOS stay experimental
-until their own full acceptance passes; incomplete Desktop support alone does not
-block an Ubuntu-first alpha. See [platforms](platforms.md). Older dated observations below remain historical evidence.
+records an older installation checkpoint. Windows 11 Docker Desktop and Ubuntu
+24.04 have NM-3 source acceptance; macOS Docker and other unqualified platforms
+retain their limits. Release approval remains separate. See [platforms](platforms.md).
+Older dated observations below remain historical evidence.
 
 The first source-level slice is merged in Map #110 and Runner #82. The refreshed
 Map integration includes local authentication; 1,136 backend tests passed locally

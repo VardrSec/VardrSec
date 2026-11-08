@@ -26,14 +26,89 @@ C09 sleep behavior and NM-4/NM-5 acceptance remain separate, unaccepted capabili
 
 ## Current NM-3 distribution status
 
-The earlier merged cohort from distribution [#68](https://github.com/VardrSec/VardrSec/pull/68), Runner
+**NM-3 is closed for the source-built Community distribution, accepted 2026-11-08.**
+The accepted distribution is `3fc286a848352901b786bb9fdb9e969a3e6a9ad8`
+([PR72](https://github.com/VardrSec/VardrSec/pull/72)). Its tree
+`23562656809c409523f061c19e3166e21504510e` is identical to reviewed head
+`55772d3cb0a599fca95c986aafdd6eb891ef5b80`, where all five existing workflows
+passed. The exact component pins are Map `14a80a8540c6c7053b1f0630f19a512a2351013a`,
+Runner `ea4265a12a54bc12593aafb4e0855be399e30fd3` and Gate
+`57cfedfaf59b11cf626288c343f34a34c7b1df13`.
+
+### Exit-criteria closeout
+
+Requirement source: the owner-approved New Moon roadmap, NM-3 scope and exit gate,
+document SHA256 `bede351e2199b527a7d1eb9c0026c97f8d6fc36b875e2ade173251b597a112d2`.
+The closeout preserves its Windows/Docker, Linux, independent Runner and optional
+Map requirements; it does not add OS provisioning or automatic history import.
+
+| Original NM-3 requirement | Accepted evidence |
+|---|---|
+| Local workspace, authorization, scope, preferences, history and portable evidence without Map/account/API token | Retained Windows Mapless Gate workflow: five bounded GETs, native/journal DONE and identical redacted re-export; current-pin Ubuntu Mapless authorization/execution/export passed in the [installation job](https://github.com/VardrSec/VardrSec/actions/runs/42523444635). Mapless has Runner/Gate only. |
+| Recon pipeline and reviewed Gate case | Windows finite DNS-A → HTTPS/443 GET-root Recon receipt below; original Host/SNI, one DNS question, one HTTP 200 and unchanged re-export. Gate retains its separate reviewed authorization and existing installed workflow. Discovery output grants no further execution authority. |
+| Shared execution and contract validation | Both paths use the existing Runner ledger, launcher, owner and export. Exact-pin [Runner CI](https://github.com/VardrSec/VardrRunner/actions/runs/42519151653) and [container checks](https://github.com/VardrSec/VardrRunner/actions/runs/42519151637) passed; Gate defaults and dormant Recon v1 remain unchanged. |
+| Windows 11/Docker Desktop Full and Mapless installation; interactive/scriptable entrypoints and convenient CLI | Canonical clean application source trees and new projects/volumes on the owner-designated Windows host passed. PowerShell/Bash entrypoints delegate to that same installer and transfer wrapper; parsing, shell syntax and both-platform compatibility checks passed. Preinstalled Windows/Docker prerequisites and unrelated retained resources were preserved. |
+| Full connected workflow | Retained Windows six-scenario UI/queue/assessment/evidence/finding/report and restart receipt; current-pin Ubuntu trusted Full/Gate/restart workflow passed in the installation job. |
+| Non-destructive Mapless → Full minimum and protected persistence | Separate Full installation leaves the original Mapless history in place and exportable. Windows Full/Mapless recovery verifies state and export equality. This meets the charter's stated preserved/exportable-record minimum; import/sync remains a separately gated increment. |
+| Upgrade without evidence loss; backup/recovery and ownership | Windows Mapless image update preserves exact protected state and the original run's three exports. Final [Compose acceptance](https://github.com/VardrSec/VardrSec/actions/runs/42523444635) passed controlled updates, interruption/resume, encrypted portable recovery, migration-failure recovery and least-privilege role verification. Launcher files survive recovery. |
+| Existing Linux deployment and justified native CLI choice retained | Ubuntu 24.04 Full/Mapless installation and recovery passed. [Tool/network checks](https://github.com/VardrSec/VardrSec/actions/runs/42523444594) passed on Ubuntu 22.04/24.04 within their recorded scope. Existing native components and platform CI remain; [networking](networking.md) and [platforms](platforms.md) retain native and VPN limitations. |
+
+### Fresh Windows installation and evidence reuse
+
+The owner selected the Windows qualification host and directed reuse of its
+retained evidence. Fresh installation is accepted at the application boundary:
+clean source trees, distinct installation projects and new state, with Windows 11,
+Docker Desktop and other documented prerequisites already installed. The
+canonical installer acquired pinned components and built/froze isolated images.
+The source trees were Git exports; this does not claim a literal distribution
+clone run, a Windows reinstall, prerequisite provisioning, an empty Docker engine,
+or a byte audit of every unrelated retained resource. None is an additional
+NM-3 exit requirement. Separate-install coexistence and preservation remain required.
+
+Evidence is composed without relabelling older runs as final-head runs. Windows
+installation/recovery, Gate/Full workflow, Recon and update receipts below retain
+their original commits and hashes. Runner `dfcd8f2` → `ea4265a` changes standalone
+diagnostics, CLI, documentation and tests; the qualified Recon runtime, owner and
+authorization code are unchanged. Earlier Gate/Full observations are combined with
+the final exact-pin installed regression, rather than being claimed as a new
+Windows run. Finishing distribution changes add delegating launchers and recovery
+manifest handling. The final installed CI exercised the corrected encrypted
+archive allowlist as well as the complete pinned workflow.
+
+The five accepted workflow runs are
+[foundation 42523444680](https://github.com/VardrSec/VardrSec/actions/runs/42523444680),
+[Compose 42523444635](https://github.com/VardrSec/VardrSec/actions/runs/42523444635),
+[tool/network 42523444594](https://github.com/VardrSec/VardrSec/actions/runs/42523444594),
+[native trust 42523444627](https://github.com/VardrSec/VardrSec/actions/runs/42523444627)
+and [image evidence 42523444750](https://github.com/VardrSec/VardrSec/actions/runs/42523444750).
+This closeout rechecks retained receipt hashes, source identity and completed CI;
+it adds no qualification run or test case.
+
+### Phase boundaries after closeout
+
+Accepted Recon is the explicit finite DNS-A/HTTPS profile above. Broader discovery,
+automatic Gate execution, optional history import/sync and storage migrations have
+not been accepted. Native Windows redacted export retains its documented 24H2+
+and fixed-local-NTFS boundary; native Linux controlled execution still needs the
+existing owner context. Genuine VPN behavior, macOS Docker and other unqualified
+platforms retain their documented limits. No integrated native Full stack is added.
+
+NM-2 C09 remains unaccepted and its stopped fault/sleep campaign stays stopped.
+NM-4 intelligence and NM-5 benchmarks/release validation remain separate work.
+Image-risk disposition, release/tag/image publication and deployment are not
+authorized or accepted by this phase closeout. `versions.json` remains a development
+source compatibility record with `runnable:false` and no published images.
+
+### Retained implementation and qualification records
+
+Earlier distribution [#68](https://github.com/VardrSec/VardrSec/pull/68), Runner
 [#114](https://github.com/VardrSec/VardrRunner/pull/114) and compatibility
 [#69](https://github.com/VardrSec/VardrSec/pull/69) are merged. The exact cohort
 is Map `14a80a8540c6c7053b1f0630f19a512a2351013a`, Runner
 `5feea8d6de373b4bbc5a3951310c69a16ae7179b`, Gate
 `57cfedfaf59b11cf626288c343f34a34c7b1df13`.
 
-Focused compatibility [PR71](https://github.com/VardrSec/VardrSec/pull/71) selects reviewed Runner PR117 head
+Merged compatibility [PR71](https://github.com/VardrSec/VardrSec/pull/71) selects reviewed Runner PR117 head
 `ea4265a12a54bc12593aafb4e0855be399e30fd3`, including merged Recon PR116 and
 standalone diagnostics, retaining Map and Gate. The Windows
 finite Recon result retains its original source boundary below; the required existing
