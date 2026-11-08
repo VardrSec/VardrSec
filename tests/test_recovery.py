@@ -281,6 +281,7 @@ class RecoveryTests(unittest.TestCase):
                 self.assertTrue(all(not {"db", "api", "web", "proxy", "up", "run"}.intersection(call.args[1:]) for call in compose.call_args_list))
             self.assertFalse(any((bundle / name).exists() for name in (".env", "database.dump", "Caddyfile")))
             self.assertEqual(installation_mode.read_mode(restored), "mapless")
+            self.assertEqual(installation_mode.read_project(restored), "vardrsec-restore-mapless")
             active = json.loads((restored / ".active-images.mapless.json").read_text())
             self.assertEqual(active["name"], "vardrsec-restore-mapless")
             self.assertTrue(json.loads((restored / "restore-receipt.json").read_text())["runner_state_verified"])

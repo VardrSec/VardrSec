@@ -10,6 +10,12 @@ Community release. Windows 11 with Docker Desktop Linux containers and Ubuntu
 In a separate clean distribution checkout, with Python 3.10+, Git, Docker and
 Compose 2.17+ available:
 
+To coexist with another installation, choose a distinct `COMPOSE_PROJECT_NAME`
+before installing (`export COMPOSE_PROJECT_NAME=assessment-local` on Linux,
+`$env:COMPOSE_PROJECT_NAME='assessment-local'` in PowerShell). Keep it set until
+installation completes. The installed image record then preserves the selected
+project across shells; a restored installation preserves its separate project.
+
 ```sh
 python3 vardrsec.py install --mapless
 python3 vardrsec.py doctor
@@ -19,6 +25,8 @@ python3 vardrsec.py runner -- workspace create "Local assessment"
 On Windows use `python` for the same commands. Keep the returned workspace ID.
 The mode marker selects the Mapless model on subsequent commands. Installation
 builds the pinned Runner/Gate toolkit and creates a stopped Runner container.
+Its project-scoped build tag does not replace Full's development tag. Installation
+then selects the exact local image ID for subsequent commands and recovery.
 It creates no Map account, database, proxy, trusted certificate or background
 worker. `start` prepares the stopped CLI; `stop` preserves volumes. Installation
 refuses existing Full or Mapless state rather than migrating or resetting it.

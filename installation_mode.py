@@ -70,8 +70,9 @@ def compose_files(root, *, mode=None):
             value = _read(overlay)
             if not isinstance(value, dict) or set(value) not in ({"services"}, {"name", "services"}):
                 raise ValueError("Invalid Mapless image selection")
-            if "name" in value and not re.fullmatch(r"vardrsec-restore-[a-z0-9][a-z0-9-]{0,45}", str(value["name"])):
-                raise ValueError("Invalid Mapless restore project")
+            if "name" in value and (not isinstance(value["name"], str)
+                    or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", value["name"])):
+                raise ValueError("Invalid Mapless installation project")
             services = value["services"]
             if (not isinstance(services, dict) or set(services) != {"runner"}
                     or not isinstance(services["runner"], dict) or set(services["runner"]) != {"image"}
@@ -80,3 +81,15 @@ def compose_files(root, *, mode=None):
     if os.path.lexists(overlay):
         files.append(overlay)
     return files
+
+
+def read_project(root):
+    """Use the installed/restored project even after the caller changes shells."""
+    root = Path(root)
+    if read_mode(root) != "mapless":
+        return None
+    path = root / ".active-images.mapless.json"
+    if not os.path.lexists(path):
+        return None
+    compose_files(root)  # Validate the closed image/project selection first.
+    return _read(path).get("name")

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Isolate Mapless build tags by project and retain the exact installed toolkit
+  image ID and project, preserving Full image selection and the same Runner state
+  after a new shell or a separate restore.
+
 - Add explicit Full/Mapless installation selection, standalone toolkit lifecycle,
   Runner-state-only encrypted recovery and an explicitly selected local one-job
   execution overlay. Reuse the existing owner, authorization, journal and export.

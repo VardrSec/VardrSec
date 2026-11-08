@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 from datetime import datetime, timezone
 
-from installation_mode import MARKER, compose_files, read_mode
+from installation_mode import MARKER, compose_files, read_mode, read_project
 
 LEGACY_FILES = (
     ".env",
@@ -56,6 +56,7 @@ def command(*args, **kwargs):
 
 def compose(root, *args, project=None, **kwargs):
     flags = [part for path in compose_files(root) for part in ("-f", str(path))]
+    project = project or read_project(root)
     if project:
         flags += ["-p", project]
     return command("docker", "compose", *flags, *args, cwd=root, **kwargs)

@@ -15,7 +15,7 @@ import sys
 import tempfile
 import uuid
 
-from installation_mode import MARKER, compose_files, read_mode, write_mode
+from installation_mode import MARKER, compose_files, read_mode, read_project, write_mode
 
 ROOT = Path(__file__).resolve().parent
 
@@ -72,13 +72,16 @@ def compose(*args, **kwargs):
     if kwargs.pop("controlled", False):
         selected.append(ROOT / "compose.local-worker.json")
     flags = [part for path in selected for part in ("-f", str(path))]
+    project = read_project(ROOT)
+    if project:
+        flags += ["-p", project]
     return run("docker", "compose", *flags, *args, **kwargs)
 
 
 # Exact shipped Full model, normalized for checkout line endings. Updating the
 # model requires reviewing this fresh-install boundary alongside its tests.
 STANDARD_FULL_SHA256 = "b4c68355d7076b78f20db61dd6ee6d9231faaad62f325066bd8b49f682a5bbac"
-STANDARD_MAPLESS_SHA256 = "c7bedb323b62f4a7d705c8d25e1f2f584a462725db3301276e16399cf511bece"
+STANDARD_MAPLESS_SHA256 = "80653a1435ab148ec6943a4145e0a0d52675a51a3f2eef245c95100cfc921e6f"
 
 
 def require_standard_fresh_layout():
@@ -360,6 +363,16 @@ def install_mapless(args, parser):
     sources(mapless=True)
     compose("--profile", "tools", "build", "runner")
     compose("--profile", "tools", "create", "--no-build", "--no-deps", "runner")
+    import recovery
+
+    installed = recovery.container(ROOT, "runner")
+    image = installed["Image"]
+    project = installed["Config"]["Labels"]["com.docker.compose.project"]
+    if not isinstance(image, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
+        raise ValueError("Cannot pin the installed toolkit image; preserve the stopped installation")
+    with (ROOT / ".active-images.mapless.json").open("x", encoding="utf-8") as stream:
+        json.dump({"name": project, "services": {"runner": {"image": image}}}, stream)
+        stream.write("\n")
     print("Mapless installed. Runner is stopped; no Map, database, proxy, job or background worker was started. See docs/mapless.md for authorization, execution and export.")
 
 
@@ -480,6 +493,8 @@ def installation_volume_names(environment=None, *, mapless=False):
         model = json.loads(result.stdout)
         project = model["name"]
         if not isinstance(project, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", project):
+            raise ValueError(error)
+        if mapless and len(project) > 63:
             raise ValueError(error)
         volumes = model["volumes"]
         expected = {"runner-state"} if mapless else {"database", "runner-state", "proxy-data", "proxy-config"}
@@ -614,6 +629,8 @@ def dispatch(args, parser):
     elif args.action == "sources":
         sources(mapless=mapless)
     elif args.action == "build":
+        if mapless and os.path.lexists(ROOT / ".active-images.mapless.json"):
+            raise ValueError("The installed Mapless image is pinned; preserve state and use a separate reviewed installation until controlled Mapless updates are available")
         build_prerequisites()
         compose("--profile", "tools", "build")
     elif args.action == "database-role":
