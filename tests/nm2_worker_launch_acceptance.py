@@ -162,7 +162,7 @@ PID1_LOSS_SOURCES = {
     "gate": "57cfedfaf59b11cf626288c343f34a34c7b1df13",
 }
 REPEAT_SCENARIO = "persistent-launch-repeat-managed-claim"
-REPEAT_SCOPE = "installed_repeated_managed_claim_then_exact_stop"
+REPEAT_SCOPE = "installed_repeated_managed_claim_exact_stop_and_successor"
 PRECLAIM_SCENARIO = "persistent-launch-preclaim-recovery"
 PRECLAIM_SCOPE = "trusted_synthetic_closed_preclaim_parent0"
 MAP_DISCONNECT_SCENARIO = "persistent-launch-map-disconnect"
@@ -213,6 +213,46 @@ _LAUNCH_PROCESS_CHECKPOINTS = {
     "timeout", "spawn", "unexpected_success", "unexpected_exit",
     "empty_stdout", "output_limit", "invalid_stdout",
 }
+
+
+# Sanitized diagnostics only; this is not an acceptance/resource count ceiling.
+ENGINE_DIFFERENCE_MAX_COUNT = 100000
+ENGINE_DIFFERENCE_FIELDS = {
+    "containers": set("id image labels state restarts networks mounts".split()),
+    "images": set("id tags digests labels".split()),
+    "networks": set("id name driver scope internal attachable ipv6 ingress options ipam labels containers".split()),
+    "volumes": set("id driver labels options".split()),
+}
+
+
+def engine_difference(before, after):
+    """Only fixed kinds/counts/field enums; actual rows stay in private files."""
+    result = {}
+    for kind, allowed in ENGINE_DIFFERENCE_FIELDS.items():
+        left, right = before[kind], after[kind]
+        changed = [key for key in left.keys() & right.keys() if canonical(left[key]) != canonical(right[key])]
+        fields = {field if field in allowed else "other" for key in changed
+                  for field in left[key].keys() | right[key].keys()
+                  if canonical([field in left[key], left[key].get(field)])
+                  != canonical([field in right[key], right[key].get(field)])}
+        result[kind] = {"added": len(right.keys() - left.keys()), "removed": len(left.keys() - right.keys()),
+                        "changed": len(changed), "fields": sorted(fields)}
+    return result
+
+
+def engine_difference_detail(value):
+    if type(value) is not dict or set(value) != set(ENGINE_DIFFERENCE_FIELDS):
+        return None
+    for kind, row in value.items():
+        if not (type(row) is dict and set(row) == {"added", "removed", "changed", "fields"}
+                and all(type(row[key]) is int and 0 <= row[key] <= ENGINE_DIFFERENCE_MAX_COUNT for key in ("added", "removed", "changed"))
+                and type(row["fields"]) is list
+                and all(type(field) is str and field in ENGINE_DIFFERENCE_FIELDS[kind] | {"other"} for field in row["fields"])
+                and row["fields"] == sorted(set(row["fields"])) and bool(row["fields"]) == (row["changed"] > 0)):
+            return None
+    if not any(row[key] for row in value.values() for key in ("added", "removed", "changed")):
+        return None
+    return {kind: {**row, "fields": list(row["fields"])} for kind, row in value.items()}
 
 
 class UnresolvedLaunchRefused(AcceptanceRefused):
@@ -762,6 +802,8 @@ class LaunchFixture(Fixture):
                     if terminal_reply_loss is not None else "terminal_host_exit_observed"),
                 "launch_host_exit_original_reconciliation_missing",
             )
+        if getattr(self, "repeat_managed_claim", False):
+            self.receipt["repeat_retirement"]["reconciliation"] = reconciled
         self.receipt["stage"] = "launch_audit_retired"
         audit = self.worker_state(admission)
         require(
@@ -1298,6 +1340,27 @@ print(len(directories))
         )
         return inventory
 
+    def verify_repeated_claim_exit(self, observer, exit_proof, admission, case, run_id, observed):
+        """C05 owns repeat/accounting recovery; prior gates own refusal/latency."""
+        self.receipt["stage"] = "launch_repeat_original_held"
+        observer.confirm_exit(exit_proof)
+        require(type(exit_proof.exit_code) is int and exit_proof.exit_code == 125
+                and len(observed["requests"]) == 3 and self.traffic() == observed["requests"],
+                "launch_repeat_original_not_held")
+        before = self.unreported_attempt(admission, case, exit_proof.identity, disabled=True)
+        expected = self.receipt["repeated_managed_claim"]["state_after"]
+        require(canonical(repeated_claim_state(before)) == canonical({
+                    **expected, "runtime": {**expected["runtime"], "new_work_disabled": True}}),
+                "launch_repeat_changed_original")
+        local = self.local_metadata(run_id, *case[:2])
+        require(local["run_id"] == run_id and local["job_id"] == case[1]
+                and local["phase"] == "executing" and local["claim_state"] == "consume_acknowledged"
+                and canonical([local["consumption_sent"], local["consumption_acknowledged"]]) == b"[1,1]"
+                and local["local_stop_requested"] is False and local["failure_reason"] is None,
+                "launch_repeat_original_not_held")
+        self.receipt["repeat_retirement"] = {"before": before, "local_before": local}
+        return before
+
     def verify_unresolved_predecessor(
         self, observer, exit_proof, admission, case, run_id, observed, arguments
     ):
@@ -1376,8 +1439,16 @@ print(len(directories))
         observer.confirm_exit(exit_proof)
         require(canonical(catalog()) == canonical(old),
                 "launch_unresolved_refusal_catalog_changed")
-        require(canonical(self.snapshot()) == canonical(before),
-                "launch_unresolved_refusal_engine_changed")
+        after = self.snapshot()
+        same_engine = canonical(after) == canonical(before)
+        if not same_engine:
+            try:
+                publish(self.private / "unresolved-refusal-engine-before.json", canonical(before))
+                publish(self.private / "unresolved-refusal-engine-after.json", canonical(after))
+                self.receipt["engine_difference"] = engine_difference(before, after)
+            except Exception:
+                pass  # Diagnostics cannot replace or relax the original refusal.
+        require(same_engine, "launch_unresolved_refusal_engine_changed")
         require(canonical(self.inventory(engagement, job, include_capacity=True))
                 == canonical(inventory), "launch_unresolved_refusal_server_changed")
         require(canonical(self.local_metadata(run_id, engagement, job)) == canonical(local),
@@ -2030,11 +2101,12 @@ print(len(directories))
                 "launch_preclaim_predecessor_binding_changed",
             )
         if predecessor is not None and self.stopped_predecessor:
+            previous = self.receipt["repeat_retirement" if self.repeat_managed_claim else "stopped_predecessor"]
             require(
                 row["predecessors"][0]["original_local_audit_sha256"]
-                == self.receipt["stopped_predecessor"]["audit_sha256"]
+                == previous["audit_sha256"]
                 and row["predecessors"][0]["host_retirement_sha256"]
-                == self.receipt["stopped_predecessor"]["host_retirement_sha256"]
+                == previous["host_retirement_sha256"]
                 and row["resources"]["runner_state"]["metadata_sha256"]
                 == predecessor["runner_state_sha256"],
                 "launch_host_exit_predecessor_binding_changed",
@@ -2164,10 +2236,15 @@ print(len(directories))
         if cancelling:
             self.receipt["stage"] = "launch_stop_work_retirement"
         if stopping_predecessor:
-            before_report = self.verify_unresolved_predecessor(
-                observer, exit_proof, admission, case, run_id, observed,
-                self.launch_arguments(config, signing, binding, self.successor_id),
-            )
+            if self.repeat_managed_claim:
+                before_report = self.verify_repeated_claim_exit(
+                    observer, exit_proof, admission, case, run_id, observed,
+                )
+            else:
+                before_report = self.verify_unresolved_predecessor(
+                    observer, exit_proof, admission, case, run_id, observed,
+                    self.launch_arguments(config, signing, binding, self.successor_id),
+                )
             self.receipt["stage"] = "launch_report_predecessor"
         if disconnecting:
             self.receipt["stage"] = "launch_map_disconnect_report_exit"
@@ -2228,7 +2305,13 @@ print(len(directories))
                 admission, retired, case, run_id, before_report, proof_key="map_disconnect",
             )
         elif stopping_predecessor:
-            self.verify_host_exit_reconciliation(admission, retired, case, run_id, before_report)
+            proof_key = "repeat_retirement" if self.repeat_managed_claim else "stopped_predecessor"
+            audit = self.verify_host_exit_reconciliation(admission, retired, case, run_id, before_report, proof_key=proof_key)
+            if self.repeat_managed_claim:
+                self.receipt[proof_key].update(
+                    before=before_report, after=self.retired_predecessor_inventory, retirement=retired,
+                    audit=audit, host_reconciled=reconciled, physical=physical,
+                )
         elif cancelling:
             self.cancelled_reconciliation(physical, admission, retired, case, action, after)
         elif exhausted is not None:

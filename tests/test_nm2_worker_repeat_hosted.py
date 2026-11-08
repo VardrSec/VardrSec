@@ -12,6 +12,7 @@ import nm2_worker_launch_acceptance as launch
 from nm2_worker_acceptance import AcceptanceRefused, canonical, digest
 from test_nm2_worker_stopped_predecessor_hosted import evidence
 from worker_runtime import RuntimeIdentity
+import worker_host_persistent as persistent
 
 
 def model():
@@ -56,33 +57,80 @@ def vector():
     raw, selection, inventories = evidence()
     raw.update(scenario=hosted.LAUNCH_REPEAT_SCENARIO,
                acceptance_scope=hosted.LAUNCH_SCOPES[hosted.LAUNCH_REPEAT_SCENARIO])
+    raw.pop("stopped_predecessor")
+    for name,commit in launch.MAP_DISCONNECT_SOURCES.items():
+        selection["sources"][name]["commit"]=commit
     fixture, admission, case, identity, requests, inventory = model()
     first = raw["launch_pair"][0]
     selection["https_port"] = 8443
     admission["origin"] = "https://vardrsec.localhost:8443/backend"
+    admission["runtime_id"] = first["runtime_id"]
     physical = {**asdict(identity), "image_id": selection["images"]["worker"],
                 "container_id": first["container_id"], "started_at": first["started_at"]}
     identity = RuntimeIdentity(**physical)
-    admission["identity"], admission["runtime_sha256"] = physical, digest(canonical(physical))
+    registration = {"identity":physical,"origin":admission["origin"],"runner_id":admission["runner_id"],
+        "enrollment_id":"fixture-enrollment","capability_sha256":"d"*64,"mode":"persistent",
+        "limits":{"max_attempts":None,"idle_timeout_seconds":None},
+        "reporting_authority":{"purpose":"worker-stop-only","expires_at":None}}
+    original = persistent.expected_admission({"runtime_id":first["runtime_id"],"registration":registration})
+    admission.update(original)
     runtime = inventory["runtimes"][0]
-    runtime.update(identity=physical, runtime_sha256=admission["runtime_sha256"])
+    runtime.update(id=first["runtime_id"],identity=physical,runtime_sha256=original["runtime_sha256"],
+                   admission_sha256=original["admission_sha256"],admission=original)
+    runtime["attempts"][0]["runtime_id"] = first["runtime_id"]
     binding = runtime["attempts"][0]["binding"]
     binding["origin"] = admission["origin"]
-    fixture.inventory.side_effect = [deepcopy(inventory), deepcopy(inventory)]
-    client = Mock(request=Mock(return_value={"detail": "managed_request_refused"}))
-    with patch.object(launch, "OwnerAPI", return_value=client):
-        fixture.observe_repeated_managed_claim(admission, case, identity, "e" * 32, {"requests": requests})
-    terminal = {
-        **binding, "schema": "vardr.managed-stop-receipt/1", "outcome": "failed",
-        "cause": "observed_exit", "capacity_reserved": False,
-        "receipt_sha256": digest(canonical({
-            **binding, "schema": "vardr.managed-stop/1", "outcome": "failed",
-            "cause": "observed_exit", "termination_confirmed": True,
-        })),
-    }
-    raw["repeated_managed_claim"] = {**fixture.receipt["repeated_managed_claim"], "terminal_receipt": terminal}
-    raw["stopped_predecessor"]["terminal_sha256"] = digest(canonical(terminal))
-    return raw, selection, inventories
+    inventory["engagement_id"] = case[0]
+    fixture.inventory.side_effect = [deepcopy(inventory),deepcopy(inventory)]
+    client=Mock(request=Mock(return_value={"detail":"managed_request_refused"}))
+    with patch.object(launch,"OwnerAPI",return_value=client):
+        fixture.observe_repeated_managed_claim(admission,case,identity,"e"*32,{"requests":requests})
+    terminal={**binding,"schema":"vardr.managed-stop-receipt/1","outcome":"failed",
+        "cause":"observed_exit","capacity_reserved":False,"receipt_sha256":digest(canonical({
+            **binding,"schema":"vardr.managed-stop/1","outcome":"failed","cause":"observed_exit",
+            "termination_confirmed":True}))}
+    retirement={"schema":"vardr.worker-retirement/3","runtime_id":first["runtime_id"],
+        **{key:original[key] for key in ("runtime_sha256","admission_sha256","origin","runner_id","enrollment_id")},
+        "runtime_sequence":"1","last_sequence":"1","binding":binding,"attempt_receipt":terminal,
+        "report_sha256":"f"*64,"retired":True}
+    retirement["receipt_sha256"]=digest(canonical(retirement))
+    first["retirement_sha256"]=retirement["receipt_sha256"]
+    before=deepcopy(inventory)
+    before["runtimes"][0]["new_work_disabled"]=True
+    after={**deepcopy(before),"job_status":"failed","capacity_reserved_count":0,
+        "execution":{**before["execution"],"state":"failed","capacity_reserved":False},
+        "stops":[{key:terminal[key] for key in ("contract_id","receipt_sha256","outcome","cause")}]}
+    after["runtimes"][0].update(retired=True,report_sha256=retirement["report_sha256"])
+    audit_binding={key:original[key] for key in ("runner_id","runtime_id","runtime_sha256","admission_sha256")}
+    audit={"schema":"vardr.worker-state-audit/1","status":"retired","reason":None,"complete":True,
+        "binding":audit_binding,"parent":{"state":"retired","last_sequence":"1","head_sequence":"1","active_sequence":None},
+        "counts":{"attempts":1,"selections":1,"associated_runs":1,"associated_claims":1},
+        "global_holds":0,"retirement_receipt_sha256":retirement["receipt_sha256"]}
+    reconciliation={"schema":"vardr.worker-reconciliation/1","status":"reconciled","reason":None,"complete":True,
+        "binding":audit_binding,"selected_run_id":"e"*32,"selected_sequence":"1",
+        "reconciliation_state":"terminal_host_exit_observed","remaining_local_holds":0,
+        "retirement_receipt_sha256":retirement["receipt_sha256"]}
+    cursor={"last_sequence":"1","phase":"active"}
+    observation={"schema":"vardr.worker-receipt-observation/3", "runtime_id":first["runtime_id"],
+        "runtime_sha256":original["runtime_sha256"],"admission_sha256":original["admission_sha256"],
+        "cursor":cursor,"active":{"runtime_sequence":"1","binding":binding,"receipt":terminal},
+        "retirement":retirement,"new_work_disabled":True,"reporting_revoked":False,
+        "availability":{"state":"stopped","observed_at":None,"fresh_until":None,"cursor":cursor}}
+    local={"run_id":"e"*32,"job_id":binding["job_id"],"engagement_id":case[0],"phase":"executing",
+        "claim_state":"consume_acknowledged","consumption_sent":1,"consumption_acknowledged":1,
+        "local_stop_requested":False,"failure_reason":None}
+    raw["repeated_managed_claim"]={**fixture.receipt["repeated_managed_claim"],"terminal_receipt":terminal}
+    raw["repeat_retirement"]={"before":before,"after":after,"local_before":local,"retirement":retirement,
+        "audit":audit,"reconciliation":reconciliation,"host_reconciled":{"schema":"vardr.worker-cli/1",
+            "state":"terminal_observed","runtime_id":first["runtime_id"],"receipt":observation},
+        "physical":{"identity":physical,"runtime_id":first["runtime_id"],"runtime_sha256":original["runtime_sha256"],
+            "admission_sha256":original["admission_sha256"],"finished_at":first["finished_at"],"exit_code":125,
+            "operator_stop_state":"stopped_observed"},
+        "audit_sha256":digest(canonical(audit)),"retirement_sha256":retirement["receipt_sha256"],
+        "host_retirement_sha256":digest(canonical(retirement)),"terminal_sha256":digest(canonical(terminal)),
+        "terminal_cause":"observed_exit","capacity_before":1,"capacity_after":0,"targets_spent":1,
+        "duration_allocated":30,"remaining_local_holds":0}
+    return raw,selection,inventories
 
 
 class RepeatedManagedClaimTests(unittest.TestCase):
@@ -156,8 +204,8 @@ class RepeatedManagedClaimTests(unittest.TestCase):
             value = hosted.launch_projection(raw, selection, inventories=inventories, desktop=desktop)
             proof = value["repeated_managed_claim"]
             self.assertEqual(proof["repeat_count"], 1)
-            self.assertEqual(value["stopped_predecessor"]["capacity_after"], 0)
-            self.assertEqual(value["stopped_predecessor"]["owned_stopped_container_count"], 7)
+            self.assertEqual(value["repeat_retirement"]["capacity_after"], 0)
+            self.assertEqual(value["owned_stopped_container_count"], 7)
             self.assertNotIn("runtime_id", proof)
             self.assertNotIn("launch_pair", value)
             self.assertEqual(value["nm2_exit_status"], "incomplete")
@@ -173,7 +221,7 @@ class RepeatedManagedClaimTests(unittest.TestCase):
                 hosted.public_projection(raw, selection, inventories=inventories)
 
     def test_reader_recomputes_retained_rows_binding_request_and_terminal(self):
-        for change in ("state", "body", "path", "run", "binding", "terminal", "counter"):
+        for change in ("state", "body", "path", "run", "binding", "terminal", "counter", "audit", "native_done", "fake_refusal"):
             raw, selection, inventories = vector()
             proof = raw["repeated_managed_claim"]
             if change == "state":
@@ -193,12 +241,43 @@ class RepeatedManagedClaimTests(unittest.TestCase):
             elif change == "counter":
                 proof["state_before"]["targets_spent"] = True
                 proof["state_after"] = deepcopy(proof["state_before"])
+            elif change == "audit":
+                raw["repeat_retirement"]["audit"]["global_holds"] = 1
+            elif change == "native_done":
+                raw["repeat_retirement"]["after"]["runtimes"][0]["attempts"][0]["native_done_sha256"] = "f"*64
+            elif change == "fake_refusal":
+                raw["stopped_predecessor"] = {"failure_phase":"launch_catalog"}
             # Equal replacement hashes alone must never make changed rows valid.
             for key in ("before", "after"):
                 proof[f"state_{key}_sha256"] = digest(canonical(proof[f"state_{key}"]))
             proof["request_sha256"] = digest(canonical(proof["request"]))
             with self.subTest(change=change), self.assertRaises(hosted.HostedRefused):
                 hosted.public_projection(raw, selection, inventories=inventories)
+
+    def test_repeat_exit_does_not_reinvoke_refusal_snapshot_or_third_request_timer(self):
+        raw,_,_ = vector()
+        proof=raw["repeat_retirement"]
+        fixture=launch.LaunchFixture.__new__(launch.LaunchFixture)
+        fixture.receipt={"repeated_managed_claim":raw["repeated_managed_claim"]}
+        fixture.traffic=Mock(return_value=[{}, {}, {}])
+        fixture.unreported_attempt=Mock(return_value=proof["before"])
+        fixture.local_metadata=Mock(return_value=proof["local_before"])
+        fixture.snapshot=Mock(side_effect=AssertionError("no duplicate engine snapshot"))
+        observer=Mock()
+        identity=RuntimeIdentity(**proof["physical"]["identity"])
+        exited=SimpleNamespace(exit_code=125,identity=identity)
+        admission=proof["before"]["runtimes"][0]["admission"]
+        case=proof["before"]["engagement_id"],proof["local_before"]["job_id"]
+        with patch.object(launch,"expect_unresolved_launch",side_effect=AssertionError("no duplicate refusal")) as refusal, \
+                patch.object(launch,"stop_exit_elapsed_ns",side_effect=AssertionError("no cancellation metric")) as timing:
+            result=fixture.verify_repeated_claim_exit(observer,exited,admission,case,"e"*32,{"requests":[{}, {}, {}]})
+        self.assertEqual(result,proof["before"])
+        observer.confirm_exit.assert_called_once_with(exited)
+        refusal.assert_not_called()
+        timing.assert_not_called()
+        fixture.snapshot.assert_not_called()
+        self.assertNotIn("stopped_predecessor",fixture.receipt)
+        self.assertEqual(set(fixture.receipt["repeat_retirement"]),{"before","local_before"})
 
     def test_explicit_routing_preserves_original_modes_and_exact_source_guard(self):
         env = dict(NM2_SCENARIO=hosted.LAUNCH_REPEAT_SCENARIO,
@@ -216,7 +295,13 @@ class RepeatedManagedClaimTests(unittest.TestCase):
         self.assertTrue(constructor.call_args.kwargs["repeat_managed_claim"])
         self.assertFalse(constructor.call_args.kwargs["stopped_predecessor"])
         self.assertIn("persistent-launch-repeat-managed-claim", (hosted.SOURCE / '.github/workflows/compose.yml').read_text())
-        self.assertEqual(hosted.REPEAT_HOSTED, "vardr.nm2-hosted/19")
+        self.assertEqual(hosted.REPEAT_HOSTED, "vardr.nm2-hosted/25")
+        self.assertEqual(hosted.REPEAT_LEGACY_HOSTED, "vardr.nm2-hosted/19")
+        raw,selection,_=vector()
+        raw.update(status="held", acceptance_scope="installed_repeated_managed_claim_then_exact_stop",
+                   stage="launch_refuse_unresolved_predecessor",reason="launch_unresolved_refusal_engine_changed")
+        self.assertEqual(hosted.failure_projection(raw,selection),
+            {"stage":"launch_refuse_unresolved_predecessor","reason":"launch_unresolved_refusal_engine_changed"})
 
 
 if __name__ == '__main__':

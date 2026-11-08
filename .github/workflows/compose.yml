@@ -53,6 +53,28 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.12'
+      - name: Read dedicated test VM suspend capabilities without changing state
+        run: |
+          python - <<'PY'
+          import json, shutil
+          from pathlib import Path
+          def read(path):
+              try:
+                  return Path(path).read_text().strip()
+              except OSError:
+                  return None
+          states = read("/sys/power/state")
+          wake = read("/sys/class/rtc/rtc0/device/power/wakeup")
+          print(json.dumps({
+              "schema": "vardr.nm2-test-vm-power-capabilities/1",
+              "scope": "read_only_not_acceptance",
+              "states": None if states is None else sorted(set(states.split()) & {"freeze", "standby", "mem", "disk"}),
+              "rtcwake_available": shutil.which("rtcwake") is not None,
+              "rtc_device_present": Path("/dev/rtc0").exists(),
+              "rtc_wakealarm_present": Path("/sys/class/rtc/rtc0/wakealarm").exists(),
+              "rtc_wakeup_enabled": None if wake not in {"enabled", "disabled"} else wake == "enabled",
+          }, sort_keys=True))
+          PY
       - name: Verify hosted refusal and public receipt guards without Docker
         run: python -m unittest discover -s tests -p 'test_nm2_worker*hosted.py'
       - name: Run the exact explicitly selected coupled cohort

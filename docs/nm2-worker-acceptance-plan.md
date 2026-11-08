@@ -619,7 +619,7 @@ The owner decision on 2026-11-07 (America/Chicago; 2026-11-08 UTC) authorizes
 one Windows Docker Desktop and one Ubuntu24.04/amd64 run of the explicit
 `persistent-launch-pid1-loss` route, hosted receipt20. The sole fault is one host
 KILL against the freshly verified exact worker CID after the existing three
-requests, with no retry. Job30/control10/grace2 and CPU1/memory512MiB/PID64/tmpfs64MiB
+requests, with no retry. Allocation30/plan20/control10/grace2 and CPU1/memory512MiB/PID64/tmpfs64MiB
 remain unchanged. Require exit137, original holds/charges before protected host
 reporting, original-key reconciliation and the existing same-volume successor;
 retain original artifact bytes and all owned resources without publication.
@@ -627,3 +627,29 @@ The manual choice does not enable normal startup. This decision covers no
 Runner-loss, worker process insertion, channel, load, suspend or other earlier
 stopped experiment. Root reviews the final frozen source and inert qualification
 before dispatch; this source change alone records no installed acceptance.
+
+
+## C05 repeat witness: distinct installed scope
+
+The explicit `persistent-launch-repeat-managed-claim` selection uses Map05dc,
+Runner5ecc and GateD80 with hosted receipt25. It sends one original-key managed
+claim for the already active exact runtime/sequence and requires HTTP409 with
+`managed_request_refused`. The retained normalized before/after state must keep
+one issuance, one attempt, the same binding, one capacity reservation and spent
+allowances of one target and 30 seconds.
+
+It then performs the existing exact ordinary stop, confirms physical exit125 and
+the still-held original reservation, and uses protected physical retirement plus
+original-key reconciliation. The original stop receipt must release capacity
+without refund, result, native DONE or idle release; the original audit must have
+zero holds before the actual same-volume successor launches. Preserve every
+owned resource and the outer inventory guard.
+
+This witness reuses the already accepted pre-report successor-refusal and stop
+latency evidence; it does not attempt another rejected successor or measure stop
+latency from the third HTTP request. The repeated claim adds inspection overhead
+after that request. C08 keeps its separately approved full refusal operation.
+Real PostgreSQL four-session competition and Runner CAS remain independent
+evidence; this installed selection does not claim two simultaneous workers.
+Earlier held receipt19 trials remain held. New installed proof is required on
+both Windows Docker Desktop and Ubuntu for receipt25.

@@ -1185,8 +1185,9 @@ disconnect criteria receive that acceptance credit. The
 [fixed checklist C01–C10](nm1-nm2-closeout.md#fixed-nm-2-closeout-checklist)
 defines the remaining evidence, recovery and security work.
 
-ADR 0043's independent containment review and bootstrap, channel, owner-loss,
-credential-isolation, pressure and supported-host clock obligations remain open.
+ADR 0043's source review and bootstrap configuration refusals are verified.
+Runtime isolation, unexpected loss, bounded load and supported-host suspend
+obligations remain open under C07–C09, with final cohort disposition in C10.
 Previously blocked adversarial experiments stay stopped. Native Windows fallback
 has its own retained evidence. Both the integrated Docker Desktop gate and NM-2
 remain open. NM-3 remains paused.

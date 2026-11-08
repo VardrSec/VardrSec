@@ -33,7 +33,8 @@ LAUNCH_SCENARIO = "persistent-launch-empty"
 LAUNCH_PRECLAIM_SCENARIO = "persistent-launch-preclaim-recovery"
 PRECLAIM_HOSTED = "vardr.nm2-hosted/17"
 LAUNCH_REPEAT_SCENARIO = "persistent-launch-repeat-managed-claim"
-REPEAT_HOSTED = "vardr.nm2-hosted/19"
+REPEAT_LEGACY_HOSTED = "vardr.nm2-hosted/19"
+REPEAT_HOSTED = "vardr.nm2-hosted/25"
 LAUNCH_STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
 STOPPED_PREDECESSOR_HOSTED = "vardr.nm2-hosted/11"
 LAUNCH_PID1_LOSS_SCENARIO = "persistent-launch-pid1-loss"
@@ -84,7 +85,7 @@ LAUNCH_CANCELLATION_SCENARIOS = {
 LAUNCH_SCOPES = {
     LAUNCH_SCENARIO: "first_and_next_empty_launch",
     LAUNCH_PRECLAIM_SCENARIO: "trusted_synthetic_closed_preclaim_parent0",
-    LAUNCH_REPEAT_SCENARIO: "installed_repeated_managed_claim_then_exact_stop",
+    LAUNCH_REPEAT_SCENARIO: "installed_repeated_managed_claim_exact_stop_and_successor",
     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: "stopped_predecessor_then_next_launch",
     LAUNCH_PID1_LOSS_SCENARIO: "unexpected_pid1_loss_then_next_launch",
     LAUNCH_MAP_DISCONNECT_SCENARIO: "ordinary_map_api_outage",
@@ -840,7 +841,7 @@ def failure_projection(raw, selection):
         "launch_prepare", "launch_1", "launch_2", "launch_stop_1", "launch_stop_2",
         "launch_preclaim_setup", "launch_preclaim_refuse_successor", "launch_preclaim_reconcile",
         "launch_predecessor_active", "launch_predecessor_unreported",
-        "launch_repeat_managed_claim", "launch_terminal_loss_register", "launch_terminal_loss_observe", "launch_terminal_loss_reconcile",
+        "launch_repeat_managed_claim", "launch_repeat_original_held", "launch_terminal_loss_register", "launch_terminal_loss_observe", "launch_terminal_loss_reconcile",
         "selected_terminal_reply_loss_complete",
         "launch_refuse_unresolved_predecessor", "launch_report_predecessor",
         "launch_host_exit_verification",
@@ -916,7 +917,7 @@ def failure_projection(raw, selection):
         "launch_terminal_loss_result_not_proven", "launch_terminal_loss_local_not_proven",
         "launch_terminal_loss_state_not_proven", "launch_terminal_loss_state_changed",
         "launch_repeat_sources_required", "launch_repeat_original_not_active",
-        "launch_repeat_refusal_required", "launch_repeat_changed_original",
+        "launch_repeat_refusal_required", "launch_repeat_changed_original", "launch_repeat_original_not_held",
         "launch_preexisting_worker", "launch_unexpected_target_traffic",
         "launch_preclaim_predecessor_binding_changed", "launch_preclaim_enrollment_changed",
         "launch_preclaim_source_changed", "launch_preclaim_server_changed", "launch_preclaim_exit_not_bound",
@@ -1136,6 +1137,14 @@ def failure_projection(raw, selection):
         diagnostic = launch_refusal_failure_detail(raw.get("launch_refusal_failure"))
         if diagnostic is not None:
             value["launch_refusal_failure"] = diagnostic
+    if (raw["schema"] == LAUNCH_SCHEMA
+            and raw.get("scenario") in {LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_REPEAT_SCENARIO, LAUNCH_PID1_LOSS_SCENARIO}
+            and value["stage"] == "launch_refuse_unresolved_predecessor"
+            and value["reason"] == "launch_unresolved_refusal_engine_changed"):
+        from nm2_worker_launch_acceptance import engine_difference_detail
+        diagnostic = engine_difference_detail(raw.get("engine_difference"))
+        if diagnostic is not None:
+            value["engine_difference"] = diagnostic
     command_failure = raw.get("command_failure")
     if (
         value["reason"] == "fixture_command_failed"
@@ -1531,6 +1540,81 @@ def _stopped_predecessor_projection(raw, selection, first, second, inventories, 
     return result
 
 
+def _repeat_retirement_projection(raw, selection, first, second, inventories, *, desktop):
+    from nm2_worker_acceptance import canonical, digest
+    from nm2_worker_launch_acceptance import MAP_DISCONNECT_SOURCES, repeated_claim_state
+    from worker_host import _terminal
+    from worker_host_persistent import retirement, original_local_audit
+
+    require(all(selection["sources"][name]["commit"] == commit for name,commit in MAP_DISCONNECT_SOURCES.items())
+            and "stopped_predecessor" not in raw)
+    repeated = _repeat_projection(raw, selection, first)
+    proof = raw["repeat_retirement"]
+    require(type(proof) is dict and set(proof) == {"before", "after", "local_before", "retirement", "audit",
+        "reconciliation", "host_reconciled", "physical", "audit_sha256", "retirement_sha256",
+        "host_retirement_sha256", "terminal_sha256", "terminal_cause", "capacity_before", "capacity_after",
+        "targets_spent", "duration_allocated", "remaining_local_holds"})
+    before, after = proof["before"], proof["after"]
+    expected = raw["repeated_managed_claim"]["state_after"]
+    _same(repeated_claim_state(before), {**expected, "runtime": {**expected["runtime"], "new_work_disabled": True}})
+    runtime = before["runtimes"][0]
+    original = runtime["admission"]
+    record = {"runtime_id": runtime["id"], "registration": {key:value for key,value in original.items()
+        if key not in {"schema","runtime_id","runtime_sha256","admission_sha256"}},
+        "admission": original, "registration_state": "acknowledged", "stop_state": "observed", "receipt": proof["retirement"],
+        "revocation_state": "none", "disable_state": "none"}
+    retained = retirement(record, proof["retirement"])
+    binding = runtime["attempts"][0]["binding"]
+    terminal = _terminal(binding, retained["attempt_receipt"])
+    require(retained["runtime_sequence"] == retained["last_sequence"] == "1"
+            and canonical(retained["binding"]) == canonical(binding)
+            and retained["receipt_sha256"] == first["retirement_sha256"] == proof["retirement_sha256"]
+            and terminal["schema"] == "vardr.managed-stop-receipt/1"
+            and terminal["outcome"] == "failed" and terminal["cause"] == proof["terminal_cause"] == "observed_exit")
+    _same(after, {**before, "job_status": "failed", "capacity_reserved_count": 0,
+        "execution": {**before["execution"], "state": "failed", "capacity_reserved": False},
+        "runtimes": [{**runtime, "retired": True, "report_sha256": retained["report_sha256"]}],
+        "stops": [{key:terminal[key] for key in ("contract_id","receipt_sha256","outcome","cause")}]})
+    local = proof["local_before"]
+    require(local["run_id"] == raw["repeated_managed_claim"]["original_run_id"]
+            and local["job_id"] == binding["job_id"] and local["engagement_id"] == before["engagement_id"]
+            and local["phase"] == "executing"
+            and local["claim_state"] == "consume_acknowledged"
+            and canonical([local["consumption_sent"],local["consumption_acknowledged"]]) == b"[1,1]"
+            and local["local_stop_requested"] is False and local["failure_reason"] is None)
+    physical = proof["physical"]
+    _same(physical, {"identity":runtime["identity"],"runtime_id":runtime["id"],
+        "runtime_sha256":runtime["runtime_sha256"],"admission_sha256":runtime["admission_sha256"],
+        "finished_at":first["finished_at"],"exit_code":125,"operator_stop_state":"stopped_observed"})
+    host = proof["host_reconciled"]
+    require(host["schema"] == "vardr.worker-cli/1" and host["state"] == "terminal_observed"
+            and host["runtime_id"] == runtime["id"] and host["receipt"]["retirement"] == retained)
+    audited = original_local_audit(record, host["receipt"], output=canonical(proof["audit"]), returncode=0)
+    require(audited["original_local_audit_sha256"] == proof["audit_sha256"])
+    _same(proof["audit"]["counts"], {"attempts":1,"selections":1,"associated_runs":1,"associated_claims":1})
+    reconciled = proof["reconciliation"]
+    require(set(reconciled) == {"schema","status","reason","complete","binding","selected_run_id",
+        "selected_sequence","reconciliation_state","remaining_local_holds","retirement_receipt_sha256"}
+        and reconciled["schema"] == "vardr.worker-reconciliation/1" and reconciled["status"] == "reconciled"
+        and reconciled["reason"] is None and reconciled["complete"] is True
+        and reconciled["binding"] == proof["audit"]["binding"]
+        and reconciled["selected_run_id"] == local["run_id"] and reconciled["selected_sequence"] == "1"
+        and reconciled["reconciliation_state"] == "terminal_host_exit_observed"
+        and type(reconciled["remaining_local_holds"]) is int and reconciled["remaining_local_holds"] == 0
+        and reconciled["retirement_receipt_sha256"] == retained["receipt_sha256"])
+    counts = {"capacity_before":1,"capacity_after":0,"targets_spent":1,"duration_allocated":30,"remaining_local_holds":0}
+    require(all(type(proof[key]) is int and proof[key] == value for key,value in counts.items()))
+    for key,value in (("host_retirement_sha256",retained),("terminal_sha256",terminal)):
+        require(proof[key] == digest(canonical(value)))
+    owned,admitted = _launch_retention(raw,selection,(first,second),inventories,desktop=desktop)
+    return {"repeated_managed_claim":repeated,"repeat_retirement":{**counts,
+        **{key:proof[key] for key in ("retirement_sha256","host_retirement_sha256","terminal_sha256","audit_sha256")}},
+        "same_runner_state_volume":True,"owned_stopped_container_count":owned,
+        "scope":"Installed repeat and exact stop/recovery; independent PG competition and accepted refusal/latency evidence reused",
+        "platform":"win32" if desktop else "linux","container_platform":"linux",
+        "empty_builtin_bridge_id_change_count":admitted,"nm2_exit_status":"incomplete","resources_retained":True}
+
+
 def _repeat_projection(raw, selection, first):
     from types import SimpleNamespace
     from nm2_worker_acceptance import canonical, digest, ORIGIN
@@ -1596,7 +1680,7 @@ def _repeat_projection(raw, selection, first):
     require(proof["original_run_sha256"] == digest(proof["original_run_id"].encode("ascii")))
     terminal = _terminal(binding, proof["terminal_receipt"])
     require(terminal["schema"] == "vardr.managed-stop-receipt/1" and terminal["cause"] == "observed_exit"
-            and digest(canonical(terminal)) == raw["stopped_predecessor"]["terminal_sha256"])
+            and digest(canonical(terminal)) == raw["repeat_retirement"]["terminal_sha256"])
     return {key: proof[key] for key in (*counts, *hashes)}
 
 
@@ -2157,14 +2241,13 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
         require("unissued_job" not in raw)
     if scenario == LAUNCH_PRECLAIM_SCENARIO:
         return _preclaim_projection(raw, selection, first, second, inventories, desktop=desktop)
-    if scenario in {LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_REPEAT_SCENARIO, LAUNCH_PID1_LOSS_SCENARIO}:
+    if scenario == LAUNCH_REPEAT_SCENARIO:
+        return _repeat_retirement_projection(raw, selection, first, second, inventories, desktop=desktop)
+    if scenario in {LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_PID1_LOSS_SCENARIO}:
         result = _stopped_predecessor_projection(
             raw, selection, first, second, inventories, desktop=desktop
         )
-        if scenario == LAUNCH_REPEAT_SCENARIO:
-            result["repeated_managed_claim"] = _repeat_projection(raw, selection, first)
-        else:
-            require("repeated_managed_claim" not in raw)
+        require("repeated_managed_claim" not in raw)
         return result
     return result
 

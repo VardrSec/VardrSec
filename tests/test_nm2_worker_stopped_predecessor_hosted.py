@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import nm2_worker_hosted as hosted
 from nm2_worker_acceptance import canonical, digest
+from nm2_worker_launch_acceptance import engine_difference
 
 
 SCENARIO = hosted.LAUNCH_STOPPED_PREDECESSOR_SCENARIO
@@ -436,6 +437,38 @@ class HostedStoppedPredecessorTests(unittest.TestCase):
                 "reason": "launch_unresolved_refusal_changed_state",
             },
         )
+        before = {kind: {} for kind in ("containers", "images", "networks", "volumes")}
+        before["containers"][PRIVATE_CANARY] = {"labels": {"private": PRIVATE_CANARY}, "unknown-private-key": None}
+        after = deepcopy(before)
+        after["containers"][PRIVATE_CANARY]["labels"]["private"] = PRIVATE_CANARY + "-changed"
+        del after["containers"][PRIVATE_CANARY]["unknown-private-key"]
+        after["images"][PRIVATE_CANARY] = {"tags": [PRIVATE_CANARY]}
+        detail = engine_difference(before, after)
+        self.assertEqual(detail["containers"], {"added": 0, "removed": 0, "changed": 1, "fields": ["labels", "other"]})
+        self.assertEqual(detail["images"], {"added": 1, "removed": 0, "changed": 0, "fields": []})
+        raw.update(reason="launch_unresolved_refusal_engine_changed", engine_difference=detail,
+                   private_before=before, private_after=after)
+        projected = hosted.failure_projection(raw, selection)
+        self.assertEqual(projected, {"stage": raw["stage"], "reason": raw["reason"], "engine_difference": detail})
+        self.assertNotIn(PRIVATE_CANARY.encode(), canonical(projected))
+        for mutation in ("count", "oversize", "negative", "field", "object", "duplicate", "value", "kind", "stage", "reason", "scenario"):
+            changed = deepcopy(raw)
+            row = changed["engine_difference"]["containers"]
+            if mutation == "count": row["changed"] = True
+            elif mutation == "oversize": row["added"] = 100001
+            elif mutation == "negative": row["removed"] = -1
+            elif mutation == "field": row["fields"] = [PRIVATE_CANARY]
+            elif mutation == "object": row["fields"] = [{"private": PRIVATE_CANARY}]
+            elif mutation == "duplicate": row["fields"] = ["labels", "labels"]
+            elif mutation == "value": row["id"] = PRIVATE_CANARY
+            elif mutation == "kind": changed["engine_difference"][PRIVATE_CANARY] = row
+            elif mutation == "stage": changed["stage"] = "launch_predecessor_active"
+            elif mutation == "reason": changed["reason"] = "launch_unresolved_refusal_catalog_changed"
+            else: changed["scenario"] = hosted.LAUNCH_DURATION_SCENARIO
+            with self.subTest(mutation=mutation):
+                sanitized = hosted.failure_projection(changed, selection)
+                self.assertNotIn("engine_difference", sanitized)
+                self.assertNotIn(PRIVATE_CANARY.encode(), canonical(sanitized))
         raw.update(stage=PRIVATE_CANARY, reason=PRIVATE_CANARY)
         self.assertEqual(
             hosted.failure_projection(raw, selection),

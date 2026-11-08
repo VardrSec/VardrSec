@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Limit C05's installed repetition witness to its actual refusal, accounting,
+  exact stop, original recovery and same-volume successor. Receipt 25 cites
+  accepted predecessor/latency evidence; earlier held receipt 19 stays held.
+- Preserve the full unresolved-predecessor engine guard while retaining private
+  comparison snapshots and exporting only bounded counts and field enums.
+  Read dedicated CI guest power capabilities without changing power state;
+  capability metadata does not establish suspend acceptance.
+
 - Close NM-2's three pre-execution reply-loss boundaries on Windows and Ubuntu.
   Retain the Ubuntu result/completion proofs and the two held repetition attempts;
   Windows publication recovery and the remaining fixed gates stay open.
