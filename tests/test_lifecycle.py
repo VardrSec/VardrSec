@@ -270,6 +270,7 @@ class LifecycleTests(unittest.TestCase):
         )
 
     def test_runner_arguments_after_the_separator_are_passed_unchanged(self):
+        self.assertEqual((["-e", "OWNER_TOKEN"], []), vardrsec.runner_invocation(["--", "--env", "OWNER_TOKEN"]))
         flags, command = vardrsec.runner_invocation(
             ["credentials", "approve", "--env", "OWNER_TOKEN", "--destination", "x"]
         )

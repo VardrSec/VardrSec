@@ -416,6 +416,8 @@ def runner_invocation(arguments):
     line; Compose reads the value from this process's environment.
     """
     flags, rest = [], list(arguments)
+    if rest and rest[0] == "--":
+        rest.pop(0)
     while rest and (rest[0] == "--env" or rest[0].startswith("--env=")):
         item = rest.pop(0)
         if item == "--env":

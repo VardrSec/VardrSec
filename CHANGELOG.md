@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Forward explicit Runner environment names correctly after the outer `--`
+  separator, including controlled invocations without an additional command.
+
 - Allow an explicit non-overlapping IPv4 `/24` for the Mapless Runner bridge when
   Docker's automatic address pools are exhausted; retain existing networks and
   preserve automatic allocation as the default.
