@@ -199,7 +199,7 @@ def verify_mapless(root, project, snapshot):
     recovery.compose(root, "--profile", "tools", "create", "--no-build", "--pull", "never",
                      "runner", project=project)
     result = recovery.compose(root, "--profile", "tools", "run", "--rm", "--no-deps",
-                              "--no-build", "--pull", "never", "runner", "doctor", "--standalone", "--offline", "--json",
+                              "--pull", "never", "runner", "doctor", "--standalone", "--offline", "--json",
                               project=project, capture_output=True, text=True, check=False,
                               timeout=WAIT_SECONDS)
     if result.returncode or json.loads(result.stdout).get("healthy") is not True:
