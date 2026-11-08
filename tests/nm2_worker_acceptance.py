@@ -2525,6 +2525,7 @@ class Fixture:
         *,
         persistent=False,
         self_exit=False,
+        boundary_failure=False,
     ):
         require(
             inventory["schema"]
@@ -2551,6 +2552,8 @@ class Fixture:
                     physical["exit_code"] == (124 if self.scenario == IDLE_SCENARIO else 0)
                     and physical["operator_stop_state"] == "not_requested"
                     if self_exit
+                    else (getattr(self, "boundary_pair", False) and physical["exit_code"] == 125
+                          and physical["operator_stop_state"] == "not_requested") if boundary_failure
                     else physical["operator_stop_state"] == "stopped_observed"
                 )
             )

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an inactive fixed two-job containment/load fixture and COPY-only Ubuntu
+  byte qualification. Runtime activation remains an owner decision; C07–C10
+  and NM-2 stay open, and NM-3 remains paused.
+
 - Classify fixture worker-state failures at the two volume checks or the offline
   CLI; retain only the actual exit code and a fixed SDK reason, without accepting
   a previously refused audit or exporting its output.

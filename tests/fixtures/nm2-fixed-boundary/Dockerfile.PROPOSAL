@@ -1,0 +1,6 @@
+FROM sha256:58bb6fafb5f416fedcc01b3dbb8a86a87d42e11e831dfac7089f5afab6c5b2df AS qualified
+FROM sha256:58bb6fafb5f416fedcc01b3dbb8a86a87d42e11e831dfac7089f5afab6c5b2df
+COPY --from=qualified --chmod=0555 /usr/local/bin/vardrgate /usr/local/libexec/vardrgate-57cfedfaf59b11cf626288c343f34a34c7b1df13
+COPY --chmod=0555 wrapper.py /usr/local/bin/vardrgate
+COPY --chmod=0555 wrapper.py /opt/vardr-nm2-boundary/wrapper.py
+COPY --chmod=0555 leaf.py /opt/vardr-nm2-boundary/leaf.py

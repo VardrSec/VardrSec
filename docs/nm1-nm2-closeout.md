@@ -119,6 +119,12 @@ C07–C09 retain the earlier stopped-experiment restriction. Each proposed live
 check needs a reviewable operation within the existing authorization. Previously
 blocked operations stay stopped while other items proceed.
 
+The [fixed two-job containment/load operation](nm2-fixed-boundary-operation.md)
+is implemented but inactive. Its source-authored model checks and image-byte
+qualification establish preparation only. The pair requires its own runtime
+decision, preserves finite job authority and adds neither a fault nor a suspend
+operation. Actual C07 and C09 evidence remains pending.
+
 Existing evidence closes default-disabled startup, explicit enablement,
 persistent availability, optional finite controls, healthy queued execution,
 Strict authorization denials, credential TTL/revocation, all three budget

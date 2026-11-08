@@ -82,7 +82,10 @@ LAUNCH_CANCELLATION_SCENARIOS = {
     LAUNCH_STOP_WORK_SCENARIO, LAUNCH_STOP_WORK_QUEUED_SCENARIO, LAUNCH_LOCAL_STOP_SCENARIO,
     LAUNCH_GRANT_REVOKE_SCENARIO, LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO,
 }
+BOUNDARY_SCENARIO = "persistent-fixed-boundary-pair"
+BOUNDARY_HOSTED = "vardr.nm2-hosted/26"
 LAUNCH_SCOPES = {
+    BOUNDARY_SCENARIO: "fixed_orphan_drain_and_bounded_load_only",
     LAUNCH_SCENARIO: "first_and_next_empty_launch",
     LAUNCH_PRECLAIM_SCENARIO: "trusted_synthetic_closed_preclaim_parent0",
     LAUNCH_REPEAT_SCENARIO: "installed_repeated_managed_claim_exact_stop_and_successor",
@@ -167,7 +170,7 @@ STAGES = {
     "build_web",
     "build_proxy",
     "build_toolkit",
-    "build_worker",
+    "build_worker", "build_boundary-worker",
     "bootstrap_qualification",
     "bootstrap_harness",
     "launch_compose_pin",
@@ -708,6 +711,9 @@ def execution_options(env):
 
         require(all(env.get("NM2_" + name.upper() + "_SHA") == commit
                     for name, commit in MAP_DISCONNECT_SOURCES.items()))
+    if scenario == BOUNDARY_SCENARIO:
+        from nm2_worker_boundary_pair import BOUNDARY_SOURCES
+        require(all(env.get("NM2_"+n.upper()+"_SHA") == v for n,v in BOUNDARY_SOURCES.items()))
     if scenario == BOOTSTRAP_SCENARIO:
         require(env.get("NM2_RUNNER_SHA") == BOOTSTRAP_RUNNER
                 and env.get("NM2_GATE_SHA") == BOOTSTRAP_GATE)
@@ -2676,6 +2682,9 @@ class Hosted:
                 expected_database_revision=self.database_revision,
                 scope=LAUNCH_SCOPES[self.scenario],
             )
+        elif self.scenario == BOUNDARY_SCENARIO:
+            self.receipt.update(schema=BOUNDARY_HOSTED, scenario=self.scenario,
+                expected_database_revision=self.database_revision, scope=LAUNCH_SCOPES[self.scenario])
         elif self.scenario in LAUNCH_SCENARIOS:
             self.receipt.update(
                 schema=LAUNCH_BUDGET_SCHEMAS.get(self.scenario, "vardr.nm2-hosted/7"),
@@ -2998,12 +3007,12 @@ class Hosted:
         config = self.root / "home" / ".docker"
         config.mkdir(mode=0o700, exist_ok=True)
         require(config.is_dir() and not config.is_symlink())
-        return [
+        result = [
             str(SOURCE / "tests/nm2_worker_launch_acceptance.py"),
             "--cohort", str(path), "--compose-executable", str(compose),
             "--compose-sha256", COMPOSE_SHA256, "--docker-config", str(config),
             *{
-                LAUNCH_SCENARIO: [],
+                LAUNCH_SCENARIO: [], BOUNDARY_SCENARIO: [],
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO: ["--stopped-predecessor"],
                 LAUNCH_PID1_LOSS_SCENARIO: ["--pid1-loss"],
                 LAUNCH_PRECLAIM_SCENARIO: ["--preclaim-recovery"],
@@ -3028,6 +3037,11 @@ class Hosted:
             }[self.scenario],
             "--execute",
         ]
+        if self.scenario == BOUNDARY_SCENARIO:
+            result[0] = str(SOURCE / "tests/nm2_worker_boundary_pair.py")
+            result += ["--qualification",str(self.root/"boundary-image-qualification.json"),
+                       "--qualification-sha256",hashlib.sha256(self.boundary_fixture[0]).hexdigest()]
+        return result
 
     def run(self):
         try:
@@ -3077,6 +3091,10 @@ class Hosted:
                 )
                 == toolkit
             )
+            if self.scenario == BOUNDARY_SCENARIO:
+                from nm2_worker_boundary_build import qualify_boundary_image
+                self.boundary_fixture = qualify_boundary_image(self)
+                self.receipt["images"]["worker"] = self.boundary_fixture[1]["image_id"]
             selection = {
                 "schema": "vardr.nm2-worker-cohort/1",
                 "sources": {
@@ -3146,7 +3164,7 @@ class Hosted:
                     "persistent-count-limit": "vardr.nm2-worker-count-acceptance/1",
                     "persistent-idle-limit": "vardr.nm2-worker-idle-acceptance/1",
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
-                    LAUNCH_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_SCENARIO: LAUNCH_SCHEMA, BOUNDARY_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_PID1_LOSS_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_PRECLAIM_SCENARIO: LAUNCH_SCHEMA,
@@ -3172,14 +3190,20 @@ class Hosted:
             if self.scenario in {
                 STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO,
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_PRECLAIM_SCENARIO, LAUNCH_REPEAT_SCENARIO,
-                LAUNCH_PID1_LOSS_SCENARIO, LAUNCH_MAP_DISCONNECT_SCENARIO, *REPLY_LOSS_OPERATIONS,
+                LAUNCH_PID1_LOSS_SCENARIO, LAUNCH_MAP_DISCONNECT_SCENARIO, BOUNDARY_SCENARIO, *REPLY_LOSS_OPERATIONS,
             }:
                 inventories = []
                 for name in ("before", "after"):
                     with (self.root / f"installation/nm2-inventory-{name}.json").open("rb") as handle:
                         inventories.append(decode_receipt(handle.read(4 * 1024 * 1024 + 1)))
-                self.receipt.update(public_projection(observed, selection, inventories=inventories))
-                if self.scenario == STRICT_DRIFT_SCENARIO:
+                if self.scenario == BOUNDARY_SCENARIO:
+                    from nm2_worker_boundary_pair import boundary_projection
+                    self.receipt.update(boundary_projection(observed,selection,inventories,expected_fixture=self.boundary_fixture))
+                else:
+                    self.receipt.update(public_projection(observed, selection, inventories=inventories))
+                if self.scenario == BOUNDARY_SCENARIO:
+                    self.receipt["scope"] = "fixed_orphan_drain_and_bounded_load_observation_C09_open"
+                elif self.scenario == STRICT_DRIFT_SCENARIO:
                     self.receipt["remaining_required_cases"]["strict_other_denials"] = (
                         "authority_drift_verified_other_strict_denials_open"
                     )
@@ -3255,7 +3279,7 @@ class Hosted:
                     "persistent-count-limit": "vardr.nm2-hosted/4",
                     "persistent-idle-limit": "vardr.nm2-hosted/5",
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
-                    LAUNCH_SCENARIO: "vardr.nm2-hosted/7",
+                    LAUNCH_SCENARIO: "vardr.nm2-hosted/7", BOUNDARY_SCENARIO: BOUNDARY_HOSTED,
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: STOPPED_PREDECESSOR_HOSTED,
                     LAUNCH_PID1_LOSS_SCENARIO: PID1_LOSS_HOSTED,
                     LAUNCH_PRECLAIM_SCENARIO: PRECLAIM_HOSTED,
