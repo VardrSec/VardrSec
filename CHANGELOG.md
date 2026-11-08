@@ -8,6 +8,8 @@
   Retain development/non-runnable status; require fresh Ubuntu Full/Mapless
   installed acceptance for the exact selected cohort. Bind update fixtures to
   its actual baseline schema and retain bounded, secret-checked refusal output.
+- Inherit the existing no-new-privileges setting from the Full/Mapless base
+  service, avoiding a duplicate rejected by the supported Linux Compose client.
 
 - Forward explicit Runner environment names correctly after the outer `--`
   separator, including controlled invocations without an additional command.
