@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Validate the two explicit intermediate held audits with their real CLI exit1,
+  preserving the ordinary exit0 contract. Add the installed repeated managed
+  claim witness using the existing stopped-predecessor recovery path.
+
+- Add an explicit committed-claim reply-loss fixture through the existing Caddy
+  proxy, with original unknown-send recovery and closed Linux/Desktop evidence.
+  Consume and runtime-bind loss remain separate acceptance work.
+
 - Initialize the recovery fixture's grant catalogue through an unrelated inert
   CLI approval, and verify the selected engagement still has no matching grant.
   Retain the first held Windows/Ubuntu attempts and the positive Ubuntu partial

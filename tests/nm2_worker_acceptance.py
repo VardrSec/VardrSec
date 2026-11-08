@@ -4044,7 +4044,7 @@ print(json.dumps(result))
                 reason)
         return {"daemon_id": daemon, "endpoint": endpoint, "root": root, **value}
 
-    def worker_state(self, admission):
+    def worker_state(self, admission, *, expected_held=None):
         # Component-owned offline inspection. The root filesystem is read-only;
         # this one exact state volume permits ordinary SQLite WAL sidecars.
         args = ["run", "--rm", "--pull", "never", "--user", "10001:10001",
@@ -4060,7 +4060,47 @@ print(json.dumps(result))
         for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256"):
             args.extend(["--" + key.replace("_", "-"), admission[key]])
         before = self.empty_audit_volume(admission)  # Absence refuses before run.
-        value = json.loads(self.docker(*args, timeout=45))
+        if expected_held is not None:
+            # These two explicit held audits expect the real offline CLI's
+            # exit1. Every other reader keeps the ordinary exit0 contract.
+            from worker_host import _json
+
+            require(type(expected_held) is str
+                    and expected_held in {"closed_preclaim", "claim_unknown"},
+                    "launch_preclaim_parent_not_held")
+            try:
+                result = subprocess.run(
+                    ["docker", "--context", self.m["docker_context"], *args],
+                    env=self.environment, capture_output=True, timeout=45, check=False,
+                )
+            except (OSError, subprocess.SubprocessError):
+                raise AcceptanceRefused("fixture_command_failed") from None
+            try:
+                require(type(result.returncode) is int and result.returncode == 1
+                        and type(result.stdout) is bytes and 0 < len(result.stdout) <= 32768
+                        and result.stderr == b"", "launch_preclaim_parent_not_held")
+                value = _json(result.stdout)
+                holds = value["global_holds"]
+                require(type(holds) is int
+                        and (holds == 0 if expected_held == "closed_preclaim" else holds > 0),
+                        "launch_preclaim_parent_not_held")
+                expected = {
+                    "schema": "vardr.worker-state-audit/1", "status": "held",
+                    "reason": "runtime_unretired" if expected_held == "closed_preclaim" else "local_holds",
+                    "complete": True,
+                    "binding": {key: admission[key] for key in (
+                        "runner_id", "runtime_id", "runtime_sha256", "admission_sha256")},
+                    "parent": {"state": "idle", "last_sequence": "0",
+                               "head_sequence": None, "active_sequence": None},
+                    "counts": {"attempts": 0, "selections": 1,
+                               "associated_runs": 1, "associated_claims": 1},
+                    "global_holds": holds, "retirement_receipt_sha256": None,
+                }
+                require(canonical(value) == canonical(expected), "launch_preclaim_parent_not_held")
+            except (ValueError, KeyError, TypeError):
+                raise AcceptanceRefused("launch_preclaim_parent_not_held") from None
+        else:
+            value = json.loads(self.docker(*args, timeout=45))
         after = self.empty_audit_volume(admission)
         require(canonical(before) == canonical(after), "empty_audit_volume_changed")
         self.empty_audit_volumes.append({"before": before, "after": after})

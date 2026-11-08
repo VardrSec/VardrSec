@@ -560,3 +560,30 @@ The successor is refused before reporting and reconciliation. Target traffic,
 issued attempts and charges must remain zero throughout. This verifies
 recovery of trusted synthetic durable state. An actual crash or late grant
 race retains its own declared scope.
+
+## C03 original claim reply loss
+
+The explicit `persistent-launch-claim-reply-loss` scenario uses hosted receipt
+version 18. It arms the existing pinned Caddy proxy before approval registration
+or worker creation: only a POST to the selected synthetic job's managed claim
+route has an upstream 200 response aborted. The fixture validates the adapted
+configuration, retains the same proxy container, configuration inode, profile,
+mounts and CA, and confirms healthy backend and web routes before eligibility.
+No access log, marker, new service, product fault flag or administrative endpoint
+is introduced. The original managed client retains zero transport retries.
+
+Missing replies alone cannot pass. Map must positively retain the original issued
+sequence-one contract, one target and 30 seconds charged, and capacity one, while
+the contract remains unconsumed and its runtime attempt unconfirmed. The original
+Runner must retain a durable unknown claim with zero consumption and no local
+attempt or target traffic. Only its independently observed exit 125, original
+host report and authenticated original-association reconciliation release the
+reservation. Offline worker-state inspection must preserve local parent zero,
+zero attempts and the original selection, reach zero holds, and retain all six
+stopped containers. The closed Linux/Desktop reader joins these facts and exports
+only fixed counts and hashes, never bindings, tokens or raw records.
+
+This case qualifies committed claim-response loss only after both installed
+platform witnesses pass. Consume and runtime-bind reply loss remain required
+separate C03 cases. Synthetic units, proxy adaptation, an image pin or a held
+attempt do not close the installed case or NM-2.

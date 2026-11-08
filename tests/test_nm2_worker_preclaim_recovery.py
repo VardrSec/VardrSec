@@ -1,10 +1,12 @@
 """Inert Distribution wiring and public C02 evidence checks."""
 
 from contextlib import nullcontext
+from copy import deepcopy
 from dataclasses import asdict
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
@@ -12,7 +14,7 @@ from unittest.mock import Mock, patch
 
 import nm2_worker_hosted as hosted
 import nm2_worker_launch_acceptance as launch
-from nm2_worker_acceptance import AcceptanceRefused, canonical
+from nm2_worker_acceptance import AcceptanceRefused, Fixture, canonical
 from test_nm2_worker_stopped_predecessor_hosted import evidence
 
 
@@ -53,6 +55,89 @@ def vector():
 
 
 class PreclaimRecoveryTests(unittest.TestCase):
+    @staticmethod
+    def held_audit_case(mode="closed_preclaim"):
+        fixture = Fixture.__new__(Fixture)
+        fixture.project, fixture.environment, fixture.m = "vardrsec-nm2-inert", {}, {"docker_context": "default"}
+        fixture.images, fixture.empty_audit_volumes = {"worker": "sha256:" + "a" * 64}, []
+        fixture.empty_audit_volume = Mock(return_value={"bound": True})
+        admission = {"runner_id": "e4a346a6-3982-4a13-a0a5-5b025bedbde0",
+                     "runtime_id": "980d0f49-75c3-4f02-84cc-3fba35ff2e3d",
+                     "runtime_sha256": "b" * 64, "admission_sha256": "c" * 64}
+        value = {
+            "schema": "vardr.worker-state-audit/1", "status": "held", "complete": True,
+            "reason": "runtime_unretired" if mode == "closed_preclaim" else "local_holds",
+            "binding": admission, "parent": {"state": "idle", "last_sequence": "0",
+                "head_sequence": None, "active_sequence": None},
+            "counts": {"attempts": 0, "selections": 1, "associated_runs": 1, "associated_claims": 1},
+            "global_holds": 0 if mode == "closed_preclaim" else 3,
+            "retirement_receipt_sha256": None,
+        }
+        return fixture, admission, value
+
+    def test_real_worker_state_command_accepts_only_explicit_known_held_modes(self):
+        for mode in ("closed_preclaim", "claim_unknown"):
+            fixture, admission, value = self.held_audit_case(mode)
+
+            def runner(args, **kwargs):
+                result = subprocess.CompletedProcess(args, 1, canonical(value), b"")
+                if kwargs.get("check"):
+                    result.check_returncode()
+                return result
+
+            with patch("nm2_worker_acceptance.subprocess.run", side_effect=runner) as run:
+                with self.assertRaisesRegex(AcceptanceRefused, "fixture_command_failed"):
+                    fixture.worker_state(admission)
+                self.assertTrue(run.call_args.kwargs["check"])
+                fixture.empty_audit_volume.reset_mock()
+                self.assertEqual(fixture.worker_state(admission, expected_held=mode), value)
+                self.assertFalse(run.call_args.kwargs["check"])
+                self.assertEqual(run.call_args.kwargs["timeout"], 45)
+                self.assertEqual(fixture.empty_audit_volume.call_count, 2)
+                self.assertEqual(len(fixture.empty_audit_volumes), 1)
+                self.assertIn("--network", run.call_args.args[0])
+                self.assertIn("none", run.call_args.args[0])
+            fixture.empty_audit_volume.side_effect = [{"bound": 1}, {"changed": 2}]
+            with patch("nm2_worker_acceptance.subprocess.run", side_effect=runner), self.assertRaisesRegex(
+                AcceptanceRefused, "empty_audit_volume_changed",
+            ):
+                fixture.worker_state(admission, expected_held=mode)
+
+    def test_known_held_reader_refuses_wrong_exit_binding_shape_or_raw_output(self):
+        for change in ("exit0", "exit2", "stderr", "extra", "binding", "counts", "holds",
+                       "reason", "duplicate", "invalid_utf8", "oversize", "unknown_mode"):
+            fixture, admission, value = self.held_audit_case()
+            value = deepcopy(value)
+            code, stderr, mode = 1, b"", "closed_preclaim"
+            if change.startswith("exit"):
+                code = int(change[-1])
+            elif change == "stderr":
+                stderr = b"private-canary"
+            elif change == "extra":
+                value["private-canary"] = "never-export"
+            elif change == "binding":
+                value["binding"]["admission_sha256"] = "f" * 64
+            elif change == "counts":
+                value["counts"]["associated_claims"] = True
+            elif change == "holds":
+                value["global_holds"] = 1
+            elif change == "reason":
+                value["reason"] = "local_holds"
+            elif change == "unknown_mode":
+                mode = "private-canary"
+            stdout = canonical(value)
+            if change == "duplicate":
+                stdout = stdout[:-1] + b',"status":"held"}'
+            elif change == "invalid_utf8":
+                stdout = b"\xff"
+            elif change == "oversize":
+                stdout = b" " * 32769
+            reply = subprocess.CompletedProcess([], code, stdout, stderr)
+            with self.subTest(change=change), patch("nm2_worker_acceptance.subprocess.run", return_value=reply), self.assertRaisesRegex(
+                AcceptanceRefused, "launch_preclaim_parent_not_held",
+            ):
+                fixture.worker_state(admission, expected_held=mode)
+
     def test_linux_and_desktop_projection_preserve_scope_and_only_public_measurements(
         self,
     ):
@@ -285,6 +370,9 @@ class PreclaimRecoveryTests(unittest.TestCase):
                 fixture.helper.call_args.args[:3], ("-I", "-c", "trusted-setup-source")
             )
             self.assertTrue(fixture.helper.call_args.kwargs["python"])
+            fixture.worker_state.assert_called_once_with(
+                {"identity": asdict(identity)}, expected_held="closed_preclaim",
+            )
             self.assertEqual(observer.confirm_exit.call_count, 2)
             refuse.assert_called_once()
             self.assertEqual(refuse.call_args.kwargs["stdin"], "fixture-password\n")

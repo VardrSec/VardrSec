@@ -930,6 +930,22 @@ best effort within the existing deadline; this absence proves neither a
 retention loss nor a specific cause. C01's Windows handoff requirement remains
 open, and this case will not be repeated merely to obtain different timing.
 
+The resulting source fix adds a synchronous checkpoint through Gate's existing
+atomic writer before resource dispatch, preserving actual observations and
+accurately pending assessments. Normal completion still writes its final result.
+Runner adopts progress only through its existing confirmed-stop lane, preserves
+the original bytes, and stages a separate cancelled result with the reviewed
+case hash. A checkpoint on normal return is refused before publication.
+[Gate PR 31](https://github.com/VardrSec/VardrGate/pull/31) merged after all eight
+checks passed; merged commit `57cfedfaf59b11cf626288c343f34a34c7b1df13`
+has the same tree as reviewed head `140c010`. Matching Runner
+`f3dc7e92ea0cc04f5aca4bb74cc739fd79f5be19` passed all nine
+[compatibility checks](https://github.com/VardrSec/VardrRunner/actions/runs/42427545429).
+Its 19 focused retention/refusal cases and Gate's actual local HTTP checkpoint,
+copy-isolation, healthy-output and write-failure checks passed. Independent
+source review found no blocking defect in the fixed GET managed profile.
+These source/component results leave installed C01 acceptance open.
+
 ## C02 initial installed recovery attempts, 2026-11-07
 
 The first Windows and [Ubuntu recovery attempts](https://github.com/VardrSec/VardrSec/actions/runs/42422621955)
@@ -956,6 +972,30 @@ engagement and reference, then requires zero selected grants and
 execution authority for the selected case. Its nine focused Distribution tests
 and two isolated real CLI/helper tests passed. Corrected installed acceptance
 is still required; neither held attempt supplies recovery credit.
+
+The corrected-catalogue pair at Distribution `602e136` reached the next fixture
+boundary. [Ubuntu](https://github.com/VardrSec/VardrSec/actions/runs/42424738646)
+held at `launch_preclaim_setup` / `fixture_command_failed`, sanitized receipt
+SHA-256 `7e5b5a1d646d30d713e806dc7ce9d4fadb775eea75df21d7d9649cc1aa91460b`.
+The retained Windows receipt has SHA-256
+`000cf0bc5903064bece43f69a7955ca045befe2574a3053d6d8993913f0f72fe`.
+It retained six stopped owned containers, zero admitted inventory differences,
+and an unchanged operator profile with zero blocked operations.
+
+Read-only inspection of that exact stopped Windows state found one closed
+`preclaim_retired` selection/run/claim, zero attempts, no PID/artifact or issued
+authority, and the original idle parent at sequence zero. The actual offline
+`worker-state` CLI returned exit1 with the exact complete
+`held` / `runtime_unretired` document and zero global holds. The fixture had
+correctly created the closed state, then incorrectly required exit0 for this
+expected intermediate audit. No seed was replayed to diagnose it.
+
+The shared correction accepts exit1 only for two explicitly selected, fully
+validated intermediate documents: closed-preclaim parent0 and unknown first
+claim. Ordinary audits retain their exit0 requirement. It checks bounded unique
+JSON, empty stderr, exact binding/shape/counts and typed holds before accepting
+the expected held status. Original authenticated recovery and successor
+acceptance still need the corrected installed run.
 
 ## Independent source review for C10, 2026-11-07
 

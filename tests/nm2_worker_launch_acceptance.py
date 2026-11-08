@@ -20,6 +20,7 @@ from nm2_worker_acceptance import (
     ORIGIN,
     AcceptanceRefused,
     Fixture,
+    OwnerAPI,
     canonical,
     command,
     digest,
@@ -30,7 +31,55 @@ from nm2_worker_acceptance import (
 )
 
 SECOND_NS = 1_000_000_000
+CLAIM_REPLY_LOSS_SCENARIO = "persistent-launch-claim-reply-loss"
+CLAIM_REPLY_LOSS_PASS = "selected_claim_reply_loss_slice_passed"
+CLAIM_REPLY_LOSS_SOURCES = {
+    "map": "05dc78cf9a385255de459c8a5b833842d6528a63",
+    "runner": "f359686b9f21410e08c82f7a8ad092697412f9c5",  # Required reviewed inspection follow-up; fail closed until pinned.
+    "gate": "d80d4730b8486b75be72431b5af88e0ddb45020b",
+}
+
+
+def claim_reply_loss_config(original, job):
+    require(type(original) is bytes and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", job) is not None,
+            "launch_claim_loss_config_required")
+    old = """    handle_path /backend/* {
+        reverse_proxy api:8000 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto https
+        }
+    }
+"""
+    text = original.decode("utf-8").replace("\r\n", "\n")
+    require(text.count(old) == 1, "launch_claim_loss_config_required")
+    selected = """    @c03 {
+        method POST
+        path /jobs/JOB/managed/claim
+    }
+    handle_path /backend/* {
+        route {
+            reverse_proxy @c03 api:8000 {
+                header_up X-Forwarded-For {remote_host}
+                header_up X-Forwarded-Proto https
+                @committed status 200
+                handle_response @committed {
+                    abort
+                }
+            }
+            reverse_proxy api:8000 {
+                header_up X-Forwarded-For {remote_host}
+                header_up X-Forwarded-Proto https
+            }
+        }
+    }
+""".replace("JOB", job)
+    return text.replace(old, selected, 1).encode("utf-8")
+
+
+
 STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
+REPEAT_SCENARIO = "persistent-launch-repeat-managed-claim"
+REPEAT_SCOPE = "installed_repeated_managed_claim_then_exact_stop"
 PRECLAIM_SCENARIO = "persistent-launch-preclaim-recovery"
 PRECLAIM_SCOPE = "trusted_synthetic_closed_preclaim_parent0"
 MAP_DISCONNECT_SCENARIO = "persistent-launch-map-disconnect"
@@ -241,13 +290,36 @@ def map_disconnect_timing(request, after, api_finished_at, worker_finished_at):
     return elapsed, cut_to_exit
 
 
+def repeated_claim_state(inventory):
+    """Only stable owned attempt/accounting fields, never refresh/presence times."""
+    require(len(inventory["approvals"]) == 1, "launch_repeat_original_not_active")
+    approval = inventory["approvals"][0]
+    require(type(approval["issued"]) is int and approval["issued"] == 1
+            and approval["revoked"] is False, "launch_repeat_original_not_active")
+    require(len(inventory["contracts"]) == 1
+            and canonical([inventory["contracts"][0][key] for key in ("ordinal", "fence")])
+            == b"[1,1]", "launch_repeat_original_not_active")
+    return {
+        **{key: inventory[key] for key in (
+            "job_status", "execution", "targets_spent", "duration_allocated",
+            "capacity_reserved_count", "concurrency_limit", "contracts", "results", "stops",
+        )},
+        "approval": {key: approval[key] for key in ("id", "issued", "revoked")},
+        "runtime": {key: inventory["runtimes"][0][key] for key in (
+            "id", "runtime_sha256", "admission_sha256", "identity", "last_sequence",
+            "head_sequence", "active_sequence", "retired", "new_work_disabled", "report_sha256", "attempts",
+        )},
+    }
+
+
 class LaunchFixture(Fixture):
     def __init__(
         self, selection, *, compose, compose_sha256, docker_config,
         completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
         revoke_grant=False, expire_grant=False, expire_active_grant=False,
         duration_exhaustion=False, target_exhaustion=False, stopped_predecessor=False,
-        concurrency_exhaustion=False, map_disconnect=False, preclaim_recovery=False,
+        concurrency_exhaustion=False, map_disconnect=False, preclaim_recovery=False, claim_reply_loss=False,
+        repeat_managed_claim=False,
     ):
         super().__init__(
             selection,
@@ -255,7 +327,7 @@ class LaunchFixture(Fixture):
                 "missing-local-grant" if missing_grant or expire_grant
                 else "active-target-grant-revoked" if revoke_grant
                 else "local-emergency-stop" if local_stop
-                else "stop-work" if stop_work or expire_active_grant or stopped_predecessor or map_disconnect
+                else "stop-work" if stop_work or expire_active_grant or stopped_predecessor or map_disconnect or repeat_managed_claim
                 else EMPTY_SCENARIO
             ),
             database_revision="0041persistentruntime",
@@ -273,10 +345,12 @@ class LaunchFixture(Fixture):
         self.compose_sha256 = compose_sha256
         self.budget_exhaustion = "duration" if duration_exhaustion else "target" if target_exhaustion else None
         self.completed = completed or self.budget_exhaustion is not None
-        self.stopped_predecessor = stopped_predecessor
+        self.stopped_predecessor = stopped_predecessor or repeat_managed_claim
+        self.repeat_managed_claim = repeat_managed_claim
         self.map_disconnect = map_disconnect
         self.preclaim_recovery = preclaim_recovery
         self.concurrency_exhaustion = concurrency_exhaustion
+        self.claim_reply_loss = claim_reply_loss
         self.cancelling = stop_work or local_stop or revoke_grant or expire_active_grant
         self.local_stop = local_stop
         self.local_grant_denial = missing_grant or expire_grant
@@ -289,7 +363,8 @@ class LaunchFixture(Fixture):
         require(
             sum((completed, stop_work, local_stop, missing_grant, revoke_grant,
                  expire_grant, expire_active_grant, duration_exhaustion, target_exhaustion,
-                 stopped_predecessor, concurrency_exhaustion, map_disconnect, preclaim_recovery)) <= 1
+                 stopped_predecessor, concurrency_exhaustion, map_disconnect, preclaim_recovery,
+                 claim_reply_loss, repeat_managed_claim)) <= 1
             and (not queued_peer or stop_work),
             "launch_fixture_mode_conflict",
         )
@@ -314,6 +389,11 @@ class LaunchFixture(Fixture):
                 "launch_concurrency_witness_source_required",
             )
             scenario, scope = CONCURRENCY_SCENARIO, "shared_engagement_concurrency_exhaustion"
+        elif repeat_managed_claim:
+            require(all(selection["sources"][name]["commit"] == commit
+                        for name, commit in MAP_DISCONNECT_SOURCES.items()),
+                    "launch_repeat_sources_required")
+            scenario, scope = REPEAT_SCENARIO, REPEAT_SCOPE
         elif stopped_predecessor:
             scenario, scope = STOPPED_PREDECESSOR_SCENARIO, "stopped_predecessor_then_next_launch"
         elif preclaim_recovery:
@@ -325,6 +405,11 @@ class LaunchFixture(Fixture):
                 "launch_map_disconnect_source_required",
             )
             scenario, scope = MAP_DISCONNECT_SCENARIO, MAP_DISCONNECT_SCOPE
+        elif claim_reply_loss:
+            require(all(selection["sources"][name]["commit"] == commit
+                        for name, commit in CLAIM_REPLY_LOSS_SOURCES.items()),
+                    "launch_claim_loss_source_required")
+            scenario, scope = CLAIM_REPLY_LOSS_SCENARIO, "committed_claim_reply_loss"
         elif completed:
             scenario, scope = "persistent-launch-completed", "completed_then_next_launch"
         elif stop_work:
@@ -528,7 +613,7 @@ class LaunchFixture(Fixture):
 
     def reconcile_original(
         self, admission, retired, *, unissued_run_id=None, host_exit_run_id=None,
-        unissued_parent_zero=False,
+        unissued_parent_zero=False, selected_only_issued=False,
     ):
         binding = {
             key: admission[key]
@@ -585,7 +670,7 @@ class LaunchFixture(Fixture):
             and type(audit["global_holds"]) is int
             and audit["global_holds"] == 0
             and audit["retirement_receipt_sha256"] == retired["receipt_sha256"]
-            and audit["counts"]["attempts"] == (0 if unissued_parent_zero else 1),
+            and audit["counts"]["attempts"] == (0 if unissued_parent_zero or selected_only_issued else 1),
             "launch_completed_audit_not_observed",
         )
         if unissued_parent_zero:
@@ -600,6 +685,20 @@ class LaunchFixture(Fixture):
                 }),
                 "launch_concurrency_unbound_reconciliation_required",
             )
+        if selected_only_issued:
+            require(
+                host_exit_run_id is not None and retired["last_sequence"] == "1"
+                and retired["binding"] is not None
+                and canonical(audit["parent"]) == canonical({
+                    "state": "retired", "last_sequence": "0", "head_sequence": None,
+                    "active_sequence": None,
+                })
+                and canonical(audit["counts"]) == canonical({
+                    "attempts": 0, "selections": 1, "associated_runs": 1, "associated_claims": 1,
+                }),
+                "launch_claim_loss_original_reconciliation_missing",
+            )
+            self.receipt["claim_reply_loss"]["reconciliation"] = reconciled
         return audit
 
     def concurrency_post(self, path, body):
@@ -999,6 +1098,55 @@ print(len(directories))
             proof["partial_retention"] = partial_retention
         self.receipt["cancelled_job"] = proof
 
+    def observe_repeated_managed_claim(self, admission, case, identity, run_id, observed):
+        # This one metadata-only contender cannot consume or launch. Genuine
+        # simultaneous server competition is covered by the independent PG race.
+        self.receipt["stage"] = "launch_repeat_managed_claim"
+        before = self.unreported_attempt(admission, case, identity, disabled=False)
+        snapshot = repeated_claim_state(before)
+        requests = observed["requests"]
+        require(len(requests) == 3 and self.traffic() == requests,
+                "launch_repeat_original_not_active")
+        body = {
+            "origin": admission["origin"], "runner_id": admission["runner_id"],
+            "concurrency_budget": True, "duration_seconds": 30,
+            "target_binding": {
+                "profile": "gate-fixed-http/1",
+                "case_sha256": digest(canonical(case[2]["spec"])), "origins": [ORIGIN],
+            },
+            **{key: admission[key] for key in (
+                "runtime_id", "runtime_sha256", "admission_sha256",
+            )},
+            "runtime_sequence": "1",
+        }
+        # Existing strict bearer helper has no owner cookies, retries or redirect.
+        client = OwnerAPI(self.url, self.api.ca)
+        refusal = client.request(
+            f"/jobs/{case[1]}/managed/claim", body, method="POST", csrf=False,
+            expected=409, bearer=self.key["token"],
+        )
+        require(refusal == {"detail": "managed_request_refused"},
+                "launch_repeat_refusal_required")
+        after = self.unreported_attempt(admission, case, identity, disabled=False)
+        require(canonical(repeated_claim_state(after)) == canonical(snapshot)
+                and self.traffic() == requests,
+                "launch_repeat_changed_original")
+        self.receipt["repeated_managed_claim"] = {
+            "runtime_id": admission["runtime_id"], "repeat_count": 1, "http_status": 409,
+            "issued_attempts": len(after["contracts"]), "target_requests": len(requests),
+            "targets_spent": after["targets_spent"], "duration_allocated": after["duration_allocated"],
+            "capacity_before": before["capacity_reserved_count"],
+            "capacity_after": after["capacity_reserved_count"],
+            "state_before_sha256": digest(canonical(snapshot)),
+            "state_after_sha256": digest(canonical(repeated_claim_state(after))),
+            "binding_sha256": digest(canonical(after["runtimes"][0]["attempts"][0]["binding"])),
+            "original_run_sha256": digest(run_id.encode("ascii")),
+            "request_sha256": digest(canonical(body)), "refusal_sha256": digest(canonical(refusal)),
+            "state_before": snapshot, "state_after": repeated_claim_state(after),
+            "request": body, "request_path": f"/jobs/{case[1]}/managed/claim",
+            "original_run_id": run_id, "case": case[2]["spec"],
+        }
+
     def unreported_attempt(self, admission, case, identity, *, disabled):
         engagement, job = case[:2]
         inventory = self.inventory(engagement, job, include_capacity=True)
@@ -1143,13 +1291,17 @@ print(len(directories))
             "execution": {**before["execution"], "state": "failed", "capacity_reserved": False},
             "runtimes": [{
                 **runtime, "retired": True, "report_sha256": retired["report_sha256"],
-                **({"new_work_disabled": True} if proof_key == "map_disconnect" else {}),
+                **({"new_work_disabled": True} if proof_key in {"map_disconnect", "claim_reply_loss"} else {}),
             }],
             "stops": [{key: terminal[key] for key in ("contract_id", "receipt_sha256", "outcome", "cause")}],
         }
         after = self.inventory(*case[:2], include_capacity=True)
         require(canonical(after) == canonical(expected), "launch_host_exit_budget_or_history_changed")
-        audit = self.reconcile_original(admission, retired, host_exit_run_id=run_id)
+        audit = self.reconcile_original(
+            admission, retired, host_exit_run_id=run_id,
+            **({"selected_only_issued": True}
+               if getattr(self, "claim_reply_loss", False) and proof_key == "claim_reply_loss" else {}),
+        )
         self.retired_predecessor_inventory = after
         self.receipt[proof_key].update(
             audit_sha256=digest(canonical(audit)), retirement_sha256=retired["receipt_sha256"],
@@ -1160,6 +1312,204 @@ print(len(directories))
             targets_spent=after["targets_spent"], duration_allocated=after["duration_allocated"],
             remaining_local_holds=audit["global_holds"],
         )
+        if getattr(self, "repeat_managed_claim", False):
+            self.receipt["repeated_managed_claim"]["terminal_receipt"] = terminal
+        return audit
+
+    def arm_claim_reply_loss(self, observer, initial, job):
+        from worker_runtime import host_bind_path
+
+        self.receipt["stage"] = "launch_claim_loss_proxy_arm"
+        require(initial["all_worker_ids"] == [], "launch_claim_loss_proxy_identity")
+        proxy = next(row for row in initial["core"] if row["service"] == "proxy")
+        cid = proxy["container_id"]
+        expected_daemon = observer.daemon()
+        target = self.install / "Caddyfile"
+        original = (self.source / "Caddyfile").read_bytes()
+        require(target.is_file() and not target.is_symlink()
+                and target.read_bytes() == original, "launch_claim_loss_config_required")
+        before = self.claim_loss_proxy(proxy)
+        require(before["state"]["Status"] == "running"
+                and before["state"]["Health"]["Status"] == "healthy",
+                "launch_claim_loss_proxy_identity")
+        mounts = before["mounts"]
+        expected_mounts = {
+            "/etc/caddy/Caddyfile": ("bind", None, False),
+            "/data": ("volume", self.project + "_proxy-data", True),
+            "/config": ("volume", self.project + "_proxy-config", True),
+        }
+        require({row["Destination"] for row in mounts} == set(expected_mounts)
+                and len(mounts) == 3, "launch_claim_loss_proxy_identity")
+        for row in mounts:
+            kind, name, writable = expected_mounts[row["Destination"]]
+            require(row["Type"] == kind and row["RW"] is writable
+                    and (name is None or row["Name"] == name),
+                    "launch_claim_loss_proxy_identity")
+            if kind == "bind":
+                require(host_bind_path(row["Source"]) == host_bind_path(str(target)),
+                        "launch_claim_loss_proxy_identity")
+        ca = self.install / "trust/root.crt"
+        ca_sha256 = digest(ca.read_bytes())
+        require(digest(self.docker("exec", cid, "cat",
+                    "/data/caddy/pki/authorities/local/root.crt")) == ca_sha256,
+                "launch_claim_loss_proxy_identity")
+        version = self.docker("exec", cid, "caddy", "version").decode().strip()
+        require(re.fullmatch(r"v2\.11\.7(?: h1:[A-Za-z0-9+/=]+)?", version) is not None,
+                "launch_claim_loss_adapter_refused")
+        config = claim_reply_loss_config(original, job)
+        file_identity = target.stat().st_dev, target.stat().st_ino
+        # Same inode: Docker's existing read-only bind must see the selected file.
+        target.write_bytes(config)
+        require((target.stat().st_dev, target.stat().st_ino) == file_identity,
+                "launch_claim_loss_config_required")
+        adapted = self.docker("exec", cid, "caddy", "adapt", "--config",
+                              "/etc/caddy/Caddyfile", "--adapter", "caddyfile")
+        require(0 < len(adapted) <= 131072 and type(json.loads(adapted)) is dict,
+                "launch_claim_loss_adapter_refused")
+        require(observer.daemon() == expected_daemon, "launch_claim_loss_proxy_identity")
+        self.docker("--config", str(self.docker_config), "container", "stop", "--time", "10", cid,
+                    timeout=20)
+        stopped = self.claim_loss_proxy(proxy)
+        require(stopped["state"]["Status"] == "exited"
+                and stopped["state"]["Running"] is False,
+                "launch_claim_loss_proxy_identity")
+        self.docker("--config", str(self.docker_config), "container", "start", cid, timeout=20)
+        until = time.monotonic() + 60
+        after = None
+        while time.monotonic() < until:
+            after = self.claim_loss_proxy(proxy)
+            if after["state"].get("Health", {}).get("Status") == "healthy":
+                break
+            time.sleep(0.25)
+        require(after is not None and after["state"]["Status"] == "running"
+                and after["state"]["Running"] is True
+                and after["state"].get("Health", {}).get("Status") == "healthy"
+                and {k: v for k, v in before.items() if k != "state"}
+                == {k: v for k, v in after.items() if k != "state"}
+                and before["state"]["StartedAt"] != after["state"]["StartedAt"]
+                and digest(ca.read_bytes()) == ca_sha256
+                and digest(self.docker("exec", cid, "cat",
+                    "/data/caddy/pki/authorities/local/root.crt")) == ca_sha256
+                and observer.daemon() == expected_daemon,
+                "launch_claim_loss_proxy_identity")
+        self.api.request("/ready")
+        status = self.docker(
+            "exec", cid, "curl", "--fail", "--silent", "--show-error", "--cacert",
+            "/data/caddy/pki/authorities/local/root.crt", "--output", "/dev/null",
+            "--write-out", "%{http_code}", "https://localhost:" + str(self.m["https_port"]) + "/",
+        )
+        require(status == b"200", "launch_claim_loss_proxy_identity")
+        armed = observer.capture_project_containers(self.project)
+        require(armed["all_worker_ids"] == []
+                and all(row == next(item for item in armed["core"] if item["service"] == row["service"])
+                        for row in initial["core"] if row["service"] != "proxy"),
+                "launch_claim_loss_proxy_identity")
+        self.claim_loss_proxy_binding = {
+            "before": before, "armed": after, "base_config_sha256": digest(original),
+            "config_sha256": digest(config), "adapter_sha256": digest(adapted),
+            "ca_sha256": ca_sha256, "caddy_version": version,
+            "ready_http_status": 200, "web_http_status": 200,
+        }
+        return armed
+
+    def claim_loss_proxy(self, proxy):
+        cid = proxy["container_id"]
+        value = json.loads(self.docker(
+            "--config", str(self.docker_config), "container", "inspect", "--format",
+            '{"id":{{json .Id}},"image":{{json .Image}},"labels":{{json .Config.Labels}},'
+            '"state":{{json .State}},"restarts":{{json .RestartCount}},"mounts":{{json .Mounts}},'
+            '"profile":{"entrypoint":{{json .Config.Entrypoint}},"cmd":{{json .Config.Cmd}},'
+            '"user":{{json .Config.User}},"readonly":{{json .HostConfig.ReadonlyRootfs}},'
+            '"privileged":{{json .HostConfig.Privileged}},"caps":{{json .HostConfig.CapAdd}},'
+            '"drop":{{json .HostConfig.CapDrop}},"security":{{json .HostConfig.SecurityOpt}},'
+            '"network":{{json .HostConfig.NetworkMode}},"ports":{{json .HostConfig.PortBindings}}}}',
+            cid, timeout=8,
+        ))
+        require(value["id"] == cid and value["image"] == proxy["image_id"] == self.images["proxy"]
+                and value["labels"].get("com.docker.compose.project") == self.project
+                and value["labels"].get("com.docker.compose.service") == "proxy"
+                and value["labels"].get("com.docker.compose.oneoff") == "False"
+                and type(value["restarts"]) is int and value["restarts"] == 0
+                and all(value["state"][k] is False for k in ("Paused", "Restarting", "Dead", "OOMKilled")),
+                "launch_claim_loss_proxy_identity")
+        value["mounts"] = sorted(value["mounts"], key=lambda row: row["Destination"])
+        return value
+
+    def observe_claim_reply_loss(self, observer, identity, admission, case):
+        self.receipt["stage"] = "launch_claim_loss_register"
+        self.persistent_idle(admission, 0)
+        require(self.traffic() == [], "launch_claim_loss_state_changed")
+        registered = self.api.request(f"/jobs/{case[1]}/managed/approval/register", self.pending_approval)
+        require(type(registered) is dict and set(registered) == {"approval_record_id"},
+                "launch_claim_loss_commit_not_observed")
+        self.receipt["stage"] = "launch_claim_loss_observe"
+        physical = observer.observe_exit(identity)
+        require(type(physical.exit_code) is int and physical.exit_code == 125,
+                "launch_claim_loss_commit_not_observed")
+        observer.confirm_exit(physical)
+        self.receipt["stage"] = "launch_claim_loss_original_hold"
+        before = self.inventory(*case[:2], include_capacity=True)
+        require(before["job_status"] == "running"
+                and canonical(before["execution"]) == canonical({
+                    "state": "active", "capacity_reserved": True, "target_charge": 1, "duration_seconds": 30})
+                and type(before["capacity_reserved_count"]) is int and before["capacity_reserved_count"] == 1
+                and before["targets_spent"] == 1 and before["duration_allocated"] == 30
+                and len(before["contracts"]) == len(before["runtimes"]) == 1
+                and before["results"] == before["stops"] == [] and self.traffic() == [],
+                "launch_claim_loss_commit_not_observed")
+        runtime, contract = before["runtimes"][0], before["contracts"][0]
+        require(runtime["id"] == admission["runtime_id"]
+                and runtime["runtime_sha256"] == admission["runtime_sha256"]
+                and runtime["admission_sha256"] == admission["admission_sha256"]
+                and runtime["identity"] == asdict(identity)
+                and runtime["active_sequence"] == runtime["head_sequence"] == runtime["last_sequence"] == "1"
+                and runtime["retired"] is False and runtime["new_work_disabled"] is False
+                and runtime["report_sha256"] is None and len(runtime["attempts"]) == 1
+                and contract["consumed"] is False and contract["ordinal"] == 1
+                and len(before["approvals"]) == 1
+                and before["approvals"][0]["id"] == registered["approval_record_id"]
+                and before["approvals"][0]["issued"] == 1
+                and before["approvals"][0]["revoked"] is False,
+                "launch_claim_loss_commit_not_observed")
+        attempt = runtime["attempts"][0]
+        require(attempt["job_id"] == case[1] and attempt["runtime_sequence"] == "1"
+                and attempt["runtime_id"] == runtime["id"] and attempt["bound_at"] is not None
+                and canonical(attempt["binding"]) == canonical({
+                    "origin": admission["origin"], "runner_id": admission["runner_id"], "job_id": case[1],
+                    "contract_id": contract["id"],
+                    **{k: contract[k] for k in ("attempt_id", "fence", "contract_sha256")},
+                })
+                and all(attempt[k] is None for k in ("confirmed_at", "released_at", "terminal_receipt",
+                    "terminal_receipt_sha256", "native_done_sha256", "release_receipt")),
+                "launch_claim_loss_commit_not_observed")
+        run_id = self.unissued_claim_run(*case[:2], {case[1]}, "launch_claim_loss_original_hold_missing")
+        audit = self.worker_state(admission, expected_held='claim_unknown')
+        require(audit["schema"] == "vardr.worker-state-audit/1" and audit["status"] == "held"
+                and audit["complete"] is True and audit["reason"] == "local_holds"
+                and audit["binding"] == {k: admission[k] for k in (
+                    "runner_id", "runtime_id", "runtime_sha256", "admission_sha256")}
+                and canonical(audit["parent"]) == canonical({
+                    "state": "idle", "last_sequence": "0", "head_sequence": None, "active_sequence": None})
+                and canonical(audit["counts"]) == canonical({
+                    "attempts": 0, "selections": 1, "associated_runs": 1, "associated_claims": 1})
+                and type(audit["global_holds"]) is int and audit["global_holds"] > 0
+                and audit["retirement_receipt_sha256"] is None,
+                "launch_claim_loss_original_hold_missing")
+        rows = json.loads(self.helper("audit", "list", "--engagement", case[0], "--limit", "3", "--json"))
+        local = next(row for row in rows if row["run_id"] == run_id)
+        metadata = self.local_metadata(run_id, *case[:2])
+        require(self.traffic() == []
+                and canonical(self.inventory(*case[:2], include_capacity=True)) == canonical(before)
+                and digest((self.install / "Caddyfile").read_bytes()) == self.claim_loss_proxy_binding["config_sha256"],
+                "launch_claim_loss_state_changed")
+        self.receipt["claim_reply_loss"] = {
+            "job_id": case[1], "run_id": run_id, "approval_record_id": registered["approval_record_id"],
+            "initial": case[3], "committed": before,
+            "local_unknown": {"run": local, "metadata": metadata, "audit": audit},
+            "proxy": self.claim_loss_proxy_binding, "target_requests": 0,
+        }
+        return run_id, physical, before
+
 
     def disconnect_core_state(self, core):
         cid = core["container_id"]
@@ -1455,12 +1805,17 @@ print(len(directories))
         cancelling = self.cancelling and case is not None
         stopping_predecessor = self.stopped_predecessor and case is not None
         disconnecting = self.map_disconnect and case is not None
+        lost_claim = getattr(self, "claim_reply_loss", False) and case is not None
         exhausted = None
         concurrency_refused = None
         if case is None:
             self.persistent_idle(admission, 0)
             before = self.verify_empty_worker_state(
                 self.empty_worker_state(admission), admission
+            )
+        elif lost_claim:
+            run_id, exit_proof, before_report = self.observe_claim_reply_loss(
+                observer, identity, admission, case
             )
         elif self.concurrency_exhaustion:
             self.receipt["stage"] = "launch_concurrency_observe_refusal"
@@ -1491,6 +1846,8 @@ print(len(directories))
                 "launch_active_predecessor_identity_changed",
             )
             run_id, observed = self.observe_active_run(*case[:3])
+            if self.repeat_managed_claim:
+                self.observe_repeated_managed_claim(admission, case, identity, run_id, observed)
         elif cancelling and self.expire_active_grant:
             action = self.await_active_grant_expiry(admission, case)
         elif cancelling:
@@ -1509,7 +1866,7 @@ print(len(directories))
                 exhausted = self.observe_budget_exhaustion(
                     observer, identity, admission, case, binding, local
                 )
-        if not disconnecting:
+        if not (disconnecting or lost_claim):
             self.receipt["stage"] = "launch_stop_work_exit" if cancelling else f"launch_stop_{ordinal}"
             stopped = None if cancelling else self.worker_action("stop", selected)
             exit_proof = observer.observe_exit(identity)
@@ -1548,7 +1905,7 @@ print(len(directories))
             "admission_sha256": admission["admission_sha256"],
             "finished_at": exit_proof.finished_at,
             "exit_code": exit_proof.exit_code,
-            "operator_stop_state": "not_requested" if cancelling or disconnecting else stopped["state"],
+            "operator_stop_state": "not_requested" if cancelling or disconnecting or lost_claim else stopped["state"],
         }
         if cancelling:
             self.receipt["stage"] = "launch_stop_work_retirement"
@@ -1562,15 +1919,19 @@ print(len(directories))
             self.receipt["stage"] = "launch_map_disconnect_report_exit"
         if self.preclaim_recovery and ordinal == 1:
             self.prepare_preclaim_recovery(observer, exit_proof, admission, config, signing, binding)
+        if lost_claim:
+            self.receipt["stage"] = "launch_claim_loss_report_exit"
+        if lost_claim:
+            self.receipt["claim_reply_loss"]["physical"] = physical
         retired = self.report_exit(physical)
         reconciled = self.worker_action("reconcile", selected, timeout=120)
         require(
             retired["last_sequence"] == (
                 "0" if case is None or self.local_grant_denial or concurrency_refused is not None else "1"
             )
-            and retired["runtime_sequence"] == ("1" if cancelling or stopping_predecessor or disconnecting else None)
+            and retired["runtime_sequence"] == ("1" if cancelling or stopping_predecessor or disconnecting or lost_claim else None)
             and retired["retired"] is True
-            and (retired["attempt_receipt"] is not None) == (cancelling or stopping_predecessor or disconnecting)
+            and (retired["attempt_receipt"] is not None) == (cancelling or stopping_predecessor or disconnecting or lost_claim)
             and reconciled["state"] == "terminal_observed"
             and reconciled["receipt"]["retirement"] == retired,
             "launch_retirement_not_observed",
@@ -1601,6 +1962,13 @@ print(len(directories))
             }
         elif self.local_grant_denial:
             self.verify_grant_denial_launch(admission, retired, case, unissued)
+        elif lost_claim:
+            audit = self.verify_host_exit_reconciliation(
+                admission, retired, case, run_id, before_report, proof_key="claim_reply_loss",
+            )
+            self.receipt["claim_reply_loss"].update(
+                after=self.retired_predecessor_inventory, retirement=retired, audit=audit,
+            )
         elif disconnecting:
             self.verify_host_exit_reconciliation(
                 admission, retired, case, run_id, before_report, proof_key="map_disconnect",
@@ -1756,8 +2124,10 @@ print(len(directories))
         if (
             self.completed or self.cancelling or self.local_grant_denial
             or self.stopped_predecessor or self.concurrency_exhaustion or self.map_disconnect
+            or getattr(self, "claim_reply_loss", False)
         ):
             name = "launch-" + (
+                "claim-reply-loss" if getattr(self, "claim_reply_loss", False) else
                 "map-disconnect" if self.map_disconnect else
                 "stopped-predecessor" if self.stopped_predecessor else
                 "concurrency-contender" if self.concurrency_exhaustion else
@@ -1765,6 +2135,8 @@ print(len(directories))
                 "expired-grant" if self.expire_grant else "completed" if self.completed else self.scenario
             )
             engagement, authorization, job, stored = self.new_job(name, marker=True)
+            if getattr(self, "claim_reply_loss", False):
+                initial = self.arm_claim_reply_loss(observer, initial, job)
             if self.budget_exhaustion:
                 self.configure_budget_exhaustion(initial, engagement, authorization)
             if self.concurrency_exhaustion:
@@ -1781,7 +2153,7 @@ print(len(directories))
                 peer_job, peer_case = self.job_in_engagement(
                     peer_name, engagement, marker=True
                 )
-            self.pending_approval = {} if self.expire_active_grant or self.map_disconnect else None
+            self.pending_approval = {} if self.expire_active_grant or self.map_disconnect or getattr(self, "claim_reply_loss", False) else None
             self.expiry_review = {} if self.expire_active_grant else None
             require(
                 self.approve(
@@ -1810,11 +2182,16 @@ print(len(directories))
                     job, stored, peer_job = peer_job, peer_case, job
                 peer = (engagement, peer_job)
                 peer_before = self.verify_unclaimed_peer(peer, targets=0, duration=0)
-            before = self.inventory(engagement, job)
+            before = self.inventory(
+                engagement, job,
+                **({"include_capacity": True} if getattr(self, "claim_reply_loss", False) else {}),
+            )
             if self.expire_active_grant:
                 require(before["approvals"] == [], "launch_active_grant_expiry_window")
             if self.map_disconnect:
                 require(before["approvals"] == [], "launch_map_disconnect_approval_not_deferred")
+            if getattr(self, "claim_reply_loss", False):
+                require(before["approvals"] == [], "launch_claim_loss_eligible_before_arm")
             if self.local_grant_denial:
                 self.denied_grant_snapshot = (
                     self.prepare_expired_grant(engagement) if self.expire_grant
@@ -1847,6 +2224,17 @@ print(len(directories))
         first, old_observer, old_exit = self.launch_and_retire(
             config, signing, binding, 1, None, case=case
         )
+        if getattr(self, "claim_reply_loss", False):
+            old_observer.confirm_exit(old_exit)
+            final = observer.capture_project_containers(self.project)
+            require(final["all_worker_ids"] == [first["container_id"]]
+                    and final["core"] == initial["core"] and self.traffic() == []
+                    and canonical(self.inventory(*case[:2], include_capacity=True))
+                    == canonical(self.retired_predecessor_inventory),
+                    "launch_claim_loss_state_changed")
+            self.receipt.update(launch=first, status=CLAIM_REPLY_LOSS_PASS,
+                                stage="selected_claim_reply_loss_complete")
+            return
         if self.concurrency_exhaustion:
             old_observer.confirm_exit(old_exit)
             final = observer.capture_project_containers(self.project)
@@ -2020,7 +2408,7 @@ print(len(directories))
                 and re.fullmatch(r"[0-9a-f]{64}", closed["tombstone_sha256"]) is not None,
                 "launch_preclaim_setup_invalid")
         self.preclaim_run_id, self.preclaim_tombstone = closed["run_id"], closed["tombstone_sha256"]
-        audit = self.worker_state(admission)
+        audit = self.worker_state(admission, expected_held="closed_preclaim")
         require(audit["status"] == "held" and audit["reason"] == "runtime_unretired"
                 and audit["complete"] is True and audit["global_holds"] == 0
                 and audit["parent"] == {"state": "idle", "last_sequence": "0", "head_sequence": None, "active_sequence": None}
@@ -2115,7 +2503,9 @@ def main(argv=None):
     workload.add_argument("--concurrency-exhaustion", action="store_true")
     workload.add_argument("--stopped-predecessor", action="store_true")
     workload.add_argument("--map-disconnect", action="store_true")
+    workload.add_argument("--claim-reply-loss", action="store_true")
     workload.add_argument("--preclaim-recovery", action="store_true")
+    workload.add_argument("--repeat-managed-claim", action="store_true")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args(argv)
     if not args.execute:
@@ -2140,10 +2530,13 @@ def main(argv=None):
             concurrency_exhaustion=args.concurrency_exhaustion,
             stopped_predecessor=args.stopped_predecessor,
             map_disconnect=args.map_disconnect,
+            **({"claim_reply_loss": True} if args.claim_reply_loss else {}),
             preclaim_recovery=args.preclaim_recovery,
+            repeat_managed_claim=args.repeat_managed_claim,
         )
         fixture.run()
         expected = (
+            CLAIM_REPLY_LOSS_PASS if args.claim_reply_loss else
             DURATION_PASS if args.duration_exhaustion else
             TARGET_PASS if args.target_exhaustion else
             CONCURRENCY_PASS if args.concurrency_exhaustion else
