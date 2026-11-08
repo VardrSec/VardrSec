@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Allow an explicit non-overlapping IPv4 `/24` for the Mapless Runner bridge when
+  Docker's automatic address pools are exhausted; retain existing networks and
+  preserve automatic allocation as the default.
+
 - Isolate Mapless build tags by project and retain the exact installed toolkit
   image ID and project, preserving Full image selection and the same Runner state
   after a new shell or a separate restore.

@@ -502,6 +502,47 @@ def validate(backup_path):
     return metadata
 
 
+def available_subnet():
+    """Reuse the restore selector without changing any existing Docker network."""
+    networks = command(
+        "docker", "network", "ls", "-q", capture_output=True, text=True
+    ).stdout.split()
+    import ipaddress
+
+    occupied = []
+    if networks:
+        for network in json.loads(
+            command(
+                "docker",
+                "network",
+                "inspect",
+                *networks,
+                capture_output=True,
+                text=True,
+            ).stdout
+        ):
+            occupied.extend(
+                ipaddress.ip_network(c["Subnet"])
+                for c in network["IPAM"].get("Config") or []
+                if c.get("Subnet")
+            )
+    subnet = next(
+        (
+            ipaddress.ip_network(f"172.30.{i}.0/24")
+            for i in range(100, 240)
+            if not any(
+                ipaddress.ip_network(f"172.30.{i}.0/24").overlaps(n)
+                for n in occupied
+                if n.version == 4
+            )
+        ),
+        None,
+    )
+    if subnet is None:
+        raise ValueError("No unused restore bridge subnet available")
+    return subnet
+
+
 def restore(root, backup_path, destination, project):
     backup_path, destination = backup_path.resolve(), destination.resolve()
     metadata = validate(backup_path)
@@ -540,6 +581,7 @@ def restore(root, backup_path, destination, project):
     }
     if mapless:
         active_images["name"] = project
+        active_images["networks"] = {"runner": {"ipam": {"config": [{"subnet": str(available_subnet())}]}}}
     json_write(
         destination / (".active-images.mapless.json" if mapless else ".active-images.json"),
         active_images,
@@ -548,42 +590,7 @@ def restore(root, backup_path, destination, project):
         restore_mapless(backup_path, destination, project, metadata)
         return
     # An explicit different network permits retention of the stopped source stack.
-    networks = command(
-        "docker", "network", "ls", "-q", capture_output=True, text=True
-    ).stdout.split()
-    import ipaddress
-
-    occupied = []
-    if networks:
-        for network in json.loads(
-            command(
-                "docker",
-                "network",
-                "inspect",
-                *networks,
-                capture_output=True,
-                text=True,
-            ).stdout
-        ):
-            occupied.extend(
-                ipaddress.ip_network(c["Subnet"])
-                for c in network["IPAM"].get("Config") or []
-                if c.get("Subnet")
-            )
-    subnet = next(
-        (
-            ipaddress.ip_network(f"172.30.{i}.0/24")
-            for i in range(100, 240)
-            if not any(
-                ipaddress.ip_network(f"172.30.{i}.0/24").overlaps(n)
-                for n in occupied
-                if n.version == 4
-            )
-        ),
-        None,
-    )
-    if subnet is None:
-        raise ValueError("No unused restore bridge subnet available")
+    subnet = available_subnet()
     prefix = str(subnet.network_address).rsplit(".", 1)[0]
     with (destination / ".env").open("a", encoding="utf-8") as output:
         output.write(

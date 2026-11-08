@@ -284,6 +284,7 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(installation_mode.read_project(restored), "vardrsec-restore-mapless")
             active = json.loads((restored / ".active-images.mapless.json").read_text())
             self.assertEqual(active["name"], "vardrsec-restore-mapless")
+            self.assertEqual(active["networks"], {"runner": {"ipam": {"config": [{"subnet": "172.30.100.0/24"}]}}})
             self.assertTrue(json.loads((restored / "restore-receipt.json").read_text())["runner_state_verified"])
 
     def test_mapless_snapshot_refuses_a_rehashed_full_marker_before_restore(self):

@@ -15,7 +15,7 @@ import sys
 import tempfile
 import uuid
 
-from installation_mode import MARKER, compose_files, read_mode, read_project, write_mode
+from installation_mode import MARKER, compose_files, read_mode, read_project, validate_runner_subnet, write_mode
 
 ROOT = Path(__file__).resolve().parent
 
@@ -304,6 +304,7 @@ def main():
     parser.add_argument("--output-directory", type=Path, help="Runner-only new private host directory receiving /exports after completion")
     parser.add_argument("--authority-volume", help="Private issuer volume, only for workspace authority-init/authorize; never execution")
     parser.add_argument("--controlled", action="store_true", help="Runner-only explicit one-job contained local execution")
+    parser.add_argument("--runner-subnet", help="Optional unused private IPv4 /24 for the Mapless Runner bridge")
     parser.add_argument(
         "--mapless",
         action="store_true",
@@ -326,6 +327,10 @@ def main():
     if args.action != "runner" and (args.input_directory or args.output_directory or args.controlled or args.authority_volume):
         parser.error("Input, output, authority-volume and controlled options require runner")
     selected = read_mode(ROOT)
+    if args.runner_subnet:
+        if args.action not in ("install", "start") or not (selected == "mapless" or args.mapless):
+            parser.error("--runner-subnet is only valid with Mapless install/start")
+        validate_runner_subnet(args.runner_subnet)
     if args.mapless and args.action != "sources":
         if args.action == "install":
             if (ROOT / MARKER).exists() and selected != "mapless":
@@ -362,18 +367,42 @@ def install_mapless(args, parser):
     write_mode(ROOT, "mapless")
     sources(mapless=True)
     compose("--profile", "tools", "build", "runner")
+    select_mapless_image(getattr(args, "runner_subnet", None))
     compose("--profile", "tools", "create", "--no-build", "runner")
-    import recovery
-
-    installed = recovery.container(ROOT, "runner")
-    image = installed["Image"]
-    project = installed["Config"]["Labels"]["com.docker.compose.project"]
-    if not isinstance(image, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
-        raise ValueError("Cannot pin the installed toolkit image; preserve the stopped installation")
-    with (ROOT / ".active-images.mapless.json").open("x", encoding="utf-8") as stream:
-        json.dump({"name": project, "services": {"runner": {"image": image}}}, stream)
-        stream.write("\n")
     print("Mapless installed. Runner is stopped; no Map, database, proxy, job or background worker was started. See docs/mapless.md for authorization, execution and export.")
+
+
+def select_mapless_image(subnet=None):
+    """Keep installed image/project selection and optional bridge configuration together."""
+    import updater
+
+    path = ROOT / ".active-images.mapless.json"
+    record = None
+    if os.path.lexists(path):
+        compose_files(ROOT)  # Refuse malformed or broadened selections first.
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if subnet is None:
+            return
+        selected = record.get("networks", {}).get("runner", {}).get("ipam", {}).get("config", [])
+        if selected and selected[0]["subnet"] == validate_runner_subnet(subnet):
+            return
+    model = json.loads(compose(
+        "--profile", "tools", "config", "--format", "json", capture_output=True, text=True,
+    ).stdout)
+    if record is None:
+        image = run("docker", "image", "inspect", "--format", "{{.Id}}",
+                    model["services"]["runner"]["image"], capture_output=True, text=True).stdout.strip()
+        if not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
+            raise ValueError("Cannot pin the built toolkit image; preserve the interrupted installation")
+        record = {"name": model["name"], "services": {"runner": {"image": image}}}
+    if subnet is not None:
+        subnet = validate_runner_subnet(subnet)
+        names = run("docker", "network", "ls", "--format", "{{.Name}}",
+                    capture_output=True, text=True).stdout.splitlines()
+        if model["networks"]["runner"]["name"] in names:
+            raise ValueError("The existing Runner network is preserved; subnet selection requires an installation without that network")
+        record["networks"] = {"runner": {"ipam": {"config": [{"subnet": subnet}]}}}
+    updater.save(path, record)
 
 
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -645,6 +674,7 @@ def dispatch(args, parser):
         )
     elif args.action == "start":
         if mapless:
+            select_mapless_image(getattr(args, "runner_subnet", None))
             compose("--profile", "tools", "create", "--no-build", "runner")
             print("Mapless Runner prepared and stopped. Invoke runner explicitly; no background execution was started.")
             return

@@ -31,6 +31,15 @@ It creates no Map account, database, proxy, trusted certificate or background
 worker. `start` prepares the stopped CLI; `stop` preserves volumes. Installation
 refuses existing Full or Mapless state rather than migrating or resetting it.
 
+Docker chooses the Runner bridge subnet automatically by default. If its automatic
+address pools are exhausted, select an unused IPv4 `/24` with
+`python3 vardrsec.py install --mapless --runner-subnet SUBNET_CIDR`. For a prepared
+installation whose network creation was interrupted, use
+`python3 vardrsec.py start --runner-subnet SUBNET_CIDR`. The explicit selection is
+checked for overlap with existing Docker networks and retained with the installed
+project/image selection. Existing networks, including retained fixture networks,
+are left untouched; this option does not add a service or change Runner privileges.
+
 ## Authorize one assessment
 
 Use an operator-chosen private Docker volume for the signing key. It is separate

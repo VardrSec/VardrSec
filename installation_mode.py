@@ -1,5 +1,6 @@
 """Explicit installation selection; unmarked installations retain Full behavior."""
 
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -51,6 +52,21 @@ def write_mode(root, mode):
         stream.write("\n")
 
 
+def validate_runner_subnet(value):
+    """Accept one explicit canonical RFC1918 IPv4 /24, never another route policy."""
+    try:
+        if not isinstance(value, str):
+            raise ValueError
+        subnet = ipaddress.ip_network(value, strict=True)
+        if (subnet.version != 4 or subnet.prefixlen != 24 or str(subnet) != value
+                or not any(subnet.subnet_of(ipaddress.ip_network(block))
+                           for block in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))):
+            raise ValueError
+    except (ValueError, TypeError):
+        raise ValueError("Runner subnet must be a canonical private IPv4 /24") from None
+    return value
+
+
 def compose_files(root, *, mode=None):
     root = Path(root)
     selected = read_mode(root)
@@ -68,7 +84,8 @@ def compose_files(root, *, mode=None):
         overlay = root / ".active-images.mapless.json"
         if os.path.lexists(overlay):
             value = _read(overlay)
-            if not isinstance(value, dict) or set(value) not in ({"services"}, {"name", "services"}):
+            if (not isinstance(value, dict) or "services" not in value
+                    or set(value) - {"name", "services", "networks"}):
                 raise ValueError("Invalid Mapless image selection")
             if "name" in value and (not isinstance(value["name"], str)
                     or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", value["name"])):
@@ -78,6 +95,15 @@ def compose_files(root, *, mode=None):
                     or not isinstance(services["runner"], dict) or set(services["runner"]) != {"image"}
                     or not re.fullmatch(r"sha256:[0-9a-f]{64}", str(services["runner"]["image"]))):
                 raise ValueError("Mapless requires exactly one immutable Runner image")
+            if "networks" in value:
+                try:
+                    subnet = validate_runner_subnet(
+                        value["networks"]["runner"]["ipam"]["config"][0]["subnet"]
+                    )
+                except (ValueError, TypeError, KeyError, IndexError):
+                    raise ValueError("Invalid Mapless Runner network selection") from None
+                if value["networks"] != {"runner": {"ipam": {"config": [{"subnet": subnet}]}}}:
+                    raise ValueError("Invalid Mapless Runner network selection")
     if os.path.lexists(overlay):
         files.append(overlay)
     return files
