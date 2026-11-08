@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Integrate explicit finite Recon authorization, controlled DNS/HTTPS execution,
+  evidence and export through the existing Full/Mapless Runner workflow. Retain
+  Gate defaults, separate issuer custody and reviewed candidate handoff. Reuse
+  earlier Full/Mapless evidence and record the bounded Windows installed result.
+  Include Runner's explicit standalone diagnostic profile for Mapless callers;
+  offline release discovery and Full authentication retain their existing meaning.
+
 - Record canonical Windows 11 Docker Desktop Full/Mapless source installations
   and isolated recovery, reusing retained synthetic evidence without another
   assessment. Keep native, deferred execution/transition/update and release
