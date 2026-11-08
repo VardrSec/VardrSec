@@ -1,5 +1,28 @@
 # Distribution acceptance plan
 
+Compatible development cohort proposed on 2026-11-08: Map
+`14a80a8540c6c7053b1f0630f19a512a2351013a` ([PR151](https://github.com/VardrSec/VardrMap/pull/151)),
+Runner `5feea8d6de373b4bbc5a3951310c69a16ae7179b` ([PR114](https://github.com/VardrSec/VardrRunner/pull/114))
+and Gate `57cfedfaf59b11cf626288c343f34a34c7b1df13` ([PR31](https://github.com/VardrSec/VardrGate/pull/31)).
+Fresh Ubuntu 24.04 Full and Mapless qualification for these exact pins is enforced
+by the required Compose installation job. Its result is the installed acceptance
+record for this source cohort. The Mapless flow is one added step after the Full
+workflow; no new dispatch mode is added.
+
+The retained Windows Docker Desktop Mapless observation at Distribution
+`4d7164d8fded8d0cc3d87b511cdab4f1e4ad87d7`, using the canonical Runner/Gate
+clones above, passed five genuine GETs (owner 200, peer 403, anonymous 401),
+native DONE acknowledgement and journal DONE, three redacted evidence exports,
+secret/canary checks and byte-identical re-export without further target requests.
+Its private receipt SHA-256 is
+`81f7878cb3d8151c65785bbc5a97e84d876ae3356600b56526b48b05ad51f38e`.
+This records the observed standalone path; it does not pre-credit Ubuntu or a
+Full deployment. Windows 11/Docker Desktop and Linux remain required targets;
+this observation does not waive the other original platform gates.
+`versions.json` remains development,
+`runnable:false`, with no image or distribution release declaration. Existing
+unaccepted clock/suspend, recon and transition limits remain in force.
+
 Current direction: the [Community Alpha plan](community-alpha.md) targets Ubuntu
 24.04 Linux/amd64 first. The [2026-10-27 checkpoint](alpha-checkpoint-2026-10-27.md)
 records the clean installation and remaining gates. Windows/macOS stay experimental
