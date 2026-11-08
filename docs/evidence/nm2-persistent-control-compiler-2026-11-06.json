@@ -1,0 +1,33 @@
+{
+  "compiler_stage_images": {
+    "finite": "sha256:c2219a84e9aa8d4fadc6514932618cf82291cfc6d9369bc6f32d381fee41309f",
+    "persistent": "sha256:b76e6aa93d66fc21bf6968193f7918016bc20c44be6c64f86adf714ac7017e48"
+  },
+  "nm2_closed": false,
+  "nm3_resumed": false,
+  "raw_receipt_sha256": "b4de991f6ffd8122dd43a6d74799e31f207bbf27fe5da32d49983c85888ec032",
+  "retained_resource_guard": {
+    "admitted_empty_builtin_bridge_identity_transitions": 1,
+    "bridge_semantic_fields_and_empty_membership_verified": true,
+    "bridge_transition_cause": "unknown",
+    "prior_containers": 97,
+    "prior_containers_volumes_and_tags_unchanged": true,
+    "prior_networks": 41,
+    "prior_tag_references": 80,
+    "prior_volumes": 72
+  },
+  "runner_commit": "89f92b50145c06411574f7ba2c32002591f6b915",
+  "runner_tree": "60e307093e1a0cefa853dedcd4b1c814cbc60899",
+  "schema": "vardr.nm2-persistent-compiler-evidence/1",
+  "scope": "Network-disabled compiler stages and pure native protocol/deadline units including bounded idle EOF; no PID1 bootstrap, live admission, target or containment acceptance",
+  "source_hashes": {
+    "Dockerfile.worker": "9d1e03b0cc689ee48b6d25027fde454cf1ac9434b8e90d13b8b69c0898d398dd",
+    "Dockerfile.worker.persistent": "0b31e6c48d25ab3bcbcb2a2b1e1886c5211a53edf8ab51debecdccbb9ab95be9",
+    "container/tests/worker_owner_eof_test.c": "c35e85713667aadfefa6316ebf4099d74f60c2b657ae6bc3c5ac28518320f5fa",
+    "container/tests/worker_owner_persistent_test.c": "b88e3852c622e805350d7c1c54be99b8a3765d37a39adf47c91d1ec8579af01d",
+    "container/tests/worker_owner_sequence_test.c": "f99d5b25ce37a5ed0d616ee7c535c05dfb688334923d25364b46e1dda04c7a25",
+    "container/worker_owner.c": "32cd315233039ad59e72ea3f61f5cab423b8ab9fce25d8506b308bba5cae4f6d"
+  },
+  "source_manifest_sha256": "948536e33f3523a6cb13b17b32a6dcc9ce4be76d3ffa2fab76860c5bb2a1bb97",
+  "status": "passed_frozen_compiler_and_protocol_units"
+}

@@ -1,0 +1,22 @@
+{
+  "controller_recovery": {
+    "status": "stopped_retained_controller_recovery",
+    "stop_requested_count": 4,
+    "stopped_owned_count": 6,
+    "unrelated_resources_unchanged": true
+  },
+  "controller_recovery_receipt_sha256": "3e4280c57a3db4d437b525ed19d845273649befff5a2416bb60f058e5185a187",
+  "manual_status_probe_recorded": true,
+  "nm2_closed": false,
+  "nm3_resumed": false,
+  "original_interruption_cause": "not_established",
+  "schema": "vardr.nm2-desktop-unobserved-evidence/1",
+  "scope": "Original 70-second/35-job trial has no final receipt; cleanup is not acceptance",
+  "source_commits": {
+    "distribution": "14ffd4cdf3dc29daaf1b973f63fe27c6ae3fb836",
+    "gate": "d80d4730b8486b75be72431b5af88e0ddb45020b",
+    "map": "52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c",
+    "runner": "89f92b50145c06411574f7ba2c32002591f6b915"
+  },
+  "status": "unobserved"
+}

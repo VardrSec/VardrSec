@@ -21,6 +21,16 @@ roadmap into instruction files.
 ## Safety floor
 - Starting the platform must not start scans or a background Runner. No tool
   execution without explicit authorization.
+- For owner-authorized New Moon work (2026-11-05), the approved roadmap and current
+  instruction permit a separately and explicitly enabled managed Compose worker.
+  Normal startup remains inert. Enablement must preserve shared authorization,
+  least privilege, tested containment and an observable disable/stop lifecycle.
+  Do not interpret this authorization as permission to waive a safety gate,
+  introduce a replacement service or change the container privilege baseline.
+  The subsequent explicit owner decision (2026-11-05), recorded in Runner ADR 0043,
+  permits that worker-only temporary UID-0/SETUID/SETGID/SETPCAP bootstrap and
+  protected host stop-report implementation/testing. Steady-state capability sets
+  must be empty; ordinary Runner, default-off behavior and acceptance gates remain.
 - Never commit credentials, local environment files, private engagement data, tool
   output or machine-specific paths.
 - No force-push, history rewrite, release, tag, image publication, licensing change or

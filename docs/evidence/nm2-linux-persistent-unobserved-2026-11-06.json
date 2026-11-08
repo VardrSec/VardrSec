@@ -1,0 +1,45 @@
+{
+  "schema": "vardr.nm2-hosted/3",
+  "status": "held",
+  "stage": "harness",
+  "sources": {
+    "distribution": "14ffd4cdf3dc29daaf1b973f63fe27c6ae3fb836",
+    "map": "52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c",
+    "runner": "89f92b50145c06411574f7ba2c32002591f6b915",
+    "gate": "d80d4730b8486b75be72431b5af88e0ddb45020b"
+  },
+  "source_trees": {
+    "distribution": "53fc0aa2090b5459f37264da4b2435183348ee57",
+    "map": "5044da878545f7cd4571119137d1466e15e81114",
+    "runner": "60e307093e1a0cefa853dedcd4b1c814cbc60899",
+    "gate": "0b418f815c164e6d23826e53c2f4850faaff0f35"
+  },
+  "images": {
+    "db": "sha256:f5eeb47d15b33dd087c8ce13eb2b67599cd95f9b41c169a900431b3305bd29f2",
+    "api": "sha256:f94118666da7b3cb53e794ca5dfccba6fe8e6a1fe29f789003e2909b8476db6e",
+    "web": "sha256:ef8a416e88923831755f67807efb67dbe70a3866b807163a3b29d952de39682f",
+    "proxy": "sha256:f9c2d08e18a902494a5b4fc2e10e82e7044716f7206f9ca1dc8367ab3d39b63f",
+    "worker": "sha256:02f98590ab1978f73da36e603853c34db122d6e627980ef359aa1306888bf774"
+  },
+  "scope": "Persistent idle availability and 35 separately authorized jobs in one explicitly stopped incarnation; NM2 remains incomplete",
+  "remaining_required_cases": {
+    "strict_other_denials": "not_run",
+    "missing_local_grant": "not_run",
+    "local_emergency_stop": "not_run",
+    "engagement_stop_work": "not_run",
+    "target_grant_expiry_revocation": "not_run",
+    "budget_exhaustion": "not_run",
+    "map_disconnect": "not_run",
+    "worker_crash_stop": "not_run",
+    "lost_claim_consume_bind_reply": "not_run",
+    "restart_duplicate_claim": "not_run",
+    "lost_terminal_reply": "not_run"
+  },
+  "scenario": "persistent-availability",
+  "expected_database_revision": "0041persistentruntime",
+  "toolkit_image": "sha256:f752df4d091150c9b1a2d54f72a1ede223a4843ba2e89ff505660fb4788be278",
+  "harness_failure": {
+    "stage": "unobserved",
+    "reason": "receipt_unavailable_or_invalid"
+  }
+}

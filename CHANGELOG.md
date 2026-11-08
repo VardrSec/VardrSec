@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Distinguish Windows host sleep from Linux guest-kernel suspend in clock proof.
+  Use measured sampling widths while preserving actual host-sleep, authority
+  expiry and physical-exit bounds.
+
+- Qualify original Windows A boundary/drain evidence without repeating the job.
+  Keep both A/B parent receipts held, B unobserved and Ubuntu separately pending.
+
+- Add a separately inactive fixed host-sleep/guest-clock fixture using existing
+  OS wake mechanisms and original job retirement. Source and model checks do not
+  authorize suspend or establish C09 acceptance. Keep NM-3 paused.
+
+- Pin the inactive Runner-loss CI case to its reviewed branch. Read the original
+  journal-backed managed run directory while preserving exact parent, UUID and
+  symlink custody checks. The held containment attempt remains held.
+
 - Isolate NM-1 historical closeout evidence and four byte-exact sanitized receipts
   on main; maintain explicit normalized Map/standalone approval and contract
   comparisons in the existing conformance harness. Preserve historical sources
@@ -9,6 +24,532 @@
   merged Gate fix for existing exact-source CI only; production pins and release
   status are unchanged.
   Run PostgreSQL regression collection from the selected Map backend directory.
+
+- Add a separately inactive single-job Runner-loss fixture, retaining its exact
+  byte witness, original held accounting and original-key retirement checks.
+  Activation needs a separate owner decision; NM-2 and NM-3 gates stay unchanged.
+
+- Use the standard temporary directory in the new inert boundary tests so they
+  also run under Ubuntu's ordinary unprivileged CI user.
+
+- Add an inactive fixed two-job containment/load fixture and COPY-only Ubuntu
+  byte qualification. Runtime activation remains an owner decision; C07â€“C10
+  and NM-2 stay open, and NM-3 remains paused.
+
+- Classify fixture worker-state failures at the two volume checks or the offline
+  CLI; retain only the actual exit code and a fixed SDK reason, without accepting
+  a previously refused audit or exporting its output.
+
+- Close C05 using its independently qualified Windows repetition component,
+  retained PostgreSQL competition and accepted recovery evidence. Keep the
+  surrounding Windows attempt held and preserve full-reader retirement checks.
+- Record both one-shot PID-1 attempts as held after original reconciliation;
+  retain the separately passing unchanged-SDK audit of the Windows state copy.
+
+- Close C04's paired Windows/Ubuntu result and completion reply-loss evidence;
+  retain the passing Ubuntu C05 repetition and its pending Windows counterpart.
+
+- Compare fixture inventory mounts by unique destination while retaining every
+  mount field; malformed or duplicate destinations still refuse.
+
+- Limit C05's installed repetition witness to its actual refusal, accounting,
+  exact stop, original recovery and same-volume successor. Receipt 25 cites
+  accepted predecessor/latency evidence; earlier held receipt 19 stays held.
+- Preserve the full unresolved-predecessor engine guard while retaining private
+  comparison snapshots and exporting only bounded counts and field enums.
+  Read dedicated CI guest power capabilities without changing power state;
+  capability metadata does not establish suspend acceptance.
+
+- Close NM-2's three pre-execution reply-loss boundaries on Windows and Ubuntu.
+  Retain the Ubuntu result/completion proofs and the two held repetition attempts;
+  Windows publication recovery and the remaining fixed gates stay open.
+
+- Add the owner-authorized manual PID-1 loss test for one Windows Docker Desktop
+  run and one Ubuntu run. Preserve the worker profile, deadlines and original
+  recovery flow; no retries or additional fault probes are authorized.
+
+- Add opt-in installed reply-loss coverage for consume, runtime-bind, result and
+  completion through the existing proxy and original-key recovery flow. Preserve
+  original artifacts, receipts and ACK uncertainty; installed acceptance remains
+  pending. Keep the original claim case and default-disabled startup unchanged.
+- Identify the exact invariant in an unresolved-successor refusal without
+  relaxing its checks. Pin the existing timer test's mocked clock to remove
+  floating-point noise while preserving its 10-second assertion.
+
+- Close NM-2 retained-partial and trusted-synthetic preclaim recovery acceptance
+  on Windows Docker Desktop and Ubuntu. Record the paired committed-claim
+  reply-loss proof and retained real PostgreSQL competition evidence; the
+  remaining fixed NM-2 gates stay open and NM-3 stays paused.
+
+- Validate the two explicit intermediate held audits with their real CLI exit1,
+  preserving the ordinary exit0 contract. Add the installed repeated managed
+  claim witness using the existing stopped-predecessor recovery path.
+
+- Add an explicit committed-claim reply-loss fixture through the existing Caddy
+  proxy, with original unknown-send recovery and closed Linux/Desktop evidence.
+  Consume and runtime-bind loss remain separate acceptance work.
+
+- Initialize the recovery fixture's grant catalogue through an unrelated inert
+  CLI approval, and verify the selected engagement still has no matching grant.
+  Retain the first held Windows/Ubuntu attempts and the positive Ubuntu partial
+  evidence witness without treating either held run as acceptance.
+
+- Retain and validate the emitted artifact/result witness in cancellation
+  receipts, and add the closed-preclaim recovery acceptance scenario.
+
+- Add a bootstrap-only Ubuntu check that qualifies the selected Runner image
+  and runs the two existing configuration-refusal cases.
+
+- Fix the remaining NM-2 checklist as C01â€“C10, credit verified requirements,
+  and correct stale optional-idle and coverage status entries.
+
+- Complete slow installed-outage observations before the final target sample.
+  Refuse a stale sample before stopping the API and distinguish worker, traffic,
+  and API-state observation failures. Start one existing audit helper alongside
+  the outage observations and check its result after physical exit, before API
+  restart or host reporting.
+
+- Add an opt-in installed Map claim witness for a registered Strict approval
+  whose authority revision became stale. Verify the unchanged approval and zero
+  charges, attempts, and target requests without launching a worker.
+
+- Add an opt-in installed check for ordinary Map API outage during approved
+  work. Measure the configured worker exit bound, then verify that API recovery
+  leaves the old reservation held until authenticated reconciliation.
+
+- Add an opt-in installed check for Strict review refusal when engagement
+  authority is missing or its testing window has closed. Verify both reviews
+  succeed after correcting the relevant condition without issuing work.
+
+- Add an opt-in installed witness for engagement concurrency exhaustion. An
+  owned API reservation holds capacity while an approved persistent worker
+  claim is refused. Confirm unbound retirement and the original owner's
+  explicit release without target traffic or refunded charges.
+
+- Add an opt-in installed witness for exhaustion of one represented-origin
+  attempt. Verify the second approved job remains unissued through physical
+  retirement and original-key reconciliation.
+
+- Exercise managed duration exhaustion after a healthy installed job releases
+  capacity. Verify the refused claim preserves charges and reservations through
+  physical retirement and original-key reconciliation.
+
+- Add an opt-in installed case for natural grant expiry during active work,
+  with guest-clock timing, the original attempt audit, and a successor on the
+  same Runner state volume. Check the existing whole-second timeout rounding
+  only when Runner reports a tool timeout.
+
+- Add an opt-in installed case for a synthetic target grant that expires before
+  an approved job can claim. Check that the peer grant and API enrollment remain
+  usable through the next worker launch.
+
+- Add an opt-in installed case for revoking one synthetic target grant during
+  active work, checking Runner's native stop receipt and preserving the
+  original Runner API enrollment and peer grant.
+
+- Add an opt-in installed case for an approved job with a missing local target
+  grant. Verify zero issuance, target requests and charges through a successor.
+
+- Add an opt-in installed case that invokes Runner's existing local emergency
+  stop on the exact active run and checks retirement before the next launch.
+
+- Exercise an approved job that remains queued in a stopped engagement through
+  the next managed worker launch. Verify its approval, counters, and absence of
+  a claim or target request.
+
+- Separate stop-work exit, retirement, local attempt, and partial-evidence
+  failures in sanitized diagnostics. Verify retained partial evidence against
+  the original reconciled attempt.
+
+- Bind the stop-work fixture to Map's active cancellation and the Engine's
+  physical exit time. Preserve the failed receipt from the earlier test.
+
+- Add an opt-in installed test for Map stop-work during an approved job,
+  retirement and offline audit, and a subsequent worker launch.
+
+- Verify the completed-job reconciliation summary and a separate offline
+  Runner audit before checking the successor launch.
+
+- Exercise one approved job and the original Runner reconciliation before
+  the next managed worker launch in the installed fixture.
+
+- Accept the omitted Docker Desktop image Volumes key during offline worker
+  inspection. Continue refusing any image that declares a volume.
+
+- Distinguish the worker launch inventory and offline audit failure stages.
+  Preserve the existing native credential name range in launch inputs.
+
+- Add an opt-in installed NM-2 fixture for first and next worker launch,
+  physical retirement, and unchanged Runner state on one installation.
+
+- NM-2 development candidate: add explicit `worker launch` for the first or
+  next persistent worker. Retain earlier incarnations and record create and
+  start uncertainty before sending either request.
+
+- NM-2 private lifecycle: inventory every same-project readiness volume,
+  including retained volumes with no attached worker.
+
+- NM-2 private lifecycle: join the selected Runner's clear offline bootstrap
+  audit to an empty protected catalog under the same live host operation.
+
+- NM-2 private lifecycle: read worker visibility through an exact Compose
+  executable and the reviewed worker model with synthetic interpolation values.
+
+- NM-2 private lifecycle: read the complete protected record, intent and report
+  inventory under its existing live operation; retain all unfinished states.
+
+- NM-2 private lifecycle: join original Runner state to the exact host and Map
+  retirement, keeping zero-issued and locally retired predecessors distinct.
+
+- NM-2 private lifecycle: independently observe the four healthy core services
+  and every same-project worker CID, including stopped replicas, without creating
+  resources or applying Compose's configuration-hash filter.
+
+- NM-2 private lifecycle: observe exact existing state and readiness volume
+  metadata without creating or mounting them; retain creation and label identity.
+
+- NM-2 private lifecycle: independently observe one existing runner network by
+  name and full ID, verifying the exact local daemon and public network metadata.
+  This supplies a resource pin without attaching or starting a worker.
+
+- NM-2 private lifecycle: optionally pin the direct observer to one exact Docker
+  network name/ID during running capture and registration; bind that selection to
+  the existing registration capability. Unallocated Created slots remain distinct.
+
+- NM-2 private lifecycle: reuse mount/volume custody checks with a directly
+  observed Created worker before startup. Recheck daemon, layout and profile;
+  retained JSON supplies no start authority. Ordinary running checks are unchanged.
+
+- NM-2 private lifecycle: authenticate through the existing local session before
+  a future start, lend it once to fenced registration, and close it before
+  publication. No new API, credential source or launcher is enabled.
+
+- NM-2 private lifecycle: bind canonical public signing trust separately from TLS
+  CA trust, fence the existing public writer with original-call ACK custody and
+  durable publication uncertainty, refuse partial writes and retain unknown states.
+  Old private intent schemas stay held; no create/start launcher is enabled.
+
+- NM-2 private lifecycle: bind original registration ACK success to its live send/validation/save scope; interrupted or retained ACKs grant no publication marker. No launcher or publication path is enabled.
+
+- Add a private single-use registration-send capability bound to one live host
+  operation, reviewed policy, runtime, client and observer. Fence the two existing
+  first-registration sends with durable CAS/readback before POST; keep prepared
+  digests private, ACK observations reserved and default calls unchanged. Each
+  object is single-use; existing exclusive preparation and intent CAS bound first
+  sends. Retained records/true flags grant no replacements. No publication, replay
+  or launcher authority is added; lifecycle and platform gates remain open.
+
+- Bind lifecycle intent/2 to an immutable, explicitly reviewed public registration
+  policy and separate MAC data domain. Keep the existing MAC-only key purpose;
+  hold old records/collisions without migration, overwrite or replay. Preserve
+  existing registration defaults; this adds no capability, send/publication fence
+  or launcher.
+
+
+- Factor worker enable setup and its existing locked body into private helpers.
+  Require the exact live HostRecords operation before private-body effects;
+  preserve public argument/default/diagnostic order and reply construction after
+  lock release. This adds no create/start command, intent fence or replay path.
+
+- Prepare closed host lifecycle-intent storage with a distinct MAC-only custody
+  purpose, live-operation access, exclusive durable creation and sticky CAS
+  updates. Preserve STOP keys and ordinary registration; add ADR0006 and isolated
+  synthetic-backend regressions. No launcher, effect fences, activation or
+  lifecycle acceptance is supplied by this storage increment.
+
+
+- Record separate verified Linux/Desktop optional60-second idle and zero-issued-job
+  stop slices, with six exact sanitized public receipts. Preserve the earlier
+  held/unobserved Linux and Desktop diagnostic attempts without acceptance credit
+  or inferred causes. NM-2 stays open, NM-3 stays paused, and cancellation,
+  containment, durable recovery, next-enable and matching-image gates remain.
+
+- Keep existing worker enablement under one installation-lock operation with a
+  live, thread/owner/lifetime-bound capability for nested host calls. Preserve
+  token-free direct-call locking, registration/publication order and original
+  capture diagnostics. Add ADR0005 and pure actual-definition tests; normal
+  full-module validation remains required. Durable lifecycle intents and
+  next-enable recovery are separate open work; startup remains disabled.
+
+
+- Return success from the official fixture CLI after the explicit zero-issued-job
+  stop slice passes. Keep held, unknown and raised-fixture outcomes nonzero;
+  preserve every existing success status and all independent acceptance gates.
+
+- Add an explicit zero-issued-job stop fixture and independent Linux/Desktop
+  reader. Require complete component-owned empty-state audits, measured fresh
+  readiness and positive unbound host retirement at sequence0. Own and bound the
+  temporary no-network auditor; preserve normal WAL semantics and conservative
+  volume-race holds. Empty local state remains N/A, never fabricated retirement.
+  Actual platform, next-enable and other NM-2 gates remain open.
+
+- Keep the optional idle fixture's existing post-job poll open for only the
+  product's closed physical-unconfirmed response families. They remain held and
+  supply neither initial readiness nor terminal proof. Preserve the 75-second
+  bound, native124, separate physical observation and unchanged-work checks;
+  retain fixed per-predicate checkpoints without exporting status bodies.
+  Pure 40-branch regressions do not identify either held Desktop trial's cause.
+
+- Reconcile the NM-1/NM-2 closeout ledger with verified platform evidence. Keep
+  zero-job/re-enable, idle, failure and containment gates open in NM-2; clarify
+  exact original-run selection and offline WAL inspection without advancing pins.
+
+- Record verified Linux persistent availability on the exact G/R1e05 cohort and
+  the later held Desktop idle lookup on its separate 751be0f/R09008 cohort.
+  Preserve the earlier held receipt; cleanup-only worker124/no-stop metadata
+  supplies no idle acceptance. Record the facade's nine passing CI jobs without
+  closing NM-2 or resuming NM-3.
+
+- Add a distinct direct Created-worker observation with no fabricated start
+  identity or nonce. Share existing static profile guards with bound observation;
+  preserve current running/exit, mount, volume, readiness and deadline behavior.
+  Synthetic regressions cover both callers; next-enable, create/start commands
+  and physical lifecycle acceptance remain separate open work.
+
+- Accept only the product's closed running/null-Map advisory response while the
+  optional idle fixture polls within its existing bound. Keep initial readiness,
+  native124, unchanged-work and independent exit requirements intact. Preserve
+  fixed wrapper checkpoints through the existing sanitized failure projection;
+  pure producer-to-decoder regressions do not identify the held Desktop cause.
+
+- Record verified Linux optional count-one evidence on the exact G/R1e05 cohort
+  and the separate held Desktop idle receipt. Keep their scopes distinct and
+  preserve the remaining NM-2 acceptance gates.
+
+- Compare fully validated worker mount snapshots by unique destination order,
+  preserving every row/field and all other inspect state in a shallow copy.
+  Keep raw inspection, exact identity/profile/volume checks, bounds and retries
+  unchanged. Pure order-only regressions establish a comparison defect, not the
+  cause of the retained Ubuntu capture-recheck refusal or platform acceptance.
+
+- Add the explicit optional60-second native-idle acceptance fixture and strict
+  independent reader, separate from availability/count proofs. Require one
+  reviewed job, native124 without operator stop and original-run reconciliation;
+  actual platform proof remains open.
+
+- Record independently checked Docker Desktop persistent availability (70-second
+  idle, 35 authorized jobs, 175 requests/evidence, explicit stop/reconciliation)
+  and optional count-one slices. Keep Linux, optional idle, zero-job/re-enable
+  and the remaining safety matrix open; NM-3 remains paused.
+
+- Preserve closed observer checkpoints during persistent registration recapture,
+  distinguishing a changed valid identity from a capture refusal. Keep unknown
+  metadata generic and retain all existing captures, deadlines, custody checks
+  and single-send registration behavior.
+- Retain the Ubuntu count-limit trial at Distribution `dc473835` as held at
+  `local_capture`; no capture subpredicate, timeout cause or count result was
+  observed. Count, 35-job and unlimited-availability acceptance remain separate.
+
+- Narrow mount-custody refusal diagnostics to closed sub-checkpoints, retaining
+  validated native-observer checkpoints through fixed errors. Keep custody checks,
+  call order, original non-registration exceptions and Linux permission fallback
+  unchanged; optional diagnostic failures never mask the underlying refusal.
+- Preserve the Ubuntu persistent trial at Distribution `9bc09e8` as held at
+  mount custody before registration. Its public receipt establishes no 35-job
+  result or permission cause; platform acceptance remains open.
+
+- Prepare an explicitly selected persistent count-one fixture with retained
+  original public reviews, exact five-request proof and an independent count-only
+  reader for Ubuntu and Windows Desktop. Keep default startup, unlimited worker
+  availability and its separate 70-second/35-job gates unchanged. Actual count
+  platform acceptance remains open.
+
+- Match persistent proof traffic to the reviewed resource query and exact case
+  marker. Retain fixed independent-exit observation/binding checkpoints and
+  real producer-to-reader regressions; preserve all 70-second/35-job gates.
+- Record the held third Linux availability trial, successful one-job Desktop
+  stop diagnostic and tested optional-idle component correction separately.
+  Full availability, finite controls and containment acceptance remain open.
+
+- Allow an optional exact database/runner subnet pair in the controlled NM-2
+  fixture cohort. Require canonical RFC1918 IPv4 /24s and three-way separation;
+  preserve omitted-option allocation, production Compose networking and retained
+  resources. Runtime address/route/port preflight and acceptance remain required.
+
+- Resolve hosted proof helpers from the exact reviewed source root when launched
+  as a script. Verify both failure diagnostics and successful persistent projection
+  in isolated subprocesses outside the repository. Preserve unobserved trials.
+
+- Carry bounded registration failure checkpoints, request stages and HTTP status
+  through the host command and acceptance receipts. Preserve unknown mutation
+  state and the existing single-send registration behavior.
+
+- Keep an unconfirmed Map availability lookup as a bounded read-only fixture
+  hold, requiring fresh idle readiness before the next job. Retain fixed refusal
+  checkpoints without exporting payloads. Preserve both original held Desktop
+  and Ubuntu persistent attempts as failures; no acceptance gate is waived.
+
+- Keep Windows Docker Desktop evidence separate from the Linux-hosted guard.
+  Recheck bound before/after inventories, unchanged existing resources and six
+  stopped owned services while sharing the same strict persistent proof checks.
+
+- Add an explicitly selected Ubuntu persistent-availability counterpart over the
+  same worker fixture and exact four source commits. Recheck compact original
+  receipts before exporting only statuses/counts/hashes; reject duplicate,
+  nonfinite or oversized evidence. Keep finite defaults and all acceptance gates.
+- Give only the selected 35-job controlled fixture its explicit 175-request
+  target ceiling; ordinary fixture traffic retains its existing 60-request cap.
+
+- Add a separately selected persistent-availability fixture: fresh ready idle for
+  70 seconds, 35 individually approved jobs and explicit operator stop/reporting
+  in one exact incarnation. Preserve finite fixtures, default source-only checks,
+  physical guards, original receipts and the remaining NM-2 acceptance gates.
+
+- Keep final Docker identity/inspection refusals distinct from advisory server
+  availability holds in persistent status; read-only polling cannot absorb a
+  failed physical guard.
+
+- Require an explicit expected database revision when exercising the additive
+  worker migration; preserve the legacy fixture default and reject other heads.
+
+- Preserve the fixed worker-capture checkpoint in sanitized hosted evidence, so a
+  refused enablement identifies its failed check without exporting raw output.
+
+- Return fixed whitelisted phase/reason diagnostics when the prepared-worker CLI
+  holds an operation. Never print exception text, credentials or raw subprocess
+  output; successful replies, custody checks and no-retry behavior are unchanged.
+
+- Add explicitly selected ordinary HTTP stop fixtures and two target-free
+  bootstrap configuration checks. Correct the fixture's Run ID validation and
+  optional Docker configuration-field lookup from actual preflight refusals;
+  retain those refusals separately from measured passes and keep NM-2 open.
+
+- Record the frozen two-job Docker Desktop worker slice with exact receipts,
+  source/image custody and retained-resource checks; keep the failure matrix and
+  NM-2 closeout open. Preserve nanosecond Docker timestamp ordering on Python
+  3.10 by validating calendar fields separately in the hosted evidence helper.
+
+- Add explicit bounded v2 worker admission and owner-readiness matching while
+  preserving omitted-option v1 behavior. Separate attempt completion from physical
+  retirement; retain bounded per-cursor MAC intents and permit only explicit,
+  positively fenced report continuation. No automatic replay or worker start.
+
+- Add a default-off manual Ubuntu counterpart for the same coupled NM-2 fixture,
+  requiring four exact source commits and fresh-host checks. Reuse existing
+  Dockerfiles and publish only validated status/count/hash evidence; remaining
+  scenarios and platform acceptance stay open.
+
+- Add host-only retirement for an authenticated, physically exited runtime with
+  no associated claim. Persist a distinct one-send intent, validate the canonical
+  unbound receipt and reconcile lost replies read-only; association races stay
+  held. No job tuple, success, refund or automatic bound-report fallback is added.
+- Add explicit prepared-worker admission/status/stop/report/reconciliation controls
+  over native host custody and exact-incarnation observation. Drive coupled fixture
+  preparation through that CLI, retain exact owned stopped resources, and record
+  the separate native Windows development baseline. Default startup stays inert;
+  installed worker/platform acceptance remains open.
+
+- Replace the candidate's unreadable tmpfs readiness path with a fresh, explicit
+  per-incarnation default-local metadata volume. Pin all four data mounts and
+  validate daemon volume metadata without requiring host-root traversal. Keep
+  strict host-bind/private-path checks and preserve the two refused proof receipts;
+  corrected platform acceptance remains pending. Add no service, capability or
+  secret mount, and keep ordinary Full/Mapless startup unchanged.
+- Add an inactive, explicitly selected worker Compose overlay with retained
+  no-restart state, finite resource limits and the reviewed writable paths. API
+  wiring, enable/stop/recovery commands and actual worker acceptance remain open;
+  normal Full/Mapless startup is unchanged.
+- Bind worker runtime observations to the fixed entrypoint, read-only image and
+  exact reviewed data mounts; reject code/socket overrides and exec health checks.
+  Derive fresh owner readiness through direct bounded Docker archive reads and
+  consistent running-incarnation checks. The candidate remains inactive.
+- Compare canonical paths in the existing portable-recovery and Git-cache
+  isolation tests so Windows short TEMP aliases preserve the same assertions.
+  Recovery and source-binding behavior are unchanged.
+- Add inactive host-only worker exit-observation and STOP-secret custody helpers.
+  Observe the exact local daemon/container incarnation through bounded wait and
+  repeated inspection; ambiguous exits remain held. Windows uses its existing
+  per-user Credential Manager, Linux exclusive owner-only files. No service,
+  worker startup, execution privilege or server release is enabled by these helpers.
+- Close the original NM-1 foundation/prototype and early Desktop-feasibility gate:
+  retain exact-source conformance, the measured two-case Windows manual workflow
+  and the Docker-preferred/native-compatible decision. VPN, managed-worker and
+  final Full/Mapless certification remain in their original later gates. Record
+  the separate owner-approved NM-2 development exception without enabling it.
+- Preserve the NM-3 baseline and move implementation priority to the original
+  NM-1/NM-2 exits. Add explicit cross-origin permission-equivalence proof and a
+  closeout control record. Owner-authorized managed-worker guidance does not
+  enable execution or waive containment/privilege review.
+- Record passing fresh hosted Full browser, reviewed assessment, evidence/report,
+  restart and encrypted restore checks at the exact development cohort. All 179
+  host-side tests passed without skips; archive only the sanitized public receipts.
+  Full/Mapless platform, controlled execution and release gates remain explicit.
+
+- Record actual Windows 11 Docker Desktop toolkit build, trusted authentication,
+  scoped diagnostics and offline workspace metadata persistence under a private
+  image/resource override. Canonical Windows install, execution and recovery remain
+  open; retained engine state and production pins were preserved.
+  Record four passing native age file-crypto cases separately from the installed
+  recovery extension, which refused an unexplained network inventory change.
+
+- Extend isolated Full verification through the existing browser, explicit Gate,
+  evidence/report, restart and encrypted recovery workflows. Check the selected
+  schema and preserve source-state fingerprints; upload only fixed diagnostics.
+  This is a test harness increment, with production pins and lifecycle unchanged.
+
+- Record passing fresh hosted Full installation, trusted login, scoped key and
+  authenticated diagnostics for the exact reviewed development cohort. Installed
+  assessment/recovery and Windows/Mapless acceptance remain separate requirements.
+
+- Prepare a branch-only fresh GitHub-hosted Full installation check for the
+  reviewed Community cohort, reusing the existing isolated harness. Verify exact
+  source trees and private fixture pins without changing production versions;
+  retain only a sanitized receipt. Local guard tests do not claim installed
+  acceptance, Windows/Mapless support or a completed Community release.
+
+- Refuse fresh or interrupted Full installation when only selected proxy state
+  remains, preserving its CA identity and configuration alongside database and
+  Runner state. Check all four resolved state volumes before installation steps.
+  Normalize the cross-platform preflight test fixture before generating CRLF.
+
+- Reuse the verified canonical Compose service selection from `7a86b83`: ignore
+  classified retained one-off containers, and refuse missing, ambiguous or foreign
+  service metadata before selecting backup/restore images and persistent mounts.
+
+- Compare pending-update source files against the validated snapshot version's
+  file set, preserving legacy cancellation without expecting newer helper hashes.
+  Source drift, manifest integrity and post-mutation refusal remain enforced.
+
+- Include the existing database-role helper in version 4 recovery snapshots so
+  generated bundles can restore without the original checkout. Continue accepting
+  snapshot versions 1Ã¢â‚¬â€œ3; older bundles are not retroactively made portable.
+
+- Support standard-layout Full fresh-install preflight with once-generated prospective
+  configuration, normal Compose/process precedence and exclusive publication of the
+  same values after state checks. Refuse custom fresh layouts and alternate Compose
+  environment selection. Configured resume/recovery paths remain available; Mapless
+  activation and installed no-loss acceptance remain gated.
+
+- Consolidate existing source/Git-binding safeguards, fresh-install state refusal
+  and the dormant Mapless Compose model. Interaction tests preserve sources-only
+  Mapless dispatch and unchanged Full Compose/active-image selection. No installer
+  activation, component pin update or execution support is implied.
+
+- Refuse source repositories whose Git-resolved worktree, per-worktree metadata
+  or common metadata root differs from the managed cache before fetch/checkout. Verify all existing
+  selected caches before preparation and newly initialized bindings before fetch;
+  preserve Git config and outside files. This does not sandbox arbitrary Git
+  configuration or provide concurrent replacement resistance.
+
+- Refuse observed symlink/reparse paths in `.sources`, selected component caches
+  and their `.git` metadata before any Git call, for Full and Mapless preparation.
+  Refuse external-worktree `.git` files in the managed cache. Preserve linked
+  paths and outside data; no concurrent replacement guarantee is claimed.
+
+- Add `sources --mapless` to prepare only pinned Runner and Gate sources through
+  the existing non-destructive source preparation. Default Full selection remains
+  unchanged; other lifecycle actions reject the flag. This is source preparation,
+  not a Mapless installer, execution path, image-pin update or installed transition.
+
+- Refuse fresh installation when the expected project Runner-state volume exists,
+  as already done for database state. Unavailable volume inventory now refuses
+  instead of being treated as empty. No volume contents, configuration or images
+  are changed by this check; custom state layouts and transition remain open.
+
+- Add an unintegrated Mapless Compose model reusing the existing explicit Runner
+  toolkit and state layout without Map/PostgreSQL/secrets/trust dependencies.
+  Full files, component pins and lifecycle/recovery remain unchanged. This is
+  configuration preparation, not an accepted installer or installed transition.
 
 - Add bounded NM-1 hosted verification with explicit review-only companion SHAs,
   actual checkout/tree/dependency receipts, common issuance and guarded loopback
@@ -180,7 +721,7 @@
   pin receives fresh installed/image checks.
 
 - Integrate Map #127 (coverage, evidence-backed candidates, boundary hypotheses and
-  corrected tenant-boundary drafts through #120–#127) with Runner #96's Nuclei go-jose
+  corrected tenant-boundary drafts through #120Ã¢â‚¬â€œ#127) with Runner #96's Nuclei go-jose
   fix. Rebuild Caddy 2.11.7 with go-jose 4.1.6 for CVE-2026-116587. Installed acceptance
   now verifies coverage and boundary drafting through the real browser without saving
   cases, queueing jobs or contacting a target. Both component PRs are merged and their exact

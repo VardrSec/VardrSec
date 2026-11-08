@@ -1,0 +1,40 @@
+{
+  "cleanup": {
+    "owned_container_count": 6,
+    "state": "stopped_retained"
+  },
+  "container_os": "linux",
+  "controller_receipt_sha256": "731fbd9aabab7709ea15c57c0b49158f378d8903f296efb124d64017170c859d",
+  "diagnostic_receipt_sha256": "cf270c379be6646f944c60fc74dd2108c286472b5fe8aed896019ec750bcf2c2",
+  "existing_resource_guard": {
+    "admitted_empty_builtin_bridge_identity_changes": 1,
+    "state": "unchanged"
+  },
+  "network_selection": "three_explicit_nonoverlapping_private_ipv4_subnets",
+  "nm2_closed": false,
+  "nm3_resumed": false,
+  "one_job": {
+    "remaining_local_holds": 0,
+    "target_request_count": 5,
+    "verified_journal_sequence": 1
+  },
+  "operator_files_unchanged": true,
+  "operator_profile_blocked_attempts": 0,
+  "operator_stop": {
+    "exact_eight_field_reply": true,
+    "independent_exact_exit_returned": true,
+    "new_work_disable_state": "acknowledged",
+    "state": "stopped_observed"
+  },
+  "platform": "win32",
+  "prior_35_job_failure_cause": "not_established",
+  "schema": "vardr.nm2-desktop-one-job-stop-diagnostic-evidence/1",
+  "scope": "Fresh ordinary one-job durable release and explicit stop; never full availability or containment acceptance",
+  "source_commits": {
+    "distribution": "d94952658653db7b6e779db689e712a7741cc839",
+    "gate": "d80d4730b8486b75be72431b5af88e0ddb45020b",
+    "map": "52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c",
+    "runner": "89f92b50145c06411574f7ba2c32002591f6b915"
+  },
+  "status": "completed_diagnostic"
+}

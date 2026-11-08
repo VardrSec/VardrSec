@@ -1,0 +1,49 @@
+{
+  "schema": "vardr.nm2-hosted/3",
+  "status": "held",
+  "stage": "harness",
+  "sources": {
+    "distribution": "b90a46fa85a2ab724511e8df8d8e23d01f6a6001",
+    "map": "52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c",
+    "runner": "89f92b50145c06411574f7ba2c32002591f6b915",
+    "gate": "d80d4730b8486b75be72431b5af88e0ddb45020b"
+  },
+  "source_trees": {
+    "distribution": "84baad0a4d98dc81f8f348c695cad1df44681235",
+    "map": "5044da878545f7cd4571119137d1466e15e81114",
+    "runner": "60e307093e1a0cefa853dedcd4b1c814cbc60899",
+    "gate": "0b418f815c164e6d23826e53c2f4850faaff0f35"
+  },
+  "images": {
+    "db": "sha256:5f3581b93b9af67fb06e908559d9d876b8d38218b9b02a502c6a90a19c4fd289",
+    "api": "sha256:54ee5bfc546b84a6fe8f6ad5a58673f38ccd57f81cc8246d7122667a89f311db",
+    "web": "sha256:40a7ad0ce680ee7df045a519483aee76699d01bb0de60390b9de9fa76e4048dd",
+    "proxy": "sha256:006faf66553b245f74ebb01695e58d8f920bba11deb5cac03d8d0cc55236fba0",
+    "worker": "sha256:711c06648c3fc3d56c1f66408c039ee2474c186ddfc02c50a7b5f99dd1120479"
+  },
+  "scope": "Persistent idle availability and 35 separately authorized jobs in one explicitly stopped incarnation; NM2 remains incomplete",
+  "remaining_required_cases": {
+    "strict_other_denials": "not_run",
+    "missing_local_grant": "not_run",
+    "local_emergency_stop": "not_run",
+    "engagement_stop_work": "not_run",
+    "target_grant_expiry_revocation": "not_run",
+    "budget_exhaustion": "not_run",
+    "map_disconnect": "not_run",
+    "worker_crash_stop": "not_run",
+    "lost_claim_consume_bind_reply": "not_run",
+    "restart_duplicate_claim": "not_run",
+    "lost_terminal_reply": "not_run"
+  },
+  "scenario": "persistent-availability",
+  "expected_database_revision": "0041persistentruntime",
+  "toolkit_image": "sha256:58b664c66c42e6bdaadef74fc3230ef8447c9807e5f7f101d198aa887ed4e7cc",
+  "harness_failure": {
+    "stage": "operator_worker_enable",
+    "reason": "fixture_command_failed",
+    "command_failure": {
+      "failure_code": "host_refused",
+      "failure_phase": "enable_registration"
+    }
+  }
+}

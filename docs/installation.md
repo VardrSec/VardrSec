@@ -1,6 +1,100 @@
 # Development Compose installation
 
+Source preparation also checks Git's read-only resolved worktree, absolute
+metadata directory and common metadata directory against each managed component
+directory and its `.git`. Shared `commondir` indirection outside it is refused.
+This refuses a plain `.git/config` with redirected `core.worktree`, not just
+filesystem links. Existing selected repositories are checked before preparation;
+newly initialized repositories are checked before fetch/checkout. Unavailable,
+malformed or mismatched binding observations refuse without rewriting config or
+touching outside files. Git/user configuration remains trusted operator input:
+this is not a sandbox for arbitrary hostile Git settings or concurrent mutation.
+The directory-query semantics are documented in
+[Git rev-parse](https://git-scm.com/docs/git-rev-parse).
+
+Managed source preparation refuses observed symlinks/reparse points at `.sources`,
+selected component directories and `.git`, and refuses `.git` files (including
+worktree metadata references). All selected paths are checked before the first Git call.
+Links and outside files are retained; use a fresh private cache rather than
+deleting or rewriting them. These are point-in-time checks, not a guarantee
+against concurrent ancestor/cache replacement. Keep the checkout exclusively
+under trusted operator control during preparation; native Windows junction and
+concurrent-race acceptance are not established by synthetic marker tests.
+
+## Mapless source preparation (partial NM-3 increment)
+
+`python3 vardrsec.py sources --mapless` prepares only the existing exact Runner
+and Gate source pins. It needs Git and component-source access, but does not fetch
+Map, create `.env`, configure PostgreSQL, build/start containers or run tools.
+Existing different/dirty source caches are preserved and refused as before; an
+existing Map cache is not inspected or changed by this selection. Bare `sources`
+continues preparing Map, Runner and Gate for Full.
+
+The flag is currently valid only with `sources`; `install --mapless`, `build
+--mapless` and other lifecycle uses fail before acquiring the installation lock
+or changing files. Arguments after the `runner --` separator still belong to
+Runner and are not reinterpreted as distribution mode selection.
+
+This is not a runnable Mapless installation. Full/Mapless installer entrypoints,
+service/config selection, protected state binding, compatible reviewed component
+pins, backup/export and non-destructive installed transition remain open. Native
+Windows and Docker Desktop acceptance are separate; no unsupported execution
+fallback or background worker is introduced. Do not apply Full installation to
+an existing Mapless workspace and infer that its records or authority were migrated.
+
 ## Quick start (source-built, not an official release)
+
+The fresh-install guard asks the existing Compose frontend to resolve the selected
+Full model with all profiles and normal interpolation, as used by installation.
+Compose determines the project
+identity, including `.env` and process overrides; the guard does not parse `.env`
+or provide placeholder secrets. Trusted Compose reads/interpolates configuration and service
+environment files internally. Its output and errors are captured, never printed or
+saved by the guard. Missing configuration, resolver failure, malformed output and
+unsupported mappings refuse before installation steps or volume inventory.
+
+Only the shipped Full service/state layout is recognized: default project-scoped
+volume names, the database and Runner state mounts, proxy state and the existing
+read-only trust/Caddyfile binds. Custom volume names, external/driver mappings,
+additional mounts/services and unresolved paths refuse. The dormant Mapless model
+is not activated. Existing `.env` files are preserved and an interrupted installation
+can still resume when the selected supported model resolves and none of its four
+state volumes is observed. Retained proxy state also prevents fresh installation:
+its CA identity and configuration belong to the existing installation, even when
+the database and Runner-state volumes are absent. Preserve it and use recovery.
+
+For a fresh checkout without `.env`, one-command Full installation is restricted to
+this revision's exact shipped `compose.yaml` (LF or CRLF) without an active-image
+override. Alternate `COMPOSE_*` settings are refused except `COMPOSE_PROJECT_NAME`.
+Custom layouts receive a refusal with recovery/clean-checkout instructions; do not
+remove configuration or volumes to bypass it. Configured recovery and update paths
+are unchanged.
+
+The installer generates the normal configuration once in memory. Preflight supplies
+these prospective defaults to trusted Compose while preserving process-variable
+precedence. It resolves and checks the standard state mappings and inventories the
+expected volumes before creating `.env` or `trust`. Only after a successful check
+does the existing exclusive writer persist those same generated values. The process
+environment is not changed. Observed layout/configuration changes refuse; exclusive
+creation never overwrites a newly appeared `.env`. This does not prevent arbitrary
+concurrent writers or prove absence of other/native/external state.
+
+The standard-layout fingerprint is a compatibility boundary, not a signature or
+hostile-file sandbox. Changes to the shipped model require coordinated review.
+Interrupted installs with complete existing configuration retain the normal resume
+path; incomplete required configuration still refuses rather than regenerating keys.
+Mapless one-command installation remains gated on compatible component pins and a
+supported standalone execution platform; the dormant Linux Compose model is not a
+substitute for the Windows-only controlled Gate path.
+
+The subsequent bounded Docker inventory checks all four resolved state-volume
+names without reading contents. Inventory failures refuse. Absence of those
+names does not establish absence of native state, operator-selected evidence,
+other projects or external writers. Configuration and inventory are point-in-time
+observations, not protection from concurrent changes. Synthetic resolver tests do
+not establish installed acceptance across Compose versions. This is not a migration,
+backup/revocation reconciliation or no-loss upgrade check; preserve existing state
+and use a reviewed transition procedure.
 
 Tested on Ubuntu 24.04 amd64 with Docker, Compose, Python 3.10+ and Git already installed
 (`docker compose version` must work for your user). CI runs these steps on a clean hosted

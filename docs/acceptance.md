@@ -65,6 +65,53 @@ Local authentication is defined in Map [#111](https://github.com/VardrSec/VardrM
 and its browser integration in [#112](https://github.com/VardrSec/VardrMap/pull/112).
 
 
+## NM-2 optional count: held recapture observation (2026-11-06)
+
+[Ubuntu count trial 42284035325](https://github.com/VardrSec/VardrSec/actions/runs/42284035325)
+used Distribution `dc473835dc453bb5f0fa4a8560f41711d57e64ba`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c`, Runner
+`e8cdec333af0ed721504f3857369a76c8a8a4e06` and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`, selecting
+`persistent-count-limit` with database revision `0041persistentruntime`.
+Compatibility passed on Ubuntu and Windows; the coupled trial remained held at
+registration checkpoint `local_capture`. The sanitized receipt hash is
+`90e75c361bc692799d76e1418e21ec55fd1a3ec1bb1d9feb8d6783682d6fd1b0`;
+[the retained observation](evidence/nm2-ubuntu-count-local-capture-held-2026-11-06.json)
+records its exact sources and limitations.
+
+This checkpoint cannot distinguish a refused observer subcheck from a changed
+valid identity. No count completion, independent count oracle or 35-job result was
+exported. Startup/admission expiry is an unconfirmed hypothesis: the native startup
+ceiling of 120 seconds, fixture admission wait of 60 seconds, observer ceiling of
+30 seconds and command ceiling of 15 seconds remain unchanged. No new
+capture, retry, timeout extension, permission fallback or authority is introduced
+by fixed recapture diagnostics. Pure synthetic regressions are separate from
+actual Linux/Desktop acceptance; neither optional-count nor unlimited operation
+is accepted by this failed trial. The earlier held 35-job observation remains.
+
+## NM-2 persistent availability: held custody observation (2026-11-06)
+
+[Ubuntu trial 42273172251](https://github.com/VardrSec/VardrSec/actions/runs/42273172251)
+used Distribution `9bc09e8e96d1697563dce63741973da9a3a3c07c`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c`, Runner
+`e8cdec333af0ed721504f3857369a76c8a8a4e06` and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`. Both compatibility jobs passed;
+the actual coupled trial remained held at `operator_worker_enable`, registration
+checkpoint `mount_custody`. The sanitized public receipt hash is
+`1b717c59bc90982f79b34d6f24eae98d1e16bdd47fe9a3cf1571ecef41432fd6`;
+[the retained observation](evidence/nm2-ubuntu-persistent-mount-custody-held-2026-11-06.json)
+records its exact sources and limitations.
+
+The receipt exports no completed-job measurements or 35-job oracle result. It
+cannot isolate daemon-volume metadata, bind/managed/private path resolution, or
+path separation, and establishes no permission or layout cause. Existing Linux
+`PermissionError` fallback is already explicit. Fixed sub-checkpoint diagnostics
+and pure failure-injection tests provide observability only; all custody checks,
+exception behavior outside registration and remaining platform gates stay intact.
+A separately reviewed optional-count trial is the next focused observation; its
+result cannot supply 35-job or unlimited-availability acceptance. No additional
+35-job run, default enablement, release or deployment is approved by this record.
+
 ## Compose development acceptance (2026-10-26)
 
 The source-built stack passed local validation on Docker Desktop with Linux
@@ -174,3 +221,145 @@ image/configuration and report identities recorded. CI validates collection;
 evidence. The initial local scan keeps all five image vulnerability gates blocked.
 Unsigned evidence does not establish authenticated provenance, reproducible builds
 or release readiness. Publication remains a separate authorized step.
+
+### Optional native idle control (implementation; platform proof open)
+
+The explicitly selected idle-control fixture and independent reader are implemented
+for the existing optional60-second limit. One reviewed job must complete, followed
+by native124 without operator stop and exact retirement/reconciliation. Actual
+Linux/Desktop idle acceptance remains open. See the [bounded acceptance plan](nm2-worker-acceptance-plan.md).
+
+That implementation-stage snapshot is superseded for the selected idle slice by
+the [later ledger](#accepted-optional-idle-and-zero-issued-job-slices-2026-11-06).
+The wider phase matrix remains open.
+
+
+### Selected NM-2 platform evidence, 2026-11-06
+
+[Linux count-one run42300367549](https://github.com/VardrSec/VardrSec/actions/runs/42300367549)
+passed on Distribution `b516366e574eaeb1057e88301634e861f761fe0f`,
+Runner `1e05c5bc12369e6b6b953d80527ac3fcd906f53c`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c` and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`. Both Ubuntu and Windows compatibility
+jobs passed. The independently checked [sanitized count receipt](evidence/nm2-linux-count-one-verified-2026-11-06.json)
+reports one issued attempt, five target requests and evidence records, zero local
+holds, zero target/duration charges for the unissued job, and six owned stopped
+containers. The explicit limits were count-one with no idle timeout. Its ZIP digest,
+receipt digest and all four immutable source commits/trees were checked.
+
+The separate [Desktop idle receipt](evidence/nm2-desktop-idle-limit-held-2026-11-06.json)
+remains held at `idle_control_observation` / `idle_status_refused`, with no idle
+acceptance credit. Its retained public facts report six stopped retained containers,
+checked inventory and one permitted empty built-in bridge identity change; cause
+remains unknown. No job or timing result is inferred from this held receipt.
+
+These are separate selected-slice records. The count result does not establish the
+cause of earlier Linux refusals. Other availability, idle, zero-issued-job,
+stop/re-enable and containment evidence remains subject to its own acceptance
+record. NM-2 remains incomplete; NM-3 is not resumed by this evidence update.
+
+### Linux availability and later held Desktop idle, 2026-11-06
+
+[Linux availability run42303336342](https://github.com/VardrSec/VardrSec/actions/runs/42303336342)
+passed on Distribution `b516366e574eaeb1057e88301634e861f761fe0f`,
+Runner `1e05c5bc12369e6b6b953d80527ac3fcd906f53c`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c` and Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b`, at database revision
+`0041persistentruntime`. Both Ubuntu and Windows compatibility jobs passed.
+The independently checked [sanitized availability receipt](evidence/nm2-linux-persistent-availability-verified-2026-11-06.json)
+records 70.000108429 seconds of idle with zero target requests, 35 individually
+authorized jobs, 175 target requests and evidence records, zero local holds,
+explicit stop/reconciliation and six owned stopped containers. Both optional
+worker limits were unset. The artifact ZIP digest, receipt digest and all four
+immutable source commits/trees were checked; the receipt SHA-256 is
+`11b0714b129175aeed475d11230ddec049df5ce28665cb61b6b71d2ae2257a90`.
+
+The later [Desktop idle lookup receipt](evidence/nm2-desktop-idle-limit-lookup-held-2026-11-06.json)
+belongs to the separate `a55a8a3039e24830` fixture cohort using Distribution
+`751be0f33507ac7d4a845cfd9377e7a2d60345a8` and Runner
+`09008e5d9c3edf619e55eeacdfd9ea1db31aba89`. It remains held at
+`idle_control_observation` / `idle_status_refused`, with fixed status checkpoint
+`lookup` and no acceptance credit. Its SHA-256 is
+`af1ccf7b278e2691e4f25d9caf62738ffb1c70466c483d94e5bebebb36348e0a`.
+Retained cleanup reported six stopped containers, a checked inventory, one
+permitted empty built-in bridge identity change, worker exit124 and no fixture
+stop request. These are cleanup-only observations: they establish neither the
+worker state at the failure instant nor a verified native-idle outcome. Cause
+remains unknown. The earlier
+[792719349f4c4923 held receipt](evidence/nm2-desktop-idle-limit-held-2026-11-06.json)
+is preserved separately.
+
+[Runner facade CI42303800208](https://github.com/VardrSec/VardrRunner/actions/runs/42303800208)
+passed all nine jobs on `09008e5d9c3edf619e55eeacdfd9ea1db31aba89`, including
+Ubuntu Python3.10–3.14, Windows/macOS Python3.14, lint/types and dependency audit.
+This component validation is separate from the earlier Linux availability cohort
+and from actual next-enable integration or idle lifecycle acceptance.
+
+These selected records leave optional idle, zero-issued-job, stop/re-enable and
+the remaining containment matrix open. The Linux pass does not identify earlier
+Linux refusal causes. NM-2 remains incomplete; NM-3 is not resumed, and no release
+or deployment is authorized by this evidence update.
+
+### Accepted optional idle and zero-issued-job slices, 2026-11-06
+
+These are selected physical slices on separate exact Linux and Docker Desktop
+cohorts. All use Runner `09008e5d9c3edf619e55eeacdfd9ea1db31aba89`, Map
+`52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c`, Gate
+`d80d4730b8486b75be72431b5af88e0ddb45020b` and Map revision
+`0041persistentruntime`. Linux and Desktop images were built and verified
+separately; this record grants no capability to a later Runner image.
+
+| Observation | Distribution cohort | Disposition and exact public receipt |
+| --- | --- | --- |
+| [Linux idle run42312084921](https://github.com/VardrSec/VardrSec/actions/runs/42312084921) | `036a142e938c10d3d4dbc75d5d8434e4079c0f52` | [Selected idle slice passed](evidence/nm2-linux-idle-control-verified-2026-11-06.json), SHA-256 `2793a1362925bac15846f41f96ef3e138bd89c55d3070f913102c289e9f85a0d`. |
+| Desktop idle cohort `96160766c3ec4572` | `036a142e938c10d3d4dbc75d5d8434e4079c0f52` | [Selected idle slice passed](evidence/nm2-desktop-idle-control-verified-2026-11-06.json), SHA-256 `6f20a6d78b345c1a782d843ed8a9722fbb2735092b6e86d1c810e591e97b87f1`. |
+| [Earlier Linux zero-job run42312463253](https://github.com/VardrSec/VardrSec/actions/runs/42312463253) | `036a142e938c10d3d4dbc75d5d8434e4079c0f52` | [Held/unobserved](evidence/nm2-linux-empty-stop-unobserved-2026-11-06.json): `receipt_unavailable_or_invalid`; no lifecycle measurements or acceptance credit. SHA-256 `f81c2277062896a4c005faa7617e928928d2176c8c9d801c9c04549334b97329`. |
+| Earlier Desktop zero-job cohort `09887e7cca964f29` | `036a142e938c10d3d4dbc75d5d8434e4079c0f52` | [Diagnostic retained](evidence/nm2-desktop-empty-stop-controller-held-diagnostic-2026-11-06.json): independent measurements passed but the controller remained held; `acceptance_credit:false`. SHA-256 `e329001e32c2e2e49e3d5f901ee91fe3a4c9c97dbf0791881386a368f4716e42`. |
+| [Fresh Linux zero-job run42316282747](https://github.com/VardrSec/VardrSec/actions/runs/42316282747) | `d73c89c37c7e4f852fce56ae099edebb297fa9f5` | [Selected empty-stop slice passed](evidence/nm2-linux-empty-stop-verified-2026-11-06.json), SHA-256 `7fe0e231d53cda6b952b03d39642284c88ce96f9c856a1d3485a44d19fb89845`. |
+| Fresh Desktop zero-job cohort `def01c1675534138` | `d73c89c37c7e4f852fce56ae099edebb297fa9f5` | [Selected empty-stop slice passed](evidence/nm2-desktop-empty-stop-verified-2026-11-06.json), SHA-256 `4771a7e08447cc66773c6e814c1b333338a71a6518a58b3f83a29ad755716d4b`. |
+
+Both successful idle receipts require one reviewed job, five GET requests and
+evidence records, native exit124 with no operator stop, zero local holds,
+unbound last1 retirement/original-run reconciliation and six stopped containers.
+Their optional idle limit is60 seconds with no count limit. They do not replace
+the separate default-unlimited 70-second/35-job availability evidence.
+
+Both fresh zero-job receipts require zero issued attempts, associated runs and
+claims, engagements, target traffic and local holds. They prove explicit operator
+stop and positive unbound host/Map retirement at last0, with both finite limits
+unset and six stopped containers. The complete local result remains
+`not_applicable_empty_unissued`; it adds no physical/server proof and fabricates
+no RunRecord or local retirement.
+
+The Linux named artifact ZIP digests and all four immutable source/tree bindings
+were independently checked; Ubuntu and Windows compatibility passed for each
+recorded run. Desktop projections used the strict independent reader, exact
+cohort/image/source pins, unchanged-input/source guards and zero blocked
+operations. The six copied JSON files contain only their existing sanitized
+public output; raw receipts, inventories, credentials and private provenance
+paths remain excluded.
+
+The corrected fixture CLI success footer explains the observed Desktop098
+controller hold after its measured slice. It does not establish the cause of the
+earlier Linux unobserved receipt. The original [792 idle hold](evidence/nm2-desktop-idle-limit-held-2026-11-06.json),
+[a55 lookup hold](evidence/nm2-desktop-idle-limit-lookup-held-2026-11-06.json),
+Linux unobserved record and Desktop098 diagnostic remain unchanged.
+
+The host-operation component at commit
+`400f3c6d248d150fc470408dd75c6a1535a5f3e4`, tree
+`95fe1c18d3f7c87e6e319f9a22d392b3cd62cb4d`, completed the normal569-test
+Distribution suite with18 existing skips and no failures or errors, including
+the three real-module token/CLI cases. [Compatibility run42318325511](https://github.com/VardrSec/VardrSec/actions/runs/42318325511)
+passed its Ubuntu and Windows jobs; coupled/installation/update/certificate jobs
+were intentionally skipped. This verifies locking groundwork. Durable intents
+and physical same-installation next-enable acceptance remain open.
+
+These passes close only their selected idle and normal zero-issued-job stop
+criteria. Integrated cancellation/partial evidence, native containment and the
+remaining bootstrap/channel/owner-loss/pressure/clock matrix retain their own
+physical gates. [The host operation scope](adr/0005-host-worker-operation-scope.md)
+is component groundwork: durable intents, supported next-enable, ambiguous and
+preclaim recovery, a matching new reconciliation-capable image and physical
+same-installation reuse remain open. NM-2 is incomplete and NM-3 remains paused.
+No requirement is deferred to NM-3/NM-5; no component pin, release or deployment
+is authorized by this evidence.

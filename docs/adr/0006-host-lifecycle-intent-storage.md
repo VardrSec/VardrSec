@@ -1,0 +1,424 @@
+# ADR 0006: Store lifecycle uncertainty before effects
+
+Status: Development lifecycle candidate. The sections below record incremental
+storage, original registration and publication boundaries, and the explicit
+launcher. Installed lifecycle acceptance and recovery of held preparations
+remain open.
+
+Existing HostRecords require real registration and a runtime STOP secret. A
+pre-start preparation cannot use that schema or reserve the future runtime's
+STOP slot, which ordinary registration requires to be absent. A separate closed
+`vardr.worker-lifecycle-intent/1` record uses a distinct operation UUID and a fixed
+MAC-only purpose in the existing current-user custody backend. The STOP target,
+policy and ordinary calls remain unchanged. No provider or dependency is added.
+
+The new store constructor is inert. Every storage/key access requires the exact
+live operationV3 capability, records instance, installation/private root and
+thread before I/O. Initial record publication is atomic and exclusive; updates
+read and authenticate the old record, compare revision and canonical previous
+digest, preserve immutable bindings, make flags sticky and observations additive,
+then flush/fsync and publish durably before returning readback. Partial private
+artifacts and key slots remain on failure; no automatic replay or adoption runs.
+Windows publication uses a non-replacing write-through move for creation and the
+existing write-through replacement for updates; POSIX syncs the directory.
+
+Source and resource bindings are descriptive metadata. Future orchestration must
+independently validate complete live resources and sealed observations before
+effects. Retained Created/running JSON never constructs an observation proof.
+`environment_contract_sha256` may cover only variable names and fixed public
+settings: API keys, target credentials, rendered Config.Env and env-file contents
+must never be retained or hashed. Predecessor order is contiguous and no row cap
+truncates history; bounded record exhaustion is held, never partial zero.
+
+Compare-and-swap and sticky flags discipline a trusted host's interrupted work.
+The key holder can restore an older valid MAC file: this is not anti-rollback
+storage, remote attestation or independent proof. Missing/corrupt key/file or
+unknown state stays held. A marker, prepared record, absent file or later404
+cannot establish execution permission or that an external mutation was unsent.
+
+The storage supports only closed typed metadata and conservative terminal
+dispositions. Its abandoned-preparation representation is restricted to described
+Created/start-unsent metadata; it implements no abandonment or stop operation.
+No registration/publication/create/start calls are wired. A later increment must
+place flags immediately before the actual effects in the existing engines.
+The create/start wrapper cannot call public `enable` while holding an operation:
+that function builds its own HostRecords and lock. Factor one shared private
+enable path accepting the same records/token, preserve public defaults and
+diagnostic order, and add neither a duplicate engine nor an already-locked flag.
+
+Focused tests use actual storage methods, synthetic custody and private temporary
+files. Native credential/MoveFileEx calls are mocked or denied before imports;
+native publication durability therefore remains untested by these models. Full
+ordinary tests, qualified immutable images and fresh Linux/Desktop lifecycle
+acceptance remain required. NM-2 and release gates remain open.
+
+## Schema/2: bind reviewed public registration policy
+
+The Schema/2 increment uses `vardr.worker-lifecycle-intent/2` with a separate `/2` MAC
+domain. An immutable `registration_policy` has exactly seven mandatory fields:
+`origin`, `enrollment_id`, `runner_id`, `protocol`, `expires_in_seconds`, `limits`
+and `reporting_authority`. Limits always has exactly `max_attempts` and
+`idle_timeout_seconds`; unused fields are explicitly null, never inferred.
+
+Use existing named modes `legacy-v1`, `finite-v2` and `persistent-v3`. Persistent
+mode requires null lifetime, the existing strict persistent limits validator and
+the exact STOP-only reporting declaration. Legacy/finite modes require an integer
+lifetime60..604800, null idle/reporting fields, and respectively null max or an
+integer max1..32. No strings/booleans/floats are coerced. Origins/IDs reuse the
+existing validators. The policy contains only reviewed public settings: no key,
+password, target credential, environment contents or digest of those values.
+
+Public registration defaults remain unchanged. In the existing generic call,
+`protocol=None` is interpreted by its already validated registration shape:
+`max_attempts` present identifies finite-v2; absent identifies legacy-v1. The
+durable policy must explicitly name that selected mode; policy null or a new
+alias is refused. This schema increment adds no registration/fence invocation.
+
+Old intent/1 records are held before key access, never migrated, overwritten or
+replayed. Creation also refuses a colliding existing file or orphan purpose key.
+The fixed `LifecycleIntent/v1` custody namespace and `.intent-key` remain unchanged:
+their version describes the format-independent MAC-only key purpose, not the data
+schema. A new data domain prevents an old MAC authenticating relabelled bytes.
+No key rotation/deletion or future-runtime STOP-slot reservation is introduced.
+`observations.host_record_sha256` remains reserved for the acknowledged record;
+it must not be consumed by a prepared-record digest in a later registration fence.
+
+## Original live registration sequence
+
+The private registration capability binds the exact records/live operation and
+intent revision/digest, future runtime identity, immutable reviewed policy, exact
+client/observer objects and their existing public pin/context/layout/protocol/max
+settings. Its factory requires active, unissued intent metadata and an absent
+future-runtime host record. RuntimeIdentity and retained running JSON remain
+descriptive: the existing engine's fresh capture and mount validation are still
+authoritative. The capability adds no observation proof or execution authority.
+
+Only a sealed, noncopyable, nonserializable in-memory object reaches the fixed
+fence. The first attempted fence consumes it before argument validation or I/O,
+including failure and interruption. After the existing secret and initial MAC
+host record are written, each existing first-registration engine invokes that
+fence immediately before its existing session.register call. It rechecks exact
+inputs and the authenticated prepared record, then CAS-publishes and reads back
+registration_sha256 and registration_may_have_sent. No second registration engine
+or callback is introduced. A prepared-record digest stays private on the object;
+host_record_sha256 and admission_sha256 remain reserved for later ACK evidence.
+
+Single-use applies to each in-memory object, not to universal factory issuance.
+Before any engine preparation, multiple objects can exist, and a fresh object may
+be minted after a purely malformed pre-preparation attempt consumed another one.
+Such a failed attempt has no external send or storage effect. The existing first
+engine's exclusive host record/STOP slot and exact intent revision/CAS remain
+the at-most-one-first-send boundary, including lost ACKs and failed fences.
+
+Once an actual engine prepares its host record, prepared, interrupted, unknown or
+acknowledged state never mints a replacement capability. A true persisted flag
+supplies no replay authority, including when a host record is absent. The existing explicit legacy library
+replay_registration helper keeps its original behavior and diagnostics; this
+new lifecycle path never calls it, and its existence clears no held intent.
+Ordinary None defaults omit the new imports/delegate keyword and preserve the
+existing validation, diagnostic and request order. Public enable is unchanged;
+its private already-owned path only threads a supplied capability.
+
+The private successful-fence digest proves CAS/readback before send, not that
+the original call returned an ACK. There is no publication API in this increment.
+A later publication sequence must require the same original live object and an
+ACK-success marker set only after the original engine's validated ACK and final
+store succeed. Reading any later ACKed record, including explicit legacy recovery,
+cannot synthesize that marker or publication authority. Owner-before-start timing,
+publication fencing, create/start, recovery and platform acceptance stay separate.
+
+## Original ACK success is live-only
+
+An optional registration capability now opens one sealed scope around the existing
+first send, ACK validation and final host-record save. Only that original engine
+stages authenticated readback of the exact acknowledged record and admission.
+Normal scope exit commits private immutable hashes; failures or interruptions,
+including those after staging or after a committed final write, leave no success
+marker. Exceptional scope exit performs no I/O and never replaces the original
+exception. A retained acknowledged record or explicit legacy replay cannot supply
+this original-call marker. Staging is one-use and rechecks the live operation,
+thread, exact client/observer pins, fenced intent digest and prepared-record binding.
+
+The marker remains private and has no publication, launcher, observation-proof or
+execution authority. ACK hashes are not yet written into intent observations.
+Ordinary None defaults import/call no lifecycle code and preserve the existing
+request and diagnostic order. Publication fencing, create/start orchestration,
+recovery and fresh Linux/Desktop qualification remain open requirements.
+
+TLS CA pins (HostClient.ca_sha256) and signing-anchor bytes (public_trust) are
+distinct. Future publication must bind the reviewed canonical signing anchors and
+literal destination; it must not substitute the CA hash. No field is reinterpreted
+or schema migrated in this ACK-only increment.
+
+
+## Schema/3 and original publication sequence
+
+The current `vardr.worker-lifecycle-intent/3` uses a distinct `/3` MAC domain and
+requires immutable `resources.signing_trust_sha256`: SHA-256 of the reviewed
+canonical signing-anchor bytes returned by the existing `public_trust` validator.
+The mounted-trust metadata and HostClient's TLS CA pin remain separate; neither
+can substitute for these signing bytes. This field closes a demonstrated binding
+gap before a future wrapper publishes permission. Old intent/1 and intent/2 files
+are held before custody-key access, never migrated, overwritten or adopted.
+
+One noncopyable live sequence can be claimed from the original registration
+capability only after its original ACK/save scope completed. Claiming burns that
+choice before validation or I/O. Exact original ACK hashes, intent digest, records,
+operation/thread and client/observer pins are rechecked. Literal destination paths
+and immutable trust/admission bytes are bound; retained ACK files and persisted
+flags cannot reconstruct this authority.
+
+The already-owned enable path preserves its fresh capture and mount-custody
+checks and uses the existing atomic public writer. Its fixed optional sealed-type
+hook runs immediately before that writer's first temporary-file open. Before the
+first public effect it CAS-publishes and authenticates readback of the original
+ACK hashes and sticky publication-may-have-happened flag. Trust must finish its
+existing write/publication/sync path before admission can be attempted. An existing
+trust file may instead pass the existing validator with identical canonical bytes;
+it is never overwritten. Admission then requires that same live successful
+sequence and exact post-fence intent. No callback or second writer is introduced.
+
+A malformed reserved step, failed CAS/readback, partial write, failed publication,
+sync/cleanup failure or interruption cannot mint a replacement or retry. The
+writer now checks its write count before publishing, including ordinary calls.
+Already visible files and uncertain flags stay held. Only successful completion
+of both existing publication paths permits the final enabled-disposition CAS.
+An unknown final save remains a held operation even if permission is visible.
+Scope exit performs no I/O and does not mask the original exception.
+
+None defaults omit all new lifecycle imports/keywords/hooks. Ordinary CLI behavior,
+registration engines, diagnostic order and startup remain unchanged. These are
+trusted-host sequencing controls, not anti-rollback storage, remote attestation,
+protection from a concurrent privileged filesystem writer, or a power-loss
+durability guarantee. Model receipts are not platform containment evidence.
+
+Owner authentication before startup, actual create/start orchestration and source/
+resource inventories, abandoned preparation and ambiguous recovery, a matched
+immutable image and fresh same-installation Linux/Desktop acceptance remain open.
+No requirement is moved to NM-3, and no release or deployment is authorized.
+
+
+## Existing authenticated session before startup
+
+The future launcher can authenticate the existing local session before any
+create/start effect, while retaining the same installation operation and pinned
+client. This is the existing login and session readback; there is no new API,
+login implementation or credential source. Map's enrollment ownership, origin,
+key and revocation checks still run in its existing registration transaction.
+Local session authentication alone grants neither an enrollment nor work authority.
+
+One private noncopyable scope binds the exact records, operation/thread, client,
+public TLS pin, in-memory route/TLS context and live session. Only the fenced already-owned enable path
+may borrow it. Borrow transfers the original context's logout into the existing
+registration scope once, so the owner session closes before any publication.
+Early failure closes an unused scope once. The original transport is rechecked
+before credentials are sent, including logout; drift refuses the request and
+clears the local session fields. Logout interruption also clears those fields;
+the original error remains observable and publication is held.
+The existing login references to the passphrase are dropped before yielding.
+Ordinary enable retains its input, login, registration, logout and publication
+order; protocol parsing is reused for future pre-start preparation.
+
+No Docker action or supported create/start command is added by this increment.
+Real same-installation lifecycle, ambiguity/recovery and platform acceptance
+remain required on Linux and Windows Docker Desktop.
+
+
+## Mount custody before startup
+
+The existing `HostRecords.outside_mounts` engine can now check a direct live
+`ObservedCreated` as well as its original running-incarnation identity. Its
+managed-volume producer uses one fixed typed dispatcher: Created requires the
+same selected daemon and exact layout, and re-observes that actual Created CID
+and profile before and after the same default-local volume/root checks. Running
+calls keep their original observations and request order. No second custody
+engine, callback, caller flag or JSON-to-proof conversion is added.
+
+This permits a future launcher to prove host records and custody files remain
+outside the new mounts before a PID1 can start. A Created observation still
+proves neither an unsent start nor permission to start. Durable effect fences,
+complete predecessor/resource checks and actual post-start network identity
+remain separate requirements. No launcher or platform acceptance is claimed.
+
+
+## Exact network pin during running observations
+
+The direct observer accepts an optional closed `(network_name, full_network_id)`
+pin. When supplied, every existing bound-incarnation read also checks a separate
+value-limited Docker projection: the full CID, exact network mode and exactly one
+attachment with that name and ID. Missing, empty, foreign, extra, malformed or
+duplicate fields refuse with a fixed diagnostic. Capture and the registration
+engine already repeat bound reads; they reuse this check without a second engine.
+
+The private lifecycle registration capability binds the optional pin and checks
+it against its immutable intent network. Changing or dropping it invalidates
+that capability. Ordinary observers without this pin keep their original calls.
+This optional API is groundwork: a future lifecycle caller must supply the pin
+from its independent resource observation. It grants no start or claim authority.
+
+Created observations retain their narrower meaning. Docker Desktop 29.9.2 with
+Compose 5.6.1 was separately observed to leave the configured attachment's ID
+empty before start, including for the real managed profile. A Created slot is
+not a running network identity and cannot satisfy this check. Linux physical
+shape qualification, the supported facade and both-platform lifecycle acceptance
+remain open. No container execution or acceptance credit is added here.
+
+
+## Independent observation of the existing runner network
+
+The same local observer can read one literal named runner network from the
+selected daemon. It requires the project's default local bridge, its full ID and
+its closed public IPAM projection. Engine 29.9.2 reports the default IPv4-on,
+IPv6-off option pair as two literal strings. Keep that exact pair in comparisons;
+older empty forms also qualify. Other options or changed values refuse. The
+observer reads the network by name and then by full
+ID, with the exact context endpoint and daemon ID observed on both sides. Only
+the checked IPAM digest is returned; attached containers, arbitrary labels and
+resolved environment values are excluded. Changing the selected daemon, endpoint
+or network metadata refuses without repair or retry.
+
+This supplies the future launcher with an independent network resource selection.
+It does not prove a container is attached. The actual running-incarnation check
+still requires that exact name and ID before registration. The result is observed
+metadata for the same live controller, not an attestation, permission or a way to
+adopt resources after uncertain effects. Ordinary daemon reads retain their
+request order. No worker is started and no lifecycle acceptance is claimed.
+
+
+## Independent volume metadata before worker creation
+
+The existing managed volume reader can also inspect either existing state or
+readiness metadata, selected by the exact layout and logical role. Reuse its
+default-local source, owner and daemon-root checks without inventing mount
+observations. Compare name, creation timestamp, source and the closed label
+projection twice, with the same daemon, endpoint and root on both sides. The
+new readiness intent label is `io.vardrsec.managed-worker-intent`.
+
+An absent label is distinct from an explicitly empty value. Retained Compose
+volumes may carry the original config hash; a future controller still requires
+an absent config hash and its own intent marker on the fresh readiness volume.
+The reader cannot prove volume content, an actual mount, fresh creation or an
+unsent operation. It never reads volume files or creates resources. Existing
+running and Created mount custody keep the same command projection and order.
+
+
+## Independent container inventory
+
+Before proposing a worker-only create, the controller needs a complete local
+project/service list independent of Compose's configuration-hash selection.
+The direct observer reads all same-project containers, including stopped rows,
+and checks the literal project, service, oneoff and managed-worker labels. It
+joins one exact `api`, `db`, `proxy` and `web` CID to a positive running/healthy
+inspection with immutable image and start time. Recheck both views on the same
+context endpoint and daemon. Missing, duplicate, changing or unhealthy core
+rows fail closed. Metadata excludes command environment and arbitrary labels.
+
+The returned worker IDs are the all-state Docker list, not Compose's separate
+visible set or proof of retirement. The future launcher must compare the two
+sets, validate each predecessor and protect the selected state volume against
+unexpected users. An empty local list is not a first-installation proof. This
+reader has no mutation, job or startup authority.
+
+
+## Original local audit and retirement join
+
+For a retained persistent predecessor, join only a successful closed
+`worker-state-audit/1` document to the acknowledged host registration and exact
+retirement receipt, also present in a fresh authenticated Map observation.
+Reuse the existing persistent admission, retirement and lookup validators. The
+local binding, sequence, complete audit and zero global holds must agree. A
+retired local audit must anchor the exact receipt. A truly empty unissued
+parent may be accounted for separately only when Map also retired it at
+sequence zero with no issued attempt. This branch uses no fake local retirement
+or RunRecord. A reconciled preclaim parent at zero remains locally retired.
+
+The join is descriptive and performs no I/O. The caller must independently
+retain original direct `worker-state` output, exact protected record, fresh
+authenticated Map observation and actual exit. A serialized match is no start,
+recovery or execution authority. This is for known predecessors; it does not
+authorize the first worker from an empty inventory.
+
+
+## Complete protected inventory
+
+Inside the exact live installation operation, enumerate the whole dedicated
+host directory before reading any record keys. Accept only original record,
+intent and persistent report names, regular unlinked bounded files, and reports
+with an original host record. Reuse their existing MAC readers. Preserve every
+intent disposition and report state for the caller; any unknown file, orphan,
+MAC failure, ambiguous future ID or changing inventory refuses. For an enabled
+intent, the retained host record must still have its exact immutable
+registration, admission and running identity. Its mutable stop/retirement
+fields may have advanced since the original acknowledgement.
+
+This closed snapshot supports preflight without opening secret data for unknown
+files. It does not prove no history from an empty directory, physical exit or
+Map/local retirement. Pending, held and abandoned resources cannot be skipped
+by a future successor; they need their own recovery or preservation decision.
+The reader makes no writes or external request and grants no execution authority.
+
+## Independent Compose visibility
+
+Run the reviewed Compose executable directly. Docker's plugin discovery runs
+plugin metadata commands and therefore cannot verify an executable before it
+runs. The pinned Compose standalone entry point accepts the same named
+context. The observer checks both executable hashes, the Compose version,
+the unchanged worker-only model, the closed external network/state override,
+and the explicitly empty dotenv file. Its only Compose project command is
+`ps --all --no-trunc --quiet managed-worker`. Interpolation uses a synthetic
+value and never forwards the operator's key, an environment file containing
+credentials, or inherited Docker/Compose overrides.
+
+The before and after context reads must report the exact selected local
+endpoint. The future caller must surround this view with independent live
+Engine inventory and daemon/resource checks under the same host operation.
+This adapter does not create the planned public directory, attach a network,
+or start a worker. An empty Compose view does not prove initial eligibility.
+
+Sources: [Docker CLI plugin discovery](https://github.com/docker/cli/blob/v29.9.2/cli/command/system/info.go#L78-L97)
+and [pinned Compose standalone flag handling](https://github.com/docker/compose/blob/6cbc19a3fd59e305fb814dca4d854a4fb67d2941/cmd/compatibility/convert.go#L41-L102).
+
+## Initial state evidence
+
+An initialized installation can qualify for an ordinal-one plan only with
+the selected Runner's complete offline `worker-bootstrap-state` audit,
+no previous managed worker history, no global holds, and an authenticated
+empty host catalog. The host decoder refuses missing or nonzero exits,
+ambiguous JSON, a wrong UUID, and type coercion. The join runs under the
+same live host operation and returns a public audit digest. It does not
+create an intent, initialize state, or authorize a start. The caller still
+needs the exact image and state-volume identity, independent Engine and
+Compose lists, and unchanged installation resources.
+
+For a clean installation, the existing manual Runner setup path
+(`python vardrsec.py runner init --non-interactive --no-install-tools` with
+the enrolled credential configured) is a candidate to establish the journal
+in the original Full installation volume before this inspection. Qualify
+that path in the actual installed cohort; a missing journal stays held.
+Do not substitute an empty container list or create a replacement volume.
+
+The readiness volume inventory independently lists all project-labelled
+volumes and inspects a closed metadata projection. A logical worker-ready
+role, readiness marker, or lifecycle intent marker must all pass the same
+existing readiness-volume checks. No container attachment or Compose config
+hash is required to find a retained volume. The observer rechecks the full
+project list, exact readiness metadata, root and local daemon, and never
+mounts, creates or removes a volume. The caller still compares the retained
+set with the protected intent history and checks the exact proposed new name.
+
+## Explicit launch
+
+The development `worker launch` command obtains the read-only observations
+under one installation operation. The first intent uses schema 4, its own
+MAC domain and an immutable audit digest for the selected Runner. Schema 3
+continues to require at least one retired predecessor. A new first intent
+rechecks the empty protected catalog before allocating its custody key.
+
+The command persists uncertainty before creating the public directory,
+readiness volume and exact worker replica. It checks the Engine and Compose
+delta, original resources, direct Created profile and private mount custody
+before fencing and starting the one full CID. Only the directly observed
+running incarnation proceeds through the original registration and
+publication code. Subsequent launches recheck the original stopped
+containers against their protected exit reports, Map retirement receipts and
+offline Runner audits. The launcher does not retry an ambiguous effect.

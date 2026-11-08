@@ -1,0 +1,62 @@
+{
+  "schema": "vardr.nm2-held-public-observation/1",
+  "status": "held_not_accepted",
+  "date": "2026-11-06",
+  "run_url": "https://github.com/VardrSec/VardrSec/actions/runs/42273172251",
+  "run_id": 42273172251,
+  "attempt": 1,
+  "source_commit": "9bc09e8e96d1697563dce63741973da9a3a3c07c",
+  "sources": {
+    "distribution": "9bc09e8e96d1697563dce63741973da9a3a3c07c",
+    "map": "52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c",
+    "runner": "e8cdec333af0ed721504f3857369a76c8a8a4e06",
+    "gate": "d80d4730b8486b75be72431b5af88e0ddb45020b"
+  },
+  "source_trees": {
+    "distribution": "d6678310c1a3a093a6235fe8fcd7ea064d29214e",
+    "map": "5044da878545f7cd4571119137d1466e15e81114",
+    "runner": "bcb80051bc2a89ebac8385c70862af669b75dba1",
+    "gate": "0b418f815c164e6d23826e53c2f4850faaff0f35"
+  },
+  "public_artifact_id": 13532302749,
+  "public_artifact_name": "nm2-coupled-public-receipt",
+  "public_zip_sha256": "55abbe10875b43a398f8372438c6b6bcc352d8b462d75e19b75fb022ec6ef1ba",
+  "public_receipt_sha256": "1b717c59bc90982f79b34d6f24eae98d1e16bdd47fe9a3cf1571ecef41432fd6",
+  "observed_status": "held",
+  "observed_stage": "harness",
+  "harness_failure": {
+    "stage": "operator_worker_enable",
+    "reason": "fixture_command_failed",
+    "command_failure": {
+      "failure_code": "host_refused",
+      "failure_phase": "enable_registration",
+      "registration_failure": {
+        "checkpoint": "mount_custody",
+        "http_status": null,
+        "request_stage": null
+      }
+    }
+  },
+  "compatibility_jobs": {
+    "ubuntu": "passed",
+    "windows": "passed"
+  },
+  "actual_mount_subpredicate": "unobserved",
+  "permission_or_layout_cause": "unproven",
+  "completed_job_measurements": "not_exported",
+  "availability_or_35_job_credit": false,
+  "remaining_required_cases": {
+    "strict_other_denials": "not_run",
+    "missing_local_grant": "not_run",
+    "local_emergency_stop": "not_run",
+    "engagement_stop_work": "not_run",
+    "target_grant_expiry_revocation": "not_run",
+    "budget_exhaustion": "not_run",
+    "map_disconnect": "not_run",
+    "worker_crash_stop": "not_run",
+    "lost_claim_consume_bind_reply": "not_run",
+    "restart_duplicate_claim": "not_run",
+    "lost_terminal_reply": "not_run"
+  },
+  "scope": "Retained public failure only. Future fixed diagnostics and unit checks do not identify the old VM failure or establish platform acceptance. No VM logs recovered and no rerun authorized by this record."
+}

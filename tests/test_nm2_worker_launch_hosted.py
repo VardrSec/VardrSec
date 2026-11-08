@@ -1,0 +1,666 @@
+"""Check only the exact opt-in and sanitized installed launch receipt."""
+
+import copy
+import hashlib
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import unittest
+from unittest.mock import Mock, call, patch
+
+import nm2_worker_hosted as hosted
+from nm2_worker_acceptance import AcceptanceRefused, ORIGIN
+from nm2_worker_launch_acceptance import LaunchFixture, active_expiry_elapsed_ns, stop_exit_elapsed_ns
+
+
+class HostedLaunchTests(unittest.TestCase):
+    def test_completed_fixture_joins_summary_with_separate_retired_audit(self):
+        fixture = LaunchFixture.__new__(LaunchFixture)
+        fixture.receipt = {}
+        fixture.traffic = Mock(return_value=[{}] * 5)
+        fixture.inventory = Mock(return_value={})
+        fixture.verify_fixed = Mock(return_value=({}, {"evidence_sha256": "e" * 64}))
+        admission = {
+            "runner_id": "63ba16a0-37c6-4c96-a111-80ad0965ae71",
+            "runtime_id": "a5b305a7-b64c-4472-a44e-a4660f49e0c9",
+            "runtime_sha256": "a" * 64,
+            "admission_sha256": "b" * 64,
+        }
+        retirement = {"receipt_sha256": "c" * 64}
+        fixture.helper = Mock(
+            return_value=json.dumps(
+                {
+                    "schema": "vardr.worker-reconciliation/1",
+                    "status": "reconciled",
+                    "complete": True,
+                    "binding": admission,
+                    "remaining_local_holds": 0,
+                    "retirement_receipt_sha256": "c" * 64,
+                }
+            )
+        )
+        audit = {
+            "schema": "vardr.worker-state-audit/1",
+            "status": "retired",
+            "complete": True,
+            "binding": admission,
+            "global_holds": 0,
+            "retirement_receipt_sha256": "c" * 64,
+            "counts": {"attempts": 1},
+        }
+        fixture.worker_state = Mock(return_value=audit)
+        case = ("engagement", "job", {}, {})
+        fixture.completed_reconciliation({}, admission, retirement, case)
+        fixture.worker_state.assert_called_once_with(admission)
+        self.assertEqual(
+            fixture.receipt["completed_job"]["retirement_sha256"],
+            retirement["receipt_sha256"],
+        )
+        audit["retirement_receipt_sha256"] = "f" * 64
+        with self.assertRaisesRegex(
+            AcceptanceRefused, "launch_completed_audit_not_observed"
+        ):
+            fixture.completed_reconciliation({}, admission, retirement, case)
+
+    def test_launch_requires_the_persistent_map_revision(self):
+        selected = {"NM2_SCENARIO": hosted.LAUNCH_SCENARIO}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(selected)
+        selected["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        self.assertEqual(
+            hosted.execution_options(selected),
+            (hosted.LAUNCH_SCENARIO, "0041persistentruntime"),
+        )
+        selected["NM2_SCENARIO"] = hosted.LAUNCH_COMPLETED_SCENARIO
+        self.assertEqual(
+            hosted.execution_options(selected),
+            (hosted.LAUNCH_COMPLETED_SCENARIO, "0041persistentruntime"),
+        )
+
+    def test_stop_work_requires_explicit_persistent_revision(self):
+        selection = {"NM2_SCENARIO": hosted.LAUNCH_STOP_WORK_SCENARIO}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(selection)
+        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        self.assertEqual(
+            hosted.execution_options(selection),
+            (hosted.LAUNCH_STOP_WORK_SCENARIO, "0041persistentruntime"),
+        )
+
+    def test_local_stop_requires_explicit_persistent_revision(self):
+        selection = {"NM2_SCENARIO": hosted.LAUNCH_LOCAL_STOP_SCENARIO}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(selection)
+        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        self.assertEqual(
+            hosted.execution_options(selection),
+            (hosted.LAUNCH_LOCAL_STOP_SCENARIO, "0041persistentruntime"),
+        )
+
+    def test_missing_grant_requires_explicit_persistent_revision(self):
+        selection = {"NM2_SCENARIO": hosted.LAUNCH_MISSING_GRANT_SCENARIO}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(selection)
+        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        self.assertEqual(
+            hosted.execution_options(selection),
+            (hosted.LAUNCH_MISSING_GRANT_SCENARIO, "0041persistentruntime"),
+        )
+
+    def test_active_grant_revocation_requires_explicit_persistent_revision(self):
+        selection = {"NM2_SCENARIO": hosted.LAUNCH_GRANT_REVOKE_SCENARIO}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(selection)
+        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        self.assertEqual(
+            hosted.execution_options(selection),
+            (hosted.LAUNCH_GRANT_REVOKE_SCENARIO, "0041persistentruntime"),
+        )
+
+    def test_expiry_requires_same_local_grants_and_still_usable_peer(self):
+        fixture = LaunchFixture.__new__(LaunchFixture)
+        fixture.receipt = {}
+        fixture.issuer_origin = "https://map.example.test"
+        fixture.approve_local_grant = Mock()
+        grants = [
+            {
+                "issuer": fixture.issuer_origin, "engagement_id": "engagement", "origin": ORIGIN,
+                "source": "env", "name": f"FIXTURE_{identity}_TOKEN", "status": "active",
+            }
+            for identity in ("OWNER", "PEER")
+        ]
+        before = {"grants": grants, "policy_reason": "granted"}
+        expired = {**before, "policy_reason": "grant_expired_or_revoked"}
+        fixture.grant_snapshot = Mock(side_effect=(before, expired, before))
+        self.assertEqual(fixture.prepare_expired_grant("engagement"), expired)
+        self.assertEqual(fixture.approve_local_grant.call_args_list, [
+            call("engagement", "peer", 600), call("engagement", "owner", 10),
+        ])
+        fixture.grant_snapshot.assert_called_with("engagement", peer_only=True)
+        self.assertRegex(fixture.grant_expiry_sha256, "^[0-9a-f]{64}$")
+        revoked = {**expired, "grants": [{**grants[0], "status": "revoked"}, grants[1]]}
+        for snapshots in ((before, revoked, before), (before, expired, expired)):
+            with self.subTest(snapshots=snapshots), self.assertRaisesRegex(
+                AcceptanceRefused, "launch_expired_grant_not_proven",
+            ):
+                fixture.grant_snapshot = Mock(side_effect=snapshots)
+                fixture.prepare_expired_grant("engagement")
+
+    def test_stop_work_uses_the_engine_exit_event_and_rejects_clock_disagreement(self):
+        from calendar import timegm
+
+        start = timegm((2026, 11, 7, 1, 0, 0)) * 1_000_000_000
+        request = {"received_utc_ns": start, "received_monotonic_ns": 2_000_000_000}
+        after = {"observed_utc_ns": start + 21_000_000_000,
+                 "observed_monotonic_ns": 23_000_000_000}
+        self.assertEqual(
+            stop_exit_elapsed_ns(request, after, "2026-11-07T01:00:09.000000001Z"),
+            9_000_000_001,
+        )
+        for sample, exit_at in (
+            (after, "2026-11-07T01:00:15Z"),
+            ({**after, "observed_monotonic_ns": 21_000_000_000}, "2026-11-07T01:00:09Z"),
+        ):
+            with self.subTest(exit_at=exit_at), self.assertRaisesRegex(
+                AcceptanceRefused, "launch_stop_work_exit_not_observed"
+            ):
+                stop_exit_elapsed_ns(request, sample, exit_at)
+
+    def test_active_grant_expiry_requires_consistent_pre_expiry_and_exit_timing(self):
+        second = 1_000_000_000
+        start = 1_800_000_000 * second
+        request = {"received_utc_ns": start, "received_monotonic_ns": 2 * second}
+
+        def observed(elapsed, *, skew=0):
+            return {
+                "observed_utc_ns": start + elapsed,
+                "observed_monotonic_ns": request["received_monotonic_ns"] + elapsed + skew,
+            }
+
+        for grant, sample, physical in (
+            (12 * second, observed(11 * second), 12 * second),
+            (12 * second, observed(11 * second, skew=49_999_999), 14_500_000_000),
+            (14 * second, observed(13 * second), 14 * second),
+        ):
+            with self.subTest(grant=grant, sample=sample, physical=physical):
+                self.assertEqual(
+                    active_expiry_elapsed_ns(request, sample, start + grant, physical, "observed_exit"),
+                    grant,
+                )
+
+        for grant, sample, physical in (
+            (12 * second, observed(-1), 12 * second),
+            (12 * second, observed(11 * second + 1), 12 * second),
+            (12 * second, observed(11 * second, skew=50_000_000), 12 * second),
+            (14 * second + 1, observed(13 * second), 14 * second + 1),
+            (12 * second, observed(11 * second), 12 * second - 1),
+            (12 * second, observed(11 * second), 14_500_000_001),
+        ):
+            with (
+                self.subTest(grant=grant, sample=sample, physical=physical),
+                self.assertRaisesRegex(AcceptanceRefused, "launch_active_grant_expiry_timing"),
+            ):
+                active_expiry_elapsed_ns(request, sample, start + grant, physical, "observed_exit")
+
+        self.assertEqual(
+            active_expiry_elapsed_ns(
+                request, observed(10 * second), start + 12 * second, 11 * second, "tool_timeout"
+            ),
+            12 * second,
+        )
+        with self.assertRaisesRegex(AcceptanceRefused, "launch_active_grant_expiry_timing"):
+            active_expiry_elapsed_ns(
+                request, observed(10 * second), start + 12 * second, 11 * second - 1, "tool_timeout"
+            )
+
+    def test_stop_work_failure_reports_fixed_partial_evidence_diagnostics(self):
+        selection = {"project": "fixture", "sources": {}, "images": {}}
+        raw = {
+            **selection,
+            "schema": hosted.LAUNCH_SCHEMA,
+            "scenario": hosted.LAUNCH_STOP_WORK_SCENARIO,
+            "expected_database_revision": "0041persistentruntime",
+            "status": "held",
+            "platform": "linux",
+            "stage": "launch_stop_work_partial_evidence",
+            "reason": "cancelled_partial_receipt_mismatch",
+        }
+        self.assertEqual(hosted.failure_projection(raw, selection), {
+            "stage": "launch_stop_work_partial_evidence",
+            "reason": "cancelled_partial_receipt_mismatch",
+        })
+        raw["reason"] = "discard raw exception detail"
+        self.assertEqual(
+            hosted.failure_projection(raw, selection)["reason"], "unclassified_refusal"
+        )
+
+    def test_stopped_engagement_peer_remains_unclaimed_and_uncharged(self):
+        fixture = LaunchFixture.__new__(LaunchFixture)
+        approval = {"id": "approval", "issued": 0, "revoked": False}
+        inventory = {
+            "job_status": "pending", "execution": None, "contracts": [], "runtimes": [],
+            "results": [], "stops": [],
+            "targets_spent": 1, "duration_allocated": 30, "approvals": [approval],
+        }
+        fixture.inventory = Mock(return_value=inventory)
+        peer = ("engagement", "queued-job")
+        self.assertEqual(fixture.verify_unclaimed_peer(peer, targets=1, duration=30), approval)
+        for changed in (
+            {"execution": {"capacity_reserved": True}},
+            {"targets_spent": 2},
+            {"approvals": [{**approval, "issued": 1}]},
+        ):
+            fixture.inventory.return_value = {**inventory, **changed}
+            with self.subTest(changed=changed), self.assertRaisesRegex(
+                AcceptanceRefused, "launch_stop_work_queued_job_changed"
+            ):
+                fixture.verify_unclaimed_peer(peer, targets=1, duration=30)
+
+    def test_launch_receipt_checks_the_preserved_predecessor_and_only_projects_closed_fields(
+        self,
+    ):
+        selection = {"project": "fixture", "sources": {}, "images": {}}
+        first = {
+            "ordinal": 1,
+            "runtime_id": "63ba16a0-37c6-4c96-a111-80ad0965ae71",
+            "container_id": "1" * 64,
+            "started_at": "2026-11-07T01:00:00Z",
+            "finished_at": "2026-11-07T01:00:01Z",
+            "intent_sha256": "a" * 64,
+            "retirement_sha256": "b" * 64,
+            "predecessor_cids": [],
+            "bootstrap_audit_sha256": "c" * 64,
+            "runner_state_sha256": "d" * 64,
+        }
+        second = {
+            **first,
+            "ordinal": 2,
+            "runtime_id": "a5b305a7-b64c-4472-a44e-a4660f49e0c9",
+            "container_id": "2" * 64,
+            "started_at": "2026-11-07T01:00:02Z",
+            "finished_at": "2026-11-07T01:00:03Z",
+            "predecessor_cids": [first["container_id"]],
+            "bootstrap_audit_sha256": None,
+        }
+        raw = {
+            **selection,
+            "schema": hosted.LAUNCH_SCHEMA,
+            "scenario": hosted.LAUNCH_SCENARIO,
+            "expected_database_revision": "0041persistentruntime",
+            "acceptance_scope": "first_and_next_empty_launch",
+            "status": "selected_launch_slice_passed",
+            "stage": "selected_launch_complete",
+            "retained": True,
+            "platform": "linux",
+            "nm2_exit_status": "incomplete",
+            "launch_pair": [first, second],
+            "private": "discard this",
+        }
+        self.assertEqual(
+            hosted.public_projection(raw, selection),
+            {
+                "launch_pair": [first, second],
+                "nm2_exit_status": "incomplete",
+                "resources_retained": True,
+            },
+        )
+        for changed in (
+            {"predecessor_cids": []},
+            {"runner_state_sha256": "a" * 64},
+            {"started_at": first["started_at"]},
+            {"credential": "discard this"},
+        ):
+            bad = copy.deepcopy(raw)
+            bad["launch_pair"][1].update(changed)
+            with self.subTest(changed=changed), self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection(bad, selection)
+        completed = {
+            **raw,
+            "scenario": hosted.LAUNCH_COMPLETED_SCENARIO,
+            "acceptance_scope": "completed_then_next_launch",
+            "completed_job": {
+                "job_id": "ddd8e594-dfcb-4ca2-83f8-abfda598e1a7",
+                "retirement_sha256": first["retirement_sha256"],
+                "audit_sha256": "e" * 64,
+                "target_requests": 5,
+                "fixed_evidence_sha256": "f" * 64,
+            },
+        }
+        self.assertEqual(
+            hosted.public_projection(completed, selection)["completed_job"],
+            completed["completed_job"],
+        )
+        completed["completed_job"]["retirement_sha256"] = "0" * 64
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(completed, selection)
+        stopped = {
+            **raw,
+            "scenario": hosted.LAUNCH_STOP_WORK_SCENARIO,
+            "acceptance_scope": "stop_work_then_next_launch",
+            "cancelled_job": {
+                "job_id": "ddd8e594-dfcb-4ca2-83f8-abfda598e1a7",
+                "retirement_sha256": first["retirement_sha256"],
+                "audit_sha256": "e" * 64,
+                "target_requests": 3,
+                "terminal_sha256": "f" * 64,
+                "terminal_cause": "observed_exit",
+                "cancel_requested_sha256": "9" * 64,
+                "physical_exit_elapsed_ns": 2_000_000_000,
+            },
+        }
+        self.assertEqual(
+            hosted.public_projection(stopped, selection)["cancelled_job"],
+            stopped["cancelled_job"],
+        )
+        for changed in (
+            {"retirement_sha256": "0" * 64},
+            {"target_requests": 4},
+            {"physical_exit_elapsed_ns": 15_000_000_000},
+            {"terminal_cause": "tool_timeout"},
+            {"credential": "discard this"},
+        ):
+            bad = copy.deepcopy(stopped)
+            bad["cancelled_job"].update(changed)
+            with self.subTest(changed=changed), self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection(bad, selection)
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection({**raw, "cancelled_job": stopped["cancelled_job"]}, selection)
+        queued = {
+            **stopped,
+            "scenario": hosted.LAUNCH_STOP_WORK_QUEUED_SCENARIO,
+            "acceptance_scope": "stop_work_excludes_queued_job",
+            "unclaimed_job": {
+                "job_id": "8fa9c83b-3e1a-491f-ac2d-c40081c34a44",
+                "approval_inventory_sha256": "b" * 64,
+            },
+        }
+        self.assertEqual(
+            hosted.public_projection(queued, selection)["unclaimed_job"], queued["unclaimed_job"]
+        )
+        queued["unclaimed_job"]["job_id"] = queued["cancelled_job"]["job_id"]
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(queued, selection)
+        local_proof = {
+            key: value for key, value in stopped["cancelled_job"].items()
+            if key != "cancel_requested_sha256"
+        }
+        local_proof.update(local_stop_sha256="a" * 64, terminal_cause="local_emergency_stop")
+        local = {
+            **stopped, "scenario": hosted.LAUNCH_LOCAL_STOP_SCENARIO,
+            "acceptance_scope": "local_stop_then_next_launch", "cancelled_job": local_proof,
+        }
+        self.assertEqual(
+            hosted.public_projection(local, selection)["cancelled_job"], local_proof
+        )
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection({**stopped, "cancelled_job": local_proof}, selection)
+        unissued = {
+            **raw, "scenario": hosted.LAUNCH_MISSING_GRANT_SCENARIO,
+            "acceptance_scope": "missing_grant_then_next_launch",
+            "unissued_job": {
+                "job_id": "ddd8e594-dfcb-4ca2-83f8-abfda598e1a7",
+                "retirement_sha256": first["retirement_sha256"],
+                "audit_sha256": "e" * 64, "unissued_discoveries": 1,
+            },
+        }
+        self.assertEqual(
+            hosted.public_projection(unissued, selection)["unissued_job"],
+            unissued["unissued_job"],
+        )
+        expired = {
+            **unissued, "scenario": hosted.LAUNCH_EXPIRED_GRANT_SCENARIO,
+            "acceptance_scope": "expired_grant_then_next_launch",
+        }
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(expired, selection)
+        expired["unissued_job"] = {**unissued["unissued_job"], "grant_expiry_sha256": "f" * 64}
+        self.assertEqual(
+            hosted.public_projection(expired, selection)["unissued_job"],
+            expired["unissued_job"],
+        )
+        unissued["unissued_job"]["unissued_discoveries"] = 0
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(unissued, selection)
+        grant_proof = {
+            key: value for key, value in stopped["cancelled_job"].items()
+            if key != "cancel_requested_sha256"
+        }
+        grant_proof.update(grant_revocation_sha256="a" * 64, terminal_cause="local_emergency_stop")
+        revoked = {
+            **stopped, "scenario": hosted.LAUNCH_GRANT_REVOKE_SCENARIO,
+            "acceptance_scope": "grant_revocation_then_next_launch", "cancelled_job": grant_proof,
+        }
+        self.assertEqual(hosted.public_projection(revoked, selection)["cancelled_job"], grant_proof)
+        for other_cause in ("remote_stop_requested", "control_lease_expired", "observed_exit"):
+            with self.subTest(other_cause=other_cause), self.assertRaises(hosted.HostedRefused):
+                grant_proof["terminal_cause"] = other_cause
+                hosted.public_projection(revoked, selection)
+
+        expiry_proof = {
+            key: value for key, value in stopped["cancelled_job"].items()
+            if key != "cancel_requested_sha256"
+        }
+        expiry_proof.update(
+            grant_expiry_sha256="a" * 64,
+            grant_expiry_elapsed_ns=12_000_000_000,
+            physical_exit_elapsed_ns=14_500_000_000,
+        )
+        active_expiry = {
+            **stopped, "scenario": hosted.LAUNCH_ACTIVE_GRANT_EXPIRY_SCENARIO,
+            "acceptance_scope": "active_grant_expiry_then_next_launch",
+            "launch_pair": [
+                {**first, "finished_at": "2026-11-07T01:00:20Z"},
+                {**second, "started_at": "2026-11-07T01:00:21Z", "finished_at": "2026-11-07T01:00:22Z"},
+            ],
+        }
+        for cause in (
+            "authorization_deadline", "control_lease_expired",
+            "local_emergency_stop", "observed_exit", "tool_timeout",
+        ):
+            proof = {**expiry_proof, "terminal_cause": cause}
+            active_expiry["cancelled_job"] = proof
+            with self.subTest(cause=cause):
+                self.assertEqual(
+                    hosted.public_projection(active_expiry, selection)["cancelled_job"], proof
+                )
+
+        early = {**expiry_proof, "terminal_cause": "tool_timeout", "physical_exit_elapsed_ns": 11_000_000_000}
+        active_expiry["cancelled_job"] = early
+        self.assertEqual(hosted.public_projection(active_expiry, selection)["cancelled_job"], early)
+
+        for changed in (
+            {"physical_exit_elapsed_ns": 11_999_999_999},
+            {"physical_exit_elapsed_ns": 10_999_999_999, "terminal_cause": "tool_timeout"},
+            {"physical_exit_elapsed_ns": 14_500_000_001},
+            {"grant_expiry_elapsed_ns": 14_000_000_001, "physical_exit_elapsed_ns": 14_000_000_001},
+            {"grant_expiry_elapsed_ns": 14_000_000_000, "physical_exit_elapsed_ns": 15_000_000_000},
+            {"grant_expiry_elapsed_ns": 12_000_000_000.0},
+            {"terminal_cause": "remote_stop_requested"},
+            {"grant_expiry_sha256": "invalid"},
+        ):
+            bad = {**active_expiry, "cancelled_job": {**expiry_proof, **changed}}
+            with self.subTest(changed=changed), self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection(bad, selection)
+        active_expiry["cancelled_job"] = {
+            key: value for key, value in expiry_proof.items() if key != "grant_expiry_sha256"
+        }
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(active_expiry, selection)
+
+    def test_duration_dispatch_requires_exact_map_witness_and_schema(self):
+        env = {"NM2_SCENARIO": hosted.LAUNCH_DURATION_SCENARIO,
+               "NM2_MAP_SHA": hosted.DURATION_MAP_COMMIT}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(env)
+        env["NM2_DATABASE_REVISION"] = "0041persistentruntime"
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options({**env, "NM2_MAP_SHA": "f" * 40})
+        self.assertEqual(
+            hosted.execution_options(env),
+            (hosted.LAUNCH_DURATION_SCENARIO, "0041persistentruntime"),
+        )
+
+    def test_duration_routes_to_existing_launch_harness(self):
+        fixture = hosted.Hosted.__new__(hosted.Hosted)
+        fixture.receipt = {}
+        fixture.command = Mock()
+        asset = b"synthetic pinned Compose bytes"
+        with TemporaryDirectory() as temporary:
+            fixture.root = Path(temporary)
+            (fixture.root / "home").mkdir()
+            (fixture.root / "docker-compose-5.6.1").write_bytes(asset)
+            with patch.multiple(hosted, COMPOSE_BYTES=len(asset),
+                                COMPOSE_SHA256=hashlib.sha256(asset).hexdigest()):
+                for scenario, flag in (
+                    (hosted.LAUNCH_DURATION_SCENARIO, "--duration-exhaustion"),
+                    (hosted.LAUNCH_TARGET_SCENARIO, "--target-exhaustion"),
+                ):
+                    with self.subTest(scenario=scenario):
+                        fixture.scenario = scenario
+                        fixture.command.reset_mock()
+                        argv = fixture.launch_harness(fixture.root / "cohort.json")
+                        self.assertEqual(Path(argv[0]).name, "nm2_worker_launch_acceptance.py")
+                        self.assertEqual(argv[-2:], [flag, "--execute"])
+                        fixture.command.assert_called_once()
+
+    def test_duration_receipt_projects_one_joined_incarnation_and_rejects_mutations(self):
+        selection = {"project": "fixture", "images": {},
+                     "sources": {"map": {"commit": hosted.DURATION_MAP_COMMIT}}}
+        launch = {
+            "ordinal": 1, "runtime_id": "63ba16a0-37c6-4c96-a111-80ad0965ae71",
+            "container_id": "1" * 64, "started_at": "2026-11-07T01:00:00Z",
+            "finished_at": "2026-11-07T01:00:01Z", "intent_sha256": "a" * 64,
+            "retirement_sha256": "b" * 64, "predecessor_cids": [],
+            "bootstrap_audit_sha256": "c" * 64, "runner_state_sha256": "d" * 64,
+        }
+        completed = {
+            "job_id": "ddd8e594-dfcb-4ca2-83f8-abfda598e1a7",
+            "retirement_sha256": "b" * 64, "audit_sha256": "e" * 64,
+            "target_requests": 5, "fixed_evidence_sha256": "f" * 64,
+        }
+        proof = {
+            "marker": "managed_claim_duration_exhausted", "marker_count": 1,
+            "targets_spent": 1, "duration_allocated": 30, "duration_limit": 30,
+            "capacity_before": 0, "capacity_after": 0,
+            "second_job_id": "8fa9c83b-3e1a-491f-ac2d-c40081c34a44",
+            "second_job_issued": 0, "second_job_target_requests": 0,
+            "selected_sequence": "2", "last_issued_sequence": "1",
+            "remaining_local_holds": 0, "natural_exit_code": 125,
+            "retirement_sha256": "b" * 64,
+        }
+        raw = {
+            **selection, "schema": hosted.LAUNCH_SCHEMA,
+            "scenario": hosted.LAUNCH_DURATION_SCENARIO,
+            "expected_database_revision": "0041persistentruntime",
+            "acceptance_scope": "allocated_duration_exhaustion",
+            "status": "selected_duration_exhaustion_slice_passed",
+            "stage": "selected_duration_exhaustion_complete",
+            "retained": True, "platform": "linux", "nm2_exit_status": "incomplete",
+            "launch": launch, "completed_job": completed, "duration_exhaustion": proof,
+            "private_log": "discard this",
+        }
+        self.assertEqual(hosted.public_projection(raw, selection), {
+            "launch": launch, "completed_job": completed, "duration_exhaustion": proof,
+            "nm2_exit_status": "incomplete", "resources_retained": True,
+        })
+        target_selection = {**selection, "sources": {"map": {"commit": "b" * 40}}}
+        target_proof = {
+            **proof, "marker": "managed_claim_target_exhausted", "target_limit": 1, "duration_limit": 120,
+        }
+        target_raw = {
+            **{key: value for key, value in raw.items() if key != "duration_exhaustion"},
+            **target_selection,
+            "scenario": hosted.LAUNCH_TARGET_SCENARIO,
+            "acceptance_scope": "represented_origin_exhaustion",
+            "status": "selected_target_exhaustion_slice_passed",
+            "stage": "selected_target_exhaustion_complete",
+            "target_exhaustion": target_proof,
+        }
+        with patch.object(hosted, "TARGET_MAP_COMMIT", "b" * 40):
+            self.assertEqual(hosted.public_projection(target_raw, target_selection), {
+                "launch": launch, "completed_job": completed, "target_exhaustion": target_proof,
+                "nm2_exit_status": "incomplete", "resources_retained": True,
+            })
+            for field, changed in (
+                ("target_limit", True), ("target_limit", 5), ("duration_limit", 30),
+                ("marker", proof["marker"]), ("capacity_after", 1),
+                ("last_issued_sequence", "2"), ("second_job_target_requests", 1),
+            ):
+                bad = {**target_raw, "target_exhaustion": {**target_proof, field: changed}}
+                with self.subTest(target_field=field), self.assertRaises(hosted.HostedRefused):
+                    hosted.public_projection(bad, target_selection)
+            with self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection({**target_raw, "duration_exhaustion": proof}, target_selection)
+        with patch.object(hosted, "TARGET_MAP_COMMIT", None), self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection(target_raw, target_selection)
+        for field, changed in (
+            ("marker", "409 Conflict"), ("marker_count", 2), ("capacity_before", False),
+            ("capacity_after", 1), ("second_job_id", completed["job_id"]),
+            ("second_job_issued", 1), ("second_job_target_requests", 1),
+            ("selected_sequence", 2), ("last_issued_sequence", "2"),
+            ("duration_allocated", 30.0), ("remaining_local_holds", 1),
+            ("natural_exit_code", 0), ("retirement_sha256", "0" * 64),
+            ("private_log", "discard this"),
+        ):
+            bad = {**raw, "duration_exhaustion": {**proof, field: changed}}
+            with self.subTest(field=field, changed=changed), self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection(bad, selection)
+        for changed in (
+            {"launch_pair": [launch]},
+            {"launch": {**launch, "predecessor_cids": ["2" * 64]}},
+            {"completed_job": {**completed, "retirement_sha256": "0" * 64}},
+            {"status": "selected_launch_slice_passed"},
+            {"stage": "selected_launch_complete"},
+        ):
+            with self.subTest(changed=changed), self.assertRaises(hosted.HostedRefused):
+                hosted.public_projection({**raw, **changed}, selection)
+        wrong = {**selection, "sources": {"map": {"commit": "f" * 40}}}
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.public_projection({**raw, **wrong}, wrong)
+
+    def test_target_dispatch_refuses_unbound_and_wrong_map_sources(self):
+        pinned = "b" * 40
+        env = {"NM2_SCENARIO": hosted.LAUNCH_TARGET_SCENARIO,
+               "NM2_DATABASE_REVISION": "0041persistentruntime", "NM2_MAP_SHA": pinned}
+        with patch.object(hosted, "TARGET_MAP_COMMIT", None), self.assertRaises(hosted.HostedRefused):
+            hosted.execution_options(env)
+        with patch.object(hosted, "TARGET_MAP_COMMIT", pinned):
+            self.assertEqual(hosted.execution_options(env),
+                             (hosted.LAUNCH_TARGET_SCENARIO, "0041persistentruntime"))
+            with self.assertRaises(hosted.HostedRefused):
+                hosted.execution_options({**env, "NM2_MAP_SHA": hosted.DURATION_MAP_COMMIT})
+            with self.assertRaises(hosted.HostedRefused):
+                hosted.execution_options({**env, "NM2_DATABASE_REVISION": "0040runtimesequence"})
+
+    def test_target_fixture_configures_only_target_policy(self):
+        fixture = LaunchFixture.__new__(LaunchFixture)
+        fixture.budget_exhaustion = "target"
+        fixture.images = {"api": "sha256:" + "a" * 64}
+        initial = {"core": [{"service": "api", "container_id": "1" * 64,
+                            "image_id": fixture.images["api"]}]}
+        fixture.api = Mock()
+        fixture.api.request.return_value = {"limit": 1, "spent": 0, "unit": "represented_origin_attempts/1"}
+        fixture.configure_budget_exhaustion(initial, "owned", "authority")
+        fixture.api.request.assert_called_once_with(
+            "/engagements/owned/target-policy", {"limit": 1}, method="PUT",
+        )
+        self.assertEqual((fixture.budget_api_id, fixture.budget_authorization), ("1" * 64, "authority"))
+        fixture.api.request.return_value["limit"] = True
+        with self.assertRaises(AcceptanceRefused):
+            fixture.configure_budget_exhaustion(initial, "owned", "authority")
+
+    def test_duration_failure_retains_only_fixed_stage_and_reason(self):
+        selection = {"project": "fixture", "images": {}, "sources": {}}
+        raw = {
+            **selection, "schema": hosted.LAUNCH_SCHEMA,
+            "scenario": hosted.LAUNCH_DURATION_SCENARIO,
+            "expected_database_revision": "0041persistentruntime",
+            "status": "held", "platform": "linux",
+            "stage": "launch_duration_observe_refusal",
+            "reason": "launch_duration_refusal_mutated_inventory",
+            "private_log": "discard this",
+        }
+        self.assertEqual(hosted.failure_projection(raw, selection), {
+            "stage": "launch_duration_observe_refusal",
+            "reason": "launch_duration_refusal_mutated_inventory",
+        })

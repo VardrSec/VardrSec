@@ -9,6 +9,7 @@ import re
 import secrets
 import shutil
 import ssl
+import stat
 import subprocess
 import sys
 
@@ -69,9 +70,46 @@ def compose(*args, **kwargs):
     return run("docker", "compose", *flags, *args, **kwargs)
 
 
-def configure():
+# Exact shipped Full model, normalized for checkout line endings. Updating the
+# model requires reviewing this fresh-install boundary alongside its tests.
+STANDARD_FULL_SHA256 = "b4c68355d7076b78f20db61dd6ee6d9231faaad62f325066bd8b49f682a5bbac"
+
+
+def require_standard_fresh_layout():
+    error = (
+        "Fresh install requires the shipped Full Compose layout and standard .env selection. "
+        "Preserve existing state; use the reviewed recovery procedure for an existing installation "
+        "or a separate clean standard checkout for a new installation."
+    )
+    try:
+        if os.path.lexists(ROOT / ".env") or os.path.lexists(ROOT / ".active-images.json"):
+            raise ValueError(error)
+        if any(key.startswith("COMPOSE_") and key != "COMPOSE_PROJECT_NAME" for key in os.environ):
+            raise ValueError(error)
+        path = ROOT / "compose.yaml"
+        if not stat.S_ISREG(path.lstat().st_mode):
+            raise ValueError(error)
+        if hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest() != STANDARD_FULL_SHA256:
+            raise ValueError(error)
+    except OSError:
+        raise ValueError(error) from None
+
+
+def configuration_values():
+    return {
+        "HTTPS_PORT": "8443",
+        **{name: secrets.token_hex(32) for name in (
+            "POSTGRES_PASSWORD", "POSTGRES_APP_PASSWORD", "BACKEND_JWT_SECRET", "AUTH_SECRET"
+        )},
+    }
+
+
+def configure(prepared=None):
+    if prepared is not None:
+        # Recheck immediately before exclusive publication; this is not a claim
+        # of protection from arbitrary concurrent filesystem/environment writers.
+        require_standard_fresh_layout()
     path = ROOT / ".env"
-    # Exclusive creation preserves existing database credentials and signing keys.
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
@@ -79,22 +117,59 @@ def configure():
             "Existing .env preserved. Skip configure for an existing installation; do not reset credentials to repair startup. See docs/installation.md."
         ) from None
     with os.fdopen(fd, "w", encoding="utf-8") as output:
-        output.write("HTTPS_PORT=8443\n")
-        for name in (
-            "POSTGRES_PASSWORD",
-            "POSTGRES_APP_PASSWORD",
-            "BACKEND_JWT_SECRET",
-            "AUTH_SECRET",
-        ):
-            output.write(f"{name}={secrets.token_hex(32)}\n")
+        for name, value in (configuration_values() if prepared is None else prepared).items():
+            output.write(f"{name}={value}\n")
     (ROOT / "trust").mkdir(exist_ok=True)
     print("Created .env without displaying secrets. Keep it private and back it up.")
 
 
-def sources():
+def _refuse_source_link(path):
+    """Refuse observed links in the managed cache; not a concurrent-race guarantee."""
+    try:
+        info = path.lstat()
+    except (FileNotFoundError, NotADirectoryError):
+        return
+    if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+        raise ValueError("Linked source cache refused; preserve it and use a fresh source directory")
+
+
+def _require_source_git_binding(path):
+    """Refuse observed Git worktree/metadata redirects without rewriting config."""
+    try:
+        result = run(
+            "git", "-C", str(path), "rev-parse", "--show-toplevel", "--absolute-git-dir", "--git-common-dir",
+            capture_output=True, text=True, check=False, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError("Cannot validate source Git binding; preserve the source directory") from None
+    reported = result.stdout.splitlines()
+    expected = (path.resolve(), (path / ".git").resolve())
+    if result.returncode != 0 or len(reported) != 3 or any(
+        not Path(value).is_absolute() or Path(value) != wanted
+        for value, wanted in zip(reported[:2], expected)
+    ) or Path(reported[2]) not in {Path(".git"), expected[1]}:
+        raise ValueError("Source Git binding differs from the managed cache; preserve the source directory")
+
+
+def sources(*, mapless=False):
     require_command("git")
     manifest = json.loads((ROOT / "versions.json").read_text(encoding="utf-8"))
-    for name in ("map", "runner", "gate"):
+    names = ("runner", "gate") if mapless else ("map", "runner", "gate")
+    cache = ROOT / ".sources"
+    _refuse_source_link(cache)
+    # Inspect all selected paths before the first Git call, including .git files
+    # that redirect Git to an external worktree/metadata directory.
+    for name in names:
+        _refuse_source_link(cache / name)
+        metadata = cache / name / ".git"
+        _refuse_source_link(metadata)
+        if metadata.exists() and not metadata.is_dir():
+            raise ValueError("External Git metadata refused; preserve it and use a fresh source directory")
+    # Validate every existing repository before preparing any selected component.
+    for name in names:
+        if (cache / name / ".git").is_dir():
+            _require_source_git_binding(cache / name)
+    for name in names:
         item = manifest["components"][name]
         repo, revision = item["repository"], item["commit"]
         if (
@@ -155,6 +230,7 @@ def sources():
                 )
             path.mkdir(parents=True, exist_ok=True)
             run("git", "-C", str(path), "init")
+            _require_source_git_binding(path)
         run(
             "git",
             "-C",
@@ -168,6 +244,15 @@ def sources():
 
 
 def main():
+    if sys.argv[1:2] == ["worker"]:
+        # Host primitives own the installation lock. The ordinary outer guard
+        # must not acquire it again, and no normal startup enters this branch.
+        import worker_cli
+
+        result = worker_cli.main(sys.argv[2:], installation=ROOT)
+        if result:
+            raise SystemExit(result)
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
@@ -189,6 +274,7 @@ def main():
             "seal-backup",
             "unseal-backup",
             "runner",
+            "worker",
         ),
     )
     parser.add_argument("--username", default="operator")
@@ -203,6 +289,11 @@ def main():
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--recipient")
     parser.add_argument("--identity", type=Path)
+    parser.add_argument(
+        "--mapless",
+        action="store_true",
+        help="With sources only, prepare Runner and Gate without fetching Map (not a Mapless install)",
+    )
     args, extra = parser.parse_known_args()
     if args.action == "runner":
         # Everything after `--` belongs to Runner, so none of its options can be
@@ -217,6 +308,10 @@ def main():
         parser.error("unrecognized arguments: " + " ".join(extra))
     if args.generate_password and args.action != "bootstrap":
         parser.error("--generate-password is only valid with bootstrap")
+    if args.mapless and args.action != "sources":
+        parser.error(
+            "--mapless is currently only valid with sources; Mapless installation is not implemented"
+        )
     if args.action in ("update", "cancel-update"):
         return dispatch(args, parser)
     import updater
@@ -255,15 +350,83 @@ def runner_invocation(arguments):
     return flags, rest
 
 
-def has_installation_data():
-    """True once the database volume exists, i.e. the platform was started before."""
-    project = os.environ.get("COMPOSE_PROJECT_NAME") or "vardrsec"
-    result = subprocess.run(
-        ["docker", "volume", "inspect", f"{project}_database"],
-        capture_output=True,
-        check=False,
-    )
-    return result.returncode == 0
+def installation_volume_names(environment=None):
+    """Resolve the existing Full layout with installation interpolation semantics.
+
+    Compose remains the trusted configuration reader. Never surface its output:
+    env_file and literal configuration may still contain secrets. This validates
+    only the selected Compose model, not unrelated native/external state or races.
+    """
+    error = "Cannot resolve supported installation state mappings; installation refused"
+    try:
+        result = compose(
+            "--profile", "*", "config", "--format", "json",
+            capture_output=True, text=True, check=False, timeout=30, env=environment,
+        )
+        if result.returncode != 0:
+            raise ValueError(error)
+        model = json.loads(result.stdout)
+        project = model["name"]
+        if not isinstance(project, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", project):
+            raise ValueError(error)
+        volumes = model["volumes"]
+        expected = {"database", "runner-state", "proxy-data", "proxy-config"}
+        if set(volumes) != expected:
+            raise ValueError(error)
+        for name, definition in volumes.items():
+            # Custom names, external volumes and driver mappings are unsupported.
+            if definition != {"name": f"{project}_{name}"}:
+                raise ValueError(error)
+        services = model["services"]
+        mounts = {
+            "db": [("volume", "database", "/var/lib/postgresql", False)],
+            "runner": [
+                ("volume", "runner-state", "/home/runner/.vardrmap", False),
+                ("bind", str(ROOT / "trust"), "/trust", True),
+            ],
+            "proxy": [
+                ("bind", str(ROOT / "Caddyfile"), "/etc/caddy/Caddyfile", True),
+                ("volume", "proxy-data", "/data", False),
+                ("volume", "proxy-config", "/config", False),
+            ],
+            "api": [], "web": [],
+        }
+        if set(services) != set(mounts):
+            raise ValueError(error)
+        for service, expected_mounts in mounts.items():
+            observed = []
+            for mount in services[service].get("volumes", []):
+                if set(mount) - {"type", "source", "target", "read_only", "bind", "volume"}:
+                    raise ValueError(error)
+                if mount.get("volume", {}) != {} or mount.get("bind", {}) not in ({}, {"create_host_path": True}):
+                    raise ValueError(error)
+                observed.append((mount["type"], mount["source"], mount["target"], mount.get("read_only", False)))
+            if sorted(observed) != sorted(expected_mounts):
+                raise ValueError(error)
+        return {definition["name"] for definition in volumes.values()}
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, subprocess.SubprocessError):
+        raise ValueError(error) from None
+
+
+def has_installation_data(configuration=None):
+    """Recognize selected Full state volumes; unresolved mappings/inventory refuse."""
+    # Process values have the same precedence over the prospective .env as they
+    # will after exclusive creation. Never modify the process environment itself.
+    environment = None if configuration is None else {**configuration, **os.environ}
+    names = installation_volume_names(environment)
+    try:
+        result = subprocess.run(
+            ["docker", "volume", "ls", "--format", "{{.Name}}"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise ValueError("Cannot inspect installation volumes; installation refused") from None
+    if result.returncode != 0:
+        raise ValueError("Cannot inspect installation volumes; installation refused")
+    return bool(names & set(result.stdout.splitlines()))
 
 INSTALL_NEXT = """
 Installed. Remaining manual steps (they change your machine, so they are never automatic):
@@ -282,21 +445,34 @@ def dispatch(args, parser):
         # order, and refuses to run over an existing installation's credentials.
         # Safe to rerun after an interruption: an existing .env is kept (never
         # regenerated), source checkouts are resumed and never reset, and image builds
-        # reuse their cache. Once the database volume exists the platform has held
-        # data, so install refuses and start/update must be used instead.
-        if has_installation_data():
+        # reuse their cache. Any state volume may hold data or a retained CA;
+        # refuse installation rather than treat partial state as empty.
+        prospective = None
+        if not os.path.lexists(ROOT / ".env"):
+            require_standard_fresh_layout()
+            prospective = configuration_values()
+        if has_installation_data(configuration=prospective):
             parser.error(
                 "This installation has been started before and may hold data. Use start, "
                 "stop or the controlled updater; install is only for a new or interrupted install."
             )
+        if prospective is not None:
+            # A newly appeared file was not the configuration used by preflight;
+            # never reinterpret this attempt as a resume with different secrets.
+            require_standard_fresh_layout()
+        elif not os.path.lexists(ROOT / ".env"):
+            raise ValueError("Configuration disappeared during preflight; installation refused; preserve existing state")
         steps = list(INSTALL_STEPS)
-        if (ROOT / ".env").exists():
+        if prospective is None:
             print("Resuming: the existing .env is kept and its secrets are not regenerated.")
             steps.remove("configure")
         for step in steps:
             print(f"== {step}", flush=True)
             try:
-                dispatch(argparse.Namespace(**{**vars(args), "action": step}), parser)
+                dispatch(argparse.Namespace(**{
+                    **vars(args), "action": step,
+                    "prepared_configuration": prospective if step == "configure" else None,
+                }), parser)
             except Exception as error:
                 print(
                     f"\nInstall stopped at '{step}': {error}\n"
@@ -310,9 +486,9 @@ def dispatch(args, parser):
                 raise
         print(INSTALL_NEXT)
     elif args.action == "configure":
-        configure()
+        configure(getattr(args, "prepared_configuration", None))
     elif args.action == "sources":
-        sources()
+        sources(mapless=getattr(args, "mapless", False))
     elif args.action == "build":
         build_prerequisites()
         compose("--profile", "tools", "build")

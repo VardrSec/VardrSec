@@ -1,0 +1,62 @@
+{
+  "schema": "vardr.nm2-held-public-observation/1",
+  "status": "held_not_accepted",
+  "date": "2026-11-06",
+  "run_url": "https://github.com/VardrSec/VardrSec/actions/runs/42284035325",
+  "run_id": 42284035325,
+  "sources": {
+    "distribution": "dc473835dc453bb5f0fa4a8560f41711d57e64ba",
+    "map": "52e7b5bb30c4f2fca6cef8a9fb0d5c7181a66c7c",
+    "runner": "e8cdec333af0ed721504f3857369a76c8a8a4e06",
+    "gate": "d80d4730b8486b75be72431b5af88e0ddb45020b"
+  },
+  "source_trees": {
+    "distribution": "f2983b1179cb29c1b695575b7ddb7acb15cbc5cd",
+    "map": "5044da878545f7cd4571119137d1466e15e81114",
+    "runner": "bcb80051bc2a89ebac8385c70862af669b75dba1",
+    "gate": "0b418f815c164e6d23826e53c2f4850faaff0f35"
+  },
+  "scenario": "persistent-count-limit",
+  "expected_database_revision": "0041persistentruntime",
+  "public_artifact_id": 13537027997,
+  "public_artifact_name": "nm2-coupled-public-receipt",
+  "public_zip_sha256": "2b2e5c65b06ae4c5175d59c5cff89bf4302cdb3f86daa92e6ef83dde220e59ed",
+  "public_receipt_sha256": "90e75c361bc692799d76e1418e21ec55fd1a3ec1bb1d9feb8d6783682d6fd1b0",
+  "observed_status": "held",
+  "observed_stage": "harness",
+  "harness_failure": {
+    "stage": "operator_worker_enable",
+    "reason": "fixture_command_failed",
+    "command_failure": {
+      "failure_code": "host_refused",
+      "failure_phase": "enable_registration",
+      "registration_failure": {
+        "checkpoint": "local_capture",
+        "http_status": null,
+        "request_stage": null
+      }
+    }
+  },
+  "compatibility_jobs": {
+    "ubuntu": "passed",
+    "windows": "passed"
+  },
+  "actual_capture_subpredicate": "unobserved",
+  "startup_admission_timeout_cause": "unproven",
+  "count_control_measurements": "not_exported",
+  "count_35_or_unlimited_acceptance_credit": false,
+  "remaining_required_cases": {
+    "strict_other_denials": "not_run",
+    "missing_local_grant": "not_run",
+    "local_emergency_stop": "not_run",
+    "engagement_stop_work": "not_run",
+    "target_grant_expiry_revocation": "not_run",
+    "budget_exhaustion": "not_run",
+    "map_disconnect": "not_run",
+    "worker_crash_stop": "not_run",
+    "lost_claim_consume_bind_reply": "not_run",
+    "restart_duplicate_claim": "not_run",
+    "lost_terminal_reply": "not_run"
+  },
+  "scope": "Retained sanitized count-limit failure only. No private VM logs or timing facts were recovered; future fixed diagnostics do not establish the old failure cause or any platform acceptance."
+}

@@ -97,3 +97,24 @@ evidence and CA into fresh volumes. Fixture migrations are not product migration
 The CI drill retains no engagement/credential backup artifact and removes only its
 named disposable projects. Fresh-host browser trust and long-term certificate
 renewal remain separate platform acceptance requirements.
+
+### Portable helper completeness
+
+New snapshots use format version 4 and include `database_roles.py` with the existing
+recovery scripts. Its digest is required and verified before restoration. The new
+reader still accepts versions 1–3; it does not rewrite older bundles or supply files
+missing from them. Use the matching supported recovery checkout for old bundles.
+Older readers reject version 4 rather than silently ignoring the additional helper.
+
+An isolated-interpreter unit test generates a bundle through `backup`, imports only
+its bundled application modules, and exercises `restore` through the existing
+role-helper call with Docker boundaries mocked. This is dependency/packaging evidence,
+not installed database-role, upgrade, or no-loss acceptance.
+
+The next hosted check should repeat the reviewed synthetic backup/restore journey
+on a fresh GitHub-hosted VM, but launch restoration from the generated bundle in
+an isolated Python process instead of importing the original checkout. Retain all
+synthetic volumes, backups and CA material, publish only fixed boolean receipts,
+and keep the existing source/daemon isolation guards. It requires a newly reviewed
+workflow bound to this corrected installer source; the earlier `8fcc4aa` source
+guard must not be bypassed. No hosted run is prepared or triggered by this change.

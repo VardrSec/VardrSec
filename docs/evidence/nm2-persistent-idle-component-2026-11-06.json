@@ -1,0 +1,48 @@
+{
+  "compiler_input_manifest_sha256": "dd4a682256cb99a875cf7db3b6aa057110f6dbd1026a3f551d9dcbf6556349d2",
+  "compiler_scope": "Finite and persistent compiler stages and scalar units; no PID-1 or live channel execution",
+  "coverage": {
+    "covered_lines": 10505,
+    "percent": 95.8048335613315,
+    "statements": 10965,
+    "strict_95_percent_gate": true
+  },
+  "cross_platform_ci": {
+    "coverage_floor_unchanged": true,
+    "head_sha": "e8cdec333af0ed721504f3857369a76c8a8a4e06",
+    "passed_jobs": 9,
+    "platforms": [
+      "Ubuntu Python 3.10-3.14",
+      "Windows Python 3.14",
+      "macOS Python 3.14"
+    ],
+    "status": "success",
+    "url": "https://github.com/VardrSec/VardrRunner/actions/runs/42270140956"
+  },
+  "dependency_import_probe": {
+    "network": "none",
+    "status": "passed",
+    "uid": 10001
+  },
+  "finite_controls_accepted": false,
+  "frozen_build_receipt_sha256": "065fe099e9e3ffa88e2d3f67a6d002d22ea0893c9865d96ca39119fda1180dd2",
+  "full_summary_sha256": "bc5c9c4a501d7a3f06efa8f532d321e8b3ffd251fe4bee3097ad1fb5e715310e",
+  "image_source_manifest_sha256": "65af6e247165d586b6e1db1ab50c20d85af6d0f262e2e0e73c610d7da62b91b2",
+  "native_idle_exit_124_physically_observed": false,
+  "nm2_closed": false,
+  "nm3_resumed": false,
+  "persistent_image": "sha256:2ac92fd42a2ebe08fd99992d0c83c236c25fedb8b85864a24b4588790f9f4497",
+  "python_tests": {
+    "errors": 0,
+    "failures": 0,
+    "passed": 2928,
+    "skipped": 67,
+    "tests": 2995
+  },
+  "runner_commit": "e8cdec333af0ed721504f3857369a76c8a8a4e06",
+  "runner_tree": "bcb80051bc2a89ebac8385c70862af669b75dba1",
+  "schema": "vardr.nm2-persistent-idle-component-evidence/1",
+  "source_and_operator_guards": "unchanged",
+  "static_checks": "passed",
+  "status": "component_checks_passed"
+}

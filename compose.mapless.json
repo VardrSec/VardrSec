@@ -1,0 +1,27 @@
+{
+  "name": "vardrsec",
+  "services": {
+    "runner": {
+      "profiles": ["tools"],
+      "image": "vardrrunner:development",
+      "build": {
+        "context": "${RUNNER_SOURCE:-./.sources/runner}",
+        "target": "toolkit",
+        "additional_contexts": {
+          "gate": "${GATE_SOURCE:-./.sources/gate}"
+        }
+      },
+      "volumes": ["runner-state:/home/runner/.vardrmap"],
+      "networks": ["runner"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "command": ["--help"]
+    }
+  },
+  "networks": {
+    "runner": {}
+  },
+  "volumes": {
+    "runner-state": {}
+  }
+}
