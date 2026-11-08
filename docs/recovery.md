@@ -1,5 +1,12 @@
 # Development backup, restore and upgrade recovery
 
+Recovery follows the installation's `.installation-mode.json`. An unmarked
+installation remains Full. Mapless backup carries the complete Runner state,
+its exact image and the portable mode-aware lifecycle files; it has no Map,
+PostgreSQL dump or proxy service. The commands below use the installed mode;
+do not combine the Full and Mapless Compose files or change a marker as a
+transition shortcut.
+
 Recovery is an explicit maintenance operation. Finish any invoked Runner command
 first; backup refuses while a Runner container is executing. Keep configuration
 secrets and the public URL in the private `.env`, matching the running services.
@@ -12,12 +19,28 @@ working bundle; see [encrypted recovery packages](encrypted-backups.md).
 python vardrsec.py backup --destination /private/backups/before-upgrade
 ```
 
-The destination must be new. Backup stops proxy/web/API, leaves PostgreSQL available
+The destination must be new. Backup refuses a running Runner or managed worker
+without stopping it. Backup then stops proxy/web/API, leaves PostgreSQL available
 for the logical dump, and never automatically resumes application traffic. The
 bundle carries `.env`, distribution scripts/configuration/source pins, the exact
 service images, PostgreSQL schema/data, Runner state/evidence and proxy CA/config.
 Only `snapshot.json` marks completion; a failed partial directory is not a valid
 backup. Keep the source installation and its volumes while validating recovery.
+
+For Mapless, backup refuses a running Runner command, creates only the stopped
+canonical CLI container and archives its state. It starts no service or job.
+Restore creates a separate Runner-only project, loads the saved image without
+pulling/building, restores state and verifies contents, ownership and modes.
+Its scoped image override retains the separate restore project name. No `.env`,
+Map database, proxy or CA is generated. `runner_state_verified` in the restore
+receipt records state verification; it is not a database or execution verdict.
+Use the restored CLI only explicitly after reviewing the recovered configuration.
+
+The entire stored Runner state includes its records, evidence and any credentials
+or trust files already stored there. External native keychains, host trust stores
+and files outside that volume are not exported. Restored records do not grant new
+authority or authorize replay: original authorization and expiry checks still
+apply, and no worker, queued job or tool is started by backup or restore.
 
 The bundle is **unencrypted** and includes CA private keys, account hashes and
 possibly Runner credentials. Store it on protected encrypted storage with access
@@ -100,11 +123,16 @@ renewal remain separate platform acceptance requirements.
 
 ### Portable helper completeness
 
-New snapshots use format version 4 and include `database_roles.py` with the existing
-recovery scripts. Its digest is required and verified before restoration. The new
-reader still accepts versions 1–3; it does not rewrite older bundles or supply files
+New Full snapshots use format version 5 and include `installation_mode.py` with
+the existing recovery scripts, `database_roles.py`, all ten shipped worker host
+modules, `compose.worker.json` and the one-shot `compose.local-worker.json` overlay. Mapless snapshots use
+version 6, an explicit Mapless marker, that same one-shot overlay and the Runner-only model/state/image set.
+Each format requires its exact files, service images and state volumes; mixed-mode
+or incomplete bundles are refused before restore creates resources. All included
+file digests are verified. The new reader still accepts versions 1–4; it does not
+rewrite older bundles or supply files
 missing from them. Use the matching supported recovery checkout for old bundles.
-Older readers reject version 4 rather than silently ignoring the additional helper.
+Older readers reject versions 5/6 rather than silently ignoring the mode helper.
 
 An isolated-interpreter unit test generates a bundle through `backup`, imports only
 its bundled application modules, and exercises `restore` through the existing

@@ -3,7 +3,7 @@
   "services": {
     "runner": {
       "profiles": ["tools"],
-      "image": "vardrrunner:development",
+      "image": "vardrrunner:${COMPOSE_PROJECT_NAME:-vardrsec}-mapless-development",
       "build": {
         "context": "${RUNNER_SOURCE:-./.sources/runner}",
         "target": "toolkit",

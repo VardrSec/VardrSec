@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- Forward explicit Runner environment names correctly after the outer `--`
+  separator, including controlled invocations without an additional command.
+
+- Allow an explicit non-overlapping IPv4 `/24` for the Mapless Runner bridge when
+  Docker's automatic address pools are exhausted; retain existing networks and
+  preserve automatic allocation as the default.
+
+- Isolate Mapless build tags by project and retain the exact installed toolkit
+  image ID and project, preserving Full image selection and the same Runner state
+  after a new shell or a separate restore.
+
+- Add explicit Full/Mapless installation selection, standalone toolkit lifecycle,
+  Runner-state-only encrypted recovery and an explicitly selected local one-job
+  execution overlay. Reuse the existing owner, authorization, journal and export.
+- Keep signing keys in an operator-selected issuer volume mounted only while
+  authorizing; stage read-only input copies and transfer private exports with
+  host-user ownership on Windows/Linux. Normal startup remains inert.
+- Resume Community production delivery under the owner's 2026-11-08 direction;
+  retain unaccepted sleep/Recon/update/transition capabilities as explicit gates.
+  Compatible pins and installed acceptance remain separate integration work.
+
 - Record completed C07 boundary/drain and C08 live Runner-loss acceptance on
   Windows Docker Desktop and Ubuntu using retained exact-source evidence.
   Preserve earlier held parents and the declared shared-UID boundary.

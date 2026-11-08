@@ -1,4 +1,18 @@
-# Mapless packaging model (partial NM-3 candidate)
+# Mapless packaging model
+
+Current production integration selects this model through `install --mapless`
+and the persisted installation marker. The
+[operator walkthrough](mapless.md) describes file transfer, separate issuer
+custody, explicit one-job containment and state-only recovery. The same toolkit
+image contains the existing non-setuid native owner; a separately selected
+`compose.local-worker.json` overlay enables only its fixed local entrypoint.
+Ordinary CLI security/defaults and Full startup remain unchanged. Compatible pins
+and Windows/Linux installed acceptance remain required before delivery is claimed.
+
+## Historical dormant-model evidence
+
+The remainder records the earlier partial candidate, before lifecycle integration.
+Its inactivity statements describe that earlier source, not the current launcher.
 
 `compose.mapless.json` is a standalone Compose input for one explicit Runner CLI
 service. It reuses Full's toolkit build contexts, development image name and

@@ -25,7 +25,7 @@ class MaplessComposeTests(unittest.TestCase):
         self.assertNotIn("VARDRMAP", json.dumps(self.model))
 
     def test_reuses_existing_toolkit_contexts_without_new_source_pins(self):
-        self.assertEqual(self.runner["image"], "vardrrunner:development")
+        self.assertEqual(self.runner["image"], "vardrrunner:${COMPOSE_PROJECT_NAME:-vardrsec}-mapless-development")
         self.assertEqual(
             self.runner["build"],
             {

@@ -11,6 +11,8 @@ import subprocess
 import tarfile
 from datetime import datetime, timezone
 
+from installation_mode import MARKER, compose_files, read_mode, read_project
+
 LEGACY_FILES = (
     ".env",
     "compose.yaml",
@@ -22,6 +24,17 @@ LEGACY_FILES = (
 UPDATE_FILES = LEGACY_FILES + ("updater.py",)
 CRYPTO_FILES = UPDATE_FILES + ("backup_crypto.py",)
 FILES = CRYPTO_FILES + ("database_roles.py",)
+FULL_FILES = FILES + (
+    "installation_mode.py", "compose.local-worker.json", "compose.worker.json",
+    "worker_cli.py", "worker_compose_inventory.py", "worker_host.py",
+    "worker_host_persistent.py", "worker_host_sequence.py", "worker_launch.py",
+    "worker_lifecycle_intent.py", "worker_runtime.py", "worker_secrets.py",
+    "worker_volumes.py",
+)
+MAPLESS_FILES = (
+    "compose.mapless.json", "versions.json", "vardrsec.py", "recovery.py",
+    "updater.py", "backup_crypto.py", "installation_mode.py", "compose.local-worker.json", MARKER,
+)
 VOLUMES = {
     "runner-state": ("runner", "/home/runner/.vardrmap"),
     "proxy-data": ("proxy", "/data"),
@@ -42,10 +55,8 @@ def command(*args, **kwargs):
 
 
 def compose(root, *args, project=None, **kwargs):
-    flags = ["-f", str(root / "compose.yaml")]
-    active = root / ".active-images.json"
-    if active.exists():
-        flags += ["-f", str(active)]
+    flags = [part for path in compose_files(root) for part in ("-f", str(path))]
+    project = project or read_project(root)
     if project:
         flags += ["-p", project]
     return command("docker", "compose", *flags, *args, cwd=root, **kwargs)
@@ -235,7 +246,90 @@ print(digest.hexdigest())
     ).stdout.strip()
 
 
+def export_images(images, path):
+    with gzip.open(path, "wb", compresslevel=1) as output:
+        with subprocess.Popen(
+            ["docker", "image", "save", *sorted(set(images.values()))],
+            stdout=subprocess.PIPE,
+        ) as process:
+            shutil.copyfileobj(process.stdout, output)
+            if process.wait() != 0:
+                raise ValueError("Could not export recovery images")
+
+
+def load_images(backup_path, metadata):
+    with gzip.open(backup_path / "images.tar.gz", "rb") as source:
+        with subprocess.Popen(
+            ["docker", "image", "load", "--quiet"],
+            stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+        ) as process:
+            shutil.copyfileobj(source, process.stdin)
+            process.stdin.close()
+            if process.wait() != 0:
+                raise ValueError("Could not load recovery images")
+    for image in metadata["images"].values():
+        command("docker", "image", "inspect", image, stdout=subprocess.DEVNULL)
+
+
+def backup_mapless(root, destination):
+    destination = destination.resolve()
+    if destination.exists():
+        raise ValueError("Backup destination must not exist")
+    configuration = json.loads(compose(
+        root, "--profile", "tools", "config", "--format", "json",
+        capture_output=True, text=True,
+    ).stdout)
+    if set(configuration["services"]) != {"runner"} or configuration["services"]["runner"].get("environment"):
+        raise ValueError("Mapless backup requires the uninjected Runner-only model")
+    project = configuration["name"]
+    if command("docker", "ps", "-q", "--filter", f"label=com.docker.compose.project={project}",
+               "--filter", "label=com.docker.compose.service=runner",
+               capture_output=True, text=True).stdout.strip():
+        raise ValueError("Finish or stop the explicitly invoked Runner before backup")
+    compose(root, "--profile", "tools", "create", "--no-build", "--no-deps", "runner")
+    info = container(root, "runner", project)
+    images = {"runner": info["Image"]}
+    if not IMAGE_ID.fullmatch(images["runner"]):
+        raise ValueError("Snapshot must pin the Runner image ID")
+    volume = volume_name(info, VOLUMES["runner-state"][1])
+    destination.mkdir(parents=True, mode=0o700)
+    for name in MAPLESS_FILES:
+        private_write(destination / name, (root / name).read_bytes())
+    archive = destination / "runner-state.tar.gz"
+    with archive.open("xb") as output:
+        volume_stream(images["runner"], volume, "backup", output)
+    safe_archive(archive)
+    fingerprints = {"runner-state": volume_fingerprint(images["runner"], volume)}
+    export_images(images, destination / "images.tar.gz")
+    for path in destination.iterdir():
+        path.chmod(0o600)
+    json_write(destination / "snapshot.json", {
+        "schema_version": 6, "mode": "mapless",
+        "created_at": datetime.now(timezone.utc).isoformat(), "project": project,
+        "images": images, "volumes": fingerprints,
+        "files": {path.name: digest(path) for path in destination.iterdir()},
+    })
+    print("Mapless backup completed. Runner remains stopped. Treat the bundle as private key material.")
+
+
+def restore_mapless(backup_path, destination, project, metadata):
+    load_images(backup_path, metadata)
+    compose(destination, "--profile", "tools", "create", "--no-build", "runner", project=project)
+    volume = volume_name(container(destination, "runner", project), VOLUMES["runner-state"][1])
+    with (backup_path / "runner-state.tar.gz").open("rb") as source:
+        volume_stream(metadata["images"]["runner"], volume, "restore", source)
+    if volume_fingerprint(metadata["images"]["runner"], volume) != metadata["volumes"]["runner-state"]:
+        raise ValueError("Restored Runner contents or ownership differ")
+    json_write(destination / "restore-receipt.json", {
+        "snapshot_sha256": digest(backup_path / "snapshot.json"), "project": project,
+        "mode": "mapless", "runner_state_verified": True,
+    })
+    print("Mapless restore verified in a separate installation. Runner remains stopped; review recovered credentials before explicit use.")
+
+
 def backup(root, destination):
+    if read_mode(root) == "mapless":
+        return backup_mapless(root, destination)
     destination = destination.resolve()
     if destination.exists():
         raise ValueError("Backup destination must not exist")
@@ -285,19 +379,20 @@ def backup(root, destination):
                     f"Persist the matching {service} {name} configuration before backup"
                 )
     project = configuration["name"]
-    running_runners = command(
-        "docker",
-        "ps",
-        "-q",
-        "--filter",
-        f"label=com.docker.compose.project={project}",
-        "--filter",
-        "label=com.docker.compose.service=runner",
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    if running_runners:
-        raise ValueError("Finish or stop the explicitly invoked Runner before backup")
+    for service in ("runner", "managed-worker"):
+        running_runners = command(
+            "docker",
+            "ps",
+            "-q",
+            "--filter",
+            f"label=com.docker.compose.project={project}",
+            "--filter",
+            f"label=com.docker.compose.service={service}",
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if running_runners:
+            raise ValueError("Finish or stop the explicitly invoked Runner or managed worker before backup")
     # Do not restart applications automatically after the snapshot.
     compose(root, "stop", "proxy", "web", "api")
     compose(root, "up", "-d", "--no-build", "--wait", "db")
@@ -305,7 +400,7 @@ def backup(root, destination):
     infos = {name: container(root, name) for name in SERVICES}
     images = {name: info["Image"] for name, info in infos.items()}
     destination.mkdir(parents=True, mode=0o700)
-    for name in FILES:
+    for name in FULL_FILES + ((MARKER,) if (root / MARKER).exists() else ()):
         private_write(destination / name, (root / name).read_bytes())
     for name, (service, mount) in VOLUMES.items():
         path = destination / f"{name}.tar.gz"
@@ -337,18 +432,12 @@ def backup(root, destination):
             stdout=output,
         )
     # Carry exact images as well as IDs; recovery must not resolve mutable tags.
-    with gzip.open(destination / "images.tar.gz", "wb", compresslevel=1) as output:
-        with subprocess.Popen(
-            ["docker", "image", "save", *sorted(set(images.values()))],
-            stdout=subprocess.PIPE,
-        ) as process:
-            shutil.copyfileobj(process.stdout, output)
-            if process.wait() != 0:
-                raise ValueError("Could not export recovery images")
+    export_images(images, destination / "images.tar.gz")
     for file in destination.iterdir():
         file.chmod(0o600)
     metadata = {
-        "schema_version": 4,
+        "schema_version": 5,
+        "mode": "full",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "project": project,
         "images": images,
@@ -369,7 +458,8 @@ def backup(root, destination):
 
 def snapshot_files(version):
     """The exact installation files covered by a supported snapshot format."""
-    scripts = {1: LEGACY_FILES, 2: UPDATE_FILES, 3: CRYPTO_FILES, 4: FILES}.get(version)
+    scripts = {1: LEGACY_FILES, 2: UPDATE_FILES, 3: CRYPTO_FILES, 4: FILES,
+               5: FULL_FILES, 6: MAPLESS_FILES}.get(version)
     if scripts is None:
         raise ValueError("Unsupported snapshot version")
     return scripts
@@ -377,68 +467,43 @@ def snapshot_files(version):
 
 def validate(backup_path):
     metadata = json.loads((backup_path / "snapshot.json").read_text(encoding="utf-8"))
-    scripts = snapshot_files(metadata.get("schema_version"))
+    version = metadata.get("schema_version")
+    scripts = snapshot_files(version)
+    mapless = version == 6
+    if version in (5, 6) and metadata.get("mode") != ("mapless" if mapless else "full"):
+        raise ValueError("Snapshot mode does not match its format")
+    if version == 5 and MARKER in metadata.get("files", {}):
+        scripts += (MARKER,)
+    volumes = {"runner-state": VOLUMES["runner-state"]} if mapless else VOLUMES
+    services = {"runner"} if mapless else SERVICES
     required = (
         set(scripts)
-        | {"database.dump", "images.tar.gz"}
-        | {f"{name}.tar.gz" for name in VOLUMES}
+        | ({"images.tar.gz"} if mapless else {"database.dump", "images.tar.gz"})
+        | {f"{name}.tar.gz" for name in volumes}
     )
+    if mapless and "database" in metadata:
+        raise ValueError("Mapless snapshot cannot contain a database")
     if set(metadata.get("files", {})) != required:
         raise ValueError("Unsupported or incomplete snapshot")
-    if set(metadata.get("images", {})) != SERVICES or not all(
+    if set(metadata.get("images", {})) != services or not all(
         IMAGE_ID.fullmatch(i) for i in metadata["images"].values()
     ):
         raise ValueError("Snapshot must pin every service to a local image ID")
-    if set(metadata.get("volumes", {})) != set(VOLUMES):
+    if set(metadata.get("volumes", {})) != set(volumes):
         raise ValueError("Snapshot lacks state volume fingerprints")
     for name in required:
         path = backup_path / name
         if path.is_symlink() or digest(path) != metadata["files"][name]:
             raise ValueError(f"Snapshot integrity check failed: {name}")
-    for name in VOLUMES:
+    if version in (5, 6) and read_mode(backup_path) != metadata["mode"]:
+        raise ValueError("Snapshot installation marker does not match its mode")
+    for name in volumes:
         safe_archive(backup_path / f"{name}.tar.gz")
     return metadata
 
 
-def restore(root, backup_path, destination, project):
-    backup_path, destination = backup_path.resolve(), destination.resolve()
-    metadata = validate(backup_path)
-    if not re.fullmatch(r"vardrsec-restore-[a-z0-9][a-z0-9-]{0,40}", project):
-        raise ValueError("Use a separate vardrsec-restore-NAME project")
-    if destination.exists():
-        raise ValueError("Restore destination must not exist")
-    for resource in ("container", "volume", "network"):
-        args = [
-            "docker",
-            resource,
-            "ls",
-            "-q",
-            "--filter",
-            f"label=com.docker.compose.project={project}",
-        ]
-        if resource == "container":
-            args.insert(3, "-a")
-        if command(*args, capture_output=True, text=True).stdout.strip():
-            raise ValueError(
-                "Restore project already has resources; refusing to overwrite"
-            )
-    destination.mkdir(parents=True, mode=0o700)
-    for name in (n for n in FILES if n in metadata["files"]):
-        private_write(destination / name, (backup_path / name).read_bytes())
-    # This public routing file is bind-mounted into a capability-restricted
-    # container with a different UID. Secrets stay in .env and state volumes.
-    (destination / "Caddyfile").chmod(0o644)
-    if metadata.get("last_update") is not None:
-        json_write(destination / ".last-update.json", metadata["last_update"])
-    json_write(
-        destination / ".active-images.json",
-        {
-            "services": {
-                name: {"image": image} for name, image in metadata["images"].items()
-            }
-        },
-    )
-    # An explicit different network permits retention of the stopped source stack.
+def available_subnet():
+    """Reuse the restore selector without changing any existing Docker network."""
     networks = command(
         "docker", "network", "ls", "-q", capture_output=True, text=True
     ).stdout.split()
@@ -475,24 +540,64 @@ def restore(root, backup_path, destination, project):
     )
     if subnet is None:
         raise ValueError("No unused restore bridge subnet available")
+    return subnet
+
+
+def restore(root, backup_path, destination, project):
+    backup_path, destination = backup_path.resolve(), destination.resolve()
+    metadata = validate(backup_path)
+    if not re.fullmatch(r"vardrsec-restore-[a-z0-9][a-z0-9-]{0,40}", project):
+        raise ValueError("Use a separate vardrsec-restore-NAME project")
+    if destination.exists():
+        raise ValueError("Restore destination must not exist")
+    for resource in ("container", "volume", "network"):
+        args = [
+            "docker",
+            resource,
+            "ls",
+            "-q",
+            "--filter",
+            f"label=com.docker.compose.project={project}",
+        ]
+        if resource == "container":
+            args.insert(3, "-a")
+        if command(*args, capture_output=True, text=True).stdout.strip():
+            raise ValueError(
+                "Restore project already has resources; refusing to overwrite"
+            )
+    destination.mkdir(parents=True, mode=0o700)
+    mapless = metadata["schema_version"] == 6
+    scripts = snapshot_files(metadata["schema_version"])
+    for name in scripts + ((MARKER,) if not mapless and MARKER in metadata["files"] else ()):
+        private_write(destination / name, (backup_path / name).read_bytes())
+    # This public routing file is bind-mounted into a capability-restricted
+    # container with a different UID. Secrets stay in .env and state volumes.
+    if not mapless:
+        (destination / "Caddyfile").chmod(0o644)
+    if metadata.get("last_update") is not None:
+        json_write(destination / ".last-update.json", metadata["last_update"])
+    active_images = {
+        "services": {name: {"image": image} for name, image in metadata["images"].items()}
+    }
+    if mapless:
+        active_images["name"] = project
+        active_images["networks"] = {"runner": {"ipam": {"config": [{"subnet": str(available_subnet())}]}}}
+    json_write(
+        destination / (".active-images.mapless.json" if mapless else ".active-images.json"),
+        active_images,
+    )
+    if mapless:
+        restore_mapless(backup_path, destination, project, metadata)
+        return
+    # An explicit different network permits retention of the stopped source stack.
+    subnet = available_subnet()
     prefix = str(subnet.network_address).rsplit(".", 1)[0]
     with (destination / ".env").open("a", encoding="utf-8") as output:
         output.write(
             f"\nCOMPOSE_PROJECT_NAME={project}\nAPPLICATION_SUBNET={subnet}\nAPPLICATION_IP_RANGE={prefix}.128/25\nPROXY_IP={prefix}.2\n"
         )
     # Load before creating services; no pull/build or current development tag is used.
-    with gzip.open(backup_path / "images.tar.gz", "rb") as source:
-        with subprocess.Popen(
-            ["docker", "image", "load", "--quiet"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL,
-        ) as process:
-            shutil.copyfileobj(source, process.stdin)
-            process.stdin.close()
-            if process.wait() != 0:
-                raise ValueError("Could not load recovery images")
-    for image in metadata["images"].values():
-        command("docker", "image", "inspect", image, stdout=subprocess.DEVNULL)
+    load_images(backup_path, metadata)
     (destination / "trust").mkdir()
     compose(destination, "--profile", "tools", "create", "--no-build", project=project)
     for name, (service, mount) in VOLUMES.items():

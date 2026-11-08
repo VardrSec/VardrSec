@@ -8,6 +8,20 @@ authorization, independent Gate/Lab, and separate distribution lifecycle.
 Windows 11 is the primary target, Docker Desktop is preferred, Linux compatibility
 and justified native Runner operation remain required.
 
+## Community delivery priority
+
+Owner direction on 2026-11-08 resumes production Community delivery: usable Full
+and Mapless installation and authorize/execute/evidence/export take priority.
+Reuse existing checks; no further manual fault/sleep campaign is authorized.
+This changes sequencing, not the C09 acceptance result or release gates.
+
+The integration branch adds explicit mode selection, state-only Mapless recovery,
+private issuer custody, one-shot contained execution and host-owned export using
+existing component protocols. Compatible component pins and installed Windows
+Docker Desktop/Ubuntu workflow verification remain open. General Recon execution,
+automatic mode transition, Mapless controlled updates, C09 sleep behavior and
+NM-4/NM-5 acceptance remain deferred capabilities, not accepted ones.
+
 ## Fresh source baseline
 
 Recovery was limited to reachable Git source. The unavailable handoff commits

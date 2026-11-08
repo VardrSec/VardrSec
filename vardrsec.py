@@ -12,6 +12,10 @@ import ssl
 import stat
 import subprocess
 import sys
+import tempfile
+import uuid
+
+from installation_mode import MARKER, compose_files, read_mode, read_project, validate_runner_subnet, write_mode
 
 ROOT = Path(__file__).resolve().parent
 
@@ -64,15 +68,20 @@ def build_prerequisites():
 
 
 def compose(*args, **kwargs):
-    flags = ["-f", str(ROOT / "compose.yaml")]
-    if (ROOT / ".active-images.json").exists():
-        flags += ["-f", str(ROOT / ".active-images.json")]
+    selected = compose_files(ROOT, mode=kwargs.pop("installation_mode", None))
+    if kwargs.pop("controlled", False):
+        selected.append(ROOT / "compose.local-worker.json")
+    flags = [part for path in selected for part in ("-f", str(path))]
+    project = read_project(ROOT)
+    if project:
+        flags += ["-p", project]
     return run("docker", "compose", *flags, *args, **kwargs)
 
 
 # Exact shipped Full model, normalized for checkout line endings. Updating the
 # model requires reviewing this fresh-install boundary alongside its tests.
 STANDARD_FULL_SHA256 = "b4c68355d7076b78f20db61dd6ee6d9231faaad62f325066bd8b49f682a5bbac"
+STANDARD_MAPLESS_SHA256 = "80653a1435ab148ec6943a4145e0a0d52675a51a3f2eef245c95100cfc921e6f"
 
 
 def require_standard_fresh_layout():
@@ -245,6 +254,8 @@ def sources(*, mapless=False):
 
 def main():
     if sys.argv[1:2] == ["worker"]:
+        if read_mode(ROOT) == "mapless":
+            raise ValueError("Mapless has no Map queue worker; use runner --controlled for an explicitly authorized local job")
         # Host primitives own the installation lock. The ordinary outer guard
         # must not acquire it again, and no normal startup enters this branch.
         import worker_cli
@@ -289,10 +300,15 @@ def main():
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--recipient")
     parser.add_argument("--identity", type=Path)
+    parser.add_argument("--input-directory", type=Path, help="Runner-only flat host input directory, staged read-only at /inputs")
+    parser.add_argument("--output-directory", type=Path, help="Runner-only new private host directory receiving /exports after completion")
+    parser.add_argument("--authority-volume", help="Private issuer volume, only for workspace authority-init/authorize; never execution")
+    parser.add_argument("--controlled", action="store_true", help="Runner-only explicit one-job contained local execution")
+    parser.add_argument("--runner-subnet", help="Optional unused private IPv4 /24 for the Mapless Runner bridge")
     parser.add_argument(
         "--mapless",
         action="store_true",
-        help="With sources only, prepare Runner and Gate without fetching Map (not a Mapless install)",
+        help="Install standalone Runner and Gate without Map, database or proxy",
     )
     args, extra = parser.parse_known_args()
     if args.action == "runner":
@@ -308,10 +324,19 @@ def main():
         parser.error("unrecognized arguments: " + " ".join(extra))
     if args.generate_password and args.action != "bootstrap":
         parser.error("--generate-password is only valid with bootstrap")
+    if args.action != "runner" and (args.input_directory or args.output_directory or args.controlled or args.authority_volume):
+        parser.error("Input, output, authority-volume and controlled options require runner")
+    selected = read_mode(ROOT)
+    if args.runner_subnet:
+        if args.action not in ("install", "start") or not (selected == "mapless" or args.mapless):
+            parser.error("--runner-subnet is only valid with Mapless install/start")
+        validate_runner_subnet(args.runner_subnet)
     if args.mapless and args.action != "sources":
-        parser.error(
-            "--mapless is currently only valid with sources; Mapless installation is not implemented"
-        )
+        if args.action == "install":
+            if (ROOT / MARKER).exists() and selected != "mapless":
+                parser.error("Use a separate checkout for a Mapless installation; preserve existing Full state")
+        elif selected != "mapless":
+            parser.error("Install Mapless first with install --mapless; existing Full state is retained")
     if args.action in ("update", "cancel-update"):
         return dispatch(args, parser)
     import updater
@@ -321,6 +346,63 @@ def main():
 
 
 INSTALL_STEPS = ("configure", "sources", "build", "database-role", "start", "export-ca")
+
+
+def install_mapless(args, parser):
+    """Prepare the existing toolkit and stopped state container, without Map."""
+    error = "Mapless install requires the shipped layout in a separate checkout; preserve existing installation state"
+    if any(os.path.lexists(ROOT / name) for name in (".env", ".active-images.json", ".active-images.mapless.json")):
+        raise ValueError(error)
+    if any(key.startswith("COMPOSE_") and key != "COMPOSE_PROJECT_NAME" for key in os.environ):
+        raise ValueError(error)
+    model = ROOT / "compose.mapless.json"
+    info = model.lstat()
+    if (not stat.S_ISREG(info.st_mode) or model.is_symlink()
+            or getattr(info, "st_file_attributes", 0) & 0x400
+            or hashlib.sha256(model.read_bytes().replace(b"\r\n", b"\n")).hexdigest() != STANDARD_MAPLESS_SHA256):
+        raise ValueError(error)
+    build_prerequisites()
+    if has_installation_data(mapless=True):
+        raise ValueError("Installation volumes already exist. Use start, runner or backup; install will not overwrite their state")
+    write_mode(ROOT, "mapless")
+    sources(mapless=True)
+    compose("--profile", "tools", "build", "runner")
+    select_mapless_image(getattr(args, "runner_subnet", None))
+    compose("--profile", "tools", "create", "--no-build", "runner")
+    print("Mapless installed. Runner is stopped; no Map, database, proxy, job or background worker was started. See docs/mapless.md for authorization, execution and export.")
+
+
+def select_mapless_image(subnet=None):
+    """Keep installed image/project selection and optional bridge configuration together."""
+    import updater
+
+    path = ROOT / ".active-images.mapless.json"
+    record = None
+    if os.path.lexists(path):
+        compose_files(ROOT)  # Refuse malformed or broadened selections first.
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if subnet is None:
+            return
+        selected = record.get("networks", {}).get("runner", {}).get("ipam", {}).get("config", [])
+        if selected and selected[0]["subnet"] == validate_runner_subnet(subnet):
+            return
+    model = json.loads(compose(
+        "--profile", "tools", "config", "--format", "json", capture_output=True, text=True,
+    ).stdout)
+    if record is None:
+        image = run("docker", "image", "inspect", "--format", "{{.Id}}",
+                    model["services"]["runner"]["image"], capture_output=True, text=True).stdout.strip()
+        if not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
+            raise ValueError("Cannot pin the built toolkit image; preserve the interrupted installation")
+        record = {"name": model["name"], "services": {"runner": {"image": image}}}
+    if subnet is not None:
+        subnet = validate_runner_subnet(subnet)
+        names = run("docker", "network", "ls", "--format", "{{.Name}}",
+                    capture_output=True, text=True).stdout.splitlines()
+        if model["networks"]["runner"]["name"] in names:
+            raise ValueError("The existing Runner network is preserved; subnet selection requires an installation without that network")
+        record["networks"] = {"runner": {"ipam": {"config": [{"subnet": subnet}]}}}
+    updater.save(path, record)
 
 
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -334,6 +416,8 @@ def runner_invocation(arguments):
     line; Compose reads the value from this process's environment.
     """
     flags, rest = [], list(arguments)
+    if rest and rest[0] == "--":
+        rest.pop(0)
     while rest and (rest[0] == "--env" or rest[0].startswith("--env=")):
         item = rest.pop(0)
         if item == "--env":
@@ -350,7 +434,78 @@ def runner_invocation(arguments):
     return flags, rest
 
 
-def installation_volume_names(environment=None):
+def invoke_runner(args):
+    """Transfer selected files without exposing a host home or private issuer to tools."""
+    flags, command = runner_invocation(args.runner_args)
+    controlled = getattr(args, "controlled", False)
+    inputs = getattr(args, "input_directory", None)
+    output = getattr(args, "output_directory", None)
+    authority = getattr(args, "authority_volume", None)
+    if controlled and (not inputs or command or authority):
+        raise ValueError("Controlled execution requires a public --input-directory, no authority volume, and an empty command after --")
+    if authority:
+        if (not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}", authority)
+                or command[:2] not in (["workspace", "authority-init"], ["workspace", "authorize"])):
+            raise ValueError("Issuer volumes are available only to workspace authority-init and authorize")
+        flags += ["--volume", f"{authority}:/issuer"]
+    if output is not None:
+        output = output.expanduser().resolve()
+        if os.path.lexists(output) or not output.parent.is_dir():
+            raise ValueError("Export destination must be new with an existing parent; execution was not started")
+    with tempfile.TemporaryDirectory(prefix="vardrsec-input-") as private:
+        if inputs is not None:
+            inputs = inputs.expanduser().resolve(strict=True)
+            if not inputs.is_dir():
+                raise ValueError("Input directory does not exist")
+            entries = list(inputs.iterdir())
+            if controlled and {p.name for p in entries} != {
+                "approval.json", "contract.json", "plan.json", "case.json", "execution.json", "trust.json"
+            }:
+                raise ValueError("Controlled input must contain exactly the six public authorization documents")
+            staged = Path(private) / "inputs"
+            staged.mkdir(mode=0o755)
+            staged.chmod(0o755)
+            for source in entries:
+                info = source.lstat()
+                if (not stat.S_ISREG(info.st_mode) or source.is_symlink() or info.st_nlink != 1
+                        or getattr(info, "st_file_attributes", 0) & 0x400 or info.st_size > 16 * 1024 * 1024
+                        or source.name in ("signing.key", "authority.json")):
+                    raise ValueError("Select a flat directory of regular input documents; private issuer files are not execution inputs")
+                destination = staged / source.name
+                destination.write_bytes(source.read_bytes())
+                destination.chmod(0o644)
+            # The 0700 host parent protects these copies from other host users.
+            # Only its child is mounted, read-only; source permissions stay intact.
+            flags += ["--volume", f"{staged}:{'/run/vardr-local' if controlled else '/inputs'}:ro"]
+        name = "vardrsec-invocation-" + uuid.uuid4().hex if output else None
+        export_volume = "vardrsec-export-" + uuid.uuid4().hex if output else None
+        if export_volume:
+            run("docker", "volume", "create", export_volume, capture_output=True)
+            flags += ["--volume", f"{export_volume}:/exports"]
+        retention = ["--name", name] if name else ["--rm"]
+        result = compose(
+            "run", *retention, "--no-deps", *flags, "runner", *(["--local"] if controlled else command),
+            **({"controlled": True} if controlled else {}), check=False,
+        )
+        if result.returncode:
+            if name:
+                print(f"Invocation stopped with retained container {name} and export volume {export_volume}; inspect audit evidence before recovery. No automatic replay.", file=sys.stderr)
+            raise subprocess.CalledProcessError(result.returncode, "Runner invocation")
+        if output:
+            output.mkdir(mode=0o700)
+            try:
+                # Default docker cp gives the invoking host user ownership; keep
+                # the stopped container if transfer fails rather than rerun a job.
+                run("docker", "cp", f"{name}:/exports/.", str(output))
+            except BaseException:
+                print(f"Execution completed; export transfer failed. Retained container: {name}; export volume: {export_volume}. Do not replay the job.", file=sys.stderr)
+                raise
+            run("docker", "rm", name)
+            run("docker", "volume", "rm", export_volume)
+            print(f"Export copied to {output}. Runner journal and original evidence remain in Runner state.")
+
+
+def installation_volume_names(environment=None, *, mapless=False):
     """Resolve the existing Full layout with installation interpolation semantics.
 
     Compose remains the trusted configuration reader. Never surface its output:
@@ -362,6 +517,7 @@ def installation_volume_names(environment=None):
         result = compose(
             "--profile", "*", "config", "--format", "json",
             capture_output=True, text=True, check=False, timeout=30, env=environment,
+            **({"installation_mode": "mapless"} if mapless else {}),
         )
         if result.returncode != 0:
             raise ValueError(error)
@@ -369,8 +525,10 @@ def installation_volume_names(environment=None):
         project = model["name"]
         if not isinstance(project, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", project):
             raise ValueError(error)
+        if mapless and len(project) > 63:
+            raise ValueError(error)
         volumes = model["volumes"]
-        expected = {"database", "runner-state", "proxy-data", "proxy-config"}
+        expected = {"runner-state"} if mapless else {"database", "runner-state", "proxy-data", "proxy-config"}
         if set(volumes) != expected:
             raise ValueError(error)
         for name, definition in volumes.items():
@@ -391,6 +549,8 @@ def installation_volume_names(environment=None):
             ],
             "api": [], "web": [],
         }
+        if mapless:
+            mounts = {"runner": [("volume", "runner-state", "/home/runner/.vardrmap", False)]}
         if set(services) != set(mounts):
             raise ValueError(error)
         for service, expected_mounts in mounts.items():
@@ -403,17 +563,22 @@ def installation_volume_names(environment=None):
                 observed.append((mount["type"], mount["source"], mount["target"], mount.get("read_only", False)))
             if sorted(observed) != sorted(expected_mounts):
                 raise ValueError(error)
-        return {definition["name"] for definition in volumes.values()}
+        names = {definition["name"] for definition in volumes.values()}
+        # A Mapless install must also refuse to adopt an existing Full project's
+        # state; shared Runner state is not an implicit migration mechanism.
+        if mapless:
+            names.update(f"{project}_{name}" for name in ("database", "proxy-data", "proxy-config"))
+        return names
     except (ValueError, TypeError, KeyError, AttributeError, OSError, subprocess.SubprocessError):
         raise ValueError(error) from None
 
 
-def has_installation_data(configuration=None):
+def has_installation_data(configuration=None, *, mapless=False):
     """Recognize selected Full state volumes; unresolved mappings/inventory refuse."""
     # Process values have the same precedence over the prospective .env as they
     # will after exclusive creation. Never modify the process environment itself.
     environment = None if configuration is None else {**configuration, **os.environ}
-    names = installation_volume_names(environment)
+    names = installation_volume_names(environment, **({"mapless": True} if mapless else {}))
     try:
         result = subprocess.run(
             ["docker", "volume", "ls", "--format", "{{.Name}}"],
@@ -440,7 +605,12 @@ No scans were started."""
 
 
 def dispatch(args, parser):
+    mapless = read_mode(ROOT) == "mapless" or (args.action in ("install", "sources") and getattr(args, "mapless", False))
+    if mapless and args.action in ("configure", "database-role", "bootstrap", "export-ca", "update", "cancel-update"):
+        raise ValueError(f"{args.action} is a Full installation operation; Mapless state is retained. See docs/mapless.md")
     if args.action == "install":
+        if mapless:
+            return install_mapless(args, parser)
         # One command for a brand-new checkout. It only chains the existing steps, in
         # order, and refuses to run over an existing installation's credentials.
         # Safe to rerun after an interruption: an existing .env is kept (never
@@ -488,8 +658,10 @@ def dispatch(args, parser):
     elif args.action == "configure":
         configure(getattr(args, "prepared_configuration", None))
     elif args.action == "sources":
-        sources(mapless=getattr(args, "mapless", False))
+        sources(mapless=mapless)
     elif args.action == "build":
+        if mapless and os.path.lexists(ROOT / ".active-images.mapless.json"):
+            raise ValueError("The installed Mapless image is pinned; preserve state and use a separate reviewed installation until controlled Mapless updates are available")
         build_prerequisites()
         compose("--profile", "tools", "build")
     elif args.action == "database-role":
@@ -503,6 +675,11 @@ def dispatch(args, parser):
             f"{database_roles.APP}; {result['reassigned']} existing object(s) reassigned."
         )
     elif args.action == "start":
+        if mapless:
+            select_mapless_image(getattr(args, "runner_subnet", None))
+            compose("--profile", "tools", "create", "--no-build", "runner")
+            print("Mapless Runner prepared and stopped. Invoke runner explicitly; no background execution was started.")
+            return
         compose(
             "up", "-d", "--wait", "--wait-timeout", "180", "db", "api", "web", "proxy"
         )
@@ -548,8 +725,7 @@ def dispatch(args, parser):
     elif args.action == "runner":
         # The installed image set (.active-images.json after an update or restore)
         # is selected by compose(), unlike a plain `docker compose run`.
-        flags, command = runner_invocation(args.runner_args)
-        compose("run", "--rm", "--no-deps", *flags, "runner", *command)
+        invoke_runner(args)
     elif args.action == "doctor":
         compose(
             "run",
@@ -557,12 +733,15 @@ def dispatch(args, parser):
             "--no-deps",
             "runner",
             "doctor",
-            "--platform",
+            *([] if mapless else ["--platform"]),
             "--offline",
             "--json",
         )
         print(
-            "Runner diagnostics completed successfully. Sign in at the installation URL shown in docs/installation.md.",
+            "Runner diagnostics completed successfully. " + (
+                "Use the standalone workspace workflow in docs/mapless.md." if mapless else
+                "Sign in at the installation URL shown in docs/installation.md."
+            ),
             file=sys.stderr,
         )
     elif args.action in ("backup", "restore"):

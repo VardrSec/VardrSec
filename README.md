@@ -8,6 +8,13 @@ component also runs natively; see [platforms](docs/platforms.md).
 > **Source-built alpha, not an official release.** You build it locally from pinned sources.
 > No images are published and there are no automatic updates.
 
+Full keeps the web research workflow below. Standalone installation uses
+`python3 vardrsec.py install --mapless` in a separate clean checkout; see the
+[Mapless authorization, execution and export walkthrough](docs/mapless.md).
+The development implementation requires the reviewed compatible Runner/Gate
+pins; pending integration and acceptance are recorded in the
+[New Moon ledger](docs/new-moon-acceptance.md#community-delivery-priority).
+
 ## Install (Ubuntu 24.04, Docker and Compose, Python 3.10+, Git)
 
 ```sh
@@ -106,14 +113,12 @@ remain separate reviewed steps; this foundation publishes none of those artifact
 
 ## Development entry point
 
-The NM-3 source-selection increment adds `python3 vardrsec.py sources --mapless`
-to prepare only pinned Runner/Gate source caches. This is not yet a Mapless
-installer or verified installed transition; see [its limits](docs/installation.md#mapless-source-preparation-partial-nm-3-increment).
-Default Full preparation and lifecycle commands keep their existing behavior.
-
-An isolated [Mapless packaging model](docs/mapless-packaging.md) is available for
-read-only configuration review. It is not wired into the installer and does not
-establish a runnable Mapless release or verified state transition.
+`python3 vardrsec.py sources --mapless` prepares pinned Runner/Gate caches only;
+`install --mapless` additionally builds and selects the separate standalone model.
+See [mode selection](docs/installation.md#full-and-mapless-selection) and the
+[operator walkthrough](docs/mapless.md). Default Full lifecycle behavior is
+preserved. Compatible pins, installed acceptance and a published release remain
+distinct from source implementation; automatic mode transition is deferred.
 
 `python vardrsec.py configure`, `sources`, `build`, `database-role`, `start`, `export-ca`,
 `bootstrap`, `doctor` and `stop` delegate lifecycle to Compose and diagnostics to
