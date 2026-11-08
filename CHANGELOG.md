@@ -9,7 +9,9 @@
 
 - Freeze fresh Full installations onto their built image IDs and unused bridges
   before first startup, retaining explicit network settings and supporting
-  interrupted pre-start resume without rebuilding frozen images.
+  interrupted pre-start resume without rebuilding frozen images. Existing
+  installed checks use the same selected Compose model rather than reconfiguring
+  its networks through a raw base-file invocation.
 
 - Restore Full installations onto three explicitly unused bridges, including
   hosts with exhausted automatic Docker address pools; retain selected networks

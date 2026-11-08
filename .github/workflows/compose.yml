@@ -168,7 +168,7 @@ jobs:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
           python vardrsec.py install
-          docker compose config --quiet
+          python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), 'config', '--quiet')"
           docker build -t vardrsec-browser:acceptance tests/browser
       - name: Verify trusted installation, explicit Gate workflow and restart
         env:
@@ -238,7 +238,7 @@ jobs:
           fi
       - name: Stop disposable fixture and remove its data
         if: always()
-        run: docker compose --profile tools -p vardrsec-compose-review down --volumes --remove-orphans
+        run: python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
   controlled-updates:
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-latest
@@ -281,4 +281,4 @@ jobs:
               docker compose --profile tools -f "$folder/compose.yaml" -f "$folder/.active-images.json" -p "vardrsec-restore-update-$name" down --volumes --remove-orphans
             fi
           done
-          docker compose --profile tools -p vardrsec-compose-review down --volumes --remove-orphans
+          python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
