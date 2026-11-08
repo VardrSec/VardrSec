@@ -74,21 +74,33 @@ class ClockSuspendTests(unittest.TestCase):
     def test_source_authored_positive_full_retirement_and_both_clock_forms(self):
         raw,sel,inventories,expected,wake=vector();s=raw["clock_suspend"]
         result=clock.clock_suspend_projection(raw,sel,inventories,expected_fixture=expected,expected_wake=wake)
-        self.assertEqual((result["schema"],result["genuine_get_count"],result["guest_sleep_ns"]),(clock.HOSTED,5,20*clock.NS))
+        self.assertEqual((result["schema"],result["genuine_get_count"],result["guest_boot_minus_mono_ns"]),(clock.HOSTED,5,20*clock.NS))
         self.assertEqual((result["capacity_before"],result["capacity_after"],result["remaining_local_holds"]),(1,0,0))
         self.assertEqual(result["precise_s_state"],"unattributed");self.assertEqual(result["wake_causality"],"unattributed")
         result=clock.clock_joins(windows_clocks(s),s["original"],s["review"],s["physical"],s["traffic"],desktop=True)
-        self.assertEqual((result["guest_sleep_ns"],result["host_sleep_ns"],result["exit_observation_bound_seconds"]),(20*clock.NS,20*clock.NS,2))
+        self.assertEqual((result["guest_boot_minus_mono_ns"],result["host_sleep_ns"],result["exit_observation_bound_seconds"]),(20*clock.NS,20*clock.NS,2))
+        for latency in (0,1500):
+            clocks=windows_clocks(s);first,last=(clocks[k]["sample"] for k in ("guest_before","guest_after"))
+            last["monotonic_ns"]=first["monotonic_ns"]+last["boottime_ns"]-first["boottime_ns"]+latency
+            result=clock.clock_joins(clocks,s["original"],s["review"],s["physical"],s["traffic"],desktop=True)
+            self.assertEqual(result["guest_monotonic_delta_ns"],result["guest_boottime_delta_ns"]+latency)
+            self.assertEqual(result["guest_boot_minus_mono_ns"],-latency)
+            self.assertEqual(result["guest_sample_widths_ns"],[1000,1000])
+            self.assertEqual((result["host_sleep_ns"],result["guest_s_state"]),(20*clock.NS,"unattributed"))
 
     def test_clock_types_bridges_cap_crossing_exit_and_unknown_guest_sleep_refuse(self):
         for windows in (False,True):
-            for change in ("bool","bridge_before","bridge_after","boot","guest_sleep","utc_boot","host_sleep","late_exit","early_exit","ceiling","traffic","before_cap","after_cap","anchor_after_begin","extra"):
+            for change in ("bool","bridge_before","bridge_after","boot","guest_sleep","stagnant_boot","bad_uncertainty","utc_boot","host_sleep","late_exit","early_exit","ceiling","traffic","before_cap","after_cap","anchor_after_begin","extra"):
                 raw,_,_,_,_=vector();s=raw["clock_suspend"];c=windows_clocks(s) if windows else deepcopy(s["clocks"])
                 if change=="bool":c["guest_before"]["sample"]["boottime_ns"]=True
                 elif change=="bridge_before":c["guest_before"]["operator_before_ns"]=c["guest_before"]["sample"]["utc_before_ns"]+1
                 elif change=="bridge_after":c["guest_after"]["operator_after_ns"]=c["guest_after"]["sample"]["utc_after_ns"]-1
                 elif change=="boot":c["guest_after"]["sample"]["boot_id"]="021df345-3551-4ebf-9d03-aa22bfa39a14"
-                elif change=="guest_sleep":c["guest_after"]["sample"]["monotonic_ns"]+=20*clock.NS
+                elif change=="guest_sleep":
+                    first,last=(c[k]["sample"] for k in ("guest_before","guest_after"))
+                    last["monotonic_ns"]=first["monotonic_ns"]+last["boottime_ns"]-first["boottime_ns"]+sum(g["utc_after_ns"]-g["utc_before_ns"] for g in (first,last))+1
+                elif change=="stagnant_boot":c["guest_after"]["sample"]["boottime_ns"]=c["guest_before"]["sample"]["boottime_ns"]
+                elif change=="bad_uncertainty":c["guest_after"]["sample"]["utc_after_ns"]+=50_000_001
                 elif change=="utc_boot":c["guest_after"]["sample"]["boottime_ns"]+=2*clock.NS
                 elif change=="host_sleep":
                     h=c["host"]["native"] if windows else c["host"]

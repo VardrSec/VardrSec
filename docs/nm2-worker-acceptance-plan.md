@@ -706,13 +706,28 @@ or wake cause.
 
 Separate ordinary metadata helpers sample actual Docker Linux guest clocks and
 boot identity without entering the worker namespace or mounting credentials.
-Both samples must fall inside the controller's UTC invocation brackets. Actual
-guest and host elapsed sleep gaps must be 15–30 seconds, with the UTC/BOOTTIME
-consistency bound retained. The original authority must be live immediately
-before the operation, the helper's after-sample must cross that authority cap,
-and native exit 125 must occur after the cap, before the natural leaf ceiling,
-and no later than two seconds after the helper's actual after-UTC sample. That
-last bound is observation-relative; kernel resume latency is not measured.
+Both samples must fall inside the controller's UTC invocation brackets and keep
+the same guest boot identity. Guest BOOTTIME must advance, MONOTONIC must not go
+backwards, each actual UTC sample width is at most 50 ms, and elapsed UTC must
+remain within the existing one-second BOOTTIME consistency bound. The selected
+Linux `rtcwake freeze` case still requires a 15–30 second guest BOOTTIME-minus-
+MONOTONIC gap. [Linux timekeeping](https://docs.kernel.org/core-api/timekeeping.html)
+and its [v6.8 resume bookkeeping](https://github.com/torvalds/linux/blob/v6.8/kernel/time/timekeeping.c#L1661)
+describe accounting for Linux's own suspend; a Windows host transition alone
+does not establish that the Linux guest took that path.
+
+For Windows, the actual native biased-minus-unbiased host gap must still be
+15–30 seconds; [unbiased interrupt time excludes sleep](https://learn.microsoft.com/en-us/windows/win32/api/realtimeapiset/nf-realtimeapiset-queryunbiasedinterrupttimeprecise).
+[Hyper-V clock mechanisms](https://docs.kernel.org/virt/hyperv/clocks.html) do not
+by themselves identify the guest's power state. Its measured MONOTONIC delta may
+therefore be as large as BOOTTIME delta plus the two actual UTC sample widths;
+there is no minimum guest counter gap. The receipt reports both deltas, their
+difference and both widths, with guest S-state unattributed. The original
+authority must be live immediately before the operation, the helper's after-
+sample must cross that cap, and native exit 125 must follow the cap, precede the
+natural leaf ceiling and occur within two seconds after the helper's actual
+after-UTC sample. This remains observation-relative; kernel resume latency is
+not measured.
 
 The raw proof retains the original unpromoted file, native/Map holds and charges
 before protected reporting, followed by exact original-key reconciliation with

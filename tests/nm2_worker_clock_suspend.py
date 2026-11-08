@@ -139,8 +139,11 @@ def clock_joins(clocks, original, review, physical, traffic, *, desktop):
     first,last = guests
     require(first["boot_id"] == last["boot_id"], "clock_suspend_guest_boot_changed")
     boot,mono = last["boottime_ns"]-first["boottime_ns"],last["monotonic_ns"]-first["monotonic_ns"]
-    require(0 <= mono <= boot and 15*NS <= boot-mono <= 30*NS
+    widths=[g["utc_after_ns"]-g["utc_before_ns"] for g in guests]
+    require(boot > 0 and mono >= 0
         and abs((last["utc_before_ns"]-first["utc_before_ns"])-boot) <= NS, "clock_suspend_guest_sleep_refused")
+    require(mono <= boot+sum(widths) if desktop else 15*NS <= boot-mono <= 30*NS,
+        "clock_suspend_guest_sleep_refused")
     host = clocks["host"]
     windows = desktop
     require(type(host) is dict and host.get("status") == "returned_unqualified"
@@ -169,8 +172,10 @@ def clock_joins(clocks, original, review, physical, traffic, *, desktop):
         and h1[1] <= last["utc_before_ns"] and first["boottime_ns"] >= returned["boottime_ns"]
         and cap < finished <= h1[1]+2*NS and finished < begin["utc_ns"]+35*NS
         and len(traffic) == 5 and all(type(r["received_utc_ns"]) is int and begin["utc_ns"] <= r["received_utc_ns"] <= returned["utc_ns"] < h0[0] for r in traffic), "clock_suspend_order_or_exit_refused")
-    return dict(guest_sleep_ns=boot-mono,host_sleep_ns=host_boot-host_mono,
-                exit_observation_bound_seconds=2,guest_boot_same=True)
+    return dict(guest_boottime_delta_ns=boot,guest_monotonic_delta_ns=mono,
+                guest_boot_minus_mono_ns=boot-mono,guest_sample_widths_ns=widths,
+                host_sleep_ns=host_boot-host_mono,exit_observation_bound_seconds=2,
+                guest_boot_same=True,guest_s_state="unattributed")
 
 
 class ClockSuspendFixture(LaunchFixture):

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Distinguish Windows host sleep from Linux guest-kernel suspend in clock proof.
+  Use measured sampling widths while preserving actual host-sleep, authority
+  expiry and physical-exit bounds.
+
 - Qualify original Windows A boundary/drain evidence without repeating the job.
   Keep both A/B parent receipts held, B unobserved and Ubuntu separately pending.
 
