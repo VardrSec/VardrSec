@@ -36,6 +36,8 @@ LAUNCH_REPEAT_SCENARIO = "persistent-launch-repeat-managed-claim"
 REPEAT_HOSTED = "vardr.nm2-hosted/19"
 LAUNCH_STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
 STOPPED_PREDECESSOR_HOSTED = "vardr.nm2-hosted/11"
+LAUNCH_PID1_LOSS_SCENARIO = "persistent-launch-pid1-loss"
+PID1_LOSS_HOSTED = "vardr.nm2-hosted/20"
 LAUNCH_MAP_DISCONNECT_SCENARIO = "persistent-launch-map-disconnect"
 MAP_DISCONNECT_HOSTED = "vardr.nm2-hosted/14"
 LAUNCH_CLAIM_REPLY_LOSS_SCENARIO = "persistent-launch-claim-reply-loss"
@@ -84,6 +86,7 @@ LAUNCH_SCOPES = {
     LAUNCH_PRECLAIM_SCENARIO: "trusted_synthetic_closed_preclaim_parent0",
     LAUNCH_REPEAT_SCENARIO: "installed_repeated_managed_claim_then_exact_stop",
     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: "stopped_predecessor_then_next_launch",
+    LAUNCH_PID1_LOSS_SCENARIO: "unexpected_pid1_loss_then_next_launch",
     LAUNCH_MAP_DISCONNECT_SCENARIO: "ordinary_map_api_outage",
     LAUNCH_CLAIM_REPLY_LOSS_SCENARIO: "committed_claim_reply_loss",
     LAUNCH_RESULT_REPLY_LOSS_SCENARIO: "committed_result_reply_loss",
@@ -711,6 +714,10 @@ def execution_options(env):
         from nm2_worker_launch_acceptance import CLAIM_REPLY_LOSS_SOURCES, POST_CLAIM_REPLY_LOSS_SOURCES
         sources = CLAIM_REPLY_LOSS_SOURCES if REPLY_LOSS_OPERATIONS[scenario] == "claim" else POST_CLAIM_REPLY_LOSS_SOURCES
         require(all(env.get("NM2_" + n.upper() + "_SHA") == v for n, v in sources.items()))
+    if scenario == LAUNCH_PID1_LOSS_SCENARIO:
+        from nm2_worker_launch_acceptance import PID1_LOSS_SOURCES
+        require(all(env.get("NM2_" + name.upper() + "_SHA") == commit
+                    for name, commit in PID1_LOSS_SOURCES.items()))
     return scenario, revision
 
 
@@ -1348,7 +1355,7 @@ def _concurrency_projection(raw, selection):
     }
 
 
-def _launch_retention(raw, selection, launches, inventories, *, desktop):
+def _launch_retention(raw, selection, launches, inventories, *, desktop, first_exit=125):
     from nm2_worker_acceptance import AcceptanceRefused, canonical, digest, unchanged_inventory
 
     admit_bridge = selection["allow_empty_builtin_bridge_id_change"]
@@ -1425,7 +1432,7 @@ def _launch_retention(raw, selection, launches, inventories, *, desktop):
                 and type(row["restarts"]) is int and row["restarts"] == 0
                 and row["state"]["started_at"] == launch["started_at"]
                 and row["state"]["finished_at"] == launch["finished_at"]
-                and (launch["ordinal"] != 1 or row["state"]["exit_code"] == 125)
+                and (launch["ordinal"] != 1 or row["state"]["exit_code"] == first_exit)
             )
             mounts = [item for item in row["mounts"] if item["Destination"] == "/home/runner/.vardrmap"]
             require(
@@ -1464,11 +1471,44 @@ def _stopped_predecessor_projection(raw, selection, first, second, inventories, 
     for key in hashes:
         _hash(proof[key])
 
+    pid1_loss = raw["scenario"] == LAUNCH_PID1_LOSS_SCENARIO
+    fault = None
+    if pid1_loss:
+        from nm2_worker_launch_acceptance import PID1_LOSS_SOURCES
+
+        require(all(selection["sources"][name]["commit"] == commit
+                    for name, commit in PID1_LOSS_SOURCES.items()))
+        fault = raw.get("pid1_loss")
+        require(
+            type(fault) is dict and set(fault) == {
+                "signal", "kill_calls", "container_id", "exit_code",
+                "new_work_disabled_before_report", "new_work_disabled_after_report",
+                "original_artifact_files",
+            }
+            and fault["signal"] == "KILL"
+            and type(fault["kill_calls"]) is int and fault["kill_calls"] == 1
+            and fault["container_id"] == first["container_id"]
+            and type(fault["exit_code"]) is int and fault["exit_code"] == 137
+            and fault["new_work_disabled_before_report"] is False
+            and fault["new_work_disabled_after_report"] is True
+            and type(fault["original_artifact_files"]) is list
+            and len(fault["original_artifact_files"]) <= 1
+        )
+        for artifact in fault["original_artifact_files"]:
+            require(
+                type(artifact) is dict and set(artifact) == {"name", "size", "sha256"}
+                and artifact["name"] == "vardrgate_result.json"
+                and type(artifact["size"]) is int and 0 < artifact["size"] <= 1024 * 1024
+            )
+            _hash(artifact["sha256"])
+    else:
+        require("pid1_loss" not in raw)
     owned_count, admitted_count = _launch_retention(
-        raw, selection, (first, second), inventories, desktop=desktop
+        raw, selection, (first, second), inventories, desktop=desktop,
+        first_exit=137 if pid1_loss else 125,
     )
     result = {
-        "stopped_predecessor": {
+        "pid1_loss" if pid1_loss else "stopped_predecessor": {
             **{key: proof[key] for key in (*counts, *hashes, "failure_phase", "failure_code",
                                           "terminal_cause", "physical_exit_elapsed_ns")},
             "same_runner_state_volume": True,
@@ -1476,6 +1516,15 @@ def _stopped_predecessor_projection(raw, selection, first, second, inventories, 
         },
         "nm2_exit_status": "incomplete", "resources_retained": True,
     }
+    if pid1_loss:
+        result["pid1_loss"].update(
+            **{key: fault[key] for key in (
+                "signal", "kill_calls", "exit_code", "new_work_disabled_before_report",
+                "new_work_disabled_after_report", "original_artifact_files",
+            )},
+            original_artifact_status="producer_verified_unchanged" if fault["original_artifact_files"] else "not_observed",
+            scope="PID1 loss only; separate Runner-loss case remains open",
+        )
     if desktop:
         result.update(platform="win32", container_platform="linux",
                       empty_builtin_bridge_id_change_count=admitted_count)
@@ -1970,6 +2019,7 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
         and (not desktop or scenario in {
             LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_CONCURRENCY_SCENARIO,
             LAUNCH_MAP_DISCONNECT_SCENARIO, LAUNCH_GRANT_REVOKE_SCENARIO, LAUNCH_PRECLAIM_SCENARIO, *REPLY_LOSS_OPERATIONS,
+            LAUNCH_PID1_LOSS_SCENARIO,
             LAUNCH_REPEAT_SCENARIO,
         })
     )
@@ -2107,7 +2157,7 @@ def launch_projection(raw, selection, *, inventories=(), desktop=False):
         require("unissued_job" not in raw)
     if scenario == LAUNCH_PRECLAIM_SCENARIO:
         return _preclaim_projection(raw, selection, first, second, inventories, desktop=desktop)
-    if scenario in {LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_REPEAT_SCENARIO}:
+    if scenario in {LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_REPEAT_SCENARIO, LAUNCH_PID1_LOSS_SCENARIO}:
         result = _stopped_predecessor_projection(
             raw, selection, first, second, inventories, desktop=desktop
         )
@@ -2171,6 +2221,18 @@ def map_disconnect_desktop_projection(raw, selection, *, inventories):
         raise HostedRefused("nm2_desktop_map_disconnect_receipt_refused") from None
 
 
+def pid1_loss_desktop_projection(raw, selection, *, inventories):
+    """Read only the Windows Desktop PID1-loss fixture evidence."""
+    require(
+        type(raw) is dict and raw.get("schema") == LAUNCH_SCHEMA
+        and raw.get("scenario") == LAUNCH_PID1_LOSS_SCENARIO
+    )
+    try:
+        return launch_projection(raw, selection, inventories=inventories, desktop=True)
+    except (KeyError, TypeError, IndexError, ValueError):
+        raise HostedRefused("nm2_desktop_pid1_loss_receipt_refused") from None
+
+
 def stopped_predecessor_desktop_projection(raw, selection, *, inventories):
     """Read only the Windows Desktop stopped-predecessor fixture evidence."""
     require(
@@ -2216,7 +2278,9 @@ def public_projection(raw, selection, *, inventories=()):
                 raise HostedRefused("nm2_hosted_map_disconnect_receipt_refused") from None
         if raw.get("scenario") == LAUNCH_PRECLAIM_SCENARIO:
             return launch_projection(raw, selection, inventories=inventories)
-        if raw.get("scenario") in {LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_REPEAT_SCENARIO}:
+        if raw.get("scenario") in {
+            LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_REPEAT_SCENARIO, LAUNCH_PID1_LOSS_SCENARIO,
+        }:
             try:
                 return launch_projection(raw, selection, inventories=inventories)
             except (KeyError, TypeError, IndexError, ValueError):
@@ -2463,6 +2527,12 @@ class Hosted:
         elif self.scenario == LAUNCH_STOPPED_PREDECESSOR_SCENARIO:
             self.receipt.update(
                 schema=STOPPED_PREDECESSOR_HOSTED, scenario=self.scenario,
+                expected_database_revision=self.database_revision,
+                scope=LAUNCH_SCOPES[self.scenario],
+            )
+        elif self.scenario == LAUNCH_PID1_LOSS_SCENARIO:
+            self.receipt.update(
+                schema=PID1_LOSS_HOSTED, scenario=self.scenario,
                 expected_database_revision=self.database_revision,
                 scope=LAUNCH_SCOPES[self.scenario],
             )
@@ -2795,6 +2865,7 @@ class Hosted:
             *{
                 LAUNCH_SCENARIO: [],
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO: ["--stopped-predecessor"],
+                LAUNCH_PID1_LOSS_SCENARIO: ["--pid1-loss"],
                 LAUNCH_PRECLAIM_SCENARIO: ["--preclaim-recovery"],
                 LAUNCH_REPEAT_SCENARIO: ["--repeat-managed-claim"],
                 LAUNCH_MAP_DISCONNECT_SCENARIO: ["--map-disconnect"],
@@ -2937,6 +3008,7 @@ class Hosted:
                     "persistent-empty-stop": "vardr.nm2-worker-empty-acceptance/1",
                     LAUNCH_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: LAUNCH_SCHEMA,
+                    LAUNCH_PID1_LOSS_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_PRECLAIM_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_REPEAT_SCENARIO: LAUNCH_SCHEMA,
                     LAUNCH_MAP_DISCONNECT_SCENARIO: LAUNCH_SCHEMA,
@@ -2960,7 +3032,7 @@ class Hosted:
             if self.scenario in {
                 STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO, STALE_CLAIM_SCENARIO,
                 LAUNCH_STOPPED_PREDECESSOR_SCENARIO, LAUNCH_PRECLAIM_SCENARIO, LAUNCH_REPEAT_SCENARIO,
-                LAUNCH_MAP_DISCONNECT_SCENARIO, *REPLY_LOSS_OPERATIONS,
+                LAUNCH_PID1_LOSS_SCENARIO, LAUNCH_MAP_DISCONNECT_SCENARIO, *REPLY_LOSS_OPERATIONS,
             }:
                 inventories = []
                 for name in ("before", "after"):
@@ -3045,6 +3117,7 @@ class Hosted:
                     "persistent-empty-stop": "vardr.nm2-hosted/6",
                     LAUNCH_SCENARIO: "vardr.nm2-hosted/7",
                     LAUNCH_STOPPED_PREDECESSOR_SCENARIO: STOPPED_PREDECESSOR_HOSTED,
+                    LAUNCH_PID1_LOSS_SCENARIO: PID1_LOSS_HOSTED,
                     LAUNCH_PRECLAIM_SCENARIO: PRECLAIM_HOSTED,
                     LAUNCH_REPEAT_SCENARIO: REPEAT_HOSTED,
                     LAUNCH_MAP_DISCONNECT_SCENARIO: MAP_DISCONNECT_HOSTED,

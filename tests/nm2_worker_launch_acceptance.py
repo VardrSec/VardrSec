@@ -154,6 +154,13 @@ def claim_reply_loss_config(original, job, *, operation="claim"):
 
 
 STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
+PID1_LOSS_SCENARIO = "persistent-launch-pid1-loss"
+PID1_LOSS_SCOPE = "unexpected_pid1_loss_then_next_launch"
+PID1_LOSS_SOURCES = {
+    "map": "05dc78cf9a385255de459c8a5b833842d6528a63",
+    "runner": "f3dc7e92ea0cc04f5aca4bb74cc739fd79f5be19",
+    "gate": "57cfedfaf59b11cf626288c343f34a34c7b1df13",
+}
 REPEAT_SCENARIO = "persistent-launch-repeat-managed-claim"
 REPEAT_SCOPE = "installed_repeated_managed_claim_then_exact_stop"
 PRECLAIM_SCENARIO = "persistent-launch-preclaim-recovery"
@@ -389,13 +396,15 @@ def repeated_claim_state(inventory):
 
 
 class LaunchFixture(Fixture):
+    pid1_loss = False
+
     def __init__(
         self, selection, *, compose, compose_sha256, docker_config,
         completed=False, stop_work=False, queued_peer=False, local_stop=False, missing_grant=False,
         revoke_grant=False, expire_grant=False, expire_active_grant=False,
         duration_exhaustion=False, target_exhaustion=False, stopped_predecessor=False,
         concurrency_exhaustion=False, map_disconnect=False, preclaim_recovery=False, claim_reply_loss=False,
-        repeat_managed_claim=False, reply_loss_operation=None,
+        repeat_managed_claim=False, reply_loss_operation=None, pid1_loss=False,
     ):
         super().__init__(
             selection,
@@ -403,7 +412,7 @@ class LaunchFixture(Fixture):
                 "missing-local-grant" if missing_grant or expire_grant
                 else "active-target-grant-revoked" if revoke_grant
                 else "local-emergency-stop" if local_stop
-                else "stop-work" if stop_work or expire_active_grant or stopped_predecessor or map_disconnect or repeat_managed_claim
+                else "stop-work" if stop_work or expire_active_grant or stopped_predecessor or map_disconnect or repeat_managed_claim or pid1_loss
                 else EMPTY_SCENARIO
             ),
             database_revision="0041persistentruntime",
@@ -421,7 +430,8 @@ class LaunchFixture(Fixture):
         self.compose_sha256 = compose_sha256
         self.budget_exhaustion = "duration" if duration_exhaustion else "target" if target_exhaustion else None
         self.completed = completed or self.budget_exhaustion is not None
-        self.stopped_predecessor = stopped_predecessor or repeat_managed_claim
+        self.pid1_loss = pid1_loss
+        self.stopped_predecessor = stopped_predecessor or repeat_managed_claim or pid1_loss
         self.repeat_managed_claim = repeat_managed_claim
         self.map_disconnect = map_disconnect
         self.preclaim_recovery = preclaim_recovery
@@ -443,7 +453,7 @@ class LaunchFixture(Fixture):
             sum((completed, stop_work, local_stop, missing_grant, revoke_grant,
                  expire_grant, expire_active_grant, duration_exhaustion, target_exhaustion,
                  stopped_predecessor, concurrency_exhaustion, map_disconnect, preclaim_recovery,
-                 claim_reply_loss, repeat_managed_claim, reply_loss_operation is not None)) <= 1
+                 claim_reply_loss, repeat_managed_claim, reply_loss_operation is not None, pid1_loss)) <= 1
             and (not queued_peer or stop_work),
             "launch_fixture_mode_conflict",
         )
@@ -473,6 +483,13 @@ class LaunchFixture(Fixture):
                         for name, commit in MAP_DISCONNECT_SOURCES.items()),
                     "launch_repeat_sources_required")
             scenario, scope = REPEAT_SCENARIO, REPEAT_SCOPE
+        elif pid1_loss:
+            require(
+                all(selection["sources"][name]["commit"] == commit
+                    for name, commit in PID1_LOSS_SOURCES.items()),
+                "launch_pid1_loss_source_required",
+            )
+            scenario, scope = PID1_LOSS_SCENARIO, PID1_LOSS_SCOPE
         elif stopped_predecessor:
             scenario, scope = STOPPED_PREDECESSOR_SCENARIO, "stopped_predecessor_then_next_launch"
         elif preclaim_recovery:
@@ -554,12 +571,13 @@ class LaunchFixture(Fixture):
         )
         core_images = {row["service"]: row["image_id"] for row in core["core"]}
         config = self.private / "launch-config.json"
+        self.docker_sha256 = digest(self.docker_executable.read_bytes())
         publish(
             config,
             canonical(
                 {
                     "docker": str(self.docker_executable),
-                    "docker_sha256": digest(self.docker_executable.read_bytes()),
+                    "docker_sha256": self.docker_sha256,
                     "compose": str(self.compose_executable),
                     "compose_sha256": self.compose_sha256,
                     "docker_config": str(self.docker_config),
@@ -1292,12 +1310,15 @@ print(len(directories))
         requests = observed["requests"]
         after = self.timed_traffic()
         require(
-            exit_proof.exit_code == 125 and requests == after["requests"] and len(requests) == 3,
+            exit_proof.exit_code == (137 if self.pid1_loss else 125)
+            and requests == after["requests"] and len(requests) == 3,
             "launch_active_predecessor_exit_missing",
         )
         elapsed = stop_exit_elapsed_ns(requests[-1], after, exit_proof.finished_at)
         engagement, job = case[:2]
-        inventory = self.unreported_attempt(admission, case, exit_proof.identity, disabled=True)
+        inventory = self.unreported_attempt(
+            admission, case, exit_proof.identity, disabled=not self.pid1_loss,
+        )
         local = self.local_metadata(run_id, engagement, job)
         require(
             local["phase"] == "executing" and local["claim_state"] == "consume_acknowledged"
@@ -1305,6 +1326,19 @@ print(len(directories))
             and local["local_stop_requested"] is False and local["failure_reason"] is None,
             "launch_predecessor_original_run_not_held",
         )
+        if self.pid1_loss:
+            files = local["partial_files"]
+            require(
+                local["partial_result"] is None and len(files) <= 1
+                and all(row["name"] == "vardrgate_result.json" for row in files),
+                "launch_pid1_loss_artifact_promoted",
+            )
+            self.pid1_original_files = files
+            self.pid1_original_run = (run_id, engagement, job)
+            self.receipt["pid1_loss"].update(
+                exit_code=exit_proof.exit_code, new_work_disabled_before_report=False,
+                original_artifact_files=files,
+            )
 
         records = records_for(self.install, str(self.private), existing=True)
         store = IntentStore(records)
@@ -1380,7 +1414,8 @@ print(len(directories))
             "execution": {**before["execution"], "state": "failed", "capacity_reserved": False},
             "runtimes": [{
                 **runtime, "retired": True, "report_sha256": retired["report_sha256"],
-                **({"new_work_disabled": True} if proof_key in {"map_disconnect", "claim_reply_loss"} else {}),
+                **({"new_work_disabled": True}
+                   if proof_key in {"map_disconnect", "claim_reply_loss"} or self.pid1_loss else {}),
             }],
             "stops": [{key: terminal[key] for key in ("contract_id", "receipt_sha256", "outcome", "cause")}],
         }
@@ -1391,6 +1426,14 @@ print(len(directories))
             **({"selected_only_issued": True}
                if getattr(self, "claim_reply_loss", False) and getattr(self, "reply_loss_operation", "claim") == "claim" and proof_key == "claim_reply_loss" else {}),
         )
+        if self.pid1_loss:
+            local = self.local_metadata(run_id, *case[:2])
+            require(
+                local["partial_files"] == self.pid1_original_files
+                and local["partial_result"] is None and after["results"] == [],
+                "launch_pid1_loss_artifact_or_publication_changed",
+            )
+            self.receipt["pid1_loss"]["new_work_disabled_after_report"] = True
         self.retired_predecessor_inventory = after
         self.receipt[proof_key].update(
             audit_sha256=digest(canonical(audit)), retirement_sha256=retired["receipt_sha256"],
@@ -1404,6 +1447,29 @@ print(len(directories))
         if getattr(self, "repeat_managed_claim", False):
             self.receipt["repeated_managed_claim"]["terminal_receipt"] = terminal
         return audit
+
+    def kill_active_pid1(self, observer, identity):
+        """One host-daemon fault against the freshly verified exact incarnation."""
+        require(
+            self.pid1_loss and self.receipt["scenario"] == PID1_LOSS_SCENARIO
+            and "pid1_loss" not in self.receipt
+            and digest(self.docker_executable.read_bytes()) == self.docker_sha256
+            and observer.capture_running(
+                container_id=identity.container_id, image_id=identity.image_id,
+                project=identity.project,
+            ) == identity,
+            "launch_pid1_loss_identity_or_repeat_refused",
+        )
+        # Mark before dispatch: an ambiguous CLI failure must not be retried.
+        self.receipt["pid1_loss"] = {
+            "signal": "KILL", "kill_calls": 1, "container_id": identity.container_id,
+        }
+        command(
+            [str(self.docker_executable), "--config", str(self.docker_config),
+             "--context", self.m["docker_context"], "kill", "--signal", "KILL",
+             identity.container_id],
+            env=self.environment, timeout=10,
+        )
 
     def arm_claim_reply_loss(self, observer, initial, job):
         from worker_runtime import host_bind_path
@@ -2025,6 +2091,8 @@ print(len(directories))
                 "launch_active_predecessor_identity_changed",
             )
             run_id, observed = self.observe_active_run(*case[:3])
+            if self.pid1_loss:
+                self.unreported_attempt(admission, case, identity, disabled=False)
             if self.repeat_managed_claim:
                 self.observe_repeated_managed_claim(admission, case, identity, run_id, observed)
         elif cancelling and self.expire_active_grant:
@@ -2047,11 +2115,16 @@ print(len(directories))
                 )
         if not (disconnecting or lost_claim):
             self.receipt["stage"] = "launch_stop_work_exit" if cancelling else f"launch_stop_{ordinal}"
-            stopped = None if cancelling else self.worker_action("stop", selected)
+            losing_pid1 = stopping_predecessor and self.pid1_loss
+            if losing_pid1:
+                self.kill_active_pid1(observer, identity)
+            stopped = None if cancelling or losing_pid1 else self.worker_action("stop", selected)
             exit_proof = observer.observe_exit(identity)
             if cancelling:
                 after = self.timed_traffic()
                 require(exit_proof.exit_code != 0, "launch_stop_work_exit_not_observed")
+            elif losing_pid1:
+                require(exit_proof.exit_code == 137, "launch_pid1_loss_exit_not_observed")
             else:
                 require(
                     stopped["state"] == "stopped_observed"
@@ -2084,7 +2157,9 @@ print(len(directories))
             "admission_sha256": admission["admission_sha256"],
             "finished_at": exit_proof.finished_at,
             "exit_code": exit_proof.exit_code,
-            "operator_stop_state": "not_requested" if cancelling or disconnecting or lost_claim else stopped["state"],
+            "operator_stop_state": "not_requested" if cancelling or disconnecting or lost_claim or (
+                stopping_predecessor and self.pid1_loss
+            ) else stopped["state"],
         }
         if cancelling:
             self.receipt["stage"] = "launch_stop_work_retirement"
@@ -2523,6 +2598,13 @@ print(len(directories))
                 and _timestamp(first["finished_at"]) < _timestamp(second["started_at"]),
                 "launch_host_exit_predecessor_history_changed",
             )
+            if self.pid1_loss:
+                retained = self.local_metadata(*self.pid1_original_run)
+                require(
+                    retained["partial_files"] == self.pid1_original_files
+                    and retained["partial_result"] is None,
+                    "launch_pid1_loss_successor_changed_artifact",
+                )
         if self.preclaim_recovery:
             require(second["runtime_id"] == self.successor_id
                     and canonical(self.preclaim_unissued()) == canonical(self.preclaim_inventory)
@@ -2686,6 +2768,8 @@ def main(argv=None):
     workload.add_argument("--target-exhaustion", action="store_true")
     workload.add_argument("--concurrency-exhaustion", action="store_true")
     workload.add_argument("--stopped-predecessor", action="store_true")
+    workload.add_argument("--pid1-loss", action="store_true",
+                          help="Explicit owner-approved C08 paired PID1-loss acceptance route")
     workload.add_argument("--map-disconnect", action="store_true")
     workload.add_argument("--claim-reply-loss", action="store_true")
     workload.add_argument("--result-reply-loss", action="store_true")
@@ -2719,6 +2803,7 @@ def main(argv=None):
             target_exhaustion=args.target_exhaustion,
             concurrency_exhaustion=args.concurrency_exhaustion,
             stopped_predecessor=args.stopped_predecessor,
+            **({"pid1_loss": True} if args.pid1_loss else {}),
             map_disconnect=args.map_disconnect,
             **({"claim_reply_loss": True} if args.claim_reply_loss else {}),
             **({"reply_loss_operation": operation} if operation is not None else {}),

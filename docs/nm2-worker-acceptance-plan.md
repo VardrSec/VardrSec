@@ -611,3 +611,19 @@ five target requests and preserved evidence, then exact physical retirement and
 original-key reconciliation without publication replay or manufactured DONE.
 Result-only retirement fails the retained result; completed retirement preserves
 its original completion. Installed proof remains required for each platform.
+
+
+## C08 owner-authorized paired PID1 loss
+
+The owner decision on 2026-11-07 (America/Chicago; 2026-11-08 UTC) authorizes
+one Windows Docker Desktop and one Ubuntu24.04/amd64 run of the explicit
+`persistent-launch-pid1-loss` route, hosted receipt20. The sole fault is one host
+KILL against the freshly verified exact worker CID after the existing three
+requests, with no retry. Job30/control10/grace2 and CPU1/memory512MiB/PID64/tmpfs64MiB
+remain unchanged. Require exit137, original holds/charges before protected host
+reporting, original-key reconciliation and the existing same-volume successor;
+retain original artifact bytes and all owned resources without publication.
+The manual choice does not enable normal startup. This decision covers no
+Runner-loss, worker process insertion, channel, load, suspend or other earlier
+stopped experiment. Root reviews the final frozen source and inert qualification
+before dispatch; this source change alone records no installed acceptance.

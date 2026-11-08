@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add the owner-authorized manual PID-1 loss test for one Windows Docker Desktop
+  run and one Ubuntu run. Preserve the worker profile, deadlines and original
+  recovery flow; no retries or additional fault probes are authorized.
+
 - Add opt-in installed reply-loss coverage for consume, runtime-bind, result and
   completion through the existing proxy and original-key recovery flow. Preserve
   original artifacts, receipts and ACK uncertainty; installed acceptance remains
