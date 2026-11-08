@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Record canonical Windows 11 Docker Desktop Full/Mapless source installations
+  and isolated recovery, reusing retained synthetic evidence without another
+  assessment. Keep native, deferred execution/transition/update and release
+  acceptance boundaries explicit.
+
 - Freeze fresh Full installations onto their built image IDs and unused bridges
   before first startup, retaining explicit network settings and supporting
   interrupted pre-start resume without rebuilding frozen images.
