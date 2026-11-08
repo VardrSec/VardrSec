@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Close NM-2's three pre-execution reply-loss boundaries on Windows and Ubuntu.
+  Retain the Ubuntu result/completion proofs and the two held repetition attempts;
+  Windows publication recovery and the remaining fixed gates stay open.
+
 - Add the owner-authorized manual PID-1 loss test for one Windows Docker Desktop
   run and one Ubuntu run. Preserve the worker profile, deadlines and original
   recovery flow; no retries or additional fault probes are authorized.

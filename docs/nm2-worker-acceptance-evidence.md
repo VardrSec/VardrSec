@@ -1026,7 +1026,7 @@ same-volume successor. Seven owned containers remained stopped and retained.
 This closes C02 within its explicit trusted-synthetic real-API seed scope;
 it does not claim a naturally interrupted preclaim crash.
 
-## C03 committed claim reply loss, 2026-11-07
+## C03 committed reply loss before execution, 2026-11-07
 
 Distribution `7f753052f39444325acc2f1aed0a98dfb23c249b`, Map `05dc78c`,
 Runner `f359686` and Gate `d80d473` passed the committed first-claim reply-loss
@@ -1049,11 +1049,55 @@ Windows raw receipt SHA-256:
 `31f07d3fba5df4069ccae15643467f03c1b026bc76bd5a049d6738ae940cdc01`.
 Ubuntu sanitized receipt SHA-256:
 `40758888a658d714afed74563f79babadb07115fb7f885423034e5820116227b`.
-This closes the claim boundary only. Two additional inert component cases at
+That pair closed the claim boundary. Two additional inert component cases at
 Runner `f3dc7e9` verified committed consume and runtime-bind reply loss, exact
 original observation/recovery, retained stage/binding and sent1/ACK0, with no
-native dispatch, replay or invented DONE/release. Their installed pairs remain
-open, so C03 remains open.
+native dispatch, replay or invented DONE/release.
+
+The subsequent consume and runtime-bind installed pairs also passed. Both use
+Map `05dc78c`, Runner `f3dc7e9` and Gate `57cfedf`; Ubuntu used Distribution
+`07840b208089e21b23436064c37ad5f42799ba11`, and Windows Docker Desktop used
+`ba2183c2dc8b1605185a034766c13b8d8edfa580`. The added PID-1 scenario preserves
+these producer/reader ASTs and does not run in these cases.
+
+| Boundary | Ubuntu run and sanitized receipt SHA-256 | Windows raw receipt SHA-256 |
+| --- | --- | --- |
+| Consume | [42433906070](https://github.com/VardrSec/VardrSec/actions/runs/42433906070), `d939bd95e860c863a95c54bae9168f145184df8f56a0fa546ccd15b045e9d465` | `a9a9bf54e1ab573c6a5e341bd395b8867d227b8384ab4f9a2d448834557ec917` |
+| Runtime bind | [42433916336](https://github.com/VardrSec/VardrSec/actions/runs/42433916336), `39d742877bc44b375628e5ec76488e3716ac9e66a9a632ea87307782e5d01f48` | `125fe5e1f56031d7f479064e377c8e60a75ae42ba4468d3438ee134a3b2d08a2` |
+
+Both boundaries retained remote consumption, one original issued/local sequence,
+one target charged and 30 seconds allocated, with no target requests or observed
+tool PID/artifact. Only bind loss retained server confirmation. The original
+local consumption ACK remained absent in both cases. Exact natural exit,
+protected physical report and original authenticated reconciliation released
+capacity from one to zero without a refund, replay or fabricated ACK, DONE or
+release. Six owned containers were stopped and retained. Independent readers
+checked the Windows raw receipts and inventories and separately checked Ubuntu's
+closed exported counts, hashes, exact source commits and four source trees.
+Both Windows operator profiles remained unchanged with zero guard blocks.
+All three named boundaries now have paired installed proof: C03 is closed.
+
+## C04 committed result and completion replies, 2026-11-07
+
+The Ubuntu cases passed at Distribution `07840b2`, Map `05dc78c`, Runner
+`f3dc7e9` and Gate `57cfedf`. All Windows/Ubuntu compatibility jobs for these
+cohorts also passed. The Windows installed pair remains pending.
+
+| Lost reply | Ubuntu run | Sanitized receipt SHA-256 |
+| --- | --- | --- |
+| Result | [42433932019](https://github.com/VardrSec/VardrSec/actions/runs/42433932019) | `7d43569325781a9ed8745d1d2ad62e94db03e76ff33f101ea8545094a4dfdf16` |
+| Completion | [42433943673](https://github.com/VardrSec/VardrSec/actions/runs/42433943673) | `660b70ce39559dcd07e5380d2b88beeafc93cffced135e5424fbaa41747c7047` |
+
+Each made the original five requests and retained five evidence records and the
+original artifact/result provenance. Result-only physical retirement produced
+the original failed completion and `terminal_failed_completion_observed`;
+completion loss retained the already completed receipt and
+`terminal_receipt_observed`. Capacity was respectively one-to-zero and zero-to-zero,
+with one target and 30 seconds allocated, no refund or publication replay and
+zero local holds. No native DONE or idle-release ACK was manufactured. Six
+owned containers remained stopped and retained. A separate sanitized-receipt
+audit checked all closed fields, counts, hash shapes, pins and source trees.
+C04 remains open until its Windows installed pair passes.
 
 ## C05 managed competition and repetition, 2026-11-07
 
@@ -1080,6 +1124,28 @@ An unrelated Windows unit timer assertion also observed floating arithmetic
 `10.000000000000028`; pinning its mocked monotonic clock preserves the original
 10-second assertion and changes no production deadline. C05 remains open until
 the affected installed repetition case passes.
+
+The diagnostic Ubuntu retry at Distribution `07840b2`
+([42433894249](https://github.com/VardrSec/VardrSec/actions/runs/42433894249))
+isolated `launch_unresolved_refusal_engine_changed`. Its retained sanitized
+receipt SHA-256 is
+`04efb5872cb6cd93a48d07ac8fb85ded2b38f1ed03487263d5d8f1ea7373a4c1`.
+This identifies the comparison, not the changed resource or its cause.
+
+The Windows attempt at Distribution `ba2183c` held earlier at
+`launch_predecessor_unreported` / `launch_stop_work_exit_not_observed`, raw
+receipt SHA-256
+`47df29c08706e76ab1c9c6e1070b5838c1861ff6049a78879832e03a70b961de`.
+Independent readback verified six stopped retained owned containers, unchanged
+foreign inventory and operator hashes, with zero admitted differences/blocks.
+Source inspection found that the reused timing predicate starts at the third
+GET, so it includes the additional repeat-claim verification work; the receipt
+does not distinguish an elapsed bound from its dual-clock skew check.
+Neither held receipt establishes a product cause or receives acceptance credit.
+The C05 correction will exercise its own duplicate-claim/accounting/recovery
+criterion and explicitly reuse accepted predecessor and cancellation evidence;
+it must not claim those duplicated assertions ran. The full engine-equality
+guard remains required and unchanged for the ordinary and approved PID-1 cases.
 
 ## Independent source review for C10, 2026-11-07
 
