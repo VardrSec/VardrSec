@@ -7,6 +7,12 @@ PostgreSQL dump or proxy service. The commands below use the installed mode;
 do not combine the Full and Mapless Compose files or change a marker as a
 transition shortcut.
 
+New checkouts also retain the complete four-file installer/Runner launcher set.
+Older snapshots without launchers remain readable; partial launcher sets refuse.
+Restored shell launchers are executable by the restoring user. Use the recovery
+tooling bundled with the snapshot: older readers reject the extended version-5/6
+file manifest rather than silently omit launchers.
+
 Recovery is an explicit maintenance operation. Finish any invoked Runner command
 first; backup refuses while a Runner container is executing. Keep configuration
 secrets and the public URL in the private `.env`, matching the running services.

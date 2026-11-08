@@ -1,3 +1,5 @@
 tests/fixtures/nm2-fixed-boundary/** text eol=lf
 tests/fixtures/nm2-fixed-runner-loss/** text eol=lf
 tests/fixtures/nm2-clock-suspend/** text eol=lf
+install.sh text eol=lf
+runner.sh text eol=lf

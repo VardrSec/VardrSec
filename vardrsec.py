@@ -312,7 +312,9 @@ def main():
     parser.add_argument("--authority-volume", help="Private issuer volume, only for workspace authority-init/authorize; never execution")
     parser.add_argument("--controlled", action="store_true", help="Runner-only explicit one-job contained local execution")
     parser.add_argument("--runner-subnet", help="Optional unused private IPv4 /24 for the Mapless Runner bridge")
-    parser.add_argument(
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--full", action="store_true", help="Explicitly select a Full installation")
+    modes.add_argument(
         "--mapless",
         action="store_true",
         help="Install standalone Runner and Gate without Map, database or proxy",
@@ -334,6 +336,8 @@ def main():
     if args.action != "runner" and (args.input_directory or args.output_directory or args.controlled or args.authority_volume):
         parser.error("Input, output, authority-volume and controlled options require runner")
     selected = read_mode(ROOT)
+    if args.full and (args.action != "install" or selected == "mapless"):
+        parser.error("--full requires install in a Full or clean checkout; preserve Mapless state in its original installation")
     if args.runner_subnet:
         if args.action not in ("install", "start") or not (selected == "mapless" or args.mapless):
             parser.error("--runner-subnet is only valid with Mapless install/start")

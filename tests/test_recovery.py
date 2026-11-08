@@ -261,7 +261,7 @@ class RecoveryTests(unittest.TestCase):
             source = root / "source"
             source.mkdir()
             repository = Path(recovery.__file__).parent
-            for name in recovery.MAPLESS_FILES:
+            for name in recovery.MAPLESS_FILES + recovery.LAUNCHER_FILES:
                 if name != installation_mode.MARKER:
                     (source / name).write_bytes((repository / name).read_bytes())
             installation_mode.write_mode(source, "mapless")
@@ -298,6 +298,8 @@ class RecoveryTests(unittest.TestCase):
             self.assertFalse(any((bundle / name).exists() for name in (".env", "database.dump", "Caddyfile")))
             self.assertEqual(installation_mode.read_mode(restored), "mapless")
             self.assertEqual(installation_mode.read_project(restored), "vardrsec-restore-mapless")
+            for name in recovery.LAUNCHER_FILES:
+                self.assertEqual((restored / name).read_bytes(), (source / name).read_bytes())
             active = json.loads((restored / ".active-images.mapless.json").read_text())
             self.assertEqual(active["name"], "vardrsec-restore-mapless")
             self.assertEqual(active["networks"], {"runner": {"ipam": {"config": [{"subnet": "172.30.100.0/24"}]}}})

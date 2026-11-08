@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add thin interactive/scriptable Full and Mapless installers for PowerShell and
+  Bash, plus Runner launchers that delegate to the existing Python CLI. Preserve
+  mode selection, argument boundaries and exit status. Carry complete launcher
+  sets through backup/recovery and retain readable older snapshots.
+
 - Extend the existing controlled updater to Mapless with an explicit Runner-only
   candidate manifest, verified backup/rehearsal and unchanged state fingerprints.
   Keep Runner stopped, retain project/networks and carry update history through

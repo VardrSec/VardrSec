@@ -294,7 +294,7 @@ def assert_quiesced(root, metadata, project):
         volume = recovery.volume_name(info, recovery.VOLUMES["runner-state"][1])
         if recovery.volume_fingerprint(metadata["images"]["runner"], volume) != metadata["volumes"]["runner-state"]:
             raise ValueError("Mapless source state changed after backup")
-        for name in recovery.snapshot_files(metadata["schema_version"]):
+        for name in recovery.snapshot_files(metadata["schema_version"], metadata=metadata):
             if recovery.digest(root / name) != metadata["files"][name]:
                 raise ValueError("Installation files changed after backup")
         return
@@ -323,7 +323,7 @@ def assert_quiesced(root, metadata, project):
             != metadata["volumes"][name]
         ):
             raise ValueError("State changed after backup")
-    for name in recovery.snapshot_files(metadata.get("schema_version")):
+    for name in recovery.snapshot_files(metadata.get("schema_version"), metadata=metadata):
         if recovery.digest(root / name) != metadata["files"][name]:
             raise ValueError("Installation files changed after backup")
 
