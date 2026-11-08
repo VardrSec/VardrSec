@@ -363,7 +363,7 @@ class FixedBoundaryPairTests(unittest.TestCase):
              **{"NM2_"+n.upper()+"_SHA":v for n,v in boundary.BOUNDARY_SOURCES.items()}}
         self.assertEqual(hosted.execution_options(env),(boundary.SCENARIO,"0041persistentruntime"))
         with self.assertRaises(ValueError): hosted.execution_options({**env,"NM2_RUNNER_SHA":"0"*40})
-        with TemporaryDirectory(dir=Path.home().parent) as folder:
+        with TemporaryDirectory() as folder:
             q=Path(folder)/"qualification.json";q.write_bytes(QUALIFICATION_DOCUMENT)
             args=["--cohort","inert-cohort.json","--compose-executable","inert-compose","--compose-sha256","a"*64,
                   "--docker-config","inert-docker-config","--qualification",str(q),"--qualification-sha256",MODEL_QUALIFICATION_SHA]

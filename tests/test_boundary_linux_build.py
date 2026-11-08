@@ -72,7 +72,7 @@ class LinuxBoundaryBuildTests(unittest.TestCase):
         selected.start();self.addCleanup(selected.stop)
 
     def test_same_job_byte_recipe_returns_dynamic_closed_binding_before_any_job(self):
-        with tempfile.TemporaryDirectory(dir=Path.home().parent) as folder:
+        with tempfile.TemporaryDirectory() as folder:
             host=Host(Path(folder))
             raw,binding=b.qualify_boundary_image(host)
             q=json.loads(raw)
@@ -88,14 +88,14 @@ class LinuxBoundaryBuildTests(unittest.TestCase):
 
     def test_unknown_profile_or_source_change_refuses_no_qualification(self):
         for defect in ('unknown-config','profile','source','tag'):
-            with self.subTest(defect=defect),tempfile.TemporaryDirectory(dir=Path.home().parent) as folder:
+            with self.subTest(defect=defect),tempfile.TemporaryDirectory() as folder:
                 host=Host(Path(folder),defect)
                 with self.assertRaises(ValueError):b.qualify_boundary_image(host)
                 self.assertFalse((host.root/'boundary-image-qualification.json').exists())
 
     def test_sdk_owner_child_and_wrapper_byte_changes_refuse(self):
         for defect in ('sdk','owner','genuine','wrapper'):
-            with self.subTest(defect=defect),tempfile.TemporaryDirectory(dir=Path.home().parent) as folder:
+            with self.subTest(defect=defect),tempfile.TemporaryDirectory() as folder:
                 host=Host(Path(folder),defect)
                 with self.assertRaises(ValueError):b.qualify_boundary_image(host)
                 self.assertFalse((host.root/'boundary-image-qualification.json').exists())
@@ -106,7 +106,7 @@ class LinuxBoundaryBuildTests(unittest.TestCase):
         self.assertEqual(rendered.replace(b"ORIGINAL_SHA = '"+b'e'*64+b"'",b"ORIGINAL_SHA = '"+b.ORIGINAL_SHA.encode()+b"'"),template)
         for value in ('','g'*64,'e'*63,True):
             with self.assertRaises(ValueError):b.render_boundary_wrapper(value)
-        with tempfile.TemporaryDirectory(dir=Path.home().parent) as folder:
+        with tempfile.TemporaryDirectory() as folder:
             host=Host(Path(folder));raw,_=b.qualify_boundary_image(host);q=json.loads(raw)
             for path,value in ((('source_recipe','copy_only'),False),(('source_recipe','template_sha256'),'a'*64),(('source_recipe','rendered_wrapper_sha256'),'a'*64),(('file_hashes',b.LIBEXEC),'a'*64)):
                 changed=deepcopy(q);changed[path[0]][path[1]]=value

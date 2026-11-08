@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Use the standard temporary directory in the new inert boundary tests so they
+  also run under Ubuntu's ordinary unprivileged CI user.
+
 - Add an inactive fixed two-job containment/load fixture and COPY-only Ubuntu
   byte qualification. Runtime activation remains an owner decision; C07–C10
   and NM-2 stay open, and NM-3 remains paused.
