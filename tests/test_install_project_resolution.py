@@ -183,7 +183,7 @@ class ProjectResolutionTests(unittest.TestCase):
             steps.append(args.action)
         with patch.object(vardrsec, "dispatch", side_effect=route), patch.object(
             vardrsec.subprocess, "run", side_effect=[self.reply(resolved), subprocess.CompletedProcess([], 0, stdout="")]
-        ), contextlib.redirect_stdout(io.StringIO()) as output:
+        ), patch.object(vardrsec, "select_full_installation"), contextlib.redirect_stdout(io.StringIO()) as output:
             vardrsec.dispatch(argparse.Namespace(action="install"), argparse.ArgumentParser())
         self.assertNotIn("synthetic-secret", output.getvalue())
         self.assertEqual(steps, [x for x in vardrsec.INSTALL_STEPS if x != "configure"])

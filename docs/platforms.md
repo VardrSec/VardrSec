@@ -22,13 +22,21 @@ with whichever Docker-supported Linux-container backend is available.
 | --- | --- |
 | Ubuntu 24.04 amd64, source-built Compose | Officially supported; automated clean install, workflow, recovery and update |
 | Ubuntu 22.04, other Linux distributions, arm64 | Not established; Ubuntu 22.04 has bounded tool/network evidence only |
-| Windows 11 / macOS Docker Desktop (Linux containers) | Experimental; no fresh-host install or recovery acceptance |
+| Windows 11 Docker Desktop (Linux containers) | New-checkout Full/Mapless source installation and portable recovery verified on an existing host; configured researcher workflows verified separately at the same component pins. Development qualification, not a published release or clean-OS provisioning claim |
+| macOS Docker Desktop (Linux containers) | Experimental; no fresh-host install or recovery acceptance |
 | Native Map, Runner, Gate on Windows or Linux | Supported for individual development and execution as documented by each component; not an integrated distribution |
 
 Do not describe Windows, macOS or other Linux distributions as supported until their
 installation and recovery workflows have their own acceptance evidence.
 
 ## Native component evidence
+
+New Moon retains Windows 11 with Docker Desktop as a required distribution target.
+The Full/Mapless cohort has canonical Windows Docker Desktop installation/recovery,
+configured Windows workflow and fresh Ubuntu installation/workflow/recovery evidence; see the
+[current NM-3 boundaries](new-moon-acceptance.md#current-nm-3-distribution-status).
+Windows prerequisites were already installed and retained Docker resources were
+preserved. The historical native results below do not replace container acceptance.
 
 Run on 2026-10-31 on native Windows 11 (no Docker, no WSL2), Python 3.14, Node 24 and Go 1.26,
 without changing any checkout: Map and Runner in fresh virtual environments from an export of
@@ -58,10 +66,11 @@ Known gaps, none a Windows-specific regression:
 ## Future work (planning direction, not commitments)
 
 - **Community Alpha v0.1.0:** Ubuntu source-built Docker Compose distribution.
-- **Next:** validate an integrated Windows deployment; evaluate a native installation versus
-  Docker Desktop distribution; keep native component execution working. Candidate
-  prerequisites: a Windows job in Map CI, an end-to-end native acceptance against the pinned
-  Runner and Gate, and fresh-host Docker Desktop installation and recovery acceptance.
+- **New Moon:** Windows 11 Docker Desktop remains the preferred Windows distribution;
+  canonical new-checkout installation/recovery and configured workflows have development
+  evidence. Keep native component execution for justified host/VPN/keychain needs;
+  integrated native deployment, genuine VPN behavior and prerequisite provisioning
+  remain unqualified.
 - **Later:** evaluate macOS; consider prebuilt container images and simplified installers
   after the licensing and security requirements in the
   [release checklist](community-alpha-release.md) are met.

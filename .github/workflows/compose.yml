@@ -168,7 +168,7 @@ jobs:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
           python vardrsec.py install
-          docker compose config --quiet
+          python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), 'config', '--quiet')"
           docker build -t vardrsec-browser:acceptance tests/browser
       - name: Verify trusted installation, explicit Gate workflow and restart
         env:
@@ -238,7 +238,7 @@ jobs:
           fi
       - name: Stop disposable fixture and remove its data
         if: always()
-        run: docker compose --profile tools -p vardrsec-compose-review down --volumes --remove-orphans
+        run: python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
   controlled-updates:
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-latest
@@ -258,9 +258,33 @@ jobs:
           # rerun must complete the install without regenerating or overwriting them.
           timeout 40 python vardrsec.py install || true
           test -f .env
-          sha256sum .env > "$RUNNER_TEMP/env.sha256"
+          (umask 077; cp .env "$RUNNER_TEMP/install-original.env")
           python vardrsec.py install
-          sha256sum -c "$RUNNER_TEMP/env.sha256"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          import recovery
+          original = (Path(os.environ["RUNNER_TEMP"]) / "install-original.env").read_bytes()
+          current = Path(".env").read_bytes()
+          assert current.startswith(original), "Existing configuration bytes changed during resume"
+          suffix = current[len(original):].decode("utf-8")
+          if suffix:
+              lines = [line for line in suffix.splitlines() if line]
+              expected_keys = {"COMPOSE_PROJECT_NAME", "APPLICATION_SUBNET", "APPLICATION_IP_RANGE", "PROXY_IP"}
+              assert len(lines) == len(expected_keys), "Unexpected resumed-install configuration additions"
+              additions = dict(line.split("=", 1) for line in lines)
+              assert set(additions) == expected_keys, "Unexpected resumed-install configuration keys"
+              model = json.loads(recovery.compose(Path.cwd(), "--profile", "tools", "config",
+                                                  "--format", "json", capture_output=True, text=True).stdout)
+              application = model["networks"]["application"]["ipam"]["config"][0]
+              assert additions == {
+                  "COMPOSE_PROJECT_NAME": "vardrsec-compose-review",
+                  "APPLICATION_SUBNET": application["subnet"],
+                  "APPLICATION_IP_RANGE": application["ip_range"],
+                  "PROXY_IP": model["services"]["proxy"]["networks"]["application"]["ipv4_address"],
+              }, "Resumed installation routing differs from its selected model"
+              assert model["name"] == additions["COMPOSE_PROJECT_NAME"]
+          PY
       - name: Confirm a started installation is protected from a second install
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
@@ -281,4 +305,4 @@ jobs:
               docker compose --profile tools -f "$folder/compose.yaml" -f "$folder/.active-images.json" -p "vardrsec-restore-update-$name" down --volumes --remove-orphans
             fi
           done
-          docker compose --profile tools -p vardrsec-compose-review down --volumes --remove-orphans
+          python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"

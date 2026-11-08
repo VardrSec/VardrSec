@@ -18,6 +18,9 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+import recovery
+
 PROJECT = "vardrsec-compose-review"
 RECEIPT = ROOT / "artifacts" / "glibc-locale" / "receipt.json"
 
@@ -110,9 +113,8 @@ def parse_role(row):
 
 
 def compose(*args, stdin=None):
-    return subprocess.run(
-        ["docker", "compose", "-p", PROJECT, *args],
-        cwd=ROOT,
+    return recovery.compose(
+        ROOT, *args, project=PROJECT, check=False,
         input=stdin,
         stdin=None if stdin is not None else subprocess.DEVNULL,
         capture_output=True,

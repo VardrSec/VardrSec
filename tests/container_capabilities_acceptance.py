@@ -14,6 +14,9 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+import recovery
+
 PROJECT = "vardrsec-compose-review"
 RECEIPT = ROOT / "artifacts" / "container-capabilities" / "receipt.json"
 
@@ -77,7 +80,11 @@ def docker(*args, stdin=None):
 
 
 def compose(*args):
-    return docker("compose", "-p", PROJECT, *args)
+    result = recovery.compose(ROOT, *args, project=PROJECT, capture_output=True,
+                              text=True, timeout=120, check=False)
+    if result.returncode:
+        sys.exit(f"docker compose failed: {result.stderr.strip()[-300:]}")
+    return result.stdout
 
 
 def names(values):

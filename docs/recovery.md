@@ -66,8 +66,11 @@ python vardrsec.py restore --backup /private/backups/before-upgrade \
 Restore validates the entire bundle and safe archive paths before loading images.
 It uses the saved images by ID, without a network pull or source rebuild, creates
 fresh volumes, restores PostgreSQL and verifies table/sequence fingerprints. It
-also verifies Runner/proxy file contents, ownership and modes. Its new application
-bridge avoids existing Docker subnets. The source installation is retained.
+also verifies Runner/proxy file contents, ownership and modes. Its three new
+application/database/Runner bridges use distinct subnets outside existing Docker
+networks, including on hosts whose automatic address pools are exhausted. The
+database remains internal and the Runner retains its existing isolation. Selected
+networks survive controlled image updates. The source installation is retained.
 
 Successful restoration writes `restore-receipt.json`. Only the restored database
 is started: browser/API/proxy remain stopped. This receipt verifies stored state;

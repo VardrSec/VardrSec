@@ -1,6 +1,6 @@
 # New Moon acceptance ledger
 
-Updated: 2026-11-05. Development evidence; no release acceptance is implied.
+Updated: 2026-11-08. Development evidence; no release acceptance is implied.
 
 This ledger tracks changing implementation evidence. The approved New Moon charter
 remains the architectural authority: one Runner engine, optional Map, shared
@@ -15,12 +15,60 @@ and Mapless installation and authorize/execute/evidence/export take priority.
 Reuse existing checks; no further manual fault/sleep campaign is authorized.
 This changes sequencing, not the C09 acceptance result or release gates.
 
-The integration branch adds explicit mode selection, state-only Mapless recovery,
+The merged integration adds explicit mode selection, state-only Mapless recovery,
 private issuer custody, one-shot contained execution and host-owned export using
-existing component protocols. Compatible component pins and installed Windows
-Docker Desktop/Ubuntu workflow verification remain open. General Recon execution,
+existing component protocols. Compatible pins and Ubuntu Full/Mapless workflows
+are verified. Configured Windows Docker Desktop workflows and subsequent canonical
+new-installation/recovery operations passed. General Recon execution,
 automatic mode transition, Mapless controlled updates, C09 sleep behavior and
 NM-4/NM-5 acceptance remain deferred capabilities, not accepted ones.
+
+## Current NM-3 distribution status
+
+Distribution [#68](https://github.com/VardrSec/VardrSec/pull/68), Runner
+[#114](https://github.com/VardrSec/VardrRunner/pull/114) and compatibility
+[#69](https://github.com/VardrSec/VardrSec/pull/69) are merged. The exact cohort
+is Map `14a80a8540c6c7053b1f0630f19a512a2351013a`, Runner
+`5feea8d6de373b4bbc5a3951310c69a16ae7179b`, Gate
+`57cfedfaf59b11cf626288c343f34a34c7b1df13`.
+
+| Requirement | Verified boundary / remaining work |
+|---|---|
+| Full install and research workflow | Fresh Ubuntu one-command source install, trusted HTTPS, six installed Gate scenarios, evidence/finding/retest/report and restart passed. Configured Windows Docker Desktop Full journey passed. |
+| Independent Mapless workflow | Install, separate private issuer, interactive authorization, bounded five-GET native execution, terminal evidence, redacted export and identical re-export without execution replay passed on Ubuntu and configured Windows Docker Desktop. Map is absent. |
+| Distribution lifecycle | Full controlled update, interrupted-install resume, backup/recovery, failed migration and certificate renewal passed in the existing Ubuntu jobs. Windows Full and Mapless portable recovery subsequently passed with retained exact images, state and new isolated projects. |
+| Cross-platform installation | Windows/Linux script compatibility passed. Windows 11 Docker Desktop canonical Full/Mapless installation passed from new private checkouts, with existing prerequisites and retained Docker resources. This is an existing-host installation result, not OS provisioning. Native components remain available; integrated native installation is unverified. |
+| State preservation | Separate mode installations, original journal/evidence, portable exports and mode-aware backup preserve data. Automatic history import/mode conversion and Mapless controlled updates remain deferred, unaccepted capabilities. |
+
+Exact-head [Compose run 42505203697](https://github.com/VardrSec/VardrSec/actions/runs/42505203697)
+passed installation, Full and Mapless workflows, portable recovery/migration failure,
+controlled updates, Windows/Linux compatibility and renewal. All five PR workflows
+passed at `c376699719c0a899da04207dfd4396a21eaf5e8c`; merged main
+`e72d7170285b48d866a271dabc8306c1ab7de2bb` has the same tree.
+Windows observations used private configured projects and explicit unused networks;
+existing data, image aliases and retained networks were preserved.
+
+Windows installation/recovery at `be86d750e84f77219a430d67d56bf1585a769eb9`
+used the production CLI without a private Compose adapter: fresh Full install,
+CA/hostname-verified readiness, normal stop, fresh Mapless install with an explicit
+unused bridge, then backup/restore of the earlier stopped synthetic installations.
+Full restored database and all volume fingerprints; Mapless restored Runner state
+and exported its original run with the same three hashes. No assessment was run or
+replayed, no host trust store changed, and all six scoped projects were stopped
+with volumes retained. Private receipt SHA256:
+`fdaefdac4679abf9ce5948f86c01fd86ba6d6dc35bff8ce6dc2b768727aa35f9`.
+The earlier refused attempt found Docker stopped before configuration or resource
+creation; its receipt is retained separately. Docker was resumed before this pass.
+
+The installation/distribution implementation now has canonical Windows and Ubuntu
+evidence. Remaining broader NM-3 requirements concern the justified native
+deployment boundary and the required but deferred Recon, mode-transition and
+Mapless update capabilities. C09 sleep remains unaccepted under NM-2;
+the owner stopped further manual fault/sleep testing. No release, image publication,
+security-risk acceptance or completion of NM-4/NM-5 is implied.
+
+The sections below retain historical evidence and earlier open-gate statements.
+This current status takes precedence where later merged work supersedes them.
 
 ## Fresh source baseline
 

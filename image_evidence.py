@@ -357,7 +357,6 @@ def collect():
             "--profile",
             "tools",
             "config",
-            "--no-interpolate",
             "--format",
             "json",
         ).stdout

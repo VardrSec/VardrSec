@@ -11,8 +11,8 @@ component also runs natively; see [platforms](docs/platforms.md).
 Full keeps the web research workflow below. Standalone installation uses
 `python3 vardrsec.py install --mapless` in a separate clean checkout; see the
 [Mapless authorization, execution and export walkthrough](docs/mapless.md).
-The development implementation requires the reviewed compatible Runner/Gate
-pins; pending integration and acceptance are recorded in the
+The reviewed compatible Runner/Gate pins are merged; verified installation
+boundaries and remaining requirements are recorded in the
 [New Moon ledger](docs/new-moon-acceptance.md#community-delivery-priority).
 
 ## Install (Ubuntu 24.04, Docker and Compose, Python 3.10+, Git)

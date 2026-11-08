@@ -45,6 +45,8 @@ class SnapshotVersionUpdateTests(unittest.TestCase):
             with self.subTest(version=version), tempfile.TemporaryDirectory() as folder, ExitStack() as stack:
                 root = Path(folder)
                 backup, record = self.fixture(root, version)
+                network_selection = {"networks": {"runner": {"ipam": {"config": [{"subnet": "172.30.103.0/24"}]}}}}
+                updater.save(root / '.active-images.json', network_selection)
                 before = {p.name: p.read_bytes() for p in backup.iterdir()}
                 compose = self.docker(stack)
                 with self.assertRaisesRegex(ValueError, 'pending or failed'):
@@ -57,7 +59,7 @@ class SnapshotVersionUpdateTests(unittest.TestCase):
                 self.assertFalse((root / updater.STATE).exists())
                 self.assertEqual(json.loads((root / '.last-update.json').read_text())['status'], 'cancelled')
                 self.assertEqual(json.loads((root / '.active-images.json').read_text()),
-                                 {'services': {k: {'image': v} for k, v in record['baseline_images'].items()}})
+                                 {**network_selection, 'services': {k: {'image': v} for k, v in record['baseline_images'].items()}})
                 compose.assert_called_once()
                 self.assertIn('--no-build', compose.call_args.args)
                 self.assertIn('never', compose.call_args.args)

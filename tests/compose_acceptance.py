@@ -14,17 +14,15 @@ import urllib.request
 from gate_acceptance import run_gate_workflow, verify_retained
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+import recovery
+
 PROJECT = "vardrsec-compose-review"
 URL = "https://localhost:8443"
 
 
 def compose(*args, **kwargs):
-    return subprocess.run(
-        ["docker", "compose", "-p", PROJECT, *args],
-        cwd=ROOT,
-        check=kwargs.pop("check", True),
-        **kwargs,
-    )
+    return recovery.compose(ROOT, *args, project=PROJECT, **kwargs)
 
 
 def main():

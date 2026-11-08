@@ -6,8 +6,10 @@ and the persisted installation marker. The
 custody, explicit one-job containment and state-only recovery. The same toolkit
 image contains the existing non-setuid native owner; a separately selected
 `compose.local-worker.json` overlay enables only its fixed local entrypoint.
-Ordinary CLI security/defaults and Full startup remain unchanged. Compatible pins
-and Windows/Linux installed acceptance remain required before delivery is claimed.
+Ordinary CLI security/defaults and Full startup remain unchanged. Compatible pins,
+Windows/Linux installed workflows and Windows portable recovery now have evidence
+in the [current ledger](new-moon-acceptance.md#current-nm-3-distribution-status).
+Publication and deferred capabilities remain separate gates.
 
 ## Historical dormant-model evidence
 

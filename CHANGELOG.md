@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- Record canonical Windows 11 Docker Desktop Full/Mapless source installations
+  and isolated recovery, reusing retained synthetic evidence without another
+  assessment. Keep native, deferred execution/transition/update and release
+  acceptance boundaries explicit.
+
+- Freeze fresh Full installations onto their built image IDs and unused bridges
+  before first startup, retaining explicit network settings and supporting
+  interrupted pre-start resume without rebuilding frozen images. Existing
+  installed checks use the same selected Compose model rather than reconfiguring
+  its networks through a raw base-file invocation.
+
+- Restore Full installations onto three explicitly unused bridges, including
+  hosts with exhausted automatic Docker address pools; retain selected networks
+  through controlled image updates. Remove an unsupported Compose create option
+  from Mapless backup.
+
+- Retain explicitly selected Full installation projects in generated configuration
+  and isolate new Full build aliases with an installation-specific tag. Existing
+  configurations retain their aliases. Show PowerShell trust/bootstrap guidance
+  on Windows, and refuse overlapping Mapless bridge selections before saving.
+- Reconcile NM-3 documentation with merged Full/Mapless workflow evidence; retain
+  fresh Windows installation/recovery, native exceptions and release gates.
+
 - Advance the reviewed development compatibility pins to Map PR151, Runner PR114
   and Gate PR31. Add the explicit installed Mapless authorization, native Gate,
   evidence and re-export flow to the existing required Ubuntu Compose job.
