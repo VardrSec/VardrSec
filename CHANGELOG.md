@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Classify fixture worker-state failures at the two volume checks or the offline
+  CLI; retain only the actual exit code and a fixed SDK reason, without accepting
+  a previously refused audit or exporting its output.
+
 - Close C05 using its independently qualified Windows repetition component,
   retained PostgreSQL competition and accepted recovery evidence. Keep the
   surrounding Windows attempt held and preserve full-reader retirement checks.

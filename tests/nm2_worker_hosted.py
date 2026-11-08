@@ -1174,6 +1174,20 @@ def failure_projection(raw, selection):
                 diagnostic["registration_failure"] = detail
         if diagnostic is not None:
             value["command_failure"] = diagnostic
+    worker_state_failure = raw.get("worker_state_failure")
+    if type(worker_state_failure) is dict and set(worker_state_failure) == {
+        "phase", "cli_returncode", "sdk_reason",
+    }:
+        from nm2_worker_acceptance import WORKER_STATE_FAILURE_PHASES, WORKER_STATE_FAILURE_REASONS
+
+        phase, code, reason = (worker_state_failure[key] for key in (
+            "phase", "cli_returncode", "sdk_reason"))
+        if (type(phase) is str and phase in WORKER_STATE_FAILURE_PHASES
+                and (code is None or type(code) is int and -(2**31) <= code < 2**32)
+                and (reason is None or type(reason) is str and reason in WORKER_STATE_FAILURE_REASONS)
+                and (reason is None or code == 1)
+                and (phase != "before_volume_metadata" or code is None and reason is None)):
+            value["worker_state_failure"] = dict(worker_state_failure)
     status_failure = raw.get("status_failure")
     if (
         value["reason"] in {"persistent_status_refused", "idle_status_refused"}

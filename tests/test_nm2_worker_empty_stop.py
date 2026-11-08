@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import io
 import json
 from pathlib import Path
+import subprocess
 import unittest
 from unittest.mock import Mock, patch
 
@@ -71,6 +72,7 @@ def vector(*, run=True, desktop=False):
     owner = object.__new__(fixture.Fixture)
     owner.scenario, owner.protocol = SCENARIO, "persistent-v3"
     owner.project, owner.m, owner.images = selection["project"], selection, selection["images"]
+    owner.environment = {}
     owner.receipt, owner.issuer_origin = raw, admission["origin"]
     owner.enroll_runner = Mock(return_value=(admission["runner_id"], admission["enrollment_id"]))
     owner.api = Mock()
@@ -182,10 +184,12 @@ class EmptyStop(unittest.TestCase):
     def test_offline_audit_command_has_only_named_state_volume_and_no_network_credentials(self):
         _, _, owner, admission, *_ = vector(run=False)
         del owner.empty_worker_state
-        owner.docker = Mock(return_value=json.dumps(vector(run=False)[4]).encode())
-        self.assertEqual(owner.empty_worker_state(admission)["status"], "empty_unissued")
-        call = owner.docker.call_args
-        args = list(call.args)
+        result = subprocess.CompletedProcess([], 0, json.dumps(vector(run=False)[4]).encode(), b"")
+        with patch("nm2_worker_acceptance.subprocess.run", return_value=result) as run:
+            self.assertEqual(owner.empty_worker_state(admission)["status"], "empty_unissued")
+        call = run.call_args
+        self.assertEqual(call.args[0][:3], ["docker", "--context", owner.m["docker_context"]])
+        args = list(call.args[0][3:])
         self.assertEqual(args[:8], ["run", "--rm", "--pull", "never", "--user", "10001:10001", "--read-only", "--network"])
         self.assertEqual(args[8], "none")
         self.assertEqual(args.count("--mount"), 1)
@@ -198,14 +202,16 @@ class EmptyStop(unittest.TestCase):
         self.assertIn(owner.images["worker"], args)
         self.assertIn("worker-state", args)
         self.assertNotIn("audit", args)
-        self.assertEqual(call.kwargs, {"timeout":45})
+        self.assertEqual(call.kwargs, {"env": owner.environment, "capture_output": True,
+                                      "timeout": 45, "check": True})
 
     def test_auditor_has_project_ownership_and_its_own_fixed_resource_bounds(self):
         _, _, owner, admission, audit, *_ = vector(run=False)
         del owner.empty_worker_state
-        owner.docker = Mock(return_value=json.dumps(audit).encode())
-        owner.empty_worker_state(admission)
-        args = list(owner.docker.call_args.args)
+        result = subprocess.CompletedProcess([], 0, json.dumps(audit).encode(), b"")
+        with patch("nm2_worker_acceptance.subprocess.run", return_value=result) as run:
+            owner.empty_worker_state(admission)
+        args = list(run.call_args.args[0][3:])
         for flag,value in (("--label","com.docker.compose.project="+owner.project),
                 ("--pids-limit","64"), ("--memory","512m"), ("--cpus","1")):
             with self.subTest(flag=flag):
@@ -282,8 +288,10 @@ class EmptyStop(unittest.TestCase):
         del owner.empty_worker_state
         before = owner.empty_audit_volume.return_value
         owner.empty_audit_volume.side_effect = [before, {**before,"created_at":"2026-11-06T03:00:00Z"}]
-        owner.docker = Mock(return_value=json.dumps(audit).encode())
-        with self.assertRaisesRegex(ValueError, "empty_audit_volume_changed"): owner.empty_worker_state(admission)
+        result = subprocess.CompletedProcess([], 0, json.dumps(audit).encode(), b"")
+        with patch("nm2_worker_acceptance.subprocess.run", return_value=result), self.assertRaisesRegex(
+                ValueError, "empty_audit_volume_changed"):
+            owner.empty_worker_state(admission)
         self.assertEqual(owner.empty_audit_volumes, [])
 
     def test_desktop_reader_uses_the_same_independent_inventory_guard(self):

@@ -155,6 +155,41 @@ class AcceptanceRefused(ValueError):
     pass
 
 
+WORKER_STATE_FAILURE_PHASES = frozenset({
+    "before_volume_metadata", "offline_cli", "after_volume_metadata",
+})
+WORKER_STATE_FAILURE_REASONS = frozenset({
+    "selection_invalid", "inspection_budget_exhausted", "identity_unavailable",
+    "journal_unavailable", "state_inconsistent", "local_holds", "runtime_unretired",
+})
+
+
+def worker_state_failure(phase, result=None):
+    """Diagnostic only: retain no CLI output or audit identities."""
+    from worker_host import _json
+
+    value = {"phase": phase, "cli_returncode": None, "sdk_reason": None}
+    if result is None:
+        return value
+    if type(result.returncode) is int and -(2**31) <= result.returncode < 2**32:
+        value["cli_returncode"] = result.returncode
+    try:
+        require(type(result.returncode) is int and result.returncode == 1
+                and type(result.stdout) is bytes and 0 < len(result.stdout) <= 32768,
+                "worker_state_diagnostic_refused")
+        sdk = _json(result.stdout)
+        require(set(sdk) == {"schema", "status", "reason", "complete", "binding",
+                            "parent", "counts", "retirement_receipt_sha256", "global_holds"}
+                and sdk["schema"] == "vardr.worker-state-audit/1"
+                and sdk["status"] == "held" and type(sdk["complete"]) is bool
+                and type(sdk["reason"]) is str and sdk["reason"] in WORKER_STATE_FAILURE_REASONS,
+                "worker_state_diagnostic_refused")
+        value["sdk_reason"] = sdk["reason"]
+    except (ValueError, KeyError, TypeError):
+        pass
+    return value
+
+
 STATUS_CHECKPOINTS = frozenset(
     {
         "admission",
@@ -4083,7 +4118,10 @@ print(json.dumps(result))
                 "--identity", "/home/runner/.vardrmap/runner-identity.json"]
         for key in ("runner_id", "runtime_id", "runtime_sha256", "admission_sha256"):
             args.extend(["--" + key.replace("_", "-"), admission[key]])
+        diagnostic = getattr(self, "receipt", {})
+        diagnostic["worker_state_failure"] = worker_state_failure("before_volume_metadata")
         before = self.empty_audit_volume(admission)  # Absence refuses before run.
+        diagnostic["worker_state_failure"] = worker_state_failure("offline_cli")
         if expected_held is not None:
             # These explicit held audits expect the real offline CLI's
             # exit1. Every other reader keeps the ordinary exit0 contract.
@@ -4092,13 +4130,18 @@ print(json.dumps(result))
             require(type(expected_held) is str
                     and expected_held in {"closed_preclaim", "claim_unknown", "issued_unknown"},
                     "launch_preclaim_parent_not_held")
-            try:
-                result = subprocess.run(
-                    ["docker", "--context", self.m["docker_context"], *args],
-                    env=self.environment, capture_output=True, timeout=45, check=False,
-                )
-            except (OSError, subprocess.SubprocessError):
-                raise AcceptanceRefused("fixture_command_failed") from None
+        try:
+            result = subprocess.run(
+                ["docker", "--context", self.m["docker_context"], *args],
+                env=self.environment, capture_output=True, timeout=45, check=expected_held is None,
+            )
+        except subprocess.CalledProcessError as error:
+            diagnostic["worker_state_failure"] = worker_state_failure("offline_cli", error)
+            raise AcceptanceRefused("fixture_command_failed") from None
+        except (OSError, subprocess.SubprocessError):
+            raise AcceptanceRefused("fixture_command_failed") from None
+        diagnostic["worker_state_failure"] = worker_state_failure("offline_cli", result)
+        if expected_held is not None:
             try:
                 require(type(result.returncode) is int and result.returncode == 1
                         and type(result.stdout) is bytes and 0 < len(result.stdout) <= 32768
@@ -4125,10 +4168,13 @@ print(json.dumps(result))
             except (ValueError, KeyError, TypeError):
                 raise AcceptanceRefused("launch_preclaim_parent_not_held") from None
         else:
-            value = json.loads(self.docker(*args, timeout=45))
+            require(len(result.stdout) <= 4 * 1024 * 1024, "fixture_output_bound")
+            value = json.loads(result.stdout)
+        diagnostic["worker_state_failure"]["phase"] = "after_volume_metadata"
         after = self.empty_audit_volume(admission)
         require(canonical(before) == canonical(after), "empty_audit_volume_changed")
         self.empty_audit_volumes.append({"before": before, "after": after})
+        diagnostic.pop("worker_state_failure", None)
         return value
 
     def empty_worker_state(self, admission):
