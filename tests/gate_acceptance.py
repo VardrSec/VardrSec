@@ -570,3 +570,171 @@ def verify_retained(request, receipt):
     print(
         "PASS: installed assessments, evidence links, finding history and delivered report revisions retain their hashes"
     )
+
+
+def run_mapless_workflow():
+    """One explicit fixed Gate assessment on a fresh disposable Mapless install."""
+    import re
+    import shlex
+    import shutil
+    import sys
+    import tempfile
+    from installation_mode import MARKER
+    from recovery import MAPLESS_FILES
+    from ubuntu_installation import host
+
+    host()
+    assert shutil.which("script"), "The existing util-linux PTY is required"
+    project = "vardrsec-mapless-review"
+    private = Path(tempfile.mkdtemp(prefix="vardrsec-mapless-", dir=os.environ["RUNNER_TEMP"]))
+    install = private / "installation"
+    install.mkdir(mode=0o700)
+    for name in MAPLESS_FILES:
+        if name != MARKER:
+            shutil.copy2(ROOT / name, install / name)
+    target, issuer = project + "-gate-fixture", project + "-issuer"
+    tokens = {f"FIXTURE_{who.upper()}_TOKEN": secrets.token_urlsafe(32)
+              for who in ("owner", "peer", "reader")}
+    env = {**os.environ, **tokens, "COMPOSE_PROJECT_NAME": project,
+           "VARDRRUNNER_ALLOW_PRIVATE_TARGETS": "1",
+           "VARDRRUNNER_WORKER_CREDENTIAL_ENV": "FIXTURE_OWNER_TOKEN,FIXTURE_PEER_TOKEN"}
+
+    def no_secrets(value):
+        text = value if isinstance(value, str) else json.dumps(value)
+        assert all(secret not in text for secret in (*tokens.values(), *CANARIES))
+
+    def invoke(*args, tty=False, timeout=120):
+        argv = [sys.executable, str(install / "vardrsec.py"), *args]
+        if tty:
+            argv = ["script", "-qec", shlex.join(argv), "/dev/null"]
+        result = subprocess.run(argv, cwd=install, env=env, capture_output=True,
+                                text=True, input="APPROVE\n" if tty else None, timeout=timeout)
+        no_secrets(result.stdout + result.stderr)
+        if result.returncode:
+            print(json.dumps({"mapless_returncode": result.returncode,
+                              "stdout_tail": result.stdout[-4096:],
+                              "stderr_tail": result.stderr[-4096:]}), flush=True)
+            if "--controlled" in args:
+                diagnostic = {"host_free_bytes": shutil.disk_usage(private).free}
+                try:
+                    diagnostic["target_request_count"] = len(traffic())
+                except Exception:
+                    diagnostic["target_observation"] = "unavailable"
+                retained = re.search(r"retained container (vardrsec-invocation-[a-f0-9]{32})\b", result.stderr)
+                if retained:
+                    state = docker("inspect", "--format",
+                                   '{"exit_code":{{.State.ExitCode}},"oom_killed":{{.State.OOMKilled}},"running":{{.State.Running}}}',
+                                   retained[1], capture_output=True, text=True, check=False)
+                    if state.returncode == 0:
+                        diagnostic["container_state"] = json.loads(state.stdout)
+                audit = subprocess.run(
+                    [sys.executable, str(install / "vardrsec.py"), "runner", "--",
+                     "audit", "list", "--engagement", workspace, "--json"],
+                    cwd=install, env=env, capture_output=True, text=True, timeout=30)
+                no_secrets(audit.stdout + audit.stderr)
+                if audit.returncode == 0:
+                    diagnostic["runs"] = [{key: row.get(key) for key in
+                                            ("phase", "status", "pid", "failure_category", "failure_reason")}
+                                           for row in json.loads(audit.stdout)[:4]]
+                else:
+                    diagnostic["audit_returncode"] = audit.returncode
+                no_secrets(diagnostic)
+                print(json.dumps(diagnostic, sort_keys=True), flush=True)
+        assert result.returncode == 0, "Mapless command failed; retain private fixture evidence"
+        return result.stdout
+
+    def traffic():
+        result = docker("exec", target, "python", "-c",
+                        "import urllib.request;print(urllib.request.urlopen('http://localhost:8080/observations',timeout=2).read().decode())",
+                        capture_output=True, text=True)
+        return json.loads(result.stdout)["requests"]
+
+    invoke("install", "--mapless", timeout=1200)
+    assert not (install / ".env").exists() and not (install / "trust").exists()
+    assert json.loads((install / MARKER).read_text())["mode"] == "mapless"
+    base = ["compose", "-f", str(install / "compose.mapless.json"), "-p", project]
+    cid = docker(*base, "ps", "-a", "-q", "runner", capture_output=True, text=True).stdout.strip()
+    assert re.fullmatch(r"[a-f0-9]{64}", cid)
+    image = docker("inspect", "--format", "{{.Image}}", cid, capture_output=True, text=True).stdout.strip()
+    assert re.fullmatch(r"sha256:[a-f0-9]{64}", image)
+    assert docker("inspect", "--format", "{{.State.Running}}", cid, capture_output=True, text=True).stdout.strip() == "false"
+    workspace = json.loads(invoke("runner", "--", "workspace", "create", "Synthetic fixed Gate"))["workspace_id"]
+    invoke("runner", "--authority-volume", issuer, "--", "workspace", "authority-init", workspace,
+           "--output", "/issuer/assessment")
+    inputs = private / "inputs"
+    inputs.mkdir(mode=0o700)
+    case = next(row["spec"] for row in reviewed_cases() if row["name"] == "fixed")
+    (inputs / "case.json").write_text(json.dumps(case))
+    (inputs / "execution.json").write_text(json.dumps({
+        "timeout_seconds": 20, "max_response_bytes": 65536, "allow_private_targets": True}))
+    authorized, exported = private / "authorized", private / "exported"
+    invoke("runner", "--authority-volume", issuer, "--input-directory", str(inputs),
+           "--output-directory", str(authorized), "--", "workspace", "authorize", workspace,
+           "--authority", "/issuer/assessment", "--case", "/inputs/case.json",
+           "--execution", "/inputs/execution.json", "--output", "/exports/bundle", "--expires-in", "900", tty=True)
+    bundle = authorized / "bundle"
+    assert {p.name for p in bundle.iterdir()} == {
+        "approval.json", "contract.json", "plan.json", "case.json", "execution.json", "trust.json"}
+    started, complete = False, False
+    try:
+        docker("run", "-d", "--rm", "--name", target, "--network", project + "_runner",
+               "--network-alias", "gate-fixture", "--user", "10001:10001", "--read-only",
+               "--cap-drop=ALL", "--security-opt=no-new-privileges:true", "--mount",
+               f"type=bind,source={ROOT / 'tests/gate'},target=/fixture,readonly",
+               *[part for name in tokens for part in ("-e", name)], "--entrypoint", "python",
+               image, "/fixture/target.py", env=env, capture_output=True, text=True)
+        started = True
+        deadline = time.monotonic() + 20
+        while True:
+            try:
+                assert traffic() == []
+                break
+            except subprocess.CalledProcessError:
+                assert time.monotonic() < deadline, "Synthetic target did not become ready"
+                time.sleep(0.2)
+        invoke("runner", "--controlled", "--input-directory", str(bundle), "--output-directory", str(exported),
+               "--", "--env", "FIXTURE_OWNER_TOKEN", "--env", "FIXTURE_PEER_TOKEN",
+               "--env", "VARDRRUNNER_ALLOW_PRIVATE_TARGETS")
+        requests = traffic()
+        assert len(requests) == 5 and all(row["method"] == "GET" for row in requests)
+        assert [row["path"] for row in requests[:2]] == ["/session", "/session"]
+        assert {row["identity"] for row in requests[2:]} == {"owner", "peer", "anonymous"}
+        assert all(row["path"] == "/fixed/records/42?view=full&include=owner" for row in requests[2:])
+        runs = json.loads(invoke("runner", "--", "audit", "list", "--engagement", workspace, "--json"))
+        assert len(runs) == 1
+        run = runs[0]
+        assert run["phase"] == run["status"] == "done" and run["pid"] is None and run["upload_state"] == "not_applicable"
+        assert run["command_profile"]["controlled"] is True and run["command_profile"]["local_worker"] is True
+        assert re.fullmatch(r"native_done_ack:[a-f0-9]{64}", run["last_event"])
+        paths = {name: exported / "result" / name for name in ("artifact.json", "audit.json", "manifest.json")}
+        documents = {name: json.loads(path.read_text()) for name, path in paths.items()}
+        no_secrets(documents)
+        artifact, manifest = documents["artifact.json"], documents["manifest.json"]
+        assert artifact["test_case_id"] == case["id"] and artifact["case_hash"] == hashlib.sha256(
+            json.dumps(case, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        assert len(artifact["preflight"]) == 2 and all(row["status"] == "passed" for row in artifact["preflight"])
+        assert len(artifact["executions"]) == len(artifact["assessments"]) == 3 and artifact["findings"] == []
+        assert {row["identity_id"]: row["status_code"] for row in artifact["executions"]} == {"owner": 200, "peer": 403, "anonymous": 401}
+        assert {row["identity_id"]: row["decision"] for row in artifact["assessments"]} == {"owner": "allowed", "peer": "denied", "anonymous": "denied"}
+        assert documents["audit.json"]["runs"] == runs
+        assert manifest["run_id"] == run["run_id"] and manifest["artifact_sha256"] == hashlib.sha256(paths["artifact.json"].read_bytes()).hexdigest()
+        assert any(row.get("code") == "redacted_export" and row.get("source_artifact_sha256") == run["artifact_sha256"]
+                   for row in manifest["warnings"])
+        repeated = private / "reexported"
+        invoke("runner", "--output-directory", str(repeated), "--", "audit", "export-run", run["run_id"], "--output", "/exports/result")
+        assert all(path.read_bytes() == (repeated / "result" / name).read_bytes() for name, path in paths.items())
+        receipt = {"status": "passed", "workspace_id": workspace, "run_id": run["run_id"],
+                   "requests": requests, "image_id": image, "artifact_sha256": run["artifact_sha256"],
+                   "sources": {name: row["commit"] for name, row in json.loads((install / "versions.json").read_text())["components"].items()
+                               if name in ("runner", "gate")},
+                   "exports": {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in paths.items()}}
+        no_secrets(receipt)
+        ARTIFACTS.mkdir(parents=True, exist_ok=True)
+        (ARTIFACTS / "mapless.json").write_text(json.dumps(receipt, indent=2) + "\n")
+        complete = True
+    finally:
+        if started:
+            docker("rm", "-f", target, check=False, capture_output=True)
+        if complete:
+            docker(*base, "--profile", "tools", "down", "--volumes", "--remove-orphans", capture_output=True)
+            docker("volume", "rm", issuer, capture_output=True)

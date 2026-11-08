@@ -176,6 +176,14 @@ jobs:
         run: |
           python tests/ubuntu_installation.py enroll
           python tests/compose_acceptance.py
+      - name: Verify pinned Mapless authorization, native execution and portable evidence
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "tests")
+          from gate_acceptance import run_mapless_workflow
+          run_mapless_workflow()
+          PY
       - name: Verify read-only glibc locale and environment exposure (CVE-2026-84243)
         run: python tests/glibc_locale_acceptance.py
       - name: Verify least-privilege database role (fresh install, existing-volume upgrade, recovery)

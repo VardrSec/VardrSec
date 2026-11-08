@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Advance the reviewed development compatibility pins to Map PR151, Runner PR114
+  and Gate PR31. Add the explicit installed Mapless authorization, native Gate,
+  evidence and re-export flow to the existing required Ubuntu Compose job.
+  Retain development/non-runnable status; require fresh Ubuntu Full/Mapless
+  installed acceptance for the exact selected cohort. Bind update/recovery fixtures to
+  its actual baseline schema and retain bounded, secret-checked refusal output.
+- Inherit the existing no-new-privileges setting from the Full/Mapless base
+  service, avoiding a duplicate rejected by the supported Linux Compose client.
+
 - Forward explicit Runner environment names correctly after the outer `--`
   separator, including controlled invocations without an additional command.
 

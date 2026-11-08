@@ -21,7 +21,7 @@ RESTORE_PROJECT = "vardrsec-restore-acceptance"
 ARTIFACTS = ROOT / "artifacts" / "recovery-drill"
 
 
-def verify_application(restored, original_ca, images):
+def verify_application(restored, original_ca, images, baseline_revision):
     recovery.compose(
         restored,
         "up",
@@ -50,7 +50,7 @@ def verify_application(restored, original_ca, images):
         recovery.sql(
             restored, "SELECT version_num FROM alembic_version", RESTORE_PROJECT
         )
-        == "0031localauth"
+        == baseline_revision
     )
     assert (
         recovery.sql(
@@ -206,6 +206,8 @@ def downgrade():
 
 def main():
     ARTIFACTS.mkdir(parents=True)
+    baseline_revision = recovery.sql(ROOT, "SELECT version_num FROM alembic_version", PROJECT)
+    assert baseline_revision and len(baseline_revision.splitlines()) == 1, "Expected one baseline migration revision"
     if (ROOT / ".active-images.json").exists():
         raise ValueError(
             "Recovery fixture requires the unchanged development installation"
@@ -258,7 +260,7 @@ def main():
         text=True,
     ).stdout.strip()
     assert current_base == snapshot["images"]["api"]
-    successful = candidate("successful-fixture", "0031localauth", "0032restorefixture")
+    successful = candidate("successful-fixture", baseline_revision, "0032restorefixture")
     recovery.json_write(
         ROOT / ".active-images.json", {"services": {"api": {"image": successful}}}
     )
@@ -324,7 +326,7 @@ def main():
     recovery.restore(
         ROOT, ARTIFACTS / "unsealed", ARTIFACTS / "restored", RESTORE_PROJECT
     )
-    verify_application(ARTIFACTS / "restored", original_ca, snapshot["images"])
+    verify_application(ARTIFACTS / "restored", original_ca, snapshot["images"], baseline_revision)
     print(
         "PASS: fresh-install restore recovers original images, schema/data, evidence contents/ownership and CA; source project is retained"
     )
