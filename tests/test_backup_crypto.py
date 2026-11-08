@@ -49,6 +49,14 @@ class EncryptionTests(unittest.TestCase):
             source = root / "source"
             source.mkdir()
             fixtures.RecoveryTests().snapshot(source)
+            # Cover a current Full bundle, including optional portable launchers.
+            metadata = json.loads((source / "snapshot.json").read_text())
+            for name in recovery.FULL_FILES + recovery.LAUNCHER_FILES:
+                if not (source / name).exists():
+                    (source / name).write_bytes((Path(recovery.__file__).parent / name).read_bytes())
+                metadata["files"][name] = recovery.digest(source / name)
+            metadata.update(schema_version=5, mode="full")
+            (source / "snapshot.json").write_text(json.dumps(metadata))
             identity, recipient = self.keys(root, "private-identity.txt")
             encrypted = root / "snapshot.age"
             backup_crypto.seal(source, encrypted, recipient)

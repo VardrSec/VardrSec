@@ -20,24 +20,24 @@ private issuer custody, one-shot contained execution and host-owned export using
 existing component protocols. Compatible pins and Ubuntu Full/Mapless workflows
 are verified. Configured Windows Docker Desktop workflows and subsequent canonical
 new-installation/recovery operations passed. Bounded standalone Recon now has
-installed development evidence below. Broader Recon execution,
-automatic mode transition, Mapless controlled updates, C09 sleep behavior and
-NM-4/NM-5 acceptance remain deferred capabilities, not accepted ones.
+installed development evidence below. State-preserving Mapless updates also have
+the bounded installed result below. Broader Recon, optional history import/sync,
+C09 sleep behavior and NM-4/NM-5 acceptance remain separate, unaccepted capabilities.
 
 ## Current NM-3 distribution status
 
-Distribution [#68](https://github.com/VardrSec/VardrSec/pull/68), Runner
+The earlier merged cohort from distribution [#68](https://github.com/VardrSec/VardrSec/pull/68), Runner
 [#114](https://github.com/VardrSec/VardrRunner/pull/114) and compatibility
 [#69](https://github.com/VardrSec/VardrSec/pull/69) are merged. The exact cohort
 is Map `14a80a8540c6c7053b1f0630f19a512a2351013a`, Runner
 `5feea8d6de373b4bbc5a3951310c69a16ae7179b`, Gate
 `57cfedfaf59b11cf626288c343f34a34c7b1df13`.
 
-The next focused compatibility change selects reviewed Runner PR117 head
+Focused compatibility [PR71](https://github.com/VardrSec/VardrSec/pull/71) selects reviewed Runner PR117 head
 `ea4265a12a54bc12593aafb4e0855be399e30fd3`, including merged Recon PR116 and
 standalone diagnostics, retaining Map and Gate. The Windows
-finite Recon result retains its original source boundary below; the existing Ubuntu installed
-Full/Mapless workflow must pass for the new pin before integration is merged.
+finite Recon result retains its original source boundary below; the required existing
+Ubuntu Full/Mapless workflow enforces installed compatibility before integration.
 Earlier Full/Mapless results retain their exact source boundary.
 
 | Requirement | Verified boundary / remaining work |
@@ -47,7 +47,9 @@ Earlier Full/Mapless results retain their exact source boundary.
 | Finite Recon | Runner PR116 provides explicit signed DNS-A to original HTTPS/443 GET-root candidates through the existing controlled Runner. Windows Docker Desktop observed one DNS question, one HTTPS 200 with original Host/SNI, native/journal DONE and identical redacted re-export without further requests. Broader discovery and automatic Gate execution are not accepted. |
 | Distribution lifecycle | Full controlled update, interrupted-install resume, backup/recovery, failed migration and certificate renewal passed in the existing Ubuntu jobs. Windows Full and Mapless portable recovery subsequently passed with retained exact images, state and new isolated projects. |
 | Cross-platform installation | Windows/Linux script compatibility passed. Windows 11 Docker Desktop canonical Full/Mapless installation passed from new private checkouts, with existing prerequisites and retained Docker resources. This is an existing-host installation result, not OS provisioning. Native components remain available; integrated native installation is unverified. |
-| State preservation | Separate mode installations, original journal/evidence, portable exports and mode-aware backup preserve data. Automatic history import/mode conversion and Mapless controlled updates remain deferred, unaccepted capabilities. |
+| Installation and CLI entrypoints | Thin `install.ps1` / `install.sh` select Full or Mapless interactively or explicitly. `runner.ps1` / `runner.sh` delegate to the same Python transfer/CLI workflow. PowerShell parsing and Bash syntax checks passed; installed Python workflow evidence is reused. Full selection refuses an existing Mapless checkout. |
+| State preservation and transition | Separate Full/Mapless installations, original journal/evidence, portable exports and mode-aware backup preserve data. This meets the charter's minimum non-destructive transition: Mapless history stays in its original installation and is exportable. Optional import/sync and automatic mode conversion remain deferred. |
+| Mapless controlled update | PR72 uses the existing backup/rehearsal/updater flow and immutable Runner image. A Windows Docker Desktop update preserved exact protected state, the original completed Recon run and all three export hashes; source and rehearsal Runners stayed stopped. Storage migrations require separate review. |
 
 Exact-head [Compose run 42505203697](https://github.com/VardrSec/VardrSec/actions/runs/42505203697)
 passed installation, Full and Mapless workflows, portable recovery/migration failure,
@@ -84,10 +86,22 @@ Private receipt SHA256:
 This establishes the finite profile on Linux containers under Windows Docker
 Desktop; it does not claim native Windows DNSx/HTTPx or broader Recon acceptance.
 
-The installation/distribution implementation now has canonical Windows and Ubuntu
-evidence. Remaining broader NM-3 requirements concern the justified native
-deployment boundary and the required but deferred broader Recon, mode-transition and
-Mapless update capabilities. C09 sleep remains unaccepted under NM-2;
+The Mapless update observation used distribution `bd7f1cd` and Runner PR117 head
+`ea4265a` against the retained completed Recon workspace. Backup and restored
+rehearsal were verified; candidate diagnostics ran on offline disposable copies
+after Runner's existing noncreating schema check. Protected source/rehearsal state
+fingerprints were unchanged. The original run's three exports remained byte-identical
+after application. Both canonical Runners stayed stopped. Two earlier pre-apply
+refusals and their verified cancellations remain retained: an unsupported Compose
+flag, then SQLite WAL/SHM housekeeping. The correction preserves exact state checks
+without adding SQLite machinery. Private receipt SHA256:
+`e1706ee84789cf1e45a91fd7a1c83a2432121d15dcdf42d2b4b82dcd7d3b7602`.
+
+The installation/distribution implementation has canonical Windows and Ubuntu
+evidence. Justified native Runner operation retains its documented platform and
+network limitations; an integrated native Full stack is not required by the charter.
+Automatic import/sync is a separately gated increment, and broader Recon remains
+unaccepted. C09 sleep remains unaccepted under NM-2;
 the owner stopped further manual fault/sleep testing. No release, image publication,
 security-risk acceptance or completion of NM-4/NM-5 is implied.
 

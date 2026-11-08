@@ -137,8 +137,10 @@ Use [encrypted backup and restore](encrypted-backups.md) for the whole Runner
 state and exact toolkit image. The separate issuer volume is deliberately outside
 execution backup: retain it and keep a separately protected operator backup before
 moving hosts. Restoring execution state does not issue new permission or replay a
-job. Controlled Mapless updates and automatic Full/Mapless migration remain
-deferred; separate installations and explicit evidence export preserve data.
+job. State-compatible Mapless image updates use the existing
+[controlled updater](updates.md#mapless-updates), leaving Runner stopped.
+Runner storage migrations and automatic Full/Mapless migration remain deferred;
+separate installations and explicit evidence export preserve data.
 
 This path supports the fixed HTTP Gate assessment and explicit finite Recon
 profile described above. The older Recon projection remains dormant; execution

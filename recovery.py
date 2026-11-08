@@ -35,6 +35,7 @@ MAPLESS_FILES = (
     "compose.mapless.json", "versions.json", "vardrsec.py", "recovery.py",
     "updater.py", "backup_crypto.py", "installation_mode.py", "compose.local-worker.json", MARKER,
 )
+LAUNCHER_FILES = ("install.ps1", "install.sh", "runner.ps1", "runner.sh")
 VOLUMES = {
     "runner-state": ("runner", "/home/runner/.vardrmap"),
     "proxy-data": ("proxy", "/data"),
@@ -271,6 +272,15 @@ def load_images(backup_path, metadata):
         command("docker", "image", "inspect", image, stdout=subprocess.DEVNULL)
 
 
+def launcher_files(root):
+    present = tuple(name for name in LAUNCHER_FILES if os.path.lexists(root / name))
+    if present and (present != LAUNCHER_FILES or any(
+        (root / name).is_symlink() or not (root / name).is_file() for name in present
+    )):
+        raise ValueError("Installation launchers must be a complete regular-file set")
+    return present
+
+
 def backup_mapless(root, destination):
     destination = destination.resolve()
     if destination.exists():
@@ -293,7 +303,7 @@ def backup_mapless(root, destination):
         raise ValueError("Snapshot must pin the Runner image ID")
     volume = volume_name(info, VOLUMES["runner-state"][1])
     destination.mkdir(parents=True, mode=0o700)
-    for name in MAPLESS_FILES:
+    for name in MAPLESS_FILES + launcher_files(root):
         private_write(destination / name, (root / name).read_bytes())
     archive = destination / "runner-state.tar.gz"
     with archive.open("xb") as output:
@@ -307,6 +317,8 @@ def backup_mapless(root, destination):
         "schema_version": 6, "mode": "mapless",
         "created_at": datetime.now(timezone.utc).isoformat(), "project": project,
         "images": images, "volumes": fingerprints,
+        "last_update": json.loads((root / ".last-update.json").read_text(encoding="utf-8"))
+        if (root / ".last-update.json").exists() else None,
         "files": {path.name: digest(path) for path in destination.iterdir()},
     })
     print("Mapless backup completed. Runner remains stopped. Treat the bundle as private key material.")
@@ -400,7 +412,7 @@ def backup(root, destination):
     infos = {name: container(root, name) for name in SERVICES}
     images = {name: info["Image"] for name, info in infos.items()}
     destination.mkdir(parents=True, mode=0o700)
-    for name in FULL_FILES + ((MARKER,) if (root / MARKER).exists() else ()):
+    for name in FULL_FILES + ((MARKER,) if (root / MARKER).exists() else ()) + launcher_files(root):
         private_write(destination / name, (root / name).read_bytes())
     for name, (service, mount) in VOLUMES.items():
         path = destination / f"{name}.tar.gz"
@@ -456,24 +468,29 @@ def backup(root, destination):
     )
 
 
-def snapshot_files(version):
+def snapshot_files(version, *, metadata=None):
     """The exact installation files covered by a supported snapshot format."""
     scripts = {1: LEGACY_FILES, 2: UPDATE_FILES, 3: CRYPTO_FILES, 4: FILES,
                5: FULL_FILES, 6: MAPLESS_FILES}.get(version)
     if scripts is None:
         raise ValueError("Unsupported snapshot version")
+    recorded = set((metadata or {}).get("files", {}))
+    if version == 5 and MARKER in recorded:
+        scripts += (MARKER,)
+    if recorded.intersection(LAUNCHER_FILES):
+        if version not in (5, 6) or not set(LAUNCHER_FILES).issubset(recorded):
+            raise ValueError("Snapshot launchers must be complete")
+        scripts += LAUNCHER_FILES
     return scripts
 
 
 def validate(backup_path):
     metadata = json.loads((backup_path / "snapshot.json").read_text(encoding="utf-8"))
     version = metadata.get("schema_version")
-    scripts = snapshot_files(version)
+    scripts = snapshot_files(version, metadata=metadata)
     mapless = version == 6
     if version in (5, 6) and metadata.get("mode") != ("mapless" if mapless else "full"):
         raise ValueError("Snapshot mode does not match its format")
-    if version == 5 and MARKER in metadata.get("files", {}):
-        scripts += (MARKER,)
     volumes = {"runner-state": VOLUMES["runner-state"]} if mapless else VOLUMES
     services = {"runner"} if mapless else SERVICES
     required = (
@@ -572,9 +589,11 @@ def restore(root, backup_path, destination, project):
             )
     destination.mkdir(parents=True, mode=0o700)
     mapless = metadata["schema_version"] == 6
-    scripts = snapshot_files(metadata["schema_version"])
-    for name in scripts + ((MARKER,) if not mapless and MARKER in metadata["files"] else ()):
+    scripts = snapshot_files(metadata["schema_version"], metadata=metadata)
+    for name in scripts:
         private_write(destination / name, (backup_path / name).read_bytes())
+        if name in ("install.sh", "runner.sh"):
+            (destination / name).chmod(0o700)
     # This public routing file is bind-mounted into a capability-restricted
     # container with a different UID. Secrets stay in .env and state volumes.
     if not mapless:

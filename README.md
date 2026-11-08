@@ -15,7 +15,32 @@ The reviewed compatible Runner/Gate pins are merged; verified installation
 boundaries and remaining requirements are recorded in the
 [New Moon ledger](docs/new-moon-acceptance.md#community-delivery-priority).
 
-## Install (Ubuntu 24.04, Docker and Compose, Python 3.10+, Git)
+## Install (Docker and Compose, Python 3.10+, Git)
+
+Choose one variant per checkout. Full includes Map's web research interface;
+Mapless provides the Runner/Gate CLI without Map or PostgreSQL. The thin
+entrypoints prompt when no mode is supplied in a terminal:
+
+```powershell
+.\install.ps1 --full       # Windows 11, Docker Desktop with Linux containers
+.\install.ps1 --mapless    # choose this instead for standalone use
+.\runner.ps1 workspace list
+```
+
+```sh
+./install.sh --full        # Linux
+./install.sh --mapless     # choose this instead for standalone use
+./runner.sh workspace list
+```
+
+For coexistence, keep Full and Mapless in separate checkouts; the original
+Mapless workspace and history stay in place. Installer arguments pass through to
+the Python CLI below. Runner launchers add the usual argument separator; retain
+an explicit `--` after distribution input/output/issuer options when using those
+options. The existing `python vardrsec.py` commands remain available.
+
+Windows installers print the platform-specific trust and account setup steps.
+The equivalent Python sequence for an Ubuntu 24.04 Full installation is:
 
 ```sh
 git clone https://github.com/VardrSec/VardrSec.git vardrsec

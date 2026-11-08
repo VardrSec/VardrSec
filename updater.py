@@ -78,6 +78,13 @@ def image_set(root):
             text=True,
         ).stdout
     )
+    if recovery.read_mode(root) == "mapless":
+        if set(config["services"]) != {"runner"} or config["services"]["runner"].get("environment"):
+            raise ValueError("Mapless update requires the uninjected Runner-only model")
+        image = recovery.container(root, "runner", config["name"])["Image"]
+        if not recovery.IMAGE_ID.fullmatch(image) or config["services"]["runner"]["image"] != image:
+            raise ValueError("Mapless selection must match its immutable installed image")
+        return config, {"runner": image}
     images = {
         s: recovery.container(root, s)["Image"] for s in recovery.SERVICES - {"runner"}
     }
@@ -94,37 +101,43 @@ def image_set(root):
     return config, images
 
 
-def candidate_set(path, baseline, origin):
+def candidate_set(path, baseline, origin, *, mode="full"):
+    if mode not in {"full", "mapless"}:
+        raise ValueError("Unsupported candidate installation mode")
+    mapless = mode == "mapless"
     value = json.loads(path.read_text(encoding="utf-8"))
     if (
         not isinstance(value, dict)
-        or set(value) != {"schema_version", "public_origin", "images", "components"}
+        or set(value) != ({"schema_version", "mode", "images", "components"} if mapless
+                          else {"schema_version", "public_origin", "images", "components"})
         or type(value["schema_version"]) is not int
-        or value["schema_version"] != 1
+        or value["schema_version"] != (2 if mapless else 1)
     ):
         raise ValueError("Unsupported candidate manifest")
-    if value["public_origin"] != origin:
+    if mapless and value["mode"] != "mapless":
+        raise ValueError("Candidate mode does not match this installation")
+    if not mapless and value["public_origin"] != origin:
         raise ValueError(
             "Candidate public origin must match the installed frontend URL"
         )
     images = value["images"]
     if (
         not isinstance(images, dict)
-        or set(images) != recovery.SERVICES
+        or set(images) != ({"runner"} if mapless else recovery.SERVICES)
         or not all(
             isinstance(i, str) and recovery.IMAGE_ID.fullmatch(i)
             for i in images.values()
         )
     ):
         raise ValueError("Every candidate service requires an immutable local image ID")
-    if images["db"] != baseline["db"]:
+    if not mapless and images["db"] != baseline["db"]:
         raise ValueError(
             "PostgreSQL image changes require a separate major-version/recovery procedure"
         )
     components = value["components"]
     if (
         not isinstance(components, dict)
-        or set(components) != {"map", "runner", "gate"}
+        or set(components) != ({"runner", "gate"} if mapless else {"map", "runner", "gate"})
         or not all(
             isinstance(c, str) and re.fullmatch("[0-9a-f]{40}", c)
             for c in components.values()
@@ -137,7 +150,10 @@ def candidate_set(path, baseline, origin):
 
 
 def set_images(root, images):
-    path = root / ".active-images.json"
+    mapless = recovery.read_mode(root) == "mapless"
+    path = root / (".active-images.mapless.json" if mapless else ".active-images.json")
+    if mapless:
+        recovery.compose_files(root)  # Retain only the already validated scoped selection.
     previous = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     selection = {key: previous[key] for key in ("name", "networks") if key in previous}
     selection["services"] = {s: {"image": i} for s, i in images.items()}
@@ -166,7 +182,57 @@ def private_proxy(root, *args, **kwargs):
     )
 
 
-def verify_private(root, project):
+def verify_mapless(root, project, snapshot):
+    if snapshot is None or snapshot.get("mode") != "mapless":
+        raise ValueError("Mapless verification requires the original verified state snapshot")
+    expected = snapshot["volumes"]["runner-state"]
+    original_image = snapshot["images"]["runner"]
+
+    def unchanged():
+        no_runner(project)
+        info = recovery.container(root, "runner", project)
+        volume = recovery.volume_name(info, recovery.VOLUMES["runner-state"][1])
+        if recovery.volume_fingerprint(original_image, volume) != expected:
+            raise ValueError("Mapless Runner state changed; storage migrations require a separate reviewed procedure")
+        return volume
+
+    unchanged()
+    recovery.compose(root, "--profile", "tools", "create", "--no-build", "--pull", "never",
+                     "runner", project=project)
+    volume = unchanged()
+    image = image_set(root)[1]["runner"]
+    # SQLite readers can change WAL/SHM bytes. Inspect an offline disposable copy,
+    # never the preserved original or canonical rehearsal volume. Reuse Runner's
+    # noncreating current-schema gate before ordinary diagnostics on that copy.
+    code = """
+import os, shutil
+from vardrrunner import config, identity
+from vardrrunner.journal import Journal, journal_path_identity
+target = config.CONFIG_DIR
+if target.exists() and any(target.iterdir()):
+    raise ValueError('Diagnostic image state must be empty')
+shutil.copytree('/source', target, dirs_exist_ok=True)
+if not identity.identity_file().is_file():
+    raise ValueError('Initialize local Runner diagnostics before updating')
+Journal.open_existing(config.journal_file(), expected_identity=journal_path_identity(config.journal_file())).list(limit=1)
+os.execvp('vardrrunner', ['vardrrunner', 'doctor', '--standalone', '--offline', '--json'])
+"""
+    result = recovery.command(
+        "docker", "run", "--rm", "--network", "none", "--user", "10001:10001",
+        "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--pull", "never",
+        "--mount", f"type=volume,source={volume},target=/source,readonly",
+        "--entrypoint", "python", image, "-c", code,
+        capture_output=True, text=True, check=False, timeout=WAIT_SECONDS,
+    )
+    if result.returncode or json.loads(result.stdout).get("healthy") is not True:
+        raise ValueError("Offline Runner diagnostics failed during Mapless update verification")
+    unchanged()
+    image_set(root)  # The stopped canonical container must use the selected immutable image.
+
+
+def verify_private(root, project, *, snapshot=None):
+    if recovery.read_mode(root) == "mapless":
+        return verify_mapless(root, project, snapshot)
     private_proxy(
         root,
         "-p",
@@ -220,6 +286,18 @@ def verify_private(root, project):
 
 
 def assert_quiesced(root, metadata, project):
+    if recovery.read_mode(root) == "mapless":
+        no_runner(project)
+        info = recovery.container(root, "runner", project)
+        if info["Image"] != metadata["images"]["runner"]:
+            raise ValueError("Mapless source image changed after backup")
+        volume = recovery.volume_name(info, recovery.VOLUMES["runner-state"][1])
+        if recovery.volume_fingerprint(metadata["images"]["runner"], volume) != metadata["volumes"]["runner-state"]:
+            raise ValueError("Mapless source state changed after backup")
+        for name in recovery.snapshot_files(metadata["schema_version"], metadata=metadata):
+            if recovery.digest(root / name) != metadata["files"][name]:
+                raise ValueError("Installation files changed after backup")
+        return
     if any(
         recovery.container(root, s)["State"]["Running"] for s in ("api", "web", "proxy")
     ):
@@ -245,7 +323,7 @@ def assert_quiesced(root, metadata, project):
             != metadata["volumes"][name]
         ):
             raise ValueError("State changed after backup")
-    for name in recovery.snapshot_files(metadata.get("schema_version")):
+    for name in recovery.snapshot_files(metadata.get("schema_version"), metadata=metadata):
         if recovery.digest(root / name) != metadata["files"][name]:
             raise ValueError("Installation files changed after backup")
 
@@ -274,7 +352,8 @@ def update(root, candidate, backup, destination, rehearsal_project):
     with installation_lock(root):
         if (root / STATE).exists():
             raise ValueError("Resolve the pending update before starting another")
-        if not os.environ.get("VARDRMAP_API_KEY"):
+        mapless = recovery.read_mode(root) == "mapless"
+        if not mapless and not os.environ.get("VARDRMAP_API_KEY"):
             raise ValueError(
                 "Supply a working Runner API key in VARDRMAP_API_KEY for update diagnostics"
             )
@@ -285,9 +364,8 @@ def update(root, candidate, backup, destination, rehearsal_project):
         ):
             raise ValueError("Use a separate vardrsec-restore-NAME rehearsal project")
         config, baseline = image_set(root)
-        candidate = candidate_set(
-            candidate, baseline, config["services"]["web"]["environment"]["AUTH_URL"]
-        )
+        candidate = (candidate_set(candidate, baseline, None, mode="mapless") if mapless else
+                     candidate_set(candidate, baseline, config["services"]["web"]["environment"]["AUTH_URL"]))
         project = config["name"]
         if rehearsal_project == project:
             raise ValueError("Rehearsal must use a different project")
@@ -304,6 +382,9 @@ def update(root, candidate, backup, destination, rehearsal_project):
             "project": project,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }
+        if mapless:
+            record["mode"] = "mapless"
+            record["baseline_selection_sha256"] = recovery.digest(root / ".active-images.mapless.json")
         save(root / STATE, record)
         try:
             recovery.backup(root, backup)
@@ -316,15 +397,23 @@ def update(root, candidate, backup, destination, rehearsal_project):
             save(root / STATE, record)
             recovery.restore(root, backup, destination, rehearsal_project)
             set_images(destination, candidate["images"])
-            verify_private(destination, rehearsal_project)
+            verify_private(destination, rehearsal_project, **({"snapshot": metadata} if mapless else {}))
             recovery.compose(
                 destination, "--profile", "tools", "stop", project=rehearsal_project
             )
             assert_quiesced(root, metadata, project)
+            if mapless and recovery.digest(root / ".active-images.mapless.json") != record["baseline_selection_sha256"]:
+                raise ValueError("Mapless image or network selection changed after backup")
             record["phase"] = "applying"
             save(root / STATE, record)
             set_images(root, candidate["images"])
-            verify_private(root, project)
+            verify_private(root, project, **({"snapshot": metadata} if mapless else {}))
+            if mapless:
+                record.update(phase="complete", status="success", finished_at=datetime.now(timezone.utc).isoformat())
+                save(root / ".last-update.json", record)
+                (root / STATE).unlink()
+                print("Mapless update verified; Runner remains stopped. Backup and stopped rehearsal retained.")
+                return
             # Only now publish the normal loopback HTTPS entry point.
             record["phase"] = "publishing"
             save(root / STATE, record)
@@ -363,14 +452,12 @@ def update(root, candidate, backup, destination, rehearsal_project):
             for directory, name in ((root, project), (destination, rehearsal_project)):
                 if directory == root and record["phase"] == "preparing":
                     continue
-                if (directory / "compose.yaml").exists():
+                if (directory / ("compose.mapless.json" if mapless else "compose.yaml")).exists():
                     try:
                         recovery.compose(
                             directory,
                             "stop",
-                            "proxy",
-                            "web",
-                            "api",
+                            *(["runner"] if mapless else ["proxy", "web", "api"]),
                             project=name,
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL,
@@ -389,7 +476,12 @@ def cancel(root):
             raise ValueError(
                 "Original mutation may have occurred; restore the backup into a fresh installation"
             )
+        mapless = recovery.read_mode(root) == "mapless"
+        if record.get("mode", "full") != ("mapless" if mapless else "full"):
+            raise ValueError("Pending update mode differs from this installation")
         no_runner(record["project"])
+        if mapless and recovery.digest(root / ".active-images.mapless.json") != record["baseline_selection_sha256"]:
+            raise ValueError("Mapless selection changed; preserve state and restore the recorded backup")
         backup = Path(record["backup"])
         if record["phase"] == "rehearsal":
             metadata = recovery.validate(backup)
@@ -397,6 +489,14 @@ def cancel(root):
                 raise ValueError("Recorded backup changed")
             assert_quiesced(root, metadata, record["project"])
         set_images(root, record["baseline_images"])
+        if mapless:
+            recovery.compose(root, "--profile", "tools", "create", "--no-build", "--pull", "never",
+                             "runner", project=record["project"])
+            record.update(status="cancelled", finished_at=datetime.now(timezone.utc).isoformat())
+            save(root / ".last-update.json", record)
+            (root / STATE).unlink()
+            print("Mapless update cancelled before original mutation; baseline Runner remains stopped.")
+            return
         recovery.compose(
             root,
             "up",

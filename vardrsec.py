@@ -312,7 +312,9 @@ def main():
     parser.add_argument("--authority-volume", help="Private issuer volume, only for workspace authority-init/authorize; never execution")
     parser.add_argument("--controlled", action="store_true", help="Runner-only explicit one-job contained local execution")
     parser.add_argument("--runner-subnet", help="Optional unused private IPv4 /24 for the Mapless Runner bridge")
-    parser.add_argument(
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--full", action="store_true", help="Explicitly select a Full installation")
+    modes.add_argument(
         "--mapless",
         action="store_true",
         help="Install standalone Runner and Gate without Map, database or proxy",
@@ -334,6 +336,8 @@ def main():
     if args.action != "runner" and (args.input_directory or args.output_directory or args.controlled or args.authority_volume):
         parser.error("Input, output, authority-volume and controlled options require runner")
     selected = read_mode(ROOT)
+    if args.full and (args.action != "install" or selected == "mapless"):
+        parser.error("--full requires install in a Full or clean checkout; preserve Mapless state in its original installation")
     if args.runner_subnet:
         if args.action not in ("install", "start") or not (selected == "mapless" or args.mapless):
             parser.error("--runner-subnet is only valid with Mapless install/start")
@@ -729,7 +733,7 @@ No scans were started."""
 
 def dispatch(args, parser):
     mapless = read_mode(ROOT) == "mapless" or (args.action in ("install", "sources") and getattr(args, "mapless", False))
-    if mapless and args.action in ("configure", "database-role", "bootstrap", "export-ca", "update", "cancel-update"):
+    if mapless and args.action in ("configure", "database-role", "bootstrap", "export-ca"):
         raise ValueError(f"{args.action} is a Full installation operation; Mapless state is retained. See docs/mapless.md")
     if args.action == "install":
         if mapless:
@@ -793,7 +797,7 @@ def dispatch(args, parser):
         if not mapless and os.path.lexists(ROOT / ".active-images.json"):
             raise ValueError("Full images are frozen; build in a separate workspace and use the controlled updater")
         if mapless and os.path.lexists(ROOT / ".active-images.mapless.json"):
-            raise ValueError("The installed Mapless image is pinned; preserve state and use a separate reviewed installation until controlled Mapless updates are available")
+            raise ValueError("Mapless images are frozen; build in a separate workspace and use the controlled updater")
         build_prerequisites()
         compose("--profile", "tools", "build")
     elif args.action == "database-role":
@@ -865,7 +869,7 @@ def dispatch(args, parser):
             "--no-deps",
             "runner",
             "doctor",
-            *([] if mapless else ["--platform"]),
+            *(["--standalone"] if mapless else ["--platform"]),
             "--offline",
             "--json",
         )

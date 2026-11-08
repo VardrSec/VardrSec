@@ -62,6 +62,45 @@ Protect both as sensitive data; backups are unencrypted. Plan enough disk for
 the image archive and restored state. Do not run Docker/Runner operations outside
 VardrSec or edit files during maintenance; detected source drift aborts the update.
 
+## Mapless updates
+
+Mapless uses the same command, backup, restored rehearsal and durable phases.
+Its candidate has exactly this format:
+
+```json
+{
+  "schema_version": 2,
+  "mode": "mapless",
+  "images": {"runner": "sha256:<64 lowercase hex characters>"},
+  "components": {
+    "runner": "<40-character source commit>",
+    "gate": "<40-character source commit>"
+  }
+}
+```
+
+Build and review the candidate separately. Use new backup/rehearsal paths and a
+new `vardrsec-restore-NAME` project as above. No Map API key or issuer mount is
+needed. Runner's `doctor --standalone --offline --json` checks local state and
+tools without Map authentication or release discovery. Before maintenance,
+initialize a new installation's local diagnostic state with `vardrsec.py doctor`.
+
+This route requires exact Runner-state fingerprints before and after candidate
+diagnostics. SQLite inspection can change WAL/SHM housekeeping, so diagnostics
+run against an offline disposable copy with the preserved state mounted read-only.
+Runner's existing noncreating current-schema check runs before diagnostics;
+storage migration or missing diagnostic initialization refuses before application.
+The source files, image,
+state and network selection must still match the snapshot before application.
+The original Runner is recreated with the candidate image and left stopped.
+Updates never authorize jobs or mount the signing volume.
+
+Pre-application cancellation restores the baseline image and leaves Runner
+stopped. After application begins, restore the recorded backup into a separate
+installation. Retain the backup and stopped rehearsal; storage migrations require
+a separately reviewed procedure. Source implementation alone is not installed
+qualification.
+
 ## Failure and interruption
 
 `.update-state.json` records durable phases before mutation. Failed/interrupted
