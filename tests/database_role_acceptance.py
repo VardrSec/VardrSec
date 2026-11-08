@@ -131,7 +131,7 @@ def legacy_installation():
         shutil.rmtree(WORK)
     root = WORK / "legacy-install"
     (root / "trust").mkdir(parents=True)
-    for name in (*recovery.FILES, "database_roles.py"):
+    for name in recovery.FULL_FILES:
         if name != ".env":
             shutil.copy2(ROOT / name, root / name)
     compose = (root / "compose.yaml").read_text(encoding="utf-8")
