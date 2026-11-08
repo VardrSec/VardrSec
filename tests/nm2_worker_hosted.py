@@ -26,6 +26,7 @@ SOURCE = Path(__file__).resolve().parents[1]
 # Root helpers must come from this exact source tree, never the caller's cwd.
 sys.path.insert(0, str(SOURCE))
 BRANCH = "refs/heads/codex/nm1-nm2-closeout"
+RUNNER_LOSS_BRANCH = "refs/heads/codex/nm2-final-runtime-gates"
 BOOTSTRAP_SCENARIO = "bootstrap-configurations"
 BOOTSTRAP_RUNNER = "5ecc869d80f53ae7fdbca25b971838976a6c41e9"
 BOOTSTRAP_GATE = "d80d4730b8486b75be72431b5af88e0ddb45020b"
@@ -767,7 +768,7 @@ def host_guard(env):
         env.get("GITHUB_ACTIONS") == "true"
         and env.get("RUNNER_ENVIRONMENT") == "github-hosted"
         and env.get("GITHUB_REPOSITORY") == "VardrSec/VardrSec"
-        and env.get("GITHUB_REF") == BRANCH
+        and env.get("GITHUB_REF") == (RUNNER_LOSS_BRANCH if env.get("NM2_SCENARIO") == RUNNER_LOSS_SCENARIO else BRANCH)
         and env.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
         and env.get("NM2_COUPLED") == "true"
         and platform.system() == "Linux"

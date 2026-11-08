@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Pin the inactive Runner-loss CI case to its reviewed branch. Read the original
+  journal-backed managed run directory while preserving exact parent, UUID and
+  symlink custody checks. The held containment attempt remains held.
+
 - Isolate NM-1 historical closeout evidence and four byte-exact sanitized receipts
   on main; maintain explicit normalized Map/standalone approval and contract
   comparisons in the existing conformance harness. Preserve historical sources

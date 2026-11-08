@@ -4,14 +4,21 @@ from pathlib import Path
 from vardrrunner import config
 from vardrrunner.journal import Journal
 from vardrrunner.authorization import worker_persistent as persistent, codec
+def managed_run_folder(folder, runs):
+    """SDK managed_worker creates managed-UUID independently of Journal.run_id."""
+    assert folder.is_absolute() and runs.is_absolute() and folder.parent == runs
+    assert re.fullmatch("managed-[a-f0-9]{32}",folder.name)
+    assert folder.is_dir() and folder.resolve(strict=True) == folder
+    assert all(not p.is_symlink() for p in (folder,*folder.parents))
+    return folder
+
 s = json.load(sys.stdin)
 mode = s.get('mode')
 assert mode is None or mode == 'nm2-c08-live-runner-loss'
 assert set(s) == ({'run_id','engagement_id','job_id'} if mode is None else {'run_id','engagement_id','job_id','mode'}) and re.fullmatch("[a-f0-9]{32}",s["run_id"])
 journal = Journal(config.journal_file()); run = journal.get(s["run_id"])
 assert run is not None and run.job_id == s["job_id"] and run.engagement_id == s["engagement_id"]
-folder = Path(run.run_dir)
-assert folder == config.runs_dir()/run.run_id and folder.is_dir() and all(not p.is_symlink() for p in (folder,*folder.parents))
+folder = managed_run_folder(Path(run.run_dir),config.runs_dir())
 with journal._connection() as con:
     claim = con.execute("SELECT state,utc_anchor,mono_anchor,plan_sha256,case_sha256,tool_sha256,consumption_sent,consumption_acknowledged FROM managed_claim_intents WHERE run_id=?",(run.run_id,)).fetchone()
     attempt = con.execute("SELECT * FROM managed_persistent_attempts WHERE run_id=?",(run.run_id,)).fetchone()
