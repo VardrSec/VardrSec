@@ -1,0 +1,32 @@
+{
+  "services": {
+    "runner": {
+      "user": "0:0",
+      "entrypoint": ["/usr/local/bin/vardr-worker-owner"],
+      "command": ["--local"],
+      "init": false,
+      "restart": "no",
+      "read_only": true,
+      "ipc": "private",
+      "cgroup": "private",
+      "cap_drop": ["ALL"],
+      "cap_add": ["SETUID", "SETGID", "SETPCAP"],
+      "security_opt": ["no-new-privileges:true"],
+      "pids_limit": 64,
+      "mem_limit": "512m",
+      "cpus": 1.0,
+      "healthcheck": {"disable": true},
+      "environment": {
+        "VARDRMAP_URL": "",
+        "VARDRMAP_API_KEY": "",
+        "VARDRRUNNER_WORKER_DURATION_SECONDS": "${VARDRRUNNER_WORKER_DURATION_SECONDS:-30}",
+        "VARDRRUNNER_WORKER_WAIT_SECONDS": "${VARDRRUNNER_WORKER_WAIT_SECONDS:-30}",
+        "VARDRRUNNER_WORKER_CREDENTIAL_ENV": "${VARDRRUNNER_WORKER_CREDENTIAL_ENV:-}"
+      },
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=67108864,uid=10001,gid=10001,mode=0700",
+        "/run/vardr-worker-ready:rw,noexec,nosuid,nodev,size=1048576,uid=10000,gid=10000,mode=0700"
+      ]
+    }
+  }
+}

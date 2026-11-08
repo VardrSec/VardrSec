@@ -21,7 +21,7 @@ against concurrent ancestor/cache replacement. Keep the checkout exclusively
 under trusted operator control during preparation; native Windows junction and
 concurrent-race acceptance are not established by synthetic marker tests.
 
-## Mapless source preparation (partial NM-3 increment)
+## Full and Mapless selection
 
 `python3 vardrsec.py sources --mapless` prepares only the existing exact Runner
 and Gate source pins. It needs Git and component-source access, but does not fetch
@@ -30,17 +30,13 @@ Existing different/dirty source caches are preserved and refused as before; an
 existing Map cache is not inspected or changed by this selection. Bare `sources`
 continues preparing Map, Runner and Gate for Full.
 
-The flag is currently valid only with `sources`; `install --mapless`, `build
---mapless` and other lifecycle uses fail before acquiring the installation lock
-or changing files. Arguments after the `runner --` separator still belong to
-Runner and are not reinterpreted as distribution mode selection.
-
-This is not a runnable Mapless installation. Full/Mapless installer entrypoints,
-service/config selection, protected state binding, compatible reviewed component
-pins, backup/export and non-destructive installed transition remain open. Native
-Windows and Docker Desktop acceptance are separate; no unsupported execution
-fallback or background worker is introduced. Do not apply Full installation to
-an existing Mapless workspace and infer that its records or authority were migrated.
+`install --mapless` now selects the standalone model in a clean checkout and
+persists the selection for build/start/stop/Runner/backup. Unmarked installations
+retain Full behavior. See the [standalone walkthrough](mapless.md) for private
+issuer custody, signed one-job execution and export. Compatible pins and actual
+Windows/Linux installed acceptance are tracked separately. Arguments after the
+`runner --` separator still belong to Runner. No automatic Full/Mapless state or
+authority migration is implied.
 
 ## Quick start (source-built, not an official release)
 
@@ -56,8 +52,7 @@ unsupported mappings refuse before installation steps or volume inventory.
 Only the shipped Full service/state layout is recognized: default project-scoped
 volume names, the database and Runner state mounts, proxy state and the existing
 read-only trust/Caddyfile binds. Custom volume names, external/driver mappings,
-additional mounts/services and unresolved paths refuse. The dormant Mapless model
-is not activated. Existing `.env` files are preserved and an interrupted installation
+additional mounts/services and unresolved paths refuse. Existing `.env` files are preserved and an interrupted installation
 can still resume when the selected supported model resolves and none of its four
 state volumes is observed. Retained proxy state also prevents fresh installation:
 its CA identity and configuration belong to the existing installation, even when
@@ -83,9 +78,9 @@ The standard-layout fingerprint is a compatibility boundary, not a signature or
 hostile-file sandbox. Changes to the shipped model require coordinated review.
 Interrupted installs with complete existing configuration retain the normal resume
 path; incomplete required configuration still refuses rather than regenerating keys.
-Mapless one-command installation remains gated on compatible component pins and a
-supported standalone execution platform; the dormant Linux Compose model is not a
-substitute for the Windows-only controlled Gate path.
+The separate Mapless installer recognizes its exact shipped one-service model
+and refuses existing state from either mode. Its controlled one-job adapter is
+an explicit selection; ordinary startup never enables it.
 
 The subsequent bounded Docker inventory checks all four resolved state-volume
 names without reading contents. Inventory failures refuse. Absence of those

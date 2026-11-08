@@ -246,7 +246,7 @@ class LifecycleTests(unittest.TestCase):
             (root / ".active-images.json").write_text("{}")
             with (
                 patch.object(vardrsec, "ROOT", root),
-                patch.object(vardrsec, "run") as run,
+                patch.object(vardrsec, "run", return_value=subprocess.CompletedProcess([], 0)) as run,
             ):
                 vardrsec.dispatch(
                     argparse.Namespace(

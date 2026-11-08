@@ -140,7 +140,7 @@ class MaplessSourcesTests(unittest.TestCase):
                 vardrsec.dispatch(args, None)
                 sources.assert_called_once_with(mapless=selected)
 
-    def test_cli_accepts_sources_and_rejects_other_actions_before_lock_or_dispatch(
+    def test_cli_accepts_mapless_install_and_sources_but_requires_install_for_lifecycle(
         self,
     ):
         for action in ("sources", "install", "build", "start", "restore", "update"):
@@ -153,7 +153,7 @@ class MaplessSourcesTests(unittest.TestCase):
                 patch.object(vardrsec, "dispatch") as dispatch,
                 contextlib.redirect_stderr(io.StringIO()),
             ):
-                if action == "sources":
+                if action in ("sources", "install"):
                     vardrsec.main()
                     self.assertTrue(dispatch.call_args.args[0].mapless)
                 else:

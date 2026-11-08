@@ -9,6 +9,8 @@ __pycache__/
 /.sources/
 /trust/
 /.active-images.json
+/.active-images.mapless.json
+/.installation-mode.json
 /restore-receipt.json
 /.update-lock
 /.update-state.json

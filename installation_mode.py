@@ -1,0 +1,82 @@
+"""Explicit installation selection; unmarked installations retain Full behavior."""
+
+import json
+import os
+from pathlib import Path
+import re
+import stat
+
+MARKER = ".installation-mode.json"
+
+
+def _object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate installation configuration key")
+        result[key] = value
+    return result
+
+
+def _read(path):
+    info = path.lstat()
+    if (not stat.S_ISREG(info.st_mode) or path.is_symlink()
+            or getattr(info, "st_file_attributes", 0) & 0x400 or info.st_size > 16384):
+        raise ValueError("Installation configuration must be a small regular file")
+    return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_object)
+
+
+def read_mode(root):
+    path = Path(root) / MARKER
+    if not os.path.lexists(path):
+        return "full"
+    value = _read(path)
+    if (not isinstance(value, dict) or set(value) != {"schema_version", "mode"}
+            or type(value["schema_version"]) is not int or value["schema_version"] != 1
+            or value["mode"] not in ("full", "mapless")):
+        raise ValueError("Invalid installation mode marker")
+    return value["mode"]
+
+
+def write_mode(root, mode):
+    if mode not in ("full", "mapless"):
+        raise ValueError("Unknown installation mode")
+    path = Path(root) / MARKER
+    if os.path.lexists(path):
+        if read_mode(root) != mode:
+            raise ValueError("Installation mode changes require a separate installation and state export")
+        return
+    with path.open("x", encoding="utf-8", newline="\n") as stream:
+        json.dump({"schema_version": 1, "mode": mode}, stream)
+        stream.write("\n")
+
+
+def compose_files(root, *, mode=None):
+    root = Path(root)
+    selected = read_mode(root)
+    if mode is not None:
+        if mode not in ("full", "mapless"):
+            raise ValueError("Unknown installation mode")
+        if os.path.lexists(root / MARKER) and selected != mode:
+            raise ValueError("Requested mode conflicts with this installation")
+        selected = mode
+    if selected == "full":
+        files = [root / "compose.yaml"]
+        overlay = root / ".active-images.json"
+    else:
+        files = [root / "compose.mapless.json"]
+        overlay = root / ".active-images.mapless.json"
+        if os.path.lexists(overlay):
+            value = _read(overlay)
+            if not isinstance(value, dict) or set(value) not in ({"services"}, {"name", "services"}):
+                raise ValueError("Invalid Mapless image selection")
+            if "name" in value and not re.fullmatch(r"vardrsec-restore-[a-z0-9][a-z0-9-]{0,45}", str(value["name"])):
+                raise ValueError("Invalid Mapless restore project")
+            services = value["services"]
+            if (not isinstance(services, dict) or set(services) != {"runner"}
+                    or not isinstance(services["runner"], dict) or set(services["runner"]) != {"image"}
+                    or not re.fullmatch(r"sha256:[0-9a-f]{64}", str(services["runner"]["image"]))):
+                raise ValueError("Mapless requires exactly one immutable Runner image")
+    if os.path.lexists(overlay):
+        files.append(overlay)
+    return files
