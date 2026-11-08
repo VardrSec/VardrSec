@@ -20,7 +20,7 @@ class PortableRecoveryTests(unittest.TestCase):
             source = root / 'source'
             source.mkdir()
             repository = Path(recovery.__file__).parent
-            for name in recovery.FILES:
+            for name in recovery.FULL_FILES:
                 data = (b'POSTGRES_APP_PASSWORD=' + b'a' * 64 + b'\n'
                         if name == '.env' else (repository / name).read_bytes())
                 (source / name).write_bytes(data)
@@ -52,7 +52,7 @@ class PortableRecoveryTests(unittest.TestCase):
                  patch.object(recovery.subprocess, 'Popen', return_value=process):
                 recovery.backup(source, bundle)
             metadata = recovery.validate(bundle)
-            self.assertEqual(metadata['schema_version'], 4)
+            self.assertEqual(metadata['schema_version'], 5)
             self.assertEqual((bundle / 'database_roles.py').read_bytes(),
                              (repository / 'database_roles.py').read_bytes())
             # -I excludes PYTHONPATH/cwd/site-user imports. Only this generated
@@ -62,8 +62,8 @@ import io, json, pathlib, sys
 from unittest.mock import MagicMock, patch
 bundle = pathlib.Path.cwd()
 sys.path.insert(0, str(bundle))
-import recovery, database_roles, updater, backup_crypto, vardrsec
-for module in (recovery, database_roles, updater, backup_crypto, vardrsec):
+import recovery, database_roles, updater, backup_crypto, vardrsec, installation_mode
+for module in (recovery, database_roles, updater, backup_crypto, vardrsec, installation_mode):
     assert pathlib.Path(module.__file__).parent == bundle
 assert 'database_roles.py' in backup_crypto.ALLOWED
 process = MagicMock()

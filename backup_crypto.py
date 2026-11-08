@@ -11,7 +11,7 @@ import tempfile
 import recovery
 
 ALLOWED = (
-    set(recovery.FILES)
+    set(recovery.FULL_FILES) | set(recovery.MAPLESS_FILES)
     | {"snapshot.json", "database.dump", "images.tar.gz"}
     | {f"{v}.tar.gz" for v in recovery.VOLUMES}
 )

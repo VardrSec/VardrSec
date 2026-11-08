@@ -6,6 +6,13 @@ files and age's existing authenticated streaming format. It implements no cipher
 key derivation or proprietary encrypted format. Normal installation, diagnostics
 and plaintext restore commands still work without age.
 
+Encryption uses the same validated recovery bundle for the installed mode.
+Full preserves its database, Runner state and proxy keys/trust; Mapless preserves
+the Runner-only state/image and explicit mode marker without requiring Map or
+PostgreSQL. The encrypted reader accepts only the fixed file names for the
+supported formats, authenticates EOF, then validates exact mode/files/checksums
+before publishing plaintext. It starts no job and restores no execution authority.
+
 Generate a recovery identity on a protected recovery machine:
 
 ```sh

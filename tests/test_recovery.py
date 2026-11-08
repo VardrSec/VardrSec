@@ -6,7 +6,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import recovery
@@ -94,6 +94,28 @@ class RecoveryTests(unittest.TestCase):
             self.assertNotIn("different-secret", str(error.exception))
             self.assertEqual(compose.call_count, 2)
             self.assertFalse((Path(directory) / "backup").exists())
+        for active in ("runner", "managed-worker"):
+            with (
+                self.subTest(active=active),
+                tempfile.TemporaryDirectory() as directory,
+                patch.object(recovery, "compose", return_value=subprocess.CompletedProcess(
+                    [], 0, stdout=json.dumps(live))) as compose,
+                patch.object(recovery, "container", side_effect=lambda _root, service: {
+                    "Config": {"Env": [f"{name}=persisted-secret"
+                                      for name in recovery.PERSISTED_ENV[service]]}}),
+                patch.object(recovery, "command", side_effect=lambda *args, **_kwargs:
+                    subprocess.CompletedProcess([], 0, stdout="active" if
+                        f"label=com.docker.compose.service={active}" in args else "")) as command,
+                patch.object(recovery, "database_fingerprint") as fingerprint,
+                patch.object(recovery, "volume_stream") as archive,
+            ):
+                with self.assertRaisesRegex(ValueError, "before backup"):
+                    recovery.backup(Path(directory), Path(directory) / "backup")
+                self.assertEqual(compose.call_count, 2)
+                self.assertEqual(command.call_count, 1 if active == "runner" else 2)
+                fingerprint.assert_not_called()
+                archive.assert_not_called()
+                self.assertFalse((Path(directory) / "backup").exists())
 
     def snapshot(self, root):
         for name in recovery.FILES + ("database.dump", "images.tar.gz"):
@@ -215,6 +237,74 @@ class RecoveryTests(unittest.TestCase):
                     self.assertRaisesRegex(ValueError, "unsafe path"),
                 ):
                     recovery.safe_archive(path)
+
+    def test_mapless_backup_restore_uses_only_runner_state_and_stays_stopped(self):
+        import installation_mode
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            repository = Path(recovery.__file__).parent
+            for name in recovery.MAPLESS_FILES:
+                if name != installation_mode.MARKER:
+                    (source / name).write_bytes((repository / name).read_bytes())
+            installation_mode.write_mode(source, "mapless")
+            configuration = {"name": "synthetic", "services": {"runner": {}}}
+            process = MagicMock()
+            process.__enter__.return_value = process
+            process.stdout, process.stdin = io.BytesIO(b"saved-image"), io.BytesIO()
+            process.wait.return_value = 0
+
+            def stream(_image, _volume, action, output):
+                if action == "backup":
+                    with tarfile.open(fileobj=output, mode="w:gz") as archive:
+                        item = tarfile.TarInfo("records-and-private-config")
+                        item.size = 4
+                        archive.addfile(item, io.BytesIO(b"kept"))
+
+            bundle, restored = root / "bundle", root / "restored"
+            with patch.object(recovery, "compose", return_value=subprocess.CompletedProcess([], 0, stdout=json.dumps(configuration))) as compose, \
+                 patch.object(recovery, "command", return_value=subprocess.CompletedProcess([], 0, stdout="")), \
+                 patch.object(recovery, "container", return_value={"Image": "sha256:" + "a" * 64}), \
+                 patch.object(recovery, "volume_name", return_value="state"), \
+                 patch.object(recovery, "volume_stream", side_effect=stream) as volumes, \
+                 patch.object(recovery, "volume_fingerprint", return_value="same-state"), \
+                 patch.object(recovery, "database_fingerprint") as database, \
+                 patch.object(recovery.subprocess, "Popen", return_value=process):
+                recovery.backup(source, bundle)
+                metadata = recovery.validate(bundle)
+                self.assertEqual((metadata["schema_version"], metadata["mode"]), (6, "mapless"))
+                self.assertEqual(set(metadata["images"]), {"runner"})
+                recovery.restore(source, bundle, restored, "vardrsec-restore-mapless")
+                database.assert_not_called()
+                self.assertEqual([call.args[2] for call in volumes.call_args_list], ["backup", "restore"])
+                self.assertTrue(all(not {"db", "api", "web", "proxy", "up", "run"}.intersection(call.args[1:]) for call in compose.call_args_list))
+            self.assertFalse(any((bundle / name).exists() for name in (".env", "database.dump", "Caddyfile")))
+            self.assertEqual(installation_mode.read_mode(restored), "mapless")
+            active = json.loads((restored / ".active-images.mapless.json").read_text())
+            self.assertEqual(active["name"], "vardrsec-restore-mapless")
+            self.assertTrue(json.loads((restored / "restore-receipt.json").read_text())["runner_state_verified"])
+
+    def test_mapless_snapshot_refuses_a_rehashed_full_marker_before_restore(self):
+        import installation_mode
+        with tempfile.TemporaryDirectory() as directory, patch.object(recovery, "command") as command:
+            root = Path(directory)
+            source = root / "bundle"
+            source.mkdir()
+            for name in recovery.MAPLESS_FILES:
+                if name != installation_mode.MARKER:
+                    (source / name).write_bytes(b"fixture")
+            installation_mode.write_mode(source, "full")
+            with tarfile.open(source / "runner-state.tar.gz", "w:gz"):
+                pass
+            (source / "images.tar.gz").write_bytes(b"fixture")
+            metadata = {"schema_version": 6, "mode": "mapless", "images": {"runner": "sha256:" + "a" * 64},
+                        "volumes": {"runner-state": "fixture"}, "files": {p.name: recovery.digest(p) for p in source.iterdir()}}
+            (source / "snapshot.json").write_text(json.dumps(metadata))
+            with self.assertRaisesRegex(ValueError, "marker"):
+                recovery.restore(root, source, root / "restored", "vardrsec-restore-mapless")
+            command.assert_not_called()
+            self.assertFalse((root / "restored").exists())
 
 
 if __name__ == "__main__":
