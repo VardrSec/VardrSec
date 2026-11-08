@@ -1,14 +1,17 @@
-# Fixed A/B boundary operation — proposed activation
+# Fixed A/B boundary operation — retained scope and outcomes
 
-Runtime approval is pending. This operation proposes one two-job pair on Windows
-Docker Desktop and one on Ubuntu 24.04/amd64. It adds no fault case or acceptance
-gate. The exact reviewed Distribution commit must be recorded before activation.
+The owner-selected attempts have ended. Earlier held parent receipts are
+preserved; retained Windows A and the corrected Ubuntu observation now close C07
+within its approved scope. Ubuntu's bounded-load measurement does not close C09.
+[Exact cohorts and outcomes](nm2-worker-acceptance-evidence.md#c07-completed-boundary-and-drain-2026-11-08)
+remain recorded separately. Manual testing is stopped; this retained operation
+definition authorizes no further run or retry.
 
 [Runner ADR0043](https://github.com/VardrSec/VardrRunner/blob/f3dc7e92ea0cc04f5aca4bb74cc739fd79f5be19/docs/adr/0043-proposed-linux-worker-lifecycle-owner.md)
 records the owner decision: “Approve this bounded design for implementation and
 testing.” That approval preserves default-disabled startup and all platform/security
-gates; it does not authorize these fixture jobs or resume stopped experiments.
-An explicit owner decision for this pair remains required.
+gates. The later owner decision selected the recorded fixture jobs; it did not
+waive a gate or resume unrelated stopped experiments.
 
 ## Two fixed jobs
 
@@ -62,7 +65,8 @@ evidence; foreign and operator state must remain unchanged. No retry is implied.
 Report `bounded_load_observed` with 20-second plan/30-second allocation, the original reconstructed
 cap, physical exit and delta. Exact last native lease remains memory-only and the
 exit trigger remains unattributed. The 35-second ceiling does not waive cap overshoot. C09
-stays open pending actual measurements, clock assumptions and C10 disposition.
+remains unaccepted: the Ubuntu load measurement is retained, supported-host
+clock/suspend proof is absent, and C10 final disposition is pending.
 Hosted retains its existing 90-minute deadline; Windows retains existing per-command
 limits. Emitted compiler and Docker qualification outputs stay private; committed
 unit vectors are source-authored protocol models, not accepted runtime evidence.

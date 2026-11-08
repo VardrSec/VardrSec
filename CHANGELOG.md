@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Record completed C07 boundary/drain and C08 live Runner-loss acceptance on
+  Windows Docker Desktop and Ubuntu using retained exact-source evidence.
+  Preserve earlier held parents and the declared shared-UID boundary.
+- Keep C09 unaccepted: Windows stopped before job or power execution; Ubuntu's
+  held harness receipt leaves the power outcome unknown. Manual testing is
+  stopped, C10 final disposition remains pending and NM-3 stays paused.
+- Clarify whole-host Windows sleep, preserved hybrid-image behavior and the
+  nominal wake target. Product pins, packaging and release status are unchanged.
+
 - Distinguish Windows host sleep from Linux guest-kernel suspend in clock proof.
   Use measured sampling widths while preserving actual host-sleep, authority
   expiry and physical-exit bounds.
