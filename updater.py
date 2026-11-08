@@ -194,14 +194,36 @@ def verify_mapless(root, project, snapshot):
         volume = recovery.volume_name(info, recovery.VOLUMES["runner-state"][1])
         if recovery.volume_fingerprint(original_image, volume) != expected:
             raise ValueError("Mapless Runner state changed; storage migrations require a separate reviewed procedure")
+        return volume
 
     unchanged()
     recovery.compose(root, "--profile", "tools", "create", "--no-build", "--pull", "never",
                      "runner", project=project)
-    result = recovery.compose(root, "--profile", "tools", "run", "--rm", "--no-deps",
-                              "--pull", "never", "runner", "doctor", "--standalone", "--offline", "--json",
-                              project=project, capture_output=True, text=True, check=False,
-                              timeout=WAIT_SECONDS)
+    volume = unchanged()
+    image = image_set(root)[1]["runner"]
+    # SQLite readers can change WAL/SHM bytes. Inspect an offline disposable copy,
+    # never the preserved original or canonical rehearsal volume. Reuse Runner's
+    # noncreating current-schema gate before ordinary diagnostics on that copy.
+    code = """
+import os, shutil
+from vardrrunner import config, identity
+from vardrrunner.journal import Journal, journal_path_identity
+target = config.CONFIG_DIR
+if target.exists() and any(target.iterdir()):
+    raise ValueError('Diagnostic image state must be empty')
+shutil.copytree('/source', target, dirs_exist_ok=True)
+if not identity.identity_file().is_file():
+    raise ValueError('Initialize local Runner diagnostics before updating')
+Journal.open_existing(config.journal_file(), expected_identity=journal_path_identity(config.journal_file())).list(limit=1)
+os.execvp('vardrrunner', ['vardrrunner', 'doctor', '--standalone', '--offline', '--json'])
+"""
+    result = recovery.command(
+        "docker", "run", "--rm", "--network", "none", "--user", "10001:10001",
+        "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--pull", "never",
+        "--mount", f"type=volume,source={volume},target=/source,readonly",
+        "--entrypoint", "python", image, "-c", code,
+        capture_output=True, text=True, check=False, timeout=WAIT_SECONDS,
+    )
     if result.returncode or json.loads(result.stdout).get("healthy") is not True:
         raise ValueError("Offline Runner diagnostics failed during Mapless update verification")
     unchanged()

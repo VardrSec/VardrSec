@@ -86,8 +86,11 @@ tools without Map authentication or release discovery. Before maintenance,
 initialize a new installation's local diagnostic state with `vardrsec.py doctor`.
 
 This route requires exact Runner-state fingerprints before and after candidate
-diagnostics. A storage migration or new persistent initialization is refused in
-rehearsal before the original installation changes. The source files, image,
+diagnostics. SQLite inspection can change WAL/SHM housekeeping, so diagnostics
+run against an offline disposable copy with the preserved state mounted read-only.
+Runner's existing noncreating current-schema check runs before diagnostics;
+storage migration or missing diagnostic initialization refuses before application.
+The source files, image,
 state and network selection must still match the snapshot before application.
 The original Runner is recreated with the candidate image and left stopped.
 Updates never authorize jobs or mount the signing volume.
