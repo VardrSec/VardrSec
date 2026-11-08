@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Qualify original Windows A boundary/drain evidence without repeating the job.
+  Keep both A/B parent receipts held, B unobserved and Ubuntu separately pending.
+
 - Add a separately inactive fixed host-sleep/guest-clock fixture using existing
   OS wake mechanisms and original job retirement. Source and model checks do not
   authorize suspend or establish C09 acceptance. Keep NM-3 paused.

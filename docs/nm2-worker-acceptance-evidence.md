@@ -1267,6 +1267,63 @@ This completes C10's independent source-review portion. C07–C09 still need
 their platform evidence. Artifact/cohort consistency and the final phase
 disposition remain in C10. Previously stopped experiments remain stopped.
 
+## C07 original Windows A component (2026-11-07)
+
+The owner-approved A/B pair used Distribution
+`ca12687015331538e748d14eb56302ecc606e644`, Map
+`05dc78cf9a385255de459c8a5b833842d6528a63`, Runner
+`f3dc7e92ea0cc04f5aca4bb74cc739fd79f5be19` and Gate
+`57cfedfaf59b11cf626288c343f34a34c7b1df13`.
+Windows used the byte-qualified fixture image
+`sha256:7e058ceb7118c462e26bb13376b1132509514a8fab0d7a01456e1de777e715b3`.
+
+Both surrounding pairs remain **held** at `launch_1` with
+`fixture_command_failed`. The Windows raw receipt SHA-256 is
+`ecf3a79ba900e3eceaaa2a1b1c360fc655af1840cb3e64c8764d6f1002af5242`.
+The [Ubuntu run](https://github.com/VardrSec/VardrSec/actions/runs/42449084454)
+retained a sanitized held receipt with SHA-256
+`de957d2026d4757b6456a2b3bb9683987f3e25b3256787e805b2bd772ece2178`.
+Its private A state was not retained; Windows details are not transferred to it.
+Neither installed pair was retried.
+
+The readback incorrectly assumed `runs/<run_id>`. Actual managed execution creates
+`runs/managed-<independent UUID>` and journals that original directory. The
+correction validates that journal-bound path under the exact configured parent,
+with its managed UUID format, canonical directory and nonsymlink custody checks.
+It preserves the run/job/engagement and claim/attempt bindings. This is a fixture
+correction; no Runner, Gate, privilege, authority or image change was needed.
+
+Windows A had already completed and released before readback refused. A separately
+reviewed ordinary UID10001, capability-free, network-none helper mounted only its
+verified original state volume read-only and copied only the DB and original run
+folder into its own bounded tmpfs. The unchanged SDK validated the original
+claim/attempt; the corrected reader and existing pure boundary/guard joins then
+qualified the original seven process records. No identity/config key was copied.
+Original and clone bytes matched before and after; the helper was removed.
+
+| Retained original fact | Verified scope |
+| --- | --- |
+| Original incarnation | Stored admission/runtime hashes join the exact stopped CID, image, project and start time. Prior accepted readiness/profile/source evidence is reused. |
+| Tool boundary and drain | Seven actual records retain UID/GID10001, empty groups and all five capability sets, NNP and absent FD3; wrapper/intermediate/leaf ordering, reparenting to the Runner and natural leaf exit passed the existing reader. |
+| Original journal | One done run, consumed ACK1/1, released attempt, native DONE and matching release ACK; actual SDK attempt validation passed. |
+| Original artifact | Two preflight, three execution and three assessment records, zero findings; case hash matches the original claim and guard, with only the qualified child tool-hash delegation. Artifact hash matches the journal. |
+| Resource/data scope | The six owned containers are stopped and retained; operator config/journal hashes remain unchanged. No B job, new fault, report/reconcile or physical-retirement proof is claimed by the copy audit. |
+
+The original DB SHA-256 is
+`f428a92c93e6abf9d9b437ab9b047377fc8d7a00aa32adcf6d96cfe8cf3d9521`;
+its WAL/SHM were absent. The component qualification receipt is
+`e2e88d4523237ad1bb3e462d67aa8183f7cb224651d65146d59d61a6393bde21`,
+readback `e7546b1b9978e3c88833fb9d5e3380386c78f3436ee6ea8d608854d655ddb5f2`,
+and original artifact
+`7f264391be4ebc3d7d6ee4b2ba1c2b89416950fe5bdd61546d944786016e4f23`.
+
+Independent review accepts this **Windows C07 component** within the already
+approved shared-principal, trusted-tool, immutable-image and closed-lineage
+assumptions. Full Runner/tool credential separation is not claimed. There is no
+C07 reason to repeat Windows A or require B pressure as a new containment gate.
+Ubuntu remains a separate C07 requirement; B/load and host/guest sleep remain C09.
+The parent receipts stay held, C08/C09/C10 and NM-2 stay open, and NM-3 stays paused.
+
 ## Open phase gates
 
 The installed evidence above covers first and subsequent startup, selected
