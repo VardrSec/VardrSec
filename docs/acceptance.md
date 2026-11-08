@@ -2,7 +2,7 @@
 
 Compatible development cohort proposed on 2026-11-08: Map
 `14a80a8540c6c7053b1f0630f19a512a2351013a` ([PR151](https://github.com/VardrSec/VardrMap/pull/151)),
-Runner `dfcd8f2a48eca451f91e2f5b06a636f5c393100d` ([PR116](https://github.com/VardrSec/VardrRunner/pull/116))
+Runner `ea4265a12a54bc12593aafb4e0855be399e30fd3` ([PR117](https://github.com/VardrSec/VardrRunner/pull/117), including merged Recon PR116)
 and Gate `57cfedfaf59b11cf626288c343f34a34c7b1df13` ([PR31](https://github.com/VardrSec/VardrGate/pull/31)).
 Fresh Ubuntu 24.04 Full and Mapless qualification for these exact pins is enforced
 by the required Compose installation job. Its result is the installed acceptance

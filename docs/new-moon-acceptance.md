@@ -33,9 +33,10 @@ is Map `14a80a8540c6c7053b1f0630f19a512a2351013a`, Runner
 `5feea8d6de373b4bbc5a3951310c69a16ae7179b`, Gate
 `57cfedfaf59b11cf626288c343f34a34c7b1df13`.
 
-The next focused compatibility change selects reviewed Runner PR116 head
-`dfcd8f2a48eca451f91e2f5b06a636f5c393100d`, retaining Map and Gate. Its Windows
-finite Recon result is recorded below; the required existing Ubuntu installed
+The next focused compatibility change selects reviewed Runner PR117 head
+`ea4265a12a54bc12593aafb4e0855be399e30fd3`, including merged Recon PR116 and
+standalone diagnostics, retaining Map and Gate. The Windows
+finite Recon result retains its original source boundary below; the existing Ubuntu installed
 Full/Mapless workflow must pass for the new pin before integration is merged.
 Earlier Full/Mapless results retain their exact source boundary.
 
