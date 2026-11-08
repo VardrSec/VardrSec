@@ -1263,9 +1263,10 @@ and the owner-approved trusted-host false-exit risk.
 [lifecycle adapter](https://github.com/VardrSec/VardrRunner/blob/5ecc869d80f53ae7fdbca25b971838976a6c41e9/vardrrunner/worker_lifecycle.py),
 [approved assumptions](https://github.com/VardrSec/VardrRunner/blob/5ecc869d80f53ae7fdbca25b971838976a6c41e9/docs/adr/0043-proposed-linux-worker-lifecycle-owner.md).
 
-This completes C10's independent source-review portion. C07–C09 still need
-their platform evidence. Artifact/cohort consistency and the final phase
-disposition remain in C10. Previously stopped experiments remain stopped.
+This completes C10's independent source-review portion. The later C07/C08
+platform outcomes are recorded below; C09 remains unaccepted. Artifact/cohort
+consistency and final phase disposition remain in C10. Manual testing and
+previously stopped experiments remain stopped.
 
 ## C07 original Windows A component (2026-11-07)
 
@@ -1321,8 +1322,95 @@ Independent review accepts this **Windows C07 component** within the already
 approved shared-principal, trusted-tool, immutable-image and closed-lineage
 assumptions. Full Runner/tool credential separation is not claimed. There is no
 C07 reason to repeat Windows A or require B pressure as a new containment gate.
-Ubuntu remains a separate C07 requirement; B/load and host/guest sleep remain C09.
-The parent receipts stay held, C08/C09/C10 and NM-2 stay open, and NM-3 stays paused.
+Ubuntu required its own C07 observation, subsequently recorded below. The
+original parent receipts stay held. B/load and host/guest sleep remain C09;
+C09 and C10 final disposition are unfinished, NM-2 is open and NM-3 is paused.
+
+## C07 completed boundary and drain (2026-11-08)
+
+C07 is closed within the approved shared-principal, trusted-tool, immutable-image,
+closed-lineage and responsive-OS boundary. Reuse the accepted original Windows A
+component above and prior owner/Runner readiness, capability/profile and ordinary
+configuration proof. No full Runner/tool credential separation is claimed.
+
+The corrected Ubuntu observation at [run42454189562](https://github.com/VardrSec/VardrSec/actions/runs/42454189562)
+passed the pinned independent `/26` reader with `ordinary_orphan_drain=true`,
+six stopped retained owned containers and no empty built-in bridge ID change.
+Its sanitized receipt SHA-256 is
+`a5ea0d5fadf35fab105af7ee173fb5c8494a1c0f2233f9a090887443a814d525`.
+The qualified Ubuntu worker image is
+`sha256:79a820514ab439f58baf527d43180ff8036acfd1c4bb70ed2bc6dd0279bb1821`,
+qualification `8c4596d5b3070744ddda923974a8d20df2492223bef34b66a0d0bffc9045293d`.
+The original Windows A/B and initial Ubuntu parent receipts remain held; this
+later result does not relabel those parents or require a Windows A rerun.
+
+The Ubuntu C07/C08/C09 observations below used Distribution
+`3c5b9e248cfea973bc5ce32517185d53b616ec7c`, Map
+`05dc78cf9a385255de459c8a5b833842d6528a63`, Runner
+`f3dc7e92ea0cc04f5aca4bb74cc739fd79f5be19`, Gate
+`57cfedfaf59b11cf626288c343f34a34c7b1df13` and database revision
+`0041persistentruntime`. Linux image bytes were qualified within each job;
+Windows image IDs are not transferred to Ubuntu. The pinned in-job readers
+performed the full private joins. Sanitized artifacts alone cannot replay them.
+
+The same Ubuntu pair recorded `bounded_load_observed=true` with plan20 seconds,
+allocation/permission30 seconds and independent ceiling35 seconds. Its original
+upper cap was `1794119458102641000` UTC ns and physical exit was
+`1794119458112677836` UTC ns: **10,036,836 ns after that reconstructed cap**.
+This is the actual bounded-load measurement, not exact last-native-ACK precision,
+an attributed exit trigger, a cap-overshoot waiver or clock/suspend acceptance.
+The receipt explicitly retains `suspend=not_observed` and C09 open.
+
+## C08 completed live Runner loss (2026-11-08)
+
+The selected live Runner-loss case passed on Windows Docker Desktop and Ubuntu,
+closing C08 within its approved scope. Each recorded five genuine GETs, an actual
+post-signal-call witness and live leaf, native exit125 before the existing
+minimum8-second/35-second natural bound, and the original held capacity/charges
+before protected reporting. Original-key retirement/reconciliation reached zero
+holds and released capacity from1 to0 without refunding one target/30 seconds,
+inventing native DONE or promoting an artifact. Each retained six stopped owned
+containers and no empty built-in bridge ID change. Kernel signal latency and a
+termination acknowledgement were not measured or inferred.
+
+| Platform | Retained qualification |
+| --- | --- |
+| Windows Docker Desktop | Original raw receipt `f8ca21a3f22e3569f7048258f08c8253cda2eb526fe235bf0aa13bed61be42cc`; independent unchanged-reader qualification `2711cc6d0e7b35b92805de7815634615016bbd3540cb0be427fc8ff2fcd4bd31`. Inputs remained byte-identical; the permanent guard recorded zero blocks/processes and operator baseline hashes were unchanged. |
+| Ubuntu24/amd64 | [Run42454197171](https://github.com/VardrSec/VardrSec/actions/runs/42454197171), `/27` status `selected_runner_loss_passed`; sanitized receipt `c8978e6d02ca0791d558ef06a4feb2731c9d04cf6da32bb648527c846d2f6cd4`. |
+
+Windows used its separately qualified marker image `b5f1cb33…`/qualification
+`e70bc79b…`. Ubuntu used image
+`sha256:1ac5d9d521fb31a5e21d5f850f9da3c816b102de683168d874a598a828589fcd`,
+qualification `5b47826227915f4eb2d92b250cae0a8f5627381166ab854388e4eaf1e762f77a`.
+The earlier one-shot PID-1 parent attempts retain their held status and exact
+Windows reporting/reconciliation/copy-audit credit; no fault was retried or
+retrospectively turned into a parent pass.
+
+## C09 unaccepted and manual testing stopped (2026-11-08)
+
+C09 is unaccepted. The owner stopped further manual testing after the authorized
+jobs had ended. No new test, retry, diagnostic, alternate power mechanism or
+resource-recovery operation is implied by this delivery record.
+
+| Platform | Retained outcome and limit |
+| --- | --- |
+| Windows Docker Desktop | Held at `controller_selection` before the execution child, installation, custody, containers, job or native helper; zero physical sleep requests. Preflight record SHA-256 `e600d62bc48c20817a154c03e20ebd4fc76380b605ddf987761ab7aec5bffa35`. A source-reviewed corrected private controller was prepared but not executed under the stop instruction. |
+| Ubuntu24/amd64 | [Run42454204435](https://github.com/VardrSec/VardrSec/actions/runs/42454204435) held at outer stage `harness`, with `harness_failure={stage:unobserved, reason:receipt_unavailable_or_invalid}`. Sanitized receipt SHA-256 `e4dc5017e1bdfebe807464982eb2f9efcc512977c9e15450293c93d4d9aa7334`. This artifact cannot establish whether a power action occurred or identify the underlying cause. |
+
+The Ubuntu bounded-load measurement above retains its credit as an observation;
+it supplies no accepted clock/sleep result. Source/model checks, compile-only
+wake qualification and ordinary CI do not close C09. C10's independent review is
+done, but its final evidence/cohort and phase disposition remain pending. NM-2
+remains open and NM-3 remains paused.
+
+Source integration is distinct: [Distribution PR66](https://github.com/VardrSec/VardrSec/pull/66)
+merged as `f1279c543c2da9e55e5e868f0409137a28d8351b`, and
+[Runner PR113](https://github.com/VardrSec/VardrRunner/pull/113) merged as
+`56168a8a2a772697f8f01de0a6429dd6643e9357` with product bytes unchanged from
+`f3dc7e9`. Historical receipts retain their original source/image pins. Product
+pins, runnable-image status, Full/Mapless packaging, native/Docker and
+Windows/Linux objectives are unchanged; no release or deployment acceptance is
+claimed by these merges.
 
 ## Open phase gates
 
@@ -1339,12 +1427,12 @@ disconnect criteria receive that acceptance credit. The
 [fixed checklist C01–C10](nm1-nm2-closeout.md#fixed-nm-2-closeout-checklist)
 defines the remaining evidence, recovery and security work.
 
-ADR 0043's source review and bootstrap configuration refusals are verified.
-Runtime isolation, unexpected loss, bounded load and supported-host suspend
-obligations remain open under C07–C09, with final cohort disposition in C10.
-Previously blocked adversarial experiments stay stopped. Native Windows fallback
-has its own retained evidence. Both the integrated Docker Desktop gate and NM-2
-remain open. NM-3 remains paused.
+ADR 0043's source review and bootstrap configuration refusals retain their
+verified credit. C01–C08 are closed within their recorded scopes; C09 is
+unaccepted and C10 final disposition remains pending. Manual testing and earlier
+blocked experiments stay stopped. Native Windows fallback has its own retained
+evidence. The overall integrated Docker Desktop gate and NM-2 remain open;
+NM-3 stays paused, with original Docker/Mapless/cross-platform objectives intact.
 
 The [current platform ledger](acceptance.md#accepted-optional-idle-and-zero-issued-job-slices-2026-11-06)
 retains separate Linux and Desktop optional-idle and zero-issued-job receipts.

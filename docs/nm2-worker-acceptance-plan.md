@@ -667,7 +667,7 @@ which ranges a map; [Go specifies no stable map iteration order](https://go.dev/
 This changes comparison representation only. It does not identify the cause of
 any retained held trial or grant acceptance to it.
 
-## Inactive single Runner-loss fixture
+## Selected single Runner-loss fixture
 
 `persistent-fixed-runner-loss` is a separate manual-only `/27` fixture. It uses
 one genuine fixed five-GET job, the original default 20-second signed plan and
@@ -683,16 +683,21 @@ This does not measure signal latency or provide a termination acknowledgement.
 The existing C7 image and defaults stay separate. Linux qualifies the fixed
 marker template in the same job before any work, retaining trusted qualification
 bytes and binding; Windows uses its separately byte-qualified marker image.
-Source preparation and byte qualification do not approve the Runner-loss fault.
-The runtime action requires a separate concrete owner decision on both platforms;
-NM-2 remains open and NM-3 remains paused.
+The owner selected one runtime case per platform; both completed within the
+approved C08 scope. [Recorded evidence](nm2-worker-acceptance-evidence.md#c08-completed-live-runner-loss-2026-11-08)
+retains the exact cohort and earlier held PID-1 parents. Manual testing is now
+stopped; this definition authorizes no further run. NM-2 remains open and NM-3
+remains paused.
 
-## Inactive single clock-sleep fixture
+## Clock-sleep fixture: unaccepted; manual testing stopped
 
 `persistent-fixed-clock-suspend` selects the distinct `/28` fixture. Defaults
-remain inert. A concrete owner decision is required before invoking its explicit
-`--execute` path, which contains the fixed one-shot helper command rather than an
-injectable callback. The fixture uses only the loaded C7 job: five genuine GETs,
+remain inert. The owner-selected attempts ended without C09 acceptance:
+Windows stopped before job/power execution, and Ubuntu retained only a held
+harness receipt with unknown power outcome. The corrected private Windows
+controller was not executed. Manual testing is stopped; the explicit `--execute`
+path below is a source definition, not authorization for another run. It uses a
+fixed one-shot helper command rather than an injectable callback. The fixture uses only the loaded C7 job: five genuine GETs,
 the original 20-second plan and 30-second allocation, one live leaf and no second
 job or successor. The C7 A/B pair and its source/image selection remain separate.
 
@@ -700,9 +705,12 @@ The trusted controller stages fixed wake inputs in the owned `c09-wake` sibling
 of the fresh custody directory. Linux binds the existing `/usr/sbin/rtcwake`
 bytes and selected rtc0; Windows binds the independently compiled helper receipt
 and binary. Source helper templates use LF bytes. No policy, account, service or
-infrastructure change is part of this path. Current Windows hybrid policy is
-preserved; the result reports observed clock-sleep, not a proven precise S-state
-or wake cause.
+infrastructure change is part of this path. The Windows operation acts on the
+whole host. Existing hybrid sleep remains enabled on AC and DC and may write a
+[hibernation image](https://learn.microsoft.com/en-us/windows/win32/power/system-power-states#hybrid-sleep-s1-s3--hibernation-file).
+The 20-second timer is a requested wake target, not a guaranteed sleep duration.
+The oracle reports observed clock-sleep, not a proven precise S-state or wake cause;
+no such observation is accepted from the retained C09 outcomes.
 
 Separate ordinary metadata helpers sample actual Docker Linux guest clocks and
 boot identity without entering the worker namespace or mounting credentials.
@@ -734,5 +742,6 @@ before protected reporting, followed by exact original-key reconciliation with
 zero holds and no refund, DONE or result promotion. Helper failure preserves only
 closed return/status/RTC readback enums; an unknown or still-set alarm is never
 cleared automatically. Pure source-authored vectors and a compile-only helper
-receipt do not constitute installed acceptance. C09 and NM-2 remain open until
-reviewed actual evidence passes on each required platform.
+receipt do not constitute installed acceptance. [The retained C09 outcomes](nm2-worker-acceptance-evidence.md#c09-unaccepted-and-manual-testing-stopped-2026-11-08)
+remain unaccepted. C09 and NM-2 stay open, with no further manual run authorized
+and no phase exit claimed.
