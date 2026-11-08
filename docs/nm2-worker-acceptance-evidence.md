@@ -927,8 +927,8 @@ All six owned containers stopped, admitted inventory differences were zero,
 and the operator profile was unchanged with zero blocked operations.
 No emitted-partial witness was observed. Gate's forced-exit publication remains
 best effort within the existing deadline; this absence proves neither a
-retention loss nor a specific cause. C01's Windows handoff requirement remains
-open, and this case will not be repeated merely to obtain different timing.
+retention loss nor a specific cause. That cohort did not close C01's Windows
+handoff requirement and was not repeated merely to obtain different timing.
 
 The resulting source fix adds a synchronous checkpoint through Gate's existing
 atomic writer before resource dispatch, preserving actual observations and
@@ -944,7 +944,20 @@ has the same tree as reviewed head `140c010`. Matching Runner
 Its 19 focused retention/refusal cases and Gate's actual local HTTP checkpoint,
 copy-isolation, healthy-output and write-failure checks passed. Independent
 source review found no blocking defect in the fixed GET managed profile.
-These source/component results leave installed C01 acceptance open.
+The corrected installed pair at Distribution `7f753052f39444325acc2f1aed0a98dfb23c249b`,
+Map `05dc78c`, Runner `f3dc7e9` and merged Gate `57cfedf` passed.
+[Ubuntu](https://github.com/VardrSec/VardrSec/actions/runs/42429740102)
+retained sanitized receipt SHA-256
+`4b9e06734ab009093d77ecc564bbcae1582ab487a20742030201cebca3fba235`;
+the Windows raw receipt SHA-256 is
+`b0cb9cdc4f8b58b1e056e53777be5bce4f07c2637b818d919b1823ed167ae78c`.
+Both retained five inconclusive evidence records, the reviewed case hash,
+artifact/result provenance and the matching failed terminal receipt after
+three target requests. The independently re-read Windows receipt and engine
+inventories verify seven stopped retained containers, zero admitted inventory
+differences and the same-state-volume successor. The operator hashes remained
+unchanged with zero blocked operations. Ubuntu's exported joins and counts were
+also checked separately. This closes C01; publication ambiguity remains C04.
 
 ## C02 initial installed recovery attempts, 2026-11-07
 
@@ -995,7 +1008,78 @@ validated intermediate documents: closed-preclaim parent0 and unknown first
 claim. Ordinary audits retain their exit0 requirement. It checks bounded unique
 JSON, empty stderr, exact binding/shape/counts and typed holds before accepting
 the expected held status. Original authenticated recovery and successor
-acceptance still need the corrected installed run.
+acceptance required the corrected installed run.
+
+That corrected pair at Distribution `7f753052f39444325acc2f1aed0a98dfb23c249b`,
+Map `05dc78c`, Runner `5ecc869` and Gate `d80d473` passed.
+[Ubuntu](https://github.com/VardrSec/VardrSec/actions/runs/42429717380)
+retained sanitized receipt SHA-256
+`122144e724f3c016e4a7736dab850b60aa016843b307585e3af30f6dd46d07cb`;
+the Windows raw receipt SHA-256 is
+`ee068c67e9866a147f62058d23d4dc783e0d98bfb2f76781a63885547c80e035`.
+An independent audit checked the closed receipt fields, four exact source trees,
+Windows raw/controller/cohort hashes and unchanged operator hashes. Both
+platforms retained the original tombstone byte hash, zero issued attempts,
+requests, target/duration charges and capacity use; original authenticated
+observation retired only the parent, reached zero holds and admitted the
+same-volume successor. Seven owned containers remained stopped and retained.
+This closes C02 within its explicit trusted-synthetic real-API seed scope;
+it does not claim a naturally interrupted preclaim crash.
+
+## C03 committed claim reply loss, 2026-11-07
+
+Distribution `7f753052f39444325acc2f1aed0a98dfb23c249b`, Map `05dc78c`,
+Runner `f359686` and Gate `d80d473` passed the committed first-claim reply-loss
+case on Windows Docker Desktop and
+[Ubuntu](https://github.com/VardrSec/VardrSec/actions/runs/42429732756).
+The existing pinned Caddy proxy committed the exact original claim upstream,
+then withheld its successful response before any downstream reply. Its identity,
+TLS state and mount/profile checks were preserved; no proxy service was added.
+
+Map retained issued sequence one, one target and 30 seconds allocated with
+capacity one. The original local selection stayed at sequence zero with no
+consumption/binding ACK, tool PID, artifact or target requests. After independently
+observed natural worker exit, only the original protected physical report and
+authenticated observation retired that original association: capacity zero,
+unchanged charges, no fabricated ACK and zero local holds. The closed independent
+reader also verified six stopped retained containers and unchanged foreign
+inventory. The Windows operator profile stayed unchanged with zero blocks.
+
+Windows raw receipt SHA-256:
+`31f07d3fba5df4069ccae15643467f03c1b026bc76bd5a049d6738ae940cdc01`.
+Ubuntu sanitized receipt SHA-256:
+`40758888a658d714afed74563f79babadb07115fb7f885423034e5820116227b`.
+This closes the claim boundary only. Two additional inert component cases at
+Runner `f3dc7e9` verified committed consume and runtime-bind reply loss, exact
+original observation/recovery, retained stage/binding and sent1/ACK0, with no
+native dispatch, replay or invented DONE/release. Their installed pairs remain
+open, so C03 remains open.
+
+## C05 managed competition and repetition, 2026-11-07
+
+The retained exact Map `05dc78c`
+[PostgreSQL job](https://github.com/VardrSec/VardrMap/actions/runs/42404060824/job/128497878343)
+passed `test_managed_concurrent_claim_and_atomic_migration` separately for
+administrator and application roles. Each uses four independent PostgreSQL
+sessions and one barrier to compete for the same managed job. The selected
+PostgreSQL suite had 120 passes, zero skips and no failures. Its decoded log
+SHA-256 is `f6cc712b233a1b57d7515172c80141aa696fc468b922401451269e4d4dcb217a`.
+This credits real server-side managed competition; it is not a claim of two
+installed physical workers. Existing SQLite CAS/consumer races and the accepted
+original-predecessor/same-volume-successor evidence retain their separate credit.
+
+The installed repetition attempt at Distribution `7f7530`
+[held](https://github.com/VardrSec/VardrSec/actions/runs/42429723422)
+at `launch_refuse_unresolved_predecessor` /
+`launch_unresolved_refusal_changed_state`, sanitized receipt SHA-256
+`e78f425a924515fb4767d0ff2509c5567210c402fa64f3f11e250e0edb0633bc`.
+Its combined predicate cannot identify which catalog, engine, server, journal
+or traffic observation changed. No product cause is established. The diagnostic
+correction preserves every predicate and exposes only a fixed component reason.
+An unrelated Windows unit timer assertion also observed floating arithmetic
+`10.000000000000028`; pinning its mocked monotonic clock preserves the original
+10-second assertion and changes no production deadline. C05 remains open until
+the affected installed repetition case passes.
 
 ## Independent source review for C10, 2026-11-07
 

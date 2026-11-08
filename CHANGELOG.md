@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Close NM-2 retained-partial and trusted-synthetic preclaim recovery acceptance
+  on Windows Docker Desktop and Ubuntu. Record the paired committed-claim
+  reply-loss proof and retained real PostgreSQL competition evidence; the
+  remaining fixed NM-2 gates stay open and NM-3 stays paused.
+
 - Validate the two explicit intermediate held audits with their real CLI exit1,
   preserving the ordinary exit0 contract. Add the installed repeated managed
   claim witness using the existing stopped-predecessor recovery path.
