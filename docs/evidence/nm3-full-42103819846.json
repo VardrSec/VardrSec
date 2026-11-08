@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "installer_commit": "befe929870107c5a27d291078088fbceaeb58512",
+  "component_pins": {
+    "map": "aad63c8151789cd9bf56864456b5fdf1fdcfde41",
+    "runner": "440ebda7405d9f19f2e5c6f954996b525f0ac5da",
+    "gate": "54536ea1d900d0e35adf93b4e026962c4d45d34a"
+  },
+  "source_trees": {
+    "distribution": "108948257cc3325f3c223757cf9abbfc7b11c44b",
+    "map": "3cda816378b8862ece82dc70aa6ad3667be0273c",
+    "runner": "0109814200968bebd055ef2629aa45b3dc6ade15",
+    "gate": "211b1eec890ff910ee7f381da435897fe3feb15d"
+  },
+  "status": "passed",
+  "stage": "complete",
+  "raw_output_uploaded": false,
+  "scope": "Exact synthetic development Full cohort only; not Windows/Mapless/snapshot/journal/grant/upgrade/no-loss acceptance",
+  "workflow_commit": "2af5fd8300774434363d9701c321d7ba0c04096a",
+  "workflow_tree": "0c2eb918243d1c9b8a774c83d88112b264da0215",
+  "fixture_manifest_sha256": "ff7e6b6140ad66f472a59a3bb10e8b9000a4d23e38792550f3d7725d7eebd520",
+  "installer_exit_code": 0,
+  "checks": {
+    "trusted_https_ready": true,
+    "unauthenticated_session_denied": true,
+    "csrf_write_denied_without_mutation": true,
+    "synthetic_local_login": true,
+    "runner_scoped_key": true,
+    "authenticated_runner_doctor": true,
+    "database_migrations_ready": true,
+    "no_runner_service_started": true
+  },
+  "observed_install_steps": [
+    "configure",
+    "sources",
+    "build",
+    "database-role",
+    "start",
+    "export-ca"
+  ]
+}

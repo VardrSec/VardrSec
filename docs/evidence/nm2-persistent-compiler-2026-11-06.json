@@ -1,0 +1,33 @@
+{
+  "schema": "vardr.nm2-persistent-compiler-evidence/1",
+  "status": "passed_frozen_compiler_and_protocol_units",
+  "scope": "Network-disabled compiler stages and pure native protocol-state units; no PID1 bootstrap, live admission, target or containment acceptance",
+  "runner_commit": "5737d317f44a35d5f47ce2dfdd6f7cfb817f7a5d",
+  "runner_tree": "7f57a69244a70e2a2b37d5f263ff00b5721a3d8b",
+  "source_manifest_sha256": "bd2a6c39d3aef725b3763bc6f54066ea29961f2aa9afe3f151ef9f2173283b9a",
+  "source_hashes": {
+    "Dockerfile.worker": "9d1e03b0cc689ee48b6d25027fde454cf1ac9434b8e90d13b8b69c0898d398dd",
+    "Dockerfile.worker.persistent": "0b31e6c48d25ab3bcbcb2a2b1e1886c5211a53edf8ab51debecdccbb9ab95be9",
+    "container/tests/worker_owner_eof_test.c": "c35e85713667aadfefa6316ebf4099d74f60c2b657ae6bc3c5ac28518320f5fa",
+    "container/tests/worker_owner_persistent_test.c": "75fbdd51f501dafda880dbfc2692887fd592706cfb92a3610fe26aeda684fb99",
+    "container/tests/worker_owner_sequence_test.c": "f99d5b25ce37a5ed0d616ee7c535c05dfb688334923d25364b46e1dda04c7a25",
+    "container/worker_owner.c": "30b5ef841b04ec913cd66182da1413b94342bf2ff28be2867a5036b890ac751a"
+  },
+  "compiler_stage_images": {
+    "finite": "sha256:7df1bffaa8ff09d300efa1b932ead4a9bf6b02b0d5caeb75ae61e5178fd27a43",
+    "persistent": "sha256:7a75d71e0e134e2a0cb064c9ab4e34de58b2374e04270a42584c70f15262c67e"
+  },
+  "retained_resource_guard": {
+    "prior_containers": 96,
+    "prior_tag_references": 76,
+    "prior_networks": 41,
+    "prior_volumes": 72,
+    "prior_containers_volumes_and_tags_unchanged": true,
+    "admitted_empty_builtin_bridge_identity_transitions": 1,
+    "bridge_semantic_fields_and_empty_membership_verified": true,
+    "bridge_transition_cause": "unknown"
+  },
+  "raw_receipt_sha256": "bd844264532c63f8630642fa383fb3a470f6d56143893a7bdee76c39883c7ffa",
+  "nm2_closed": false,
+  "nm3_resumed": false
+}

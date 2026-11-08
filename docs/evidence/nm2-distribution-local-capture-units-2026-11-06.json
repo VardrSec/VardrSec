@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-06",
+  "errors": 0,
+  "failures": 0,
+  "guard_blocked_count": 0,
+  "guarded_helper_starts": 6,
+  "nm2_closed": false,
+  "operator_files_unchanged": true,
+  "passed": 484,
+  "raw_receipt_sha256": "e014787ebcec648bcc61036ed2bdf1baeda89b69a3360ba2b0563bf522462fdd",
+  "schema": "vardr.nm2-distribution-local-capture-unit-evidence/1",
+  "scope": "Complete normal Distribution unit suite; no Docker, real Runner/provider, network, SQLite or physical acceptance.",
+  "separately_guarded_count_entrypoint_children": 2,
+  "skipped": 18,
+  "source_index_head_unchanged": true,
+  "source_manifest_sha256": "b939237f978c8cd2cf551609d4d51ba082575df21be09e57354a983357a07a0c",
+  "status": "passed",
+  "tested_base_commit": "dc473835dc453bb5f0fa4a8560f41711d57e64ba",
+  "tested_change_commit": "f9556819974bd56177d339cb8f2ee7b96f489cb0",
+  "tested_tree": "6e0e2ee16cebe05027150c703f510d992283ef37",
+  "tests_run": 502,
+  "tracked_source_count": 192
+}

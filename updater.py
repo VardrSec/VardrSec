@@ -241,7 +241,7 @@ def assert_quiesced(root, metadata, project):
             != metadata["volumes"][name]
         ):
             raise ValueError("State changed after backup")
-    for name in recovery.FILES:
+    for name in recovery.snapshot_files(metadata.get("schema_version")):
         if recovery.digest(root / name) != metadata["files"][name]:
             raise ValueError("Installation files changed after backup")
 

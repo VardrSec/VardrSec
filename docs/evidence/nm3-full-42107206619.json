@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "installer_commit": "befe929870107c5a27d291078088fbceaeb58512",
+  "component_pins": {
+    "map": "aad63c8151789cd9bf56864456b5fdf1fdcfde41",
+    "runner": "440ebda7405d9f19f2e5c6f954996b525f0ac5da",
+    "gate": "54536ea1d900d0e35adf93b4e026962c4d45d34a"
+  },
+  "source_trees": {
+    "distribution": "108948257cc3325f3c223757cf9abbfc7b11c44b",
+    "map": "3cda816378b8862ece82dc70aa6ad3667be0273c",
+    "runner": "0109814200968bebd055ef2629aa45b3dc6ade15",
+    "gate": "211b1eec890ff910ee7f381da435897fe3feb15d"
+  },
+  "status": "passed",
+  "stage": "complete",
+  "raw_output_uploaded": false,
+  "scope": "Exact synthetic Full UI/explicit assessment/evidence and encrypted recovery cohort; not Windows/Mapless/managed-worker/snapshot acceptance",
+  "workflow_commit": "9176b8cde9c83bec5a6109c7b6d1f754a9a0bc08",
+  "workflow_tree": "6b00c45484433cccad508fd7320a3d91e43e8329",
+  "fixture_manifest_sha256": "ff7e6b6140ad66f472a59a3bb10e8b9000a4d23e38792550f3d7725d7eebd520",
+  "installer_exit_code": 0,
+  "lifecycle_stage": "complete",
+  "checks": {
+    "installed_reviewed_assessment": true,
+    "hashed_evidence": true,
+    "write_readback_retest_reports": true,
+    "trusted_browser_csrf_and_scoped_key": true,
+    "stop_start_retention": true,
+    "encrypted_backup": true,
+    "authenticated_unseal": true,
+    "separate_restore": true,
+    "exact_image_ids": true,
+    "schema_0038": true,
+    "source_state_preserved": true,
+    "restored_evidence_and_ca": true,
+    "password_reset_revokes_sessions": true,
+    "authenticated_restored_doctor": true,
+    "no_runner_service_started": true
+  },
+  "observed_install_steps": [
+    "configure",
+    "sources",
+    "build",
+    "database-role",
+    "start",
+    "export-ca"
+  ]
+}

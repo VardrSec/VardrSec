@@ -20,7 +20,8 @@ LEGACY_FILES = (
     "recovery.py",
 )
 UPDATE_FILES = LEGACY_FILES + ("updater.py",)
-FILES = UPDATE_FILES + ("backup_crypto.py",)
+CRYPTO_FILES = UPDATE_FILES + ("backup_crypto.py",)
+FILES = CRYPTO_FILES + ("database_roles.py",)
 VOLUMES = {
     "runner-state": ("runner", "/home/runner/.vardrmap"),
     "proxy-data": ("proxy", "/data"),
@@ -78,9 +79,21 @@ def container(root, service, project=None):
     ids = compose(
         root, "ps", "-a", "-q", service, project=project, capture_output=True, text=True
     ).stdout.split()
-    if len(ids) != 1:
+    # Compose --all includes retained `compose run` containers. They are not the
+    # canonical service whose image and persistent mounts a snapshot must use.
+    services = []
+    for identifier in ids:
+        info = inspect(identifier)
+        labels = (info.get("Config") or {}).get("Labels") or {}
+        if (labels.get("com.docker.compose.oneoff") not in ("True", "False")
+            or labels.get("com.docker.compose.service") != service
+            or (project is not None and labels.get("com.docker.compose.project") != project)):
+            raise ValueError(f"Expected exactly one {service} container")
+        if labels["com.docker.compose.oneoff"] == "False":
+            services.append(info)
+    if len(services) != 1:
         raise ValueError(f"Expected exactly one {service} container")
-    return inspect(ids[0])
+    return services[0]
 
 
 def volume_name(info, destination):
@@ -335,7 +348,7 @@ def backup(root, destination):
     for file in destination.iterdir():
         file.chmod(0o600)
     metadata = {
-        "schema_version": 3,
+        "schema_version": 4,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "project": project,
         "images": images,
@@ -354,13 +367,17 @@ def backup(root, destination):
     )
 
 
-def validate(backup_path):
-    metadata = json.loads((backup_path / "snapshot.json").read_text(encoding="utf-8"))
-    scripts = {1: LEGACY_FILES, 2: UPDATE_FILES, 3: FILES}.get(
-        metadata.get("schema_version")
-    )
+def snapshot_files(version):
+    """The exact installation files covered by a supported snapshot format."""
+    scripts = {1: LEGACY_FILES, 2: UPDATE_FILES, 3: CRYPTO_FILES, 4: FILES}.get(version)
     if scripts is None:
         raise ValueError("Unsupported snapshot version")
+    return scripts
+
+
+def validate(backup_path):
+    metadata = json.loads((backup_path / "snapshot.json").read_text(encoding="utf-8"))
+    scripts = snapshot_files(metadata.get("schema_version"))
     required = (
         set(scripts)
         | {"database.dump", "images.tar.gz"}
