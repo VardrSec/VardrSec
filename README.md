@@ -180,3 +180,8 @@ VardrGate (Apache-2.0), nor any third-party tool, dependency, base image or pack
 keeps its own license and notices. The [license inventory](docs/release-license-inventory.md)
 records what is verified and what remains open before any release or redistribution of
 built images.
+
+The offline [component notice collector](docs/source-notices.md) copies top-level
+licenses and notices from exact pinned Git objects into a new directory, with
+machine-readable source references and hashes. It does not resolve the remaining
+third-party licensing or source-delivery review.

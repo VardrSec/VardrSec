@@ -2,18 +2,28 @@
 
 Status: **draft for review.** Nothing here is a release. No images are published,
 no tag exists and `versions.json` still declares `distribution_release: null`.
-The authoritative scope and task status are in [community-alpha.md](community-alpha.md).
+The original New Moon scope and current evidence are recorded in the
+[New Moon ledger](new-moon-acceptance.md). Older dated release observations below
+retain their original pins and do not establish acceptance of the current cohort.
 
 ## Intended support boundary
 
 | Environment | Alpha position |
 | --- | --- |
-| Ubuntu 24.04 Linux/amd64, source-built Compose | Supported target; the only environment with a full automated clean-install, workflow, recovery and update record |
+| Ubuntu 24.04 Linux/amd64, source-built Compose | Required Linux target; installed Full/Mapless, recovery and controlled-update evidence retained |
 | Ubuntu 22.04 Linux/amd64 | Bounded tool/network checks only; not certified |
-| Windows 11 / macOS with Docker Desktop | Experimental, no certification |
+| Windows 11 with Docker Desktop | Primary New Moon target; source-built Full/Mapless NM-3 and bounded NM-4 evidence accepted. Final NM-5 integrated acceptance remains separate |
+| macOS with Docker Desktop | Experimental; component/native trust checks do not establish integrated installation support |
 | Linux arm64, other hosts | Not established |
 | Native Runner on the host | Supported as the fallback for VPN or host-only targets ([networking](networking.md)) |
 | Native Map, Runner and Gate on Windows or Linux | Individual development and execution as each component documents; no integrated native installation is claimed ([platforms](platforms.md)) |
+
+Current development cohort: Map `c983a60`, Runner `dec2ac6`, Gate `57cfedf`,
+merged in distribution [#74](https://github.com/VardrSec/VardrSec/pull/74).
+NM-4 acceptance is recorded in [#75](https://github.com/VardrSec/VardrSec/pull/75).
+Historical vulnerability counts, licensing receipts and reproducibility results
+below retain their dated scope; they must not be relabeled as current-image results.
+No candidate is frozen.
 
 ## Release candidate checklist
 
