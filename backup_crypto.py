@@ -12,6 +12,7 @@ import recovery
 
 ALLOWED = (
     set(recovery.FULL_FILES) | set(recovery.MAPLESS_FILES) | set(recovery.LAUNCHER_FILES)
+    | set(recovery.ONBOARDING_FILES)
     | {"snapshot.json", "database.dump", "images.tar.gz"}
     | {f"{v}.tar.gz" for v in recovery.VOLUMES}
 )

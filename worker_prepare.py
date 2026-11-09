@@ -322,9 +322,13 @@ def discover_client(installation, context=None):
 
 
 _STATE = r"""
-import json,pathlib,sys
+import json,os,pathlib,stat,sys
 from vardrrunner import config,identity
-p=json.load(sys.stdin);current=config.load()
+p=json.load(sys.stdin)
+directory=config.config_dir();info=directory.lstat()
+assert directory.is_dir() and not directory.is_symlink()
+assert info.st_uid==10001 and info.st_gid==10001 and stat.S_IMODE(info.st_mode)==0o700
+current=config.load()
 if p['action']=='status':
     f=identity.identity_file()
     ident=identity.read_existing(f).runner_id if f.exists() else None
@@ -355,6 +359,18 @@ def _state(installation, preparation, client, action, **payload):
                   "--entrypoint", "python", preparation['provision_image'], "-I", "-c", _STATE,
                   data=host.canonical({'action':action, **payload}))
     return host._json(raw)
+
+
+def initialize_state(installation, preparation, *, client):
+    """Create the ordinary inactive Runner only when its original volume is absent."""
+    root = Path(installation).resolve(strict=True)
+    names = _docker(client, root, 'volume', 'ls', '--format', '{{.Name}}').decode().splitlines()
+    if preparation['state_volume'] not in names:
+        # Docker's ordinary image-to-volume copy preserves UID 10001 and mode
+        # 0700. Never create this volume first through a volume-nocopy helper,
+        # or repair/adopt an already existing volume with different ownership.
+        _compose(client, root, '--profile', 'tools', 'create', '--no-build',
+                 '--no-recreate', 'runner')
 
 
 def read_runner_key(installation, preparation, *, client):
@@ -427,6 +443,7 @@ def configure(installation, preparation, *, client, session, allow_plaintext_key
         apply_api(root, preparation, client=client)
         return binding
     require(not pending.exists())
+    initialize_state(root, preparation, client=client)
     state = _state(root, preparation, client, 'status')
     require(not state['has_connection'])
     _write(pending, host.canonical({'setup_sha256':host.digest(preparation), 'phase':'explicit_configure_started'}))
