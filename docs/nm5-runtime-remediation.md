@@ -76,3 +76,13 @@ high severity. Neither establishes application exposure, changes the raw reports
 or accepts this distribution's risk. No switch to an unstable suite or broad
 SQLite replacement is proposed. Current exposure review and owner disposition
 remain required before release; the old decision sheet does not cover these IDs.
+
+Bounded source review found Compose API configured for PostgreSQL (`compose.yaml`),
+while native/custom Map URLs can select SQLite (`backend/db.py`). Runner uses
+SQLite for its production journal (`vardrrunner/journal.py`), including Full and
+Mapless operation; it must not be classified as unused. Searches of the tracked
+Map and Runner production sources found no direct FTS5, virtual-table, changeset
+or extension-loading entrypoint. This narrows the identified trigger paths but
+does not establish an unaffected status: crafted/restored local databases and
+dependency behavior remain uncertainties. Debian package findings do not
+automatically establish native Windows Python exposure or its library version.
