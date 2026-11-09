@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Classify expected managed-setup refusals separately from unexpected failures
+  and link their fixed diagnostics to the local setup guide without disclosing
+  exception text. Preserve held state and legacy command diagnostics.
+
 - Qualify matched local managed-onboarding pins and Windows Full setup/enrollment;
   retain the exact source-tree and recovery evidence. The owner walkthrough can
   proceed; interactive acceptance, NM-2 dispositions and release gates stay open.

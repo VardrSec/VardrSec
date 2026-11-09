@@ -105,6 +105,24 @@ class Observer(runtime.LocalDocker):
 
 
 class WorkerCLI(unittest.TestCase):
+    def test_onboarding_refusal_diagnostics_do_not_disclose_values(self):
+        from worker_prepare import PrepareRefused
+
+        args = SimpleNamespace(_failure_phase="onboarding")
+        for error, expected in (
+            (PrepareRefused("private-canary"), "validation_refused"),
+            (ValueError("private-canary"), "validation_refused"),
+            (OSError("private-canary"), "local_io_failed"),
+            (RuntimeError("private-canary"), "operation_failed"),
+        ):
+            result = cli.failure_diagnostic(args, error)
+            self.assertEqual(result["failure_code"], expected)
+            self.assertEqual(result["help"], "docs/local-managed-setup.md")
+            self.assertNotIn("private-canary", str(result))
+        args._failure_phase = "dispatch"
+        self.assertEqual(cli.failure_diagnostic(args, ValueError("private-canary")),
+                         {"failure_phase": "dispatch", "failure_code": "operation_failed"})
+
     def fixture(self, directory):
         trust, public = directory / "trust", directory / "public"
         trust.mkdir()

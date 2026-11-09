@@ -96,6 +96,13 @@ export the report through the existing research workflow.
 
 ## Recovery boundary
 
+Held setup commands include a fixed failure category and a link to this guide.
+Expected configuration refusals use `validation_refused`; local I/O failures
+retain `local_io_failed`, and unexpected failures remain `operation_failed`.
+Raw exceptions and credentials are never included. Preserve held state before
+inspecting the requirements; a diagnostic is not permission to repeat an
+uncertain enrollment or replace existing authority.
+
 The setup pointer and private operator directory are installation-specific.
 Platform backups preserve the executable helpers but do not export these external
 signing volumes or make their private keys portable. Retain their custody
