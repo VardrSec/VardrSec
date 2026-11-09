@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Record the qualified runtime-security cohort and reused image/installed evidence;
+  align the alpha plan with the original Windows-first local roadmap, prepare
+  owner Full/Mapless acceptance and retain independent human/release gates.
+
 - Prepare the exact Map/Runner runtime-security compatibility pins for separate
   installed Full/Mapless and rebuilt-image qualification. Gate is unchanged;
   source pins do not imply release approval or accepted vulnerability findings.

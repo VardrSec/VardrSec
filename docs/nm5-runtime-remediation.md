@@ -1,13 +1,14 @@
 # NM-5 targeted runtime remediation
 
-Status: implementation under review, not rebuilt-image or release acceptance.
+Status: targeted runtime remediation verified; source-built cohort qualified.
+Remaining risk gates are blocked; no release acceptance is implied.
 
 The existing [image-evidence run 42543020270](https://github.com/VardrSec/VardrSec/actions/runs/42543020270)
 collected the current Map `c983a60`, Runner `dec2ac6` and Gate `57cfedf` cohort.
 Its receipt records PR merge checkout `4c252745`, incorporating reviewed head
 `3215da3`. Collection succeeded; every image vulnerability gate remains blocked.
 
-The retained reports recount 1 critical, 223 high and 8 unknown occurrences:
+The baseline reports recount 1 critical, 223 high and 8 unknown occurrences:
 
 | Image | Critical | High | Unknown |
 |---|---:|---:|---:|
@@ -52,10 +53,10 @@ were unchanged: total 1 critical / 219 high / 8 unknown. Every vulnerability gat
 remained blocked. All required installed/recovery/update checks passed before
 PR77 merged as `72f1497`.
 
-The next separate compatibility candidate pins Map `55458b7` (PR154) and Runner
+The qualified compatibility cohort pins Map `55458b7` (PR154) and Runner
 `519c047` (PR120), retaining Gate `57cfedf`. These add the same targeted package
 remediation to API, web and Runner runtime stages. Its matched installed and
-rebuilt-image results remain pending; no final aggregate reduction is claimed.
+rebuilt-image results are recorded below.
 
 ## Additional register coverage required
 
@@ -86,3 +87,21 @@ or extension-loading entrypoint. This narrows the identified trigger paths but
 does not establish an unaffected status: crafted/restored local databases and
 dependency behavior remain uncertainties. Debian package findings do not
 automatically establish native Windows Python exposure or its library version.
+
+## Matched cohort qualification
+
+Distribution `700e003a3f8b96ed4e1e32eec0c5d980bf704db2` (PR79) has the same tree
+`a8b0764073a34a893fdeecbbf871802bc7c3897e` as reviewed head `b3fb937`.
+All existing required checks passed, including
+[installed Full/Mapless, recovery and updates](https://github.com/VardrSec/VardrSec/actions/runs/42548635993).
+The [matched image reports](https://github.com/VardrSec/VardrSec/actions/runs/42548636107)
+verify all four Debian runtimes at the fixed apt/libapt/zlib versions. Compared
+with the original baseline, exactly 16 high and four medium occurrences were
+removed, with no added occurrences or severity changes. Compared with the
+interim database/proxy cohort, 12 high and three medium occurrences were removed.
+
+Remaining totals: **1 critical / 207 high / 368 medium / 340 low / 8 unknown**.
+All five image risk gates remain blocked, including libxml2 and the 12 SQLite
+high occurrences. Proxy compress remains 1.20.2 with no reported reachable or
+imported-package vulnerabilities in its retained symbol report. No finding was
+suppressed or accepted as a consequence of green evidence-collection CI.

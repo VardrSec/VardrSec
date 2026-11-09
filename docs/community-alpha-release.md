@@ -18,8 +18,8 @@ retain their original pins and do not establish acceptance of the current cohort
 | Native Runner on the host | Supported as the fallback for VPN or host-only targets ([networking](networking.md)) |
 | Native Map, Runner and Gate on Windows or Linux | Individual development and execution as each component documents; no integrated native installation is claimed ([platforms](platforms.md)) |
 
-Current development cohort: Map `c983a60`, Runner `dec2ac6`, Gate `57cfedf`,
-merged in distribution [#74](https://github.com/VardrSec/VardrSec/pull/74).
+Current qualified development cohort: Map `55458b7`, Runner `519c047`, Gate
+`57cfedf`, merged in distribution [#79](https://github.com/VardrSec/VardrSec/pull/79).
 NM-4 acceptance is recorded in [#75](https://github.com/VardrSec/VardrSec/pull/75).
 Historical vulnerability counts, licensing receipts and reproducibility results
 below retain their dated scope; they must not be relabeled as current-image results.
@@ -33,13 +33,13 @@ evidence record to fill, are in the [candidate-freeze checklist](candidate-freez
 
 | # | Requirement | State |
 | --- | --- | --- |
-| 1 | Image security gates reviewed: every critical/high occurrence has a supported affected-status or exposure disposition, a fix, or an explicit owner-approved exception | **Remediation verified, residual disposition pending.** Current recount (run 41252576786, current pins): 1 critical / 195 high / 15 unknown, the same critical and high occurrences as the rebuilt images ([history](residual-risk-register.md#recount-history)); both fixable v4 occurrences removed; v3 has a [configuration-specific source/control review](caddy-v3-jwk-exposure.md) with no shipped JWK ingress; the dependency remains affected and unaccepted. See [checkpoint](alpha-review-2026-10-28.md). Nothing accepted; strict gates stay blocked |
+| 1 | Current image security gates reviewed | **Targeted fixes verified; remaining dispositions pending.** The matched [NM-5 reports](nm5-runtime-remediation.md#matched-cohort-qualification) record 1 critical / 207 high / 8 unknown after removing 16 high and four medium occurrences. SQLite findings absent from the old decision sheet require review. All image risk gates remain blocked; no finding is accepted. |
 | 2 | Gau provider TLS: container fix pinned; native archive decision (fix, remove or exclude Gau from alpha scope) | **Done:** container fixed (Runner #89); native archive excluded and enforced (Runner #94) |
 | 3 | Full researcher workflow through the interface with no API seeding | **Done in CI:** client, window, scope and authorization are recorded through the Map UI in the installed workflow (Map #119, VardrSec #26) |
 | 4 | Unfamiliar-user installation and first assessment, timed, with friction recorded | **Not done** (needs a real person) |
-| 5 | Exact component commits frozen in `versions.json`, each reachable on its repository's `main` | **Exact development pins recorded:** Map #134 (`696a8bf`), Runner v0.54.0 (`854b973`) and Gate v0.2.0 (`7f82e49`), set by [#46](https://github.com/VardrSec/VardrSec/pull/46) and [#47](https://github.com/VardrSec/VardrSec/pull/47). Main ancestry for every exact pin is required at integration merge and rechecked at freeze. This is not a release freeze |
+| 5 | Exact component commits frozen and reachable on component main | **Qualified development pins:** Map #154 (`55458b7`), Runner #120 (`519c047`), Gate #31 (`57cfedf`), integrated by [#79](https://github.com/VardrSec/VardrSec/pull/79). Manifest/ancestry checks passed. Release freeze and owner approval remain separate. |
 | 6 | Independent rebuild reproduces the install artifacts from the frozen pins | **Partially reproducible**, see below |
-| 7 | Backup, encrypted restore, successful update and failed-update recovery rerun against the frozen pins | Current development pins passed installed, encrypted/portable recovery, controlled-update and failure-recovery checks in [#46](https://github.com/VardrSec/VardrSec/pull/46/checks) and [#47](https://github.com/VardrSec/VardrSec/pull/47/checks) (12 of 12 checks each) and on `main` ([run 41161013912](https://github.com/VardrSec/VardrSec/actions/runs/41161013912), [run 41175264906](https://github.com/VardrSec/VardrSec/actions/runs/41175264906)). Rerun against the frozen candidate |
+| 7 | Backup, encrypted restore, successful update and failed-update recovery on the candidate | **Qualified source-cohort evidence:** [run 42548635993](https://github.com/VardrSec/VardrSec/actions/runs/42548635993) passed all existing installed/recovery/update checks at `b3fb937`, whose tree equals merged `700e003`. Reuse these receipts where release inputs are unchanged; human, restart and artifact-reproduction gates remain separate. |
 | 8 | Redistribution and licensing review of every bundled tool and base image | **Direct inventory verified; release review open.** All nine managed top-level licenses verified; distribution license adopted (Apache-2.0, original files only); Nmap is excluded from packaging (Naabu is the port-discovery tool) but its retained opt-in integration code is an open question; transitive licenses and artifact notice/source delivery remain unresolved. See [inventory](release-license-inventory.md) |
 | 9 | Release notes, limitations, troubleshooting and recovery instructions reviewed | This draft |
 | 10 | Owner approval for any image publication, tag or announcement | Not requested |
