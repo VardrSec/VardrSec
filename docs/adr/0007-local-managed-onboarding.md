@@ -1,6 +1,7 @@
 # ADR 0007: Connect local setup to existing managed authority
 
-Status: Implementation candidate, not installed acceptance or release approval.
+Status: Implemented development path. Matched pins and Windows setup/enrollment
+are qualified; interactive owner acceptance and release approval remain open.
 
 Full already has managed enrollment, finite signed job contracts, persistent
 worker lifecycle and host retirement controls. Private acceptance harnesses
@@ -34,6 +35,7 @@ older snapshot formats readable. Restore does not reconstruct authority or enabl
 managed operation. Explicit configure may reapply the original managed override
 after ordinary core recreation; it must not adopt a foreign issuer.
 
-Existing installed evidence retains its original scope. Qualification of this
-operator path, the separate matching component pin change and owner acceptance
-remain required. This decision does not close NM-2 C09/C10 or accept image risks.
+Existing installed evidence retains its original scope. The separate matching
+component pin change and Windows setup/enrollment passed; interactive approval
+and owner acceptance remain required. This decision does not close NM-2 C09/C10
+or accept image risks.

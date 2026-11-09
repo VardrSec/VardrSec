@@ -16,8 +16,8 @@ boundaries and remaining requirements are recorded in the
 [New Moon ledger](docs/new-moon-acceptance.md#community-delivery-priority).
 
 The opt-in [local managed setup](docs/local-managed-setup.md) connects Full's
-signed job workflow to the existing persistent worker. This increment is still
-an implementation candidate; ordinary startup remains inert.
+signed job workflow to the existing persistent worker. Local setup and enrollment
+are verified for owner acceptance; ordinary startup remains inert.
 
 ## Install (Docker and Compose, Python 3.10+, Git)
 

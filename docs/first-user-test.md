@@ -20,10 +20,12 @@ actually completes. This protocol is not permission to publish or run fault test
 
 ## Owner acceptance
 
-The owner walkthrough is currently held while local Full managed-worker
-onboarding is integrated. Existing ordinary queue/CLI evidence remains valid for
-its recorded scope; it does not establish managed enrollment or signed approval.
-Do not ask the owner to bridge this gap with private acceptance harnesses.
+The local Full [managed setup](local-managed-setup.md) is integrated with qualified
+component pins. Windows installation, preparation and restricted enrollment have
+technical evidence; the owner walkthrough may now proceed through the supported
+commands. Record interactive signing, execution, evidence and export as actually
+observed. Prior ordinary queue/CLI evidence retains its original scope and does
+not substitute for this managed owner workflow.
 
 The owner may perform the same walkthrough with guided assistance. Record that
 session as owner acceptance, including all assistance and actual mode-specific
