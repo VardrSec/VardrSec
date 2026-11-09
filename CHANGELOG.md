@@ -2,11 +2,12 @@
 
 ## Unreleased
 
-- Prepare the NM-4 local Community compatibility cohort: per-identity boundary
+- Qualify and merge the NM-4 local Community compatibility cohort: per-identity boundary
   coverage, grounded case drafts, operator-approved AI queue proposals, stateful
   review notes and portable redacted execution context. Include the existing MCP
-  SDK in the Docker toolkit. Reuse installed Full/Mapless acceptance before this
-  candidate is accepted; no release or image publication is implied.
+  SDK in the Docker toolkit. Existing installed Full/Mapless and controlled-update
+  acceptance passed. Close the original NM-4 criteria with reused Windows evidence
+  and the existing offline Docker MCP check; no release or image publication is implied.
 
 - Close NM-3 source-built Community acceptance against the original exit criteria,
   retained Windows qualification and final exact-pin CI. Record clean application
