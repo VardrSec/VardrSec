@@ -1,11 +1,11 @@
 # Community Alpha residual-risk register
 
 Status: **conditional dispositions are prepared for the owner's approval; nothing is accepted.**
-The [NM-5 runtime checkpoint](nm5-runtime-remediation.md) records the newer
-2026-11-08 image evidence: **1 critical / 223 high / 8 unknown**, including
-16 high occurrences with available fixes. The older recount and decision sheet
-below retain their original scope and do not cover new findings or authorize
-release. Targeted remediation is under review; gates remain blocked.
+The [qualified NM-5 runtime checkpoint](nm5-runtime-remediation.md#matched-cohort-qualification)
+records **1 critical / 207 high / 8 unknown** after removing 16 high and four
+medium occurrences from the current baseline. All image risk gates remain blocked.
+The historical decision sheet below does not cover the newly identified SQLite
+IDs and does not authorize release. Raw reports and earlier recounts are retained.
 
 The [owner decision sheet](#owner-decision-sheet) groups every critical, high and unknown
 occurrence in the latest raw reports into nine decisions, each with its proposed disposition,

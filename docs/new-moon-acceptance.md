@@ -24,6 +24,41 @@ installed development evidence below. State-preserving Mapless updates also have
 the bounded installed result below. Broader Recon, optional history import/sync,
 C09 sleep behavior and NM-5 acceptance retain their separate dispositions.
 
+## Current NM-5 source cohort and owner handoff
+
+Distribution `700e003a3f8b96ed4e1e32eec0c5d980bf704db2`
+([PR79](https://github.com/VardrSec/VardrSec/pull/79)) is the qualified source-built
+runtime-security cohort: Map `55458b7`, Runner `519c047`, Gate `57cfedf` unchanged.
+Its tree `a8b0764073a34a893fdeecbbf871802bc7c3897e` equals reviewed head `b3fb937`.
+All existing required checks passed, including installed Full/Mapless,
+backup/recovery, controlled updates, trust and Windows/Ubuntu compatibility.
+See the [matched runtime checkpoint](nm5-runtime-remediation.md#matched-cohort-qualification).
+No duplicate qualification run is needed for that unchanged merge tree.
+
+Rebuilt reports verify 16 high and four medium package occurrences removed with
+no added findings. Remaining totals are 1 critical / 207 high / 8 unknown;
+all image risk gates remain blocked. This qualifies compatibility and the targeted
+remediation, not a release or acceptance of remaining risks. Existing Windows
+installation receipts keep their original commits; a new Windows end-to-end
+run is not inferred from Linux installed CI or native compatibility checks.
+
+Merged source delivery adds offline exact-pin notices and optional source archives
+([guide](source-notices.md)), with explicit completeness and licensing limits.
+Lab's merged report/retention changes preserve sanitized observations, source/result
+hashes and timing. Its [retained current-Gate receipt](https://github.com/VardrSec/VardrLab/actions/runs/42549665462)
+records 8 TP, 8 TN and 20 unsupported observations; raw HTTP validation and a
+competitor comparison are not established by that fixture result.
+
+The owner will perform guided Full then Mapless acceptance using the
+[walkthrough protocol](first-user-test.md#owner-acceptance). Record actual results
+and assistance; this does not silently replace independent unfamiliar-user evidence.
+The [architecture review](new-moon-architecture-review.md) records component
+boundaries and six remaining closure gates. NM-5 stays open: explicit host/Docker
+restart persistence, required route/native-fallback scope, independent research and
+human evidence, release artifact/risk decisions and architectural/safety signoff
+retain their recorded requirements. C09 remains unaccepted; no stopped fault/sleep
+campaign resumes. No tag, image publication or release is authorized here.
+
 ## Current NM-4 Community delivery status
 
 **NM-4 is closed for the source-built Community scope, accepted 2026-11-08.**

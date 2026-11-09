@@ -1,17 +1,26 @@
 # Community Alpha v0.1.0 stabilization plan
 
-Accepted owner direction, 2026-10-27. Prepare the first public Community Alpha;
-publication and deployment require a separate reviewed decision. This plan
-prioritizes completion of the existing product and supersedes broader roadmap
-expansion during alpha stabilization. There is no published alpha yet. Status: **release candidate preparation**; no
-features are being added, and publication is a separate owner decision.
+Current owner direction resumes the original New Moon architecture and sequence.
+Windows 11 with Docker Desktop is the primary New Moon target; local Full and
+Mapless plus Ubuntu 24.04 compatibility remain required. NM-3 and NM-4 are closed
+for their recorded source-built scope; NM-5 and release acceptance remain open.
+See the [current New Moon ledger](new-moon-acceptance.md) and
+[platform boundaries](platforms.md). Vercel/Railway instances are personal hosted
+test environments, not Community installation or acceptance gates.
+
+The dated 2026-10-27 alpha plan below is a historical task/evidence inventory.
+Its earlier expansion freeze, Ubuntu-only descriptions, pins and finding counts
+do not override the restored roadmap or establish current candidate acceptance.
+There is no published alpha; publication and risk acceptance remain separate
+owner decisions. The current runtime review is in the
+[NM-5 checkpoint](nm5-runtime-remediation.md).
 
 VardrSec keeps Compose lifecycle/recovery, Runner keeps diagnostics and explicit
 execution, Map keeps the researcher interface, and Gate keeps authorization
 testing. Keep the four repositories independent. Add no tools, engines, agents,
 Enterprise features, frameworks or unnecessary architectural layers.
 
-## Execution order and current evidence
+## Historical alpha execution order and evidence
 
 | Phase / task | Required outcome | Current status |
 | --- | --- | --- |
@@ -49,7 +58,7 @@ explains the glibc CVE-2026-84243 rise to 25 unknown and its return to 15 (a sca
 reclassification to MEDIUM, not a fix). Strict checking still exits 1 and nothing is accepted.
 The [current security checkpoint](alpha-review-2026-10-28.md) records hashes and reachability limits.
 
-The development pins are Map #151 (`14a80a8`), Runner #117 (`ea4265a`) and Gate #31
+At the NM-3 closeout, the development pins were Map #151 (`14a80a8`), Runner #117 (`ea4265a`) and Gate #31
 (`57cfedf`), aligned by [distribution #71](https://github.com/VardrSec/VardrSec/pull/71)
 and finished by [#72](https://github.com/VardrSec/VardrSec/pull/72).
 All five exact-head workflows passed at `55772d3`, including installed Ubuntu
