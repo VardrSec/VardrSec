@@ -60,9 +60,12 @@ stopped, preserving volumes, records and the earlier unsigned held review.
 No target request or worker execution occurred before the owner's explicit
 delegation. No execution retry, fault or sleep probe was performed.
 
-The host receipt still reports `local_runner_reconciliation: required`.
-The separate original-journal `audit reconcile-managed` step was not observed
-in this receipt; host reconciliation must not be credited as that local step.
+The host receipt reports `local_runner_reconciliation: required`; host
+reconciliation alone does not retire local journal metadata. A subsequent
+`audit reconcile-managed` on the original run and enrollment completed with
+`terminal_receipt_observed` and zero remaining local holds. Only the retained
+core services were started for that authenticated observation, then stopped
+again; no worker, target or new job was started and no target work occurred.
 
 This is technical CLI/workflow evidence, composed with existing Map UI evidence.
 Mapless's prior installed authorization/execution/export evidence is reused
