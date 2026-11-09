@@ -62,7 +62,11 @@ python vardrsec.py worker job-register --review review-one/review.json --approva
 
 Review interactively selects the engagement and authorization, compiles the
 fixed plan with the actual worker's Gate binary and requests current backend
-context. Signing displays that context and requires typing `APPROVE` in a
+context. If the case needs environment references absent from the prepared
+worker's declared names, review holds before requesting approval context and
+lists only those names. Correct the case's references or select a correctly
+prepared worker; no credential values or grants are inferred.
+Signing displays that context and requires typing `APPROVE` in a
 terminal. Registration binds the signed envelope to the exact review. Each
 default approval permits one execution, 30 seconds and 1 MiB of artifacts,
 expires after five minutes, and remains subject to target, credential,

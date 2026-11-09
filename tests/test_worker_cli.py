@@ -105,6 +105,33 @@ class Observer(runtime.LocalDocker):
 
 
 class WorkerCLI(unittest.TestCase):
+    def test_job_review_holds_missing_worker_reference_before_authority(self):
+        import worker_job as job
+
+        with tempfile.TemporaryDirectory() as temporary:
+            args = SimpleNamespace(setup="setup", output=str(Path(temporary) / "review"),
+                                   engagement_id="e", job_id="j", authorization_id="a",
+                                   expires_in=300, duration_seconds=30,
+                                   max_artifact_bytes=1024, allow_private_targets=False)
+            session = Mock()
+            session.owner_id.return_value = "owner"
+            session.engagements.return_value = {"engagements": [{"id": "e"}]}
+            session.jobs.return_value = {"jobs": [{"id": "j", "status": "pending",
+                "tool_type": "vardrgate_api_test", "authorization_contract_required": True,
+                "config": {"test_case_id": "case"}}]}
+            session.test_case.return_value = {"spec": {}}
+            session.authorizations.return_value = [{"id": "a"}]
+            config = {"source": {"runner_image": "image"}, "credential_names": ["OWNER_TOKEN"]}
+            with (patch.object(job, "setup", return_value=({"owner_id": "owner"}, config, Mock())),
+                  patch.object(job, "helper", return_value={"credential_references": [
+                      {"source": "value_env", "name": "PEER_TOKEN"}]})):
+                result = job.review(Path.cwd(), args, session)
+            self.assertEqual(result["state"], "held_missing_credential_references")
+            self.assertEqual(result["credential_names"], ["PEER_TOKEN"])
+            session.review_job.assert_not_called()
+            session.register_job.assert_not_called()
+            self.assertFalse(Path(args.output).exists())
+
     def test_onboarding_refusal_diagnostics_do_not_disclose_values(self):
         from worker_prepare import PrepareRefused
 
