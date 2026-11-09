@@ -55,7 +55,6 @@ copy the displayed job ID. Ordinary queueing keeps its existing behavior.
 python vardrsec.py worker job-review JOB_ID --output review-one
 python vardrsec.py worker job-approve --review review-one/review.json --output approval-one
 python vardrsec.py worker job-register --review review-one/review.json --approval approval-one/approval.json
-python vardrsec.py worker start
 ```
 
 Review interactively selects the engagement and authorization, compiles the
@@ -66,9 +65,19 @@ default approval permits one execution, 30 seconds and 1 MiB of artifacts,
 expires after five minutes, and remains subject to target, credential,
 concurrency, cancellation and evidence checks. Expiration is not a retry grant.
 
-Establish each required local credential grant through Runner's existing
-`credentials approve` command for the selected issuer, engagement and exact
-origin before execution. Private-network targets also require both the signed
+Before starting the worker, establish each required local credential grant.
+Use the reviewed engagement ID, the Map API URL as the grant issuer, and the
+case's target origin (not the Map URL) as the grant origin. For example:
+
+```powershell
+.\runner.ps1 credentials approve --issuer https://vardrsec.localhost:8443/backend --engagement ENGAGEMENT_ID --origin http://gate-fixture.test:8000 --env OWNER_TOKEN --expires-in 600
+.\runner.ps1 credentials approve --issuer https://vardrsec.localhost:8443/backend --engagement ENGAGEMENT_ID --origin http://gate-fixture.test:8000 --env PEER_TOKEN --expires-in 600
+python vardrsec.py worker start
+```
+
+Use the actual target origin from the supplied case; these example URLs grant
+nothing to other targets. Replacing a local grant changes its identity, so do not
+renew it while a job relies on the original grant. Private-network targets also require both the signed
 review opt-in and the existing explicit runtime opt-in; neither is implied by
 being local. Use only the supplied authorized synthetic target during acceptance.
 

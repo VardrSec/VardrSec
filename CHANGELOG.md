@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Stage the separately reviewed Map managed-queue UI and Runner persistent-image
+  recipe pins for matched installed qualification. No release or image publication.
+
 - Add explicit local Full managed-worker onboarding and separate job review,
   human signing and registration commands using the existing authorization
   contracts. Normal installation/startup remains inert; protected signing
