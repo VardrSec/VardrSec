@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Prepare the exact Map/Runner runtime-security compatibility pins for separate
+  installed Full/Mapless and rebuilt-image qualification. Gate is unchanged;
+  source pins do not imply release approval or accepted vulnerability findings.
+
 - Add opt-in offline exact-tree source archives to `source-notices`, with
   archive hashes and source references. Preserve notice-only defaults and mark
   export-attribute, submodule/LFS and complete-source-delivery limitations.
