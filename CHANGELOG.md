@@ -7,6 +7,11 @@
   compress dependency to 1.20.2. Preserve base digests, Caddy/PostgreSQL versions,
   runtime privileges and unresolved findings; rebuilt-image evidence remains required.
 
+- Add an offline `source-notices` command that collects top-level component
+  licenses and notices from committed exact pins, with Git/source references and
+  SHA-256 hashes. Preserve local source caches and existing output; transitive
+  notices, source archives and release licensing review remain separate.
+
 - Qualify and merge the NM-4 local Community compatibility cohort: per-identity boundary
   coverage, grounded case drafts, operator-approved AI queue proposals, stateful
   review notes and portable redacted execution context. Include the existing MCP

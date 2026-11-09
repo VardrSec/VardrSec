@@ -1,6 +1,7 @@
 """Git binding refusal: local synthetic repositories only, never network fetch."""
 
 import json
+import hashlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -11,9 +12,108 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import vardrsec
+import source_notices
 
 
 class SourceGitBindingTests(unittest.TestCase):
+    def test_notices_use_pinned_blobs_and_preserve_existing_output(self):
+        with tempfile.TemporaryDirectory(prefix="vardr-notices-") as directory:
+            root = Path(directory).resolve()
+            template = root / "template"
+            template.mkdir()
+            pins, repos = {}, {}
+            for name, repository in source_notices.REPOSITORIES.items():
+                repo = root / name
+                git = self.local_repository(repo, template)
+                (repo / "LICENSE").write_bytes((name + " committed license\n").encode())
+                subprocess.run(
+                    [git, "-C", str(repo), "add", "LICENSE"],
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    [
+                        git,
+                        "-C",
+                        str(repo),
+                        "-c",
+                        "user.name=Fixture",
+                        "-c",
+                        "user.email=fixture@example.invalid",
+                        "commit",
+                        "-m",
+                        "fixture",
+                    ],
+                    check=True,
+                    capture_output=True,
+                )
+                commit = source_notices.revision(repo, "HEAD^{commit}")
+                pins[name] = {"repository": repository, "commit": commit}
+                repos[name] = repo
+                (repo / "LICENSE").write_bytes(b"uncommitted replacement")
+                (repo / ".env").write_bytes(b"PRIVATE_CANARY")
+            checkout = root / "distribution"
+            self.local_repository(checkout, template)
+            (checkout / "LICENSE").write_bytes(b"distribution committed license\n")
+            (checkout / "versions.json").write_text(
+                json.dumps({"components": pins}), encoding="utf-8"
+            )
+            subprocess.run(
+                [git, "-C", str(checkout), "add", "LICENSE", "versions.json"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                [
+                    git,
+                    "-C",
+                    str(checkout),
+                    "-c",
+                    "user.name=Fixture",
+                    "-c",
+                    "user.email=fixture@example.invalid",
+                    "commit",
+                    "-m",
+                    "fixture",
+                ],
+                check=True,
+                capture_output=True,
+            )
+            destination = root / "notices"
+            digest = source_notices.assemble(checkout, destination, repos)
+            manifest_bytes = (destination / "manifest.json").read_bytes()
+            self.assertEqual(digest, hashlib.sha256(manifest_bytes).hexdigest())
+            manifest = json.loads(manifest_bytes)
+            for name in repos:
+                expected = (name + " committed license\n").encode()
+                self.assertEqual(
+                    (destination / name / "LICENSE").read_bytes(), expected
+                )
+                entry = manifest["components"][name]
+                self.assertEqual(entry["commit"], pins[name]["commit"])
+                self.assertEqual(
+                    entry["files"][0]["sha256"], hashlib.sha256(expected).hexdigest()
+                )
+            self.assertNotIn(
+                b"PRIVATE_CANARY",
+                b"".join(
+                    path.read_bytes()
+                    for path in destination.rglob("*")
+                    if path.is_file()
+                ),
+            )
+            with self.assertRaisesRegex(ValueError, "new destination"):
+                source_notices.assemble(checkout, destination, repos)
+            self.assertEqual(
+                (destination / "manifest.json").read_bytes(), manifest_bytes
+            )
+            with patch.object(
+                source_notices, "git", side_effect=ValueError("missing local object")
+            ):
+                with self.assertRaises(ValueError):
+                    source_notices.assemble(checkout, root / "missing", repos)
+            self.assertFalse((root / "missing").exists())
+
     def fixture(self):
         root = Path(tempfile.mkdtemp(prefix="vardr-git-binding-"))
         checkout, outside, template = (

@@ -6,7 +6,20 @@ It does not publish images, binaries, a tag or a release; those need the owner's
 authorization ([checklist item 10](community-alpha-release.md)). `versions.json` keeps
 `status: development`, `distribution_release: null` and `runnable: false` until then.
 
-## Decided scope (owner, 2026-10-31)
+## Current New Moon scope
+
+Windows 11 with Docker Desktop is the primary target; local Full and Mapless plus
+Linux compatibility remain required. NM-3 and NM-4 source-built acceptance is
+recorded in the [New Moon ledger](new-moon-acceptance.md). NM-5 final integrated
+acceptance, unfamiliar-user validation, genuine network-path evidence and release
+decisions remain open. Reuse applicable receipts; run only missing or changed
+requirements. Hosted Vercel/Railway instances are personal test environments.
+
+The dated checklist below is historical release preparation, not authority to
+downgrade those requirements, demand unchanged checks be repeated now, advance
+pins, waive findings or publish a release. Its older pins are not current.
+
+## Earlier scope decision (owner, 2026-10-31)
 
 Source-built Ubuntu 24.04/amd64 distribution only; no published images or binaries; Naabu is the
 default and supported port-discovery tool; Runner's disabled, operator-opt-in Nmap code is
