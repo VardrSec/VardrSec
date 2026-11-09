@@ -56,3 +56,23 @@ The next separate compatibility candidate pins Map `55458b7` (PR154) and Runner
 `519c047` (PR120), retaining Gate `57cfedf`. These add the same targeted package
 remediation to API, web and Runner runtime stages. Its matched installed and
 rebuilt-image results remain pending; no final aggregate reduction is claimed.
+
+## Additional register coverage required
+
+The current reports include three SQLite IDs absent from the historical register,
+each in API, database, Runner and web: 12 high occurrences in total. Debian's
+tracker lists Trixie `3.46.1-7+deb13u2` as vulnerable without a fixed Trixie
+package; upstream fixes exist. The recorded triggers are:
+
+- [CVE-2026-119373](https://security-tracker.debian.org/tracker/CVE-2026-119373):
+  FTS5 negative rowids with prefix queries.
+- [CVE-2026-119374](https://security-tracker.debian.org/tracker/CVE-2026-119374):
+  deleting a corrupted FTS5 index with secure-delete enabled.
+- [CVE-2026-119379](https://security-tracker.debian.org/tracker/CVE-2026-119379):
+  crafted session changesets supplied to `sqlite3changeset_apply()`.
+
+Debian's `no-dsa`/minor classification is distinct from the retained scanner's
+high severity. Neither establishes application exposure, changes the raw reports
+or accepts this distribution's risk. No switch to an unstable suite or broad
+SQLite replacement is proposed. Current exposure review and owner disposition
+remain required before release; the old decision sheet does not cover these IDs.
