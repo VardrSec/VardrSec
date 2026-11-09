@@ -93,6 +93,44 @@ DNS and HTTP. It preserves the original Host/TLS name while connecting to a
 validated numeric address. Discovered URLs require a new review and a separate
 Gate authorization. No background execution is enabled.
 
+### Review a local Recon candidate
+
+With the NM-4 compatibility cohort, derive review-only Gate cases from an existing
+successful finite Recon run through the same Docker Runner and export transfer:
+
+```sh
+python3 vardrsec.py runner --output-directory gate-drafts -- \
+  workspace draft-gate WORKSPACE_ID --run RECON_RUN_ID --output /exports/drafts
+```
+
+Inspect `gate-drafts/drafts/artifact.json`. Its `cases` contain only observed
+candidates, with empty identities and access decisions. Copy the selected `spec`
+into your private `case.json`, review the actual request, supply credential
+references and decide expected access yourself. Then issue a new Gate
+authorization through the existing issuer workflow. Discovery and a draft grant
+no execution permission; neither the previous Recon bundle nor its export can
+authorize the new case.
+
+### Optional local assistant metadata
+
+The NM-4 toolkit includes the already-declared optional MCP SDK. Configure an MCP
+client to launch the canonical Python entrypoint directly with raw stdio:
+
+```sh
+python3 vardrsec.py runner -- mcp --standalone
+```
+
+Use `python` on Windows. This explicit session reads only local workspace and
+workspace-bound run metadata from the installed Runner volume. It needs no Map
+account, endpoint or API token and exposes no execution, approval or export tool.
+Keep transfer, issuer and controlled-execution options out of this command.
+
+The existing exclusive installation lock remains held for the session. Close the
+MCP client before canonical issuer, execution or maintenance commands. Concurrent
+MCP/canonical CLI operation is not claimed by this cohort; no new lock service or
+background execution authority is introduced. The ordinary CLI workflow does not
+require MCP.
+
 ### Gate or Recon execution
 
 Run one explicitly selected signed job. For example, if the case references

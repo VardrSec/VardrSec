@@ -24,6 +24,40 @@ installed development evidence below. State-preserving Mapless updates also have
 the bounded installed result below. Broader Recon, optional history import/sync,
 C09 sleep behavior and NM-4/NM-5 acceptance remain separate, unaccepted capabilities.
 
+## Current NM-4 Community compatibility candidate
+
+Owner direction keeps Community Edition local-first: Full and Mapless Docker
+installation, Windows 11/Docker Desktop and Linux remain required. Vercel and
+Railway are the owner's personal hosted test environment, not Community delivery
+or installation acceptance gates.
+
+This branch proposes Map `c983a60` ([PR153](https://github.com/VardrSec/VardrMap/pull/153))
+and Runner `dec2ac6` ([PR119](https://github.com/VardrSec/VardrRunner/pull/119)),
+with accepted Gate `57cfedf` unchanged. It is a development compatibility
+candidate: component CI and the existing installed Full/Mapless workflow must
+pass before these pins are accepted. No published image or release is claimed.
+
+The component changes cover operation × identity × boundary gaps, grounded
+review-only drafts, pending AI queue proposals requiring operator approval,
+explicit stateful prerequisites and redacted portable execution context.
+Reported tool identity is not server attestation; a redacted case derivative is
+not the original input or replay authority. Required operator inputs and unknown
+historical metadata remain visible.
+
+Reuse the accepted PapaChin Windows installation/recovery and prior Linux
+evidence where implementation is unchanged. New Docker MCP packaging has one
+bounded offline stdio check in the existing Runner container workflow; it starts
+no scan and mounts no engagement volume. MCP/canonical CLI concurrency is not
+claimed: close the explicit MCP session before other canonical commands. The
+existing installation lock, backup/recovery safeguards, privileges and default-off
+execution remain unchanged. Dynamic capture/substitution in the controlled fixed
+profile, general cleanup and token lifecycle coverage remain explicit unsupported
+or unestablished conditions, not inferred successful workflow coverage.
+
+NM-4 remains open until the matched local cohort is qualified. NM-5, C09,
+broader Recon, optional history import/sync and release/security decisions keep
+their recorded separate dispositions; no stopped fault/sleep campaign resumes.
+
 ## Current NM-3 distribution status
 
 **NM-3 is closed for the source-built Community distribution, accepted 2026-11-08.**
@@ -333,7 +367,11 @@ journals while excluding new connections and refusing retained sidecars. They do
 not establish active-WAL capture, export freshness or private temporary-storage
 safety across supported platforms. No snapshot flag or product API was added.
 
-## Accepted direction and remaining work
+## Accepted direction and remaining work (historical checkpoint)
+
+The table and sequence below retain the earlier checkpoint. The current NM-3
+closeout and NM-4 candidate sections above supersede their phase-status wording;
+they do not erase earlier limits or unresolved evidence.
 
 | Gate | Current disposition | Required completion evidence |
 |---|---|---|
