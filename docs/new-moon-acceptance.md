@@ -55,10 +55,14 @@ from the export. Retained export SHA-256 values:
 | manifest.json | `03516546b19a504b1c64f3ea887ec7cf0714e6c53ec0d30d5f9c9ec457346dbd` |
 
 The worker physically exited with code 0. Protected stop/report and original
-reconciliation returned `terminal_observed`; core and target services were
+host receipt reconciliation returned `terminal_observed`; core and target services were
 stopped, preserving volumes, records and the earlier unsigned held review.
 No target request or worker execution occurred before the owner's explicit
 delegation. No execution retry, fault or sleep probe was performed.
+
+The host receipt still reports `local_runner_reconciliation: required`.
+The separate original-journal `audit reconcile-managed` step was not observed
+in this receipt; host reconciliation must not be credited as that local step.
 
 This is technical CLI/workflow evidence, composed with existing Map UI evidence.
 Mapless's prior installed authorization/execution/export evidence is reused

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Complete the Full operator guide with original-run evidence export and exact
+  managed-worker stop/reconciliation commands, reusing the verified workflow.
+
 - Record the owner-approved single Full managed workflow through evidence export
   and clean stop; retain existing Mapless evidence and separate release gates.
 

@@ -101,6 +101,47 @@ Use the returned runtime ID with the existing [status/stop/report controls](nm2-
 Inspect the completed job and evidence in Map, confirm findings yourself, then
 export the report through the existing research workflow.
 
+## Retain evidence and stop
+
+Use the original Runner journal to identify the completed run for this job.
+`ENGAGEMENT_ID` is the engagement selected during job review; select `RUN_ID`
+from the returned records by the exact job ID, rather than assuming the latest
+run belongs to this job:
+
+```powershell
+python vardrsec.py runner -- audit list --engagement ENGAGEMENT_ID --json
+python vardrsec.py runner -- audit show RUN_ID
+python vardrsec.py runner --output-directory full-export -- audit export-run RUN_ID --output /exports/result
+```
+
+Choose a new host output directory. The portable export is in
+`full-export/result/`: `artifact.json`, `audit.json` and `manifest.json`.
+This journal export is separate from Map's research report. An export failure
+does not undo execution or restore a spent approval; recover files from the
+original run instead of queueing or executing the job again.
+
+Stop the exact worker using the runtime ID returned by `worker start` and the
+`private_root` recorded in the preparation metadata. Keep that metadata and
+its custody directory; do not substitute a newly prepared worker:
+
+```powershell
+python vardrsec.py worker stop --runtime-id RUNTIME_ID --private-root PRIVATE_ROOT --report
+python vardrsec.py worker reconcile --runtime-id RUNTIME_ID --private-root PRIVATE_ROOT
+python vardrsec.py runner -- audit reconcile-managed RUN_ID
+python vardrsec.py stop
+```
+
+Host `reconcile` reads the server receipt; it does not retire the original
+Runner's local metadata. `audit reconcile-managed` uses that original Runner
+state and still-active enrolled key to reconcile the exact run. Keep Map running
+until this step completes; neither command refunds spent authorization.
+
+Confirm physical exit and `terminal_observed`. A held or uncertain result needs
+the existing [recovery controls](nm2-worker-operator.md); do not clear its state
+or repeat an uncertain report. Platform stop preserves volumes and evidence.
+Stopping core services alone is not a substitute for stopping the separately
+enabled managed worker.
+
 ## Recovery boundary
 
 Held setup commands include a fixed failure category and a link to this guide.
