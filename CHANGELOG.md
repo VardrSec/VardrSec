@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Update only the PostgreSQL runtime's apt/libapt and zlib packages to fixed
+  Debian security versions, refusing stale mirrors. Raise the existing proxy's
+  compress dependency to 1.20.2. Preserve base digests, Caddy/PostgreSQL versions,
+  runtime privileges and unresolved findings; rebuilt-image evidence remains required.
+
 - Add an offline `source-notices` command that collects top-level component
   licenses and notices from committed exact pins, with Git/source references and
   SHA-256 hashes. Preserve local source caches and existing output; transitive

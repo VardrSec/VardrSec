@@ -1,13 +1,19 @@
 # Community Alpha residual-risk register
 
 Status: **conditional dispositions are prepared for the owner's approval; nothing is accepted.**
+The [NM-5 runtime checkpoint](nm5-runtime-remediation.md) records the newer
+2026-11-08 image evidence: **1 critical / 223 high / 8 unknown**, including
+16 high occurrences with available fixes. The older recount and decision sheet
+below retain their original scope and do not cover new findings or authorize
+release. Targeted remediation is under review; gates remain blocked.
+
 The [owner decision sheet](#owner-decision-sheet) groups every critical, high and unknown
 occurrence in the latest raw reports into nine decisions, each with its proposed disposition,
 the exact conditions it depends on, the automatic safeguards that exist today and what is
 re-verified at the candidate freeze. Anything unlisted here is not covered. Strict image
 gates stay blocked (`image_evidence.py check` exits 1) until the owner decides.
 
-**Current recount** (run [41252576786](https://github.com/VardrSec/VardrSec/actions/runs/41252576786),
+**Historical recount** (run [41252576786](https://github.com/VardrSec/VardrSec/actions/runs/41252576786),
 distribution `1cc92d2`; pins Map `428be22`, Runner `668dc56`, Gate `7f82e49`):
 **1 critical / 195 high / 15 unknown**, with no critical or high occurrence that has a fixed
 version. By image (critical/high/unknown): API 0/44/1, PostgreSQL 1/61/5, Proxy 0/1/1,
