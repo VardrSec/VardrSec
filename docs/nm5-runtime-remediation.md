@@ -39,3 +39,20 @@ before claiming remediation. No new scanner or test framework is required.
 Component recipe changes belong in their own repositories; integrating their
 pins remains a separate installed-acceptance PR. No current pin is advanced here.
 The remaining libxml2 critical and other unresolved findings are not waived.
+
+## Verified distribution recipe result
+
+The [PR77 rebuilt reports](https://github.com/VardrSec/VardrSec/actions/runs/42545355995)
+verify database apt/libapt `3.0.4` and the stated zlib minimum. Compared with the
+baseline, four high and one medium database occurrences are removed. The proxy
+binary contains compress `1.20.2`; its symbol report records no reachable or
+imported-package vulnerabilities and no GO-2026-6865. Module-only findings remain.
+The cohort still used the older component pins, so API, Runner and web counts
+were unchanged: total 1 critical / 219 high / 8 unknown. Every vulnerability gate
+remained blocked. All required installed/recovery/update checks passed before
+PR77 merged as `72f1497`.
+
+The next separate compatibility candidate pins Map `55458b7` (PR154) and Runner
+`519c047` (PR120), retaining Gate `57cfedf`. These add the same targeted package
+remediation to API, web and Runner runtime stages. Its matched installed and
+rebuilt-image results remain pending; no final aggregate reduction is claimed.

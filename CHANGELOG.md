@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Prepare the exact Map/Runner runtime-security compatibility pins for separate
+  installed Full/Mapless and rebuilt-image qualification. Gate is unchanged;
+  source pins do not imply release approval or accepted vulnerability findings.
+
 - Update only the PostgreSQL runtime's apt/libapt and zlib packages to fixed
   Debian security versions, refusing stale mirrors. Raise the existing proxy's
   compress dependency to 1.20.2. Preserve base digests, Caddy/PostgreSQL versions,
