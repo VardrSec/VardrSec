@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 import unittest
 from unittest.mock import patch
 
@@ -101,6 +102,37 @@ class SourceGitBindingTests(unittest.TestCase):
                     for path in destination.rglob("*")
                     if path.is_file()
                 ),
+            )
+            archive_destination = root / "with-sources"
+            source_notices.assemble(
+                checkout, archive_destination, repos, include_sources=True
+            )
+            archive_manifest = json.loads(
+                (archive_destination / "manifest.json").read_bytes()
+            )
+            for name, component in archive_manifest["components"].items():
+                archive = archive_destination / component["source_archive"]["path"]
+                self.assertEqual(
+                    component["source_archive"]["sha256"],
+                    hashlib.sha256(archive.read_bytes()).hexdigest(),
+                )
+                self.assertEqual(
+                    component["source_archive"]["bytes"], archive.stat().st_size
+                )
+                self.assertEqual(
+                    component["tree"], manifest["components"][name]["tree"]
+                )
+                with tarfile.open(archive, "r:") as source:
+                    self.assertNotIn(name + "/.env", source.getnames())
+                    self.assertEqual(
+                        source.extractfile(name + "/LICENSE").read(),
+                        (archive_destination / name / "LICENSE").read_bytes(),
+                    )
+            self.assertTrue(
+                all(
+                    "source_archive" not in component
+                    for component in manifest["components"].values()
+                )
             )
             with self.assertRaisesRegex(ValueError, "new destination"):
                 source_notices.assemble(checkout, destination, repos)
