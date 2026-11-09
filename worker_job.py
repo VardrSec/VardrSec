@@ -137,6 +137,16 @@ def review(installation, args, session):
     worker_image = config["source"]["runner_image"]
     plan = helper(installation, value, client, _PLAN, {"case": case["spec"], "execution": execution},
                   image=worker_image)
+    missing = sorted({reference["name"] for reference in plan["credential_references"]
+                      if reference["source"] == "value_env"}
+                     - set(config["credential_names"]))
+    if missing:
+        # Refuse before requesting approval context or registering authority.
+        # Report reference names only; never open the private credential file.
+        return {"schema": "vardr.worker-cli/1", "state": "held_missing_credential_references",
+                "runtime_id": None, "job_id": job["id"], "credential_names": missing,
+                "help": "docs/local-managed-setup.md", "job_authorized": False,
+                "worker_started": False}
     enrollment = read(Path(value["private_root"]) / "enrollment.json")
     require(enrollment["setup_sha256"] == host.digest(value)
             and enrollment["owner_id"] == value["owner_id"]

@@ -3,8 +3,11 @@
 Source-built development path, available for owner acceptance. Matched component
 pins passed existing installation, recovery and compatibility checks. Windows
 Full preparation and restricted enrollment passed at `c8adbfe`; that observation
-started no worker or job. Interactive job review/sign/register and the owner
-walkthrough remain to be observed. This is not a release acceptance claim.
+started no worker or job. The supported review/sign/register, execution and
+evidence-export path subsequently passed one explicitly owner-approved synthetic
+Windows observation; see the [workflow receipt](new-moon-acceptance.md#supported-full-managed-workflow-2026-11-09).
+Human usability and the owner walkthrough remain separate. This is not a release
+acceptance claim.
 Mapless retains its independent [signed local workflow](mapless.md).
 
 Normal installation and `start` run the Full core services only. The commands
@@ -62,7 +65,11 @@ python vardrsec.py worker job-register --review review-one/review.json --approva
 
 Review interactively selects the engagement and authorization, compiles the
 fixed plan with the actual worker's Gate binary and requests current backend
-context. Signing displays that context and requires typing `APPROVE` in a
+context. If the case needs environment references absent from the prepared
+worker's declared names, review holds before requesting approval context and
+lists only those names. Correct the case's references or select a correctly
+prepared worker; no credential values or grants are inferred.
+Signing displays that context and requires typing `APPROVE` in a
 terminal. Registration binds the signed envelope to the exact review. Each
 default approval permits one execution, 30 seconds and 1 MiB of artifacts,
 expires after five minutes, and remains subject to target, credential,
