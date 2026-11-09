@@ -988,3 +988,5 @@
 
 - Ignore agent-local credential/session files while preserving shared instructions.
 - Reuse the pinned, checksum-verified Gitleaks history scan from VardrMap.
+
+- Classify two exact historical prose matches about evidence/CA/artifact persistence with fingerprint-only exclusions. All new secret findings remain blocking.
