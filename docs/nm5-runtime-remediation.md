@@ -105,3 +105,21 @@ All five image risk gates remain blocked, including libxml2 and the 12 SQLite
 high occurrences. Proxy compress remains 1.20.2 with no reported reachable or
 imported-package vulnerabilities in its retained symbol report. No finding was
 suppressed or accepted as a consequence of green evidence-collection CI.
+
+
+## Read-only security follow-up (2026-11-08)
+
+Reused the completed matched-pin image reports from run
+[42561077661](https://github.com/VardrSec/VardrSec/actions/runs/42561077661),
+without rebuilding or rescanning. Its complete receipt pins Map `a01a76f`,
+Runner `2bcd0f5` and Gate `57cfedf`. SBOMs confirm apt/libapt 3.0.4 and
+zlib `1:1.3.dfsg+really1.3.1-1+deb13u1` across the four Debian runtimes;
+the proxy carries compress v1.20.2. The prior targeted removal of 16 high
+and four medium occurrences remains consistent with these retained reports.
+No duplicate package fix is needed. The older apt CVE-2011-3374 entries remain;
+this is not a claim that every finding on those packages was eliminated.
+
+Current retained totals remain 1 critical, 207 high, 368 medium, 340 low and
+8 unknown occurrences. Existing risk dispositions remain open; no finding
+was suppressed or accepted by this audit. Embedded Runner tool dependencies
+are separate from the proxy remediation and retain their existing reports.
