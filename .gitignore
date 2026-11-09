@@ -19,7 +19,7 @@ __pycache__/
 /.update-private.yaml
 /.update-*.tmp
 
-# Agent-local credentials and session state; shared instructions remain tracked.
+# Agent-local credentials and session state.
 .claude/settings.local.json
 .claude/*.local.json
 .claude/.credentials.json
@@ -30,3 +30,10 @@ __pycache__/
 .codex/sessions/
 .codex/history.jsonl
 .mcp.local.json
+
+# Local working notes and agent instructions are not published artifacts.
+AGENTS.md
+CLAUDE.md
+/.private-notes/
+/internal-notes/
+/VardrSec-Internal-Notes/
