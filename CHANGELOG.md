@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Update only the PostgreSQL runtime's apt/libapt and zlib packages to fixed
+  Debian security versions, refusing stale mirrors. Raise the existing proxy's
+  compress dependency to 1.20.2. Preserve base digests, Caddy/PostgreSQL versions,
+  runtime privileges and unresolved findings; rebuilt-image evidence remains required.
+
 - Qualify and merge the NM-4 local Community compatibility cohort: per-identity boundary
   coverage, grounded case drafts, operator-approved AI queue proposals, stateful
   review notes and portable redacted execution context. Include the existing MCP
