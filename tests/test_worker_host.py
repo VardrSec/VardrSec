@@ -603,6 +603,23 @@ class HostTests(unittest.TestCase):
 
 
 class TransportTests(unittest.TestCase):
+    def test_authorization_array_opt_in_preserves_strict_record_parsing(self):
+        raw = b'[{"id":"a"}]'
+        self.assertEqual(host._json(raw, array=True), [{"id": "a"}])
+        with self.assertRaises(host.HostRefused):
+            host._json(raw)
+        for invalid in (b'{}', b'null', b'[{"id":"a","id":"b"}]'):
+            with self.assertRaises(host.HostRefused):
+                host._json(invalid, array=True)
+        session = object.__new__(host.OwnerSession)
+        session._owner_call = Mock(return_value=[{"id": "a"}])
+        self.assertEqual(session.authorizations("e"), [{"id": "a"}])
+        session._owner_call.assert_called_once_with(
+            "GET", "/engagements/e/authorizations", managed=True, array=True)
+        client = object.__new__(host.HostClient)
+        with self.assertRaises(host.HostRefused):
+            client._request("GET", "/auth/local/session", response_array=True)
+
     def test_selected_attempt_receipt_uses_real_bounded_decoder_and_returns_payload(
         self,
     ):

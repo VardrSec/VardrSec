@@ -205,7 +205,7 @@ def digest(value):
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
-def _json(raw):
+def _json(raw, *, array=False):
     def pairs(items):
         result = {}
         for key, value in items:
@@ -220,7 +220,7 @@ def _json(raw):
         value = json.loads(
             raw.decode("utf-8"), object_pairs_hook=pairs, parse_constant=constant
         )
-        require(type(value) is dict)
+        require(type(value) is (list if array else dict))
         return value
     except (ValueError, UnicodeError, RecursionError):
         raise HostRefused("worker_host_refused") from None
@@ -376,8 +376,12 @@ class HostClient:
         if expected is not None:
             require(self._owner_transport() == expected)
 
-    def _request(self, method, path, body=None, headers=None, *, max_body=8192, max_response=16384):
+    def _request(self, method, path, body=None, headers=None, *, max_body=8192, max_response=16384,
+                 response_array=False):
         require(method in {"GET", "POST"} and path.startswith("/") and "?" not in path)
+        require(type(response_array) is bool and (not response_array or (
+            method == "GET" and re.fullmatch(
+                r"/engagements/[A-Za-z0-9_.:-]{1,128}/authorizations", path))))
         require(max_body in {8192, 1024 * 1024} and max_response in {16384, 256 * 1024})
         raw = None if body is None else canonical(body)
         require(raw is None or len(raw) <= max_body)
@@ -449,7 +453,7 @@ class HostClient:
                 require(size <= max_response)
             require(length is None or size == int(length))
             request_stage = "json"
-            return _json(b"".join(chunks)), response.getheaders()
+            return _json(b"".join(chunks), array=response_array), response.getheaders()
         except (OSError, ValueError, http.client.HTTPException, UnicodeError):
             raise HostRefused(
                 registration_failure={
@@ -628,11 +632,13 @@ class OwnerSession:
         require(reply == {"runtime_id": runtime_id, "revoked": True})
         return reply
 
-    def _owner_call(self, method, path, body=None, *, managed=False):
+    def _owner_call(self, method, path, body=None, *, managed=False, array=False):
         require(self._cookie is not None and self._csrf is not None)
         if self._expected_transport is not None:
             self.client._require_owner_transport(self._expected_transport)
         limits = {"max_body": 1024 * 1024, "max_response": 256 * 1024} if managed else {}
+        if array:
+            limits["response_array"] = True
         return self.client._request(method, path, body, {
             "Cookie": self._cookie, "Origin": self.client.origin,
             "X-CSRF-Token": self._csrf,
@@ -672,7 +678,7 @@ class OwnerSession:
 
     def authorizations(self, engagement_id):
         return self._owner_call("GET", f"/engagements/{self._identifier(engagement_id)}/authorizations",
-                                managed=True)
+                                managed=True, array=True)
 
     def review_job(self, job_id, body):
         return self._owner_call("POST", f"/jobs/{self._identifier(job_id)}/managed/approval/review",

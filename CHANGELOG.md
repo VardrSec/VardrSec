@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fix Full job review reading written authorizations: accept the existing Map
+  array response only for that owner-authenticated GET endpoint. Keep stored
+  records and all other transport responses object-only and duplicate-key strict.
+
 - Hold Full job review before approval when its environment credential references
   are absent from the prepared worker declaration; show missing names only and
   preserve per-job authorization and separate local grants.
