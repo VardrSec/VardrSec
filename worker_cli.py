@@ -1,7 +1,7 @@
-"""Explicit admission and stop controls for an already prepared managed worker.
+"""Explicit managed setup, human job approval and worker lifecycle controls.
 
-No account/key/enrollment/approval generation, Compose start, daemon or replay.
-The API's strict managed configuration and immutable worker must already exist.
+Normal platform startup never calls these opt-in operations. Signing remains
+outside workers; preparation and registration never launch jobs or workers.
 """
 
 import argparse
@@ -49,6 +49,7 @@ FAILURE_PHASES = frozenset(
         "arguments",
         "installation",
         "dispatch",
+        "onboarding",
         "launch_inputs",
         "launch_preflight",
         "launch_core_inventory",
@@ -147,6 +148,39 @@ def runtime_id(value):
 def parser():
     result = Parser(description=__doc__)
     actions = result.add_subparsers(dest="action", required=True, parser_class=Parser)
+    prepare = actions.add_parser("prepare", help="Explicitly prepare issuer custody and public worker metadata; never start work")
+    for name in ("private-root", "admission-root", "worker-image", "issuer-id", "context", "credential-file"):
+        prepare.add_argument("--" + name)
+    prepare.add_argument("--credential-name", action="append", default=[])
+    for name in ("configure", "start", "job-review", "job-approve", "job-register"):
+        action = actions.add_parser(name)
+        action.add_argument("--setup", help="Prepared metadata; defaults to this installation's explicit setup pointer")
+        if name in {"configure", "start", "job-review", "job-register"}:
+            action.add_argument("--username", default="operator")
+            action.add_argument("--password-stdin", action="store_true")
+        if name == "configure":
+            action.add_argument("--allow-plaintext-key", action="store_true",
+                                help="Explicitly accept the restricted Runner API key in its protected Docker state")
+        if name == "start":
+            action.add_argument("--max-attempts")
+            action.add_argument("--idle-timeout-seconds", type=int)
+        if name == "job-review":
+            action.add_argument("job_id", type=runtime_id)
+            action.add_argument("--engagement-id")
+            action.add_argument("--authorization-id")
+            action.add_argument("--output", required=True)
+            action.add_argument("--expires-in", type=int, default=300)
+            action.add_argument("--duration-seconds", type=int, default=30)
+            action.add_argument("--max-artifact-bytes", type=int, default=1024 * 1024)
+            action.add_argument("--allow-private-targets", action="store_true")
+        if name in {"job-approve", "job-register"}:
+            action.add_argument("--review", required=True)
+        if name == "job-approve":
+            action.add_argument("--output", required=True)
+        if name == "job-register":
+            action.add_argument("--approval", required=True)
+    prepare.add_argument("--username", default="operator")
+    prepare.add_argument("--password-stdin", action="store_true")
     enable = actions.add_parser(
         "enable",
         aliases=["register"],
@@ -684,7 +718,108 @@ def stop(records, selected_id):
         return record, observer, proof
 
 
+def setup_path(installation, args):
+    if args.setup:
+        return Path(args.setup).expanduser().resolve(strict=True)
+    pointer = host._json((installation / ".managed-worker.json").read_bytes())
+    require(pointer["schema"] == "vardr.worker-setup-pointer/1")
+    return Path(pointer["preparation"]).resolve(strict=True)
+
+
+def onboarding(installation, args):
+    import recovery
+    import worker_prepare
+    import worker_job
+
+    root = Path(installation).resolve(strict=True)
+    if args.action == "start":
+        # The existing launch path owns its lock and all admission/custody gates.
+        import worker_launch
+        args.setup = str(setup_path(root, args))
+        selected, config, client = worker_job.setup(args.setup, root)
+        binding = worker_job.read(Path(selected["private_root"]) / "enrollment.json")
+        require(binding["setup_sha256"] == host.digest(selected)
+                and binding["owner_id"] == selected["owner_id"])
+        key = worker_prepare.read_runner_key(root, selected, client=client)
+        previous = os.environ.get("VARDRMAP_API_KEY")
+        try:
+            os.environ["VARDRMAP_API_KEY"] = key
+            args.action = "launch"
+            args.api_url, args.ca = selected["api"]["base_url"], selected["api"]["ca_file"]
+            for name in ("private_root", "project", "state_volume", "origin", "public_trust",
+                         "admission_root", "runner_network", "launch_config"):
+                setattr(args, name, selected[name])
+            args.context, args.image_id = selected["context"], selected["worker_image"]
+            args.enrollment_id, args.runner_id = binding["enrollment_id"], binding["runner_id"]
+            args.protocol, args.expires_in = "persistent-v3", None
+            return worker_launch.launch(root, args)
+        finally:
+            key = None
+            if previous is None:
+                os.environ.pop("VARDRMAP_API_KEY", None)
+            else:
+                os.environ["VARDRMAP_API_KEY"] = previous
+    with updater.operation_guard(root, "start"):
+        args._failure_phase = "onboarding"
+        if args.action == "prepare":
+            require(not (root / ".managed-worker.json").exists())
+            client = worker_prepare.discover_client(root, context=args.context)
+            model = host._json(worker_prepare._compose(client, root, "--profile", "tools", "config", "--format", "json"))
+            port = int(model["services"]["proxy"]["environment"]["HTTPS_PORT"])
+            api = host.HostClient(f"https://localhost:{port}/backend", root / "trust" / "root.crt")
+            private = Path(args.private_root).expanduser().absolute() if args.private_root else root.parent / (model["name"] + "-operator")
+            public = Path(args.admission_root).expanduser().absolute() if args.admission_root else root.parent / (model["name"] + "-worker-public")
+            # Validate destinations before writing even empty credential placeholders.
+            paths = (root.resolve(), private.resolve(), public.resolve())
+            require(all(left != right and left not in right.parents and right not in left.parents
+                        for index, left in enumerate(paths) for right in paths[index + 1:]))
+            with owner(api, args, expected_transport=api._owner_transport()) as session:
+                owner_id = session.owner_id()
+                import worker_build
+                worker_image = args.worker_image or worker_build.build(root, client=client)
+                private.mkdir(mode=0o700, exist_ok=True)
+                credentials = args.credential_file
+                if credentials is None and args.credential_name:
+                    require(all(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", name)
+                                and not name.startswith(("VARDR", "DOCKER", "COMPOSE")) for name in args.credential_name))
+                    credentials = private / "worker.env"
+                    recovery.private_write(credentials, ("# Supply the named values privately before starting.\n" +
+                                           "".join(name + "=\n" for name in args.credential_name)).encode())
+                result = worker_prepare.prepare(
+                    root, client=client, private_root=private, admission_root=public,
+                    worker_image=worker_image,
+                    owner_id=owner_id, issuer_id=args.issuer_id or "map:" + str(uuid.uuid4()),
+                    credential_file=credentials, credential_names=args.credential_name, api_pin=api.pin(),
+                )
+            path = private / "preparation.json"
+            recovery.private_write(root / ".managed-worker.json", host.canonical({
+                "schema": "vardr.worker-setup-pointer/1", "preparation": str(path),
+            }))
+            return {"schema": "vardr.worker-cli/1", "state": "prepared", "runtime_id": None,
+                    "preparation": str(path), "issuer_id": result["issuer_id"],
+                    "origin": result["origin"], "credential_file": str(private / "worker.env")
+                    if credentials is None else str(credentials),
+                    "worker_started": False, "job_authorized": False}
+        args.setup = str(setup_path(root, args))
+        selected, _, client = worker_job.setup(args.setup, root)
+        if args.action == "job-approve":
+            return worker_job.approve(root, args)
+        api = host.HostClient(selected["api"]["base_url"], selected["api"]["ca_file"])
+        with owner(api, args, expected_transport=api._owner_transport()) as session:
+            if args.action == "configure":
+                receipt = worker_prepare.configure(root, selected, client=client, session=session,
+                                                    allow_plaintext_key=args.allow_plaintext_key)
+                return {"schema": "vardr.worker-cli/1", "state": "configured", "runtime_id": None,
+                        "enrollment": receipt, "worker_started": False, "job_authorized": False}
+            if args.action == "job-review":
+                return worker_job.review(root, args, session)
+            require(args.action == "job-register")
+            return worker_job.register(root, args, session)
+
+
 def dispatch(installation, args):
+    if args.action in {"prepare", "configure", "start", "job-review", "job-approve", "job-register"}:
+        return onboarding(installation, args)
     if args.action == "launch":
         import worker_launch
 
@@ -847,9 +982,9 @@ def main(argv=None, *, installation=None):
             else Path(installation)
         )
         require(installation.is_absolute() and installation.is_dir())
-        if args.action in {"enable", "register", "launch"} and args.runtime_id is None:
+        if args.action in {"enable", "register", "launch", "start"} and getattr(args, "runtime_id", None) is None:
             args.runtime_id = str(uuid.uuid4())
-        selected_id = args.runtime_id
+        selected_id = getattr(args, "runtime_id", None)
         args._failure_phase = "dispatch"
         reply = dispatch(installation, args)
         print(json.dumps(reply, sort_keys=True))

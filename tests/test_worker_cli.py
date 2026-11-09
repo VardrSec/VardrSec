@@ -741,5 +741,33 @@ class WorkerCLI(unittest.TestCase):
             self.assertEqual(f.observer.commands, [])
 
 
+    def test_job_signing_requires_tty_and_registration_binds_exact_review(self):
+        import worker_job as job
+
+        value = {"owner_id": "owner"}
+        document = {"schema": "vardr.worker-job-review/1", "setup_sha256": cli.host.digest(value),
+                    "job_id": "job-1", "selection": {"plan": {}}, "review": {
+                        "context": {"expires_at": "2099-01-01T00:00:00Z"}}}
+        args = SimpleNamespace(setup="setup", review="review", approval="approval", output="uncreated")
+        with (patch.object(job, "setup", return_value=(value, {}, Mock())),
+              patch.object(job, "read", return_value=document),
+              patch.object(job.sys.stdin, "isatty", return_value=False),
+              patch("builtins.input", side_effect=AssertionError("nonTTY must not prompt")),
+              patch.object(job, "helper") as signer):
+            with self.assertRaises(ValueError):
+                job.approve(Path.cwd(), args)
+        signer.assert_not_called()
+        signed = {"schema": "vardr.worker-job-approval/1", "review_sha256": cli.host.digest(document),
+                  "job_id": "job-1", "selection": document["selection"], "approval": {}}
+        document["review"]["context"]["expires_at"] = "2099-01-02T00:00:00Z"
+        session = Mock()
+        session.owner_id.return_value = "owner"
+        with (patch.object(job, "setup", return_value=(value, {}, Mock())),
+              patch.object(job, "read", side_effect=[document, signed])):
+            with self.assertRaises(ValueError):
+                job.register(Path.cwd(), args, session)
+        session.register_job.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

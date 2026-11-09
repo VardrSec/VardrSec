@@ -26,6 +26,14 @@ C09 sleep behavior and NM-5 acceptance retain their separate dispositions.
 
 ## Current NM-5 source cohort and owner handoff
 
+Owner handoff is held on one discovered production gap: the Full managed
+enrollment and human-signing workflow needs supported local setup commands,
+rather than private acceptance harnesses. The [onboarding candidate](local-managed-setup.md)
+addresses this separately from the previously qualified ordinary Full workflow.
+Map's Gate-only managed queue control is merged in
+[PR155](https://github.com/VardrSec/VardrMap/pull/155), with all ten checks passing.
+Its source has not silently advanced the distribution compatibility pin.
+
 Distribution `700e003a3f8b96ed4e1e32eec0c5d980bf704db2`
 ([PR79](https://github.com/VardrSec/VardrSec/pull/79)) is the qualified source-built
 runtime-security cohort: Map `55458b7`, Runner `519c047`, Gate `57cfedf` unchanged.
