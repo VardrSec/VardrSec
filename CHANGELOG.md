@@ -983,3 +983,10 @@
   implementation reviews. Add a candidate source manifest and validation CI.
 - Compose lifecycle, local authentication, component images and the Map status UI
   remain planned; no runnable distribution or release is published by this change.
+
+## Agent security audit (unreleased)
+
+- Ignore agent-local credential/session files while preserving shared instructions.
+- Reuse the pinned, checksum-verified Gitleaks history scan from VardrMap.
+
+- Classify two exact historical prose matches about evidence/CA/artifact persistence with fingerprint-only exclusions. All new secret findings remain blocking.
