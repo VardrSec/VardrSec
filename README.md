@@ -55,9 +55,11 @@ sudo update-ca-certificates        # trust only your own local CA (compare the p
 python3 vardrsec.py bootstrap --username operator
 ```
 
-If the install is interrupted, run `python3 vardrsec.py install` again: it resumes, keeps your
-secrets and deletes nothing. The certificate step is manual by design; VardrSec never changes
-your trust store or starts a scan on its own. Firefox needs the CA imported in its own settings.
+If the install is interrupted, follow the [resume and recovery instructions](docs/installation.md)
+before retrying. Existing configuration is preserved; retained state can cause a
+fresh-install refusal rather than being overwritten. The certificate step is manual
+by design; VardrSec never changes your trust store or starts a scan on its own.
+Firefox needs the CA imported in its own settings.
 
 ## Use it
 
@@ -65,49 +67,58 @@ your trust store or starts a scan on its own. Firefox needs the CA imported in i
 2. Create an engagement, then on its Overview add the client, testing window and written
    authorization, and add your target under Scope.
 3. Draft test cases from your OpenAPI document under Review, edit each identity's expected
-   access yourself, and queue a case. Nothing runs until you run the Runner explicitly.
+   access yourself, and queue a case. Manual jobs require an explicit Runner invocation;
+   managed jobs require the separately enabled worker and valid per-job approval.
 
 The full step-by-step, including running the assessment and exporting a report, is the
 [first-assessment walkthrough](docs/installation.md#first-assessment-walkthrough).
-Stop with `python3 vardrsec.py stop` (your data is kept). Other platforms, VPN-only
-targets and recovery are covered in [installation](docs/installation.md),
-[networking](docs/networking.md) and [recovery](docs/recovery.md).
+Stop core services with `python3 vardrsec.py stop` (your data is kept). Stop and
+reconcile any separately enabled worker through its [operator controls](docs/nm2-worker-operator.md)
+first; core-service stop is not a substitute for worker termination.
+Other platforms, VPN-only targets and recovery are covered in
+[installation](docs/installation.md), [networking](docs/networking.md) and
+[recovery](docs/recovery.md).
 
 ## Project status
 
-New Moon development preserves Runner independence, optional Map, Full/Mapless
-installation, and Windows 11 with Docker Desktop preferred, alongside Linux and
-justified native operation. Fresh verification and unfinished requirements are
-tracked in the [New Moon acceptance ledger](docs/new-moon-acceptance.md).
+New Moon preserves one Runner engine, optional Map, Full/Mapless installation,
+Windows 11 with Docker Desktop preferred, Linux compatibility and justified native
+operation. The [acceptance ledger](docs/new-moon-acceptance.md) is the current
+source/evidence record; dated phase checkpoints are historical, not competing task lists.
 
-NM-3 source-built Community acceptance is closed for Windows 11 Docker Desktop
-(Linux/amd64 containers) and Ubuntu 24.04/amd64. Full/Mapless installation,
-authorization, finite Recon, reviewed Gate execution, evidence/export and
-state-preserving lifecycle evidence are mapped in the
-[closeout](docs/new-moon-acceptance.md#exit-criteria-closeout).
-NM-4/NM-5 and release-security approval remain separate.
+**NM-3 and NM-4 are accepted for their recorded source-built Community scope.**
+NM-3 covers Full/Mapless installation, authorization, finite Recon, reviewed Gate
+execution, export and state-preserving lifecycle. NM-4 adds boundary coverage,
+grounded drafts, operator-approved AI queue proposals and structured provenance.
+See the [NM-3 closeout](docs/new-moon-acceptance.md#exit-criteria-closeout) and
+[NM-4 closeout](docs/new-moon-acceptance.md#current-nm-4-community-delivery-status).
 
-The existing Community Alpha baseline follows the [v0.1.0 stabilization plan](docs/community-alpha.md):
-security and clean Ubuntu installation first, then user-workflow validation and
-release preparation. The initial packaged distribution is officially supported on Ubuntu
-24.04; other platforms are labelled from their own acceptance evidence. See
-[platforms and deployment methods](docs/platforms.md) for native component execution and
-future cross-platform work.
+The accepted application-installation targets are Windows 11 Docker Desktop
+(Linux/amd64 containers) and Ubuntu 24.04/amd64 within their recorded boundaries.
+This does not certify every network/tool mode, a freshly provisioned operating
+system, or macOS Docker. The earlier [Community Alpha plan](docs/community-alpha.md)
+records the Ubuntu-first baseline; it does not erase later Windows application evidence.
+
+**NM-5 and release approval remain open.** NM-2 C09 is unaccepted and C10's final
+disposition remains pending. Source-built acceptance does not waive those limits,
+image risks, licensing/source-delivery review, independent human/research evidence,
+or final architecture sign-off. See the [six closure gates](docs/new-moon-architecture-review.md#six-remaining-closure-gates).
 
 | Component | Responsibility |
 |---|---|
 | VardrSec | Install, start, stop and update the platform through Docker Compose; maintain tested component pins and recovery procedures. |
-| VardrRunner | Diagnose installation, connectivity, tools and configuration; retain explicitly invoked local execution, credential resolution, jobs and result transport. |
-| VardrMap | Provide the engagement web interface, expose backend readiness and display platform/runner status with freshness. |
-| VardrGate | Remain the specialized authorization-testing engine and independently usable CLI. |
+| VardrRunner | One execution engine for connected and standalone work, diagnostics, local credentials, journals and result transport. |
+| VardrMap | Engagement web interface/API, reviewed policy, queue proposals, budgets, evidence, findings and reports. |
+| VardrGate | Specialized authorization-testing engine and independently usable CLI. |
+| VardrLab | Independent synthetic scenarios and tool-neutral benchmark/oracle work; not an execution authority. |
 
 Keep the component repositories separate. Reuse Runner's existing diagnostics;
-there is no additional VardrSec doctor or scanning engine. Starting services must
-not start scans or a detached queue worker. Stop operations must preserve data.
+there is no additional VardrSec doctor or scanning engine. Normal startup must not
+start scans or a detached queue worker. Stop operations preserve data.
 
 ## Implemented development workflow
 
-The following capabilities are merged and exercised by the retained development
+The following capabilities are merged and exercised by retained development
 acceptance checks. They describe source-built development artifacts, not a
 published Community alpha:
 
@@ -129,23 +140,35 @@ published Community alpha:
   Evidence collection succeeds independently of the strict vulnerability gate;
   that gate still reports unresolved blockers.
 
+## Documentation by purpose
+
+| Need | Start here |
+|---|---|
+| Install and run Full | [Installation](docs/installation.md), [managed setup](docs/local-managed-setup.md) |
+| Run without Map | [Mapless walkthrough](docs/mapless.md) |
+| Stop, recover or update | [Worker controls](docs/nm2-worker-operator.md), [recovery](docs/recovery.md), [updates](docs/updates.md) |
+| Understand platform limits | [Platforms](docs/platforms.md), [networking](docs/networking.md) |
+| Check current delivery and release status | [New Moon ledger](docs/new-moon-acceptance.md), [architecture review](docs/new-moon-architecture-review.md), [release checklist](docs/community-alpha-release.md) |
+| Review design and historical proof | [ADRs](docs/adr/), dated acceptance reports and their exact-source receipts |
+
+Historical review/acceptance files preserve provenance; they are not installation
+instructions, renewed approvals or current completion percentages. Contributor
+instructions remain in `AGENTS.md`; personal coordination belongs outside operator guides.
+
 ## Remaining release gates
 
-The [Community alpha release checklist](docs/community-alpha-release.md) is the
-authoritative current queue. Remaining work includes residual security dispositions,
-the distribution/bundled-tool licensing and artifact-delivery review, a timed
-unfamiliar-user installation and first assessment, freezing a release candidate,
-independent artifact reproduction and recovery/update reruns against that freeze.
-No risk exception, license decision, tag or publication is implied by merged checks.
+Use the [release checklist](docs/community-alpha-release.md) alongside the
+[architecture closure gates](docs/new-moon-architecture-review.md#six-remaining-closure-gates).
+They retain final source/image attribution, host/Docker restart persistence,
+network/native-fallback qualification, independent research and human acceptance,
+vulnerability dispositions, transitive licensing/source delivery, artifact
+reproduction and architecture/safety sign-off. No risk exception, license decision,
+tag or publication is implied by merged checks.
 
-The [alpha scope](docs/community-alpha.md) remains Ubuntu 24.04/amd64 first.
-The bounded tool matrix does not establish genuine VPN or fresh Windows/macOS
-Desktop acceptance, nor support for every tool mode. Follow its documented limits.
-
-See the [architecture decision](docs/adr/0001-component-responsibilities.md) and
-[acceptance plan](docs/acceptance.md). Component source access depends on each
-repository's permissions. Image publication, licensing decisions and releases
-remain separate reviewed steps; this foundation publishes none of those artifacts.
+The bounded tool matrix does not establish genuine VPN support, macOS Docker
+acceptance or every tool mode. Follow the [documented support limits](docs/platforms.md).
+Component source access depends on each repository's permissions; image publication
+and releases remain separately reviewed decisions.
 
 ## Development entry point
 
