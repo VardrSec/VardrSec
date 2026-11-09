@@ -6,6 +6,8 @@
   human signing and registration commands using the existing authorization
   contracts. Normal installation/startup remains inert; protected signing
   custody and restricted Runner enrollment are separate operator actions.
+  Initialize new state through inactive Runner creation and retain encrypted
+  recovery's strict allowlist for the new executable helpers.
 
 - Record the qualified runtime-security cohort and reused image/installed evidence;
   align the alpha plan with the original Windows-first local roadmap, prepare
