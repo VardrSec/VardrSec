@@ -22,20 +22,35 @@ are verified. Configured Windows Docker Desktop workflows and subsequent canonic
 new-installation/recovery operations passed. Bounded standalone Recon now has
 installed development evidence below. State-preserving Mapless updates also have
 the bounded installed result below. Broader Recon, optional history import/sync,
-C09 sleep behavior and NM-4/NM-5 acceptance remain separate, unaccepted capabilities.
+C09 sleep behavior, the remaining NM-4 qualification item below and NM-5 acceptance
+retain their separate dispositions.
 
-## Current NM-4 Community compatibility candidate
+## Current NM-4 Community delivery status
 
 Owner direction keeps Community Edition local-first: Full and Mapless Docker
 installation, Windows 11/Docker Desktop and Linux remain required. Vercel and
 Railway are the owner's personal hosted test environment, not Community delivery
 or installation acceptance gates.
 
-This branch proposes Map `c983a60` ([PR153](https://github.com/VardrSec/VardrMap/pull/153))
-and Runner `dec2ac6` ([PR119](https://github.com/VardrSec/VardrRunner/pull/119)),
-with accepted Gate `57cfedf` unchanged. It is a development compatibility
-candidate: component CI and the existing installed Full/Mapless workflow must
-pass before these pins are accepted. No published image or release is claimed.
+The qualified source-built cohort is merged in distribution `b4133d7`
+([PR74](https://github.com/VardrSec/VardrSec/pull/74)): Map `c983a60`
+([PR153](https://github.com/VardrSec/VardrMap/pull/153)) and Runner `dec2ac6`
+([PR119](https://github.com/VardrSec/VardrRunner/pull/119)), with accepted Gate
+`57cfedf` unchanged. These exact reviewed pins are retained in `versions.json`;
+component merge commits do not silently advance them. No published image or
+release is claimed.
+
+All required component checks passed. Runner's [final compatibility CI](https://github.com/VardrSec/VardrRunner/actions/runs/42538028836)
+passed on Windows, Linux and macOS; its [container workflow](https://github.com/VardrSec/VardrRunner/actions/runs/42538028822)
+passed with the optional MCP SDK packaged in the toolkit. The distribution's
+[installed acceptance](https://github.com/VardrSec/VardrSec/actions/runs/42538113288)
+passed Full/Mapless installation, controlled updates, certificate renewal and
+Python compatibility on Windows and Ubuntu. [Tool/network checks](https://github.com/VardrSec/VardrSec/actions/runs/42538113249),
+[native trust](https://github.com/VardrSec/VardrSec/actions/runs/42538113292),
+[image evidence](https://github.com/VardrSec/VardrSec/actions/runs/42538113357) and
+[manifest checks](https://github.com/VardrSec/VardrSec/actions/runs/42538113523)
+also passed. The separately dispatched NM-2 fault campaign was skipped, not rerun
+or represented as new evidence.
 
 The component changes cover operation × identity × boundary gaps, grounded
 review-only drafts, pending AI queue proposals requiring operator approval,
@@ -54,9 +69,30 @@ execution remain unchanged. Dynamic capture/substitution in the controlled fixed
 profile, general cleanup and token lifecycle coverage remain explicit unsupported
 or unestablished conditions, not inferred successful workflow coverage.
 
-NM-4 remains open until the matched local cohort is qualified. NM-5, C09,
-broader Recon, optional history import/sync and release/security decisions keep
-their recorded separate dispositions; no stopped fault/sleep campaign resumes.
+### Original NM-4 exit criteria
+
+| Requirement | Delivered behavior and evidence |
+|---|---|
+| Observed operation becomes a reviewable case without invented policy | Map boundary drafts and Runner `workspace draft-gate` preserve observed operations, assumptions and missing identity/policy inputs. Drafts grant no authority; existing artifact/hash and grounded-draft checks passed. |
+| Approved cases execute through Full and Mapless | The existing installed acceptance above exercises the qualified shared Runner/Gate paths and evidence/export workflow. Recon suggestions require operator review, credential references and a new signed Gate authorization; the discovery authorization cannot be reused. |
+| Evidence/provenance inspected locally and in Map | Runner includes tool/version/hash, target, origin, timing, case correlation and terminal context. Map stores bounded reported provenance and exports selected same-engagement context. Redacted derivatives retain original case hashes as correlation, require missing inputs and fresh review, and explicitly do not claim independent reproduction or server attestation. Existing affected artifact/upload/report suites and component CI passed. |
+| Truthful unsupported/inconclusive stateful coverage | Coverage distinguishes per-operation, per-identity and boundary gaps. Review summaries expose setup, reset and missing workflow context; unsupported capture/substitution, cleanup and token lifecycle behavior is not counted as successful assessment. Existing classification and workflow review checks passed. |
+| Negative AI instruction/permission boundaries | Existing MCP checks retain untrusted-data instructions and prompts, bound workspace reads, no approval tool and proposal-only queueing. Map checks enforce operator membership, Stop Work, revalidation and atomic approval; pending/rejected proposals create no jobs. These establish the implemented API/tool boundaries, not immunity of an external model to arbitrary prompt injection. |
+| Representative workflows inside Windows Docker Desktop | Existing PapaChin Gate/Recon installation evidence is reused where runtime is unchanged. Final Windows component CI passed; the existing offline Docker MCP stdio check passed on Linux. Windows Docker Desktop MCP qualification remains an explicit open acceptance item. |
+
+The production increment and matched local cohort are merged; NM-4 remains open
+only for the Windows Docker Desktop MCP item above. NM-5, C09, broader Recon,
+optional history import/sync and release/security decisions keep their recorded
+separate dispositions; no stopped fault/sleep campaign resumes.
+
+### Production and verification accounting
+
+Using the unchanged tracked-line classifier, cumulative NM-4 additions are 917
+production and 494 verification lines: **64.99% production / 35.01% verification**.
+Verification includes CI and fixtures. Documentation, configuration, generated
+files and locks are separate. Whole-project source across the four repositories
+is 83,799 production and 140,064 verification lines: production rises from
+37.28% to 37.43%. No suite was deleted to change these percentages.
 
 ## Current NM-3 distribution status
 
