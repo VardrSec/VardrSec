@@ -118,7 +118,11 @@ def failure_diagnostic(args, error):
         if isinstance(error, kind):
             code = known
             break
+    if phase == "onboarding" and code == "operation_failed" and isinstance(error, ValueError):
+        code = "validation_refused"
     result = {"failure_phase": phase, "failure_code": code}
+    if phase == "onboarding":
+        result["help"] = "docs/local-managed-setup.md"
     if phase == "enable_registration" and code == "host_refused":
         detail = host.registration_diagnostic(error)
         if detail is not None:
@@ -727,6 +731,7 @@ def setup_path(installation, args):
 
 
 def onboarding(installation, args):
+    args._failure_phase = "onboarding"
     import recovery
     import worker_prepare
     import worker_job
@@ -760,7 +765,6 @@ def onboarding(installation, args):
             else:
                 os.environ["VARDRMAP_API_KEY"] = previous
     with updater.operation_guard(root, "start"):
-        args._failure_phase = "onboarding"
         if args.action == "prepare":
             require(not (root / ".managed-worker.json").exists())
             client = worker_prepare.discover_client(root, context=args.context)
