@@ -397,9 +397,9 @@ Use the [backup and restore commands](recovery.md) to create a portable snapshot
 and verify it in a separate installation before any controlled upgrade. Restored
 applications remain stopped until credential review and explicit startup.
 
-The [current checkpoint](alpha-checkpoint-2026-10-27.md) separates passed clean
-Ubuntu installation/recovery checks from security and unfamiliar-user work still
-open. Windows/macOS remain experimental; their fresh Desktop acceptance does not
-block an Ubuntu-first alpha. Certificate lifetime coverage, broader tool/network
-modes and real VPN remain explicit limitations in [acceptance](acceptance.md).
+The [New Moon ledger](new-moon-acceptance.md) records current installation and
+recovery evidence. Windows 11 with Docker Desktop is the primary Community
+target; Linux compatibility remains required. Older Ubuntu-first checkpoints
+are historical. Certificate lifetime coverage, broader tool/network modes and
+real VPN retain their recorded limitations in [acceptance](acceptance.md).
 No image or release is published here.

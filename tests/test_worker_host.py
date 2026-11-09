@@ -866,11 +866,42 @@ class TransportTests(unittest.TestCase):
                     },
                     [],
                 ),
+                ({"authMethod": "local", "csrfToken": "a" * 64, "user": {"githubId": "owner"}}, []),
+                ({"id": "key-1", "scope": "runner", "token": "vmap_" + "k" * 43}, []),
+                ({"context": {}}, []),
+                ({"approval_record_id": "approval-1"}, []),
                 ({"authenticated": False}, []),
             ]
         )
         with client.owner_session("operator", "disposable-password") as session:
             session.revoke("00000000-0000-0000-0000-000000000001")
+            self.assertEqual(session.owner_id(), "owner")
+            self.assertEqual(session.create_runner_key("worker")["scope"], "runner")
+            session.review_job("job-1", {"plan": {}})
+            session.register_job("job-1", {"approval": {}})
+            before = client._request.call_count
+            for method in (session.review_job, session.register_job):
+                with self.assertRaises(host.HostRefused):
+                    method("job/other", {})
+            self.assertEqual(client._request.call_count, before)
+        calls = client._request.call_args_list
+        self.assertEqual(calls[4].args[2], {"label": "worker", "scope": "runner"})
+        self.assertEqual([call.args[:2] for call in calls[3:7]], [
+            ("GET", "/auth/local/session"), ("POST", "/auth/apikeys"),
+            ("POST", "/jobs/job-1/managed/approval/review"),
+            ("POST", "/jobs/job-1/managed/approval/register"),
+        ])
+        for call in calls[3:7]:
+            self.assertEqual(call.args[3], {"Cookie": host._COOKIE + "=" + cookie,
+                "Origin": client.origin, "X-CSRF-Token": "a" * 64})
+        for call in calls[5:7]:
+            self.assertEqual(call.kwargs, {"max_body": 1024 * 1024, "max_response": 256 * 1024})
+        before = client._request.call_count
+        for method, arguments in ((session.owner_id, ()), (session.create_runner_key, ("worker",)),
+                                  (session.review_job, ("job-1", {})), (session.register_job, ("job-1", {}))):
+            with self.assertRaises(host.HostRefused):
+                method(*arguments)
+        self.assertEqual(client._request.call_count, before)
         headers = client._request.call_args_list[2].args[3]
         self.assertEqual(headers["Origin"], client.origin)
         self.assertEqual(headers["X-CSRF-Token"], "a" * 64)

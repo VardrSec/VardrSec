@@ -11,6 +11,7 @@ __pycache__/
 /.active-images.json
 /.active-images.mapless.json
 /.installation-mode.json
+/.managed-worker.json
 /restore-receipt.json
 /.update-lock
 /.update-state.json

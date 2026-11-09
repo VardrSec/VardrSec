@@ -36,6 +36,7 @@ MAPLESS_FILES = (
     "updater.py", "backup_crypto.py", "installation_mode.py", "compose.local-worker.json", MARKER,
 )
 LAUNCHER_FILES = ("install.ps1", "install.sh", "runner.ps1", "runner.sh")
+ONBOARDING_FILES = ("worker_prepare.py", "worker_job.py", "worker_build.py")
 VOLUMES = {
     "runner-state": ("runner", "/home/runner/.vardrmap"),
     "proxy-data": ("proxy", "/data"),
@@ -281,6 +282,15 @@ def launcher_files(root):
     return present
 
 
+def onboarding_files(root):
+    present = tuple(name for name in ONBOARDING_FILES if os.path.lexists(root / name))
+    if present and (present != ONBOARDING_FILES or any(
+        (root / name).is_symlink() or not (root / name).is_file() for name in present
+    )):
+        raise ValueError("Managed onboarding helpers must be a complete regular-file set")
+    return present
+
+
 def backup_mapless(root, destination):
     destination = destination.resolve()
     if destination.exists():
@@ -412,7 +422,7 @@ def backup(root, destination):
     infos = {name: container(root, name) for name in SERVICES}
     images = {name: info["Image"] for name, info in infos.items()}
     destination.mkdir(parents=True, mode=0o700)
-    for name in FULL_FILES + ((MARKER,) if (root / MARKER).exists() else ()) + launcher_files(root):
+    for name in FULL_FILES + ((MARKER,) if (root / MARKER).exists() else ()) + launcher_files(root) + onboarding_files(root):
         private_write(destination / name, (root / name).read_bytes())
     for name, (service, mount) in VOLUMES.items():
         path = destination / f"{name}.tar.gz"
@@ -481,6 +491,10 @@ def snapshot_files(version, *, metadata=None):
         if version not in (5, 6) or not set(LAUNCHER_FILES).issubset(recorded):
             raise ValueError("Snapshot launchers must be complete")
         scripts += LAUNCHER_FILES
+    if recorded.intersection(ONBOARDING_FILES):
+        if version != 5 or not set(ONBOARDING_FILES).issubset(recorded):
+            raise ValueError("Snapshot managed onboarding helpers must be complete")
+        scripts += ONBOARDING_FILES
     return scripts
 
 

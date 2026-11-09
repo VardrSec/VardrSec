@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add explicit local Full managed-worker onboarding and separate job review,
+  human signing and registration commands using the existing authorization
+  contracts. Normal installation/startup remains inert; protected signing
+  custody and restricted Runner enrollment are separate operator actions.
+
 - Record the qualified runtime-security cohort and reused image/installed evidence;
   align the alpha plan with the original Windows-first local roadmap, prepare
   owner Full/Mapless acceptance and retain independent human/release gates.

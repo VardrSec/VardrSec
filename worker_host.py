@@ -376,10 +376,11 @@ class HostClient:
         if expected is not None:
             require(self._owner_transport() == expected)
 
-    def _request(self, method, path, body=None, headers=None):
+    def _request(self, method, path, body=None, headers=None, *, max_body=8192, max_response=16384):
         require(method in {"GET", "POST"} and path.startswith("/") and "?" not in path)
+        require(max_body in {8192, 1024 * 1024} and max_response in {16384, 256 * 1024})
         raw = None if body is None else canonical(body)
-        require(raw is None or len(raw) <= 8192)
+        require(raw is None or len(raw) <= max_body)
         deadline = time.monotonic() + 10
         connection, secure, timer = None, None, None
         request_stage, http_status = "connect", None
@@ -435,17 +436,17 @@ class HostClient:
                 == "application/json"
             )
             length = response.getheader("Content-Length")
-            require(length is None or (length.isdecimal() and int(length) <= 16384))
+            require(length is None or (length.isdecimal() and int(length) <= max_response))
             request_stage = "body"
             chunks, size = [], 0
             while True:
                 require(time.monotonic() < deadline)
-                block = response.read1(min(1024, 16385 - size))
+                block = response.read1(min(1024, max_response + 1 - size))
                 if not block:
                     break
                 chunks.append(block)
                 size += len(block)
-                require(size <= 16384)
+                require(size <= max_response)
             require(length is None or size == int(length))
             request_stage = "json"
             return _json(b"".join(chunks)), response.getheaders()
@@ -626,6 +627,60 @@ class OwnerSession:
         reply = self._post(runtime_id, "revoke", {})
         require(reply == {"runtime_id": runtime_id, "revoked": True})
         return reply
+
+    def _owner_call(self, method, path, body=None, *, managed=False):
+        require(self._cookie is not None and self._csrf is not None)
+        if self._expected_transport is not None:
+            self.client._require_owner_transport(self._expected_transport)
+        limits = {"max_body": 1024 * 1024, "max_response": 256 * 1024} if managed else {}
+        return self.client._request(method, path, body, {
+            "Cookie": self._cookie, "Origin": self.client.origin,
+            "X-CSRF-Token": self._csrf,
+        }, **limits)[0]
+
+    @staticmethod
+    def _identifier(value):
+        require(type(value) is str and value not in {".", ".."}
+                and re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", value))
+        return value
+
+    def owner_id(self):
+        reply = self._owner_call("GET", "/auth/local/session")
+        require(type(reply) is dict and reply.get("authMethod") == "local"
+                and reply.get("csrfToken") == self._csrf and type(reply.get("user")) is dict)
+        return self._identifier(reply["user"].get("githubId"))
+
+    def create_runner_key(self, label):
+        require(type(label) is str and 0 < len(label) <= 100)
+        reply = self._owner_call("POST", "/auth/apikeys", {"label": label, "scope": "runner"})
+        require(type(reply) is dict and reply.get("scope") == "runner"
+                and type(reply.get("token")) is str
+                and re.fullmatch(r"vmap_[A-Za-z0-9_-]{43}", reply["token"]))
+        self._identifier(reply.get("id"))
+        return reply
+
+    def engagements(self):
+        return self._owner_call("GET", "/engagements", managed=True)
+
+    def jobs(self, engagement_id):
+        return self._owner_call("GET", f"/engagements/{self._identifier(engagement_id)}/jobs",
+                                managed=True)
+
+    def test_case(self, engagement_id, case_id):
+        return self._owner_call("GET", f"/engagements/{self._identifier(engagement_id)}/test-cases/"
+                                f"{self._identifier(case_id)}", managed=True)
+
+    def authorizations(self, engagement_id):
+        return self._owner_call("GET", f"/engagements/{self._identifier(engagement_id)}/authorizations",
+                                managed=True)
+
+    def review_job(self, job_id, body):
+        return self._owner_call("POST", f"/jobs/{self._identifier(job_id)}/managed/approval/review",
+                                body, managed=True)
+
+    def register_job(self, job_id, body):
+        return self._owner_call("POST", f"/jobs/{self._identifier(job_id)}/managed/approval/register",
+                                body, managed=True)
 
 
 _OPERATION_PROOF = object()

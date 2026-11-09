@@ -20,6 +20,11 @@ actually completes. This protocol is not permission to publish or run fault test
 
 ## Owner acceptance
 
+The owner walkthrough is currently held while local Full managed-worker
+onboarding is integrated. Existing ordinary queue/CLI evidence remains valid for
+its recorded scope; it does not establish managed enrollment or signed approval.
+Do not ask the owner to bridge this gap with private acceptance harnesses.
+
 The owner may perform the same walkthrough with guided assistance. Record that
 session as owner acceptance, including all assistance and actual mode-specific
 results. It does not silently replace independent unfamiliar-user evidence.

@@ -15,6 +15,10 @@ The reviewed compatible Runner/Gate pins are merged; verified installation
 boundaries and remaining requirements are recorded in the
 [New Moon ledger](docs/new-moon-acceptance.md#community-delivery-priority).
 
+The opt-in [local managed setup](docs/local-managed-setup.md) connects Full's
+signed job workflow to the existing persistent worker. This increment is still
+an implementation candidate; ordinary startup remains inert.
+
 ## Install (Docker and Compose, Python 3.10+, Git)
 
 Choose one variant per checkout. Full includes Map's web research interface;
