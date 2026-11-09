@@ -1,6 +1,6 @@
 # New Moon acceptance ledger
 
-Updated: 2026-11-08. Development evidence; no release acceptance is implied.
+Updated: 2026-11-09. Development evidence; no release acceptance is implied.
 
 This ledger tracks changing implementation evidence. The approved New Moon charter
 remains the architectural authority: one Runner engine, optional Map, shared
@@ -25,6 +25,46 @@ the bounded installed result below. Broader Recon, optional history import/sync,
 C09 sleep behavior and NM-5 acceptance retain their separate dispositions.
 
 ## Current NM-5 source cohort and owner handoff
+
+### Supported Full managed workflow (2026-11-09)
+
+The production candidate in [PR86](https://github.com/VardrSec/VardrSec/pull/86),
+code head `2243908`, completed one bounded Windows Docker Desktop workflow using
+the retained Full installation at `c8adbfe` and its frozen images. No rebuild,
+new infrastructure or component pin change was required. The observation found
+and fixed authorization-array transport handling; it also adds a pre-approval
+hold for environment references absent from the prepared worker declaration.
+
+After explicit owner delegation for the single synthetic job, the supported
+commands completed review, terminal `APPROVE`, signing, registration and one
+execution. The signed bounds were five GETs to the owned Docker-only fixture,
+30 seconds and 1 MiB of artifacts. The retained artifact contains two successful
+identity preflights and three resource exchanges: owner 200, peer 403 and
+anonymous 401. Its case hash matches the reviewed plan. Map retained five
+evidence records; the original journal contains one completed, uploaded run.
+
+The canonical Runner export produced `artifact.json`, `audit.json` and
+`manifest.json`. Manifest/run binding, artifact and retained receipt digests were
+verified; generated target credentials and static sensitive canaries are absent
+from the export. Retained export SHA-256 values:
+
+| File | SHA-256 |
+| --- | --- |
+| artifact.json | `c0751d755b4791ab5e8cefb285a335c373b9a83099d02e656c8552f11fc99bbd` |
+| audit.json | `f71787ae6f78b811035ad345756373b50f0476ebf4bd7d958858cc38d7190e77` |
+| manifest.json | `03516546b19a504b1c64f3ea887ec7cf0714e6c53ec0d30d5f9c9ec457346dbd` |
+
+The worker physically exited with code 0. Protected stop/report and original
+reconciliation returned `terminal_observed`; core and target services were
+stopped, preserving volumes, records and the earlier unsigned held review.
+No target request or worker execution occurred before the owner's explicit
+delegation. No execution retry, fault or sleep probe was performed.
+
+This is technical CLI/workflow evidence, composed with existing Map UI evidence.
+Mapless's prior installed authorization/execution/export evidence is reused
+unchanged. Neither this observation nor delegated terminal entry establishes
+unfamiliar-user usability, architecture sign-off, C09/C10 acceptance or release
+risk approval. Source CI and merge status remain separately attributed to PR86.
 
 Distribution `d94921504b4ad22a94f0406bd35f5f12414cbd4e` integrates supported
 [local managed setup](local-managed-setup.md) through

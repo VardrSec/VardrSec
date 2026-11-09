@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Record the owner-approved single Full managed workflow through evidence export
+  and clean stop; retain existing Mapless evidence and separate release gates.
+
 - Fix Full job review reading written authorizations: accept the existing Map
   array response only for that owner-authenticated GET endpoint. Keep stored
   records and all other transport responses object-only and duplicate-key strict.
