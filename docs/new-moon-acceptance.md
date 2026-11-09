@@ -22,10 +22,11 @@ are verified. Configured Windows Docker Desktop workflows and subsequent canonic
 new-installation/recovery operations passed. Bounded standalone Recon now has
 installed development evidence below. State-preserving Mapless updates also have
 the bounded installed result below. Broader Recon, optional history import/sync,
-C09 sleep behavior, the remaining NM-4 qualification item below and NM-5 acceptance
-retain their separate dispositions.
+C09 sleep behavior and NM-5 acceptance retain their separate dispositions.
 
 ## Current NM-4 Community delivery status
+
+**NM-4 is closed for the source-built Community scope, accepted 2026-11-08.**
 
 Owner direction keeps Community Edition local-first: Full and Mapless Docker
 installation, Windows 11/Docker Desktop and Linux remain required. Vercel and
@@ -78,12 +79,20 @@ or unestablished conditions, not inferred successful workflow coverage.
 | Evidence/provenance inspected locally and in Map | Runner includes tool/version/hash, target, origin, timing, case correlation and terminal context. Map stores bounded reported provenance and exports selected same-engagement context. Redacted derivatives retain original case hashes as correlation, require missing inputs and fresh review, and explicitly do not claim independent reproduction or server attestation. Existing affected artifact/upload/report suites and component CI passed. |
 | Truthful unsupported/inconclusive stateful coverage | Coverage distinguishes per-operation, per-identity and boundary gaps. Review summaries expose setup, reset and missing workflow context; unsupported capture/substitution, cleanup and token lifecycle behavior is not counted as successful assessment. Existing classification and workflow review checks passed. |
 | Negative AI instruction/permission boundaries | Existing MCP checks retain untrusted-data instructions and prompts, bound workspace reads, no approval tool and proposal-only queueing. Map checks enforce operator membership, Stop Work, revalidation and atomic approval; pending/rejected proposals create no jobs. These establish the implemented API/tool boundaries, not immunity of an external model to arbitrary prompt injection. |
-| Representative workflows inside Windows Docker Desktop | Existing PapaChin Gate/Recon installation evidence is reused where runtime is unchanged. Final Windows component CI passed; the existing offline Docker MCP stdio check passed on Linux. Windows Docker Desktop MCP qualification remains an explicit open acceptance item. |
+| Representative workflows inside Windows Docker Desktop | Existing PapaChin Gate/Recon installation evidence is reused where runtime is unchanged. Final Windows component CI passed. The existing offline Docker MCP stdio check passed on Linux and on Windows Docker Desktop using the official toolkit built from the exact Runner/Gate pins above. SDK initialization, the exact read-only tool surface and an empty workspace query passed; no assessment ran. |
 
-The production increment and matched local cohort are merged; NM-4 remains open
-only for the Windows Docker Desktop MCP item above. NM-5, C09, broader Recon,
-optional history import/sync and release/security decisions keep their recorded
-separate dispositions; no stopped fault/sleep campaign resumes.
+The Windows Docker Desktop MCP observation used image
+`sha256:a6afd89b2804c4e9763e44ea8fec98376f3732de719611abbaabd85f8122797d`,
+built locally with the official Dockerfile. Existing scanner/Gate compile stages
+were cached. The existing SDK check ran with network disabled, UID 10001, all
+capabilities dropped, no-new-privileges and no mounts; it initialized, listed
+exactly `list_local_workspaces`/`get_local_run`, read an empty workspace list and
+closed normally. This qualifies the optional read-only stdio surface, not
+concurrent canonical commands, new assessment authority or arbitrary AI behavior.
+
+The production increment and matched local cohort are merged. NM-5, C09, broader
+Recon, optional history import/sync and release/security decisions keep their
+recorded separate dispositions; no stopped fault/sleep campaign resumes.
 
 ### Production and verification accounting
 

@@ -6,8 +6,8 @@
   coverage, grounded case drafts, operator-approved AI queue proposals, stateful
   review notes and portable redacted execution context. Include the existing MCP
   SDK in the Docker toolkit. Existing installed Full/Mapless and controlled-update
-  acceptance passed. Record original exit criteria and the remaining Windows
-  Docker MCP qualification separately; no release or image publication is implied.
+  acceptance passed. Close the original NM-4 criteria with reused Windows evidence
+  and the existing offline Docker MCP check; no release or image publication is implied.
 
 - Close NM-3 source-built Community acceptance against the original exit criteria,
   retained Windows qualification and final exact-pin CI. Record clean application
