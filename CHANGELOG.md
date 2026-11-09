@@ -6,6 +6,10 @@
   installed Full/Mapless and rebuilt-image qualification. Gate is unchanged;
   source pins do not imply release approval or accepted vulnerability findings.
 
+- Add opt-in offline exact-tree source archives to `source-notices`, with
+  archive hashes and source references. Preserve notice-only defaults and mark
+  export-attribute, submodule/LFS and complete-source-delivery limitations.
+
 - Update only the PostgreSQL runtime's apt/libapt and zlib packages to fixed
   Debian security versions, refusing stale mirrors. Raise the existing proxy's
   compress dependency to 1.20.2. Preserve base digests, Caddy/PostgreSQL versions,

@@ -21,7 +21,7 @@ OID = re.compile(r"[0-9a-f]{40}")
 MAX_FILE_BYTES = 1024 * 1024
 
 
-def git(repo, *arguments, data=None):
+def git(repo, *arguments, data=None, output=None):
     # Ignore ambient repository selection and replacements. Missing promisor
     # objects must fail locally, never acquire objects or request credentials.
     env = {
@@ -42,7 +42,7 @@ def git(repo, *arguments, data=None):
         result = subprocess.run(
             ["git", "-C", str(repo), *arguments],
             input=data,
-            stdout=subprocess.PIPE,
+            stdout=subprocess.PIPE if output is None else output,
             stderr=subprocess.DEVNULL,
             check=True,
             timeout=15,
@@ -102,7 +102,7 @@ def blobs(repo, entries):
     return output
 
 
-def assemble(root, destination, repositories):
+def assemble(root, destination, repositories, *, include_sources=False):
     root, destination = Path(root).resolve(), Path(destination).absolute()
     destination = destination.parent.resolve(strict=True) / destination.name
     locations = {
@@ -191,15 +191,45 @@ def assemble(root, destination, repositories):
         "scope": "Top-level component notices only; no transitive/tool/base-image inventory, source archive, source offer or compliance assertion",
         "components": components,
     }
-    encoded = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    # All inputs are resolved before this exclusive publication. On I/O failure,
-    # preserve partial output; manifest.json is written last, never overwrite it.
+    # The exclusive output stays incomplete until manifest.json is written last.
     destination.mkdir(mode=0o700)
-    for name, data in {**planned, "manifest.json": encoded}.items():
+    for name, data in planned.items():
         target = destination / name
         target.parent.mkdir(exist_ok=True)
         with target.open("xb") as output:
             output.write(data)
+    if include_sources:
+        manifest["scope"] = (
+            "Top-level notices and Git tree archives; export attributes may exclude files. "
+            "No submodule/LFS hydration, dependencies, generated build inputs, source offer or compliance assertion"
+        )
+        for name, component in components.items():
+            archive = destination / name / "source.tar"
+            with archive.open("xb") as output:
+                git(
+                    locations[name],
+                    "archive",
+                    "--format=tar",
+                    "--prefix=" + name + "/",
+                    component["tree"],
+                    output=output,
+                )
+            digest, size = hashlib.sha256(), 0
+            with archive.open("rb") as source:
+                while chunk := source.read(1024 * 1024):
+                    digest.update(chunk)
+                    size += len(chunk)
+            component["source_archive"] = {
+                "path": name + "/source.tar",
+                "format": "git_archive_tar_tree",
+                "sha256": digest.hexdigest(),
+                "bytes": size,
+                "source_url": f"https://github.com/{component['repository']}/tree/{component['commit']}",
+                "limitations": "Export attributes apply; submodule contents and LFS payloads are not included; no completeness assertion",
+            }
+    encoded = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    with (destination / "manifest.json").open("xb") as output:
+        output.write(encoded)
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -211,6 +241,11 @@ def main(argv, *, root):
         required=True,
         help="New directory outside the input repositories",
     )
+    parser.add_argument(
+        "--include-sources",
+        action="store_true",
+        help="Also collect Git tree archives; no completeness or compliance assertion",
+    )
     for name in REPOSITORIES:
         parser.add_argument(
             "--" + name + "-repo", type=Path, default=Path(root) / ".sources" / name
@@ -221,6 +256,7 @@ def main(argv, *, root):
             root,
             args.destination,
             {name: getattr(args, name + "_repo") for name in REPOSITORIES},
+            include_sources=args.include_sources,
         )
     except (OSError, KeyError, TypeError, UnicodeError, ValueError):
         raise ValueError(
