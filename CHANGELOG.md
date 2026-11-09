@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Prepare the NM-4 local Community compatibility cohort: per-identity boundary
+  coverage, grounded case drafts, operator-approved AI queue proposals, stateful
+  review notes and portable redacted execution context. Include the existing MCP
+  SDK in the Docker toolkit. Reuse installed Full/Mapless acceptance before this
+  candidate is accepted; no release or image publication is implied.
+
 - Close NM-3 source-built Community acceptance against the original exit criteria,
   retained Windows qualification and final exact-pin CI. Record clean application
   installation scope, evidence reuse and separate deferred/release gates.
