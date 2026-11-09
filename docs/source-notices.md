@@ -33,3 +33,22 @@ do not authenticate repository provenance. Review the
 [release license inventory](release-license-inventory.md) and remaining
 [release checklist](community-alpha-release.md) separately, and collect again
 from the exact reviewed release candidate before artifact delivery.
+
+## Optional source archives
+
+Add `--include-sources` to collect `COMPONENT/source.tar` for the distribution
+and each pinned component. Each archive is streamed from the exact committed Git
+tree, without checkout filters or untracked/modified files. Its manifest entry
+records byte length, SHA-256, format and a source reference beside the existing
+commit and tree IDs. Notice-only output remains the default.
+
+These are standard Git archives: export attributes may exclude files; tree-based
+archives do not substitute commit metadata with `export-subst`. Local repository
+export attributes can also affect the archive. Submodule contents and Git LFS
+payloads are not hydrated; LFS pointers may be present. Dependencies, generated
+files, external build inputs and tool/base-image sources are not assembled.
+Archives are not extracted by this command. This option therefore does not
+establish complete corresponding source, reproducible builds or fulfillment of
+source-delivery obligations. Review the archive and remaining delivery scope
+before redistribution. Missing objects or archive failure leave no completed
+manifest; retain partial output and use a new destination.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add opt-in offline exact-tree source archives to `source-notices`, with
+  archive hashes and source references. Preserve notice-only defaults and mark
+  export-attribute, submodule/LFS and complete-source-delivery limitations.
+
 - Add an offline `source-notices` command that collects top-level component
   licenses and notices from committed exact pins, with Git/source references and
   SHA-256 hashes. Preserve local source caches and existing output; transitive
