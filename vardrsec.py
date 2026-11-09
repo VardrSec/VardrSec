@@ -260,6 +260,11 @@ def sources(*, mapless=False):
 
 
 def main():
+    if sys.argv[1:2] == ["source-notices"]:
+        import source_notices
+
+        source_notices.main(sys.argv[2:], root=ROOT)
+        return
     if sys.argv[1:2] == ["worker"]:
         if read_mode(ROOT) == "mapless":
             raise ValueError("Mapless has no Map queue worker; use runner --controlled for an explicitly authorized local job")
@@ -278,6 +283,7 @@ def main():
             "install",
             "configure",
             "sources",
+            "source-notices",
             "build",
             "start",
             "stop",
