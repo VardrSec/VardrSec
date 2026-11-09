@@ -1,7 +1,10 @@
 # Local Full managed setup
 
-Implementation candidate; installed qualification and matching component pins
-remain pending. Do not substitute this page for a passed owner walkthrough.
+Source-built development path, available for owner acceptance. Matched component
+pins passed existing installation, recovery and compatibility checks. Windows
+Full preparation and restricted enrollment passed at `c8adbfe`; that observation
+started no worker or job. Interactive job review/sign/register and the owner
+walkthrough remain to be observed. This is not a release acceptance claim.
 Mapless retains its independent [signed local workflow](mapless.md).
 
 Normal installation and `start` run the Full core services only. The commands

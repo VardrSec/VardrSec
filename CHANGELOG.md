@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Qualify matched local managed-onboarding pins and Windows Full setup/enrollment;
+  retain the exact source-tree and recovery evidence. The owner walkthrough can
+  proceed; interactive acceptance, NM-2 dispositions and release gates stay open.
+
 - Stage the separately reviewed Map managed-queue UI and Runner persistent-image
   recipe pins for matched installed qualification. No release or image publication.
 

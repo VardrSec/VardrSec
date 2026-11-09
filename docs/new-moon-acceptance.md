@@ -26,15 +26,30 @@ C09 sleep behavior and NM-5 acceptance retain their separate dispositions.
 
 ## Current NM-5 source cohort and owner handoff
 
-Owner handoff is held on one discovered production gap: the Full managed
-enrollment and human-signing workflow needs supported local setup commands,
-rather than private acceptance harnesses. The [onboarding candidate](local-managed-setup.md)
-addresses this separately from the previously qualified ordinary Full workflow.
-Map's Gate-only managed queue control is merged in
-[PR155](https://github.com/VardrSec/VardrMap/pull/155), with all ten checks passing.
-Its source has not silently advanced the distribution compatibility pin.
+Distribution `d94921504b4ad22a94f0406bd35f5f12414cbd4e` integrates supported
+[local managed setup](local-managed-setup.md) through
+[PR81](https://github.com/VardrSec/VardrSec/pull/81) and the separate qualified
+[pin PR82](https://github.com/VardrSec/VardrSec/pull/82). Map `a01a76f` adds the
+Gate-only managed queue control; Runner `2bcd0f5` corrects its persistent image
+recipe; Gate `57cfedf` is unchanged. Both component PRs passed all ten checks.
+Main's tree `ae9153e18ba0cd94fdde235ed67133427e627cf6` exactly matches reviewed
+pin head `c8adbfe`. All existing checks passed, including installed Full/Mapless,
+encrypted recovery, controlled updates, networking, trust and Windows/Ubuntu
+compatibility ([installed run](https://github.com/VardrSec/VardrSec/actions/runs/42561077668)).
 
-Distribution `700e003a3f8b96ed4e1e32eec0c5d980bf704db2`
+A bounded Windows Docker Desktop observation at `c8adbfe` passed normal Full
+installation, account creation, persistent-image build, separate signing custody
+and restricted Runner enrollment. Offline readback confirmed the original stable
+identity and stored connection. No worker or job was started; synthetic services
+were stopped and volumes retained. Its earlier failed attempt remains preserved;
+the state ownership and encrypted archive allowlist defects were corrected before
+qualification. This setup evidence does not establish interactive job approval,
+execution or human usability. The owner walkthrough may proceed; independent
+unfamiliar-user evidence, NM-2 C09/C10 and release/security gates remain open.
+
+The earlier runtime-security cohort below retains its original attribution.
+
+Earlier distribution `700e003a3f8b96ed4e1e32eec0c5d980bf704db2`
 ([PR79](https://github.com/VardrSec/VardrSec/pull/79)) is the qualified source-built
 runtime-security cohort: Map `55458b7`, Runner `519c047`, Gate `57cfedf` unchanged.
 Its tree `a8b0764073a34a893fdeecbbf871802bc7c3897e` equals reviewed head `b3fb937`.
