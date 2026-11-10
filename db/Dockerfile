@@ -8,6 +8,10 @@ WORKDIR /src
 RUN go mod init vardrsec-gosu-build \
     && go get github.com/tianon/gosu@6456aaa0f3c854d199d0f037f068eb97515b7513 github.com/moby/sys/user@v0.4.1 \
     && go build -trimpath -ldflags '-d -w' -o /go/bin/gosu github.com/tianon/gosu
+RUN gosu_notice_source="$(go list -m -f '{{.Dir}}' github.com/tianon/gosu)" \
+    && mkdir -p /out/gosu-notices \
+    && cp "$gosu_notice_source/LICENSE" /out/gosu-notices/LICENSE \
+    && if [ -f "$gosu_notice_source/NOTICE" ]; then cp "$gosu_notice_source/NOTICE" /out/gosu-notices/NOTICE; fi
 
 FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
 RUN apt-get update \
@@ -22,3 +26,4 @@ RUN apt-get purge -y --no-auto-remove \
     dirmngr gnupg gnupg-l10n gpg gpg-agent gpgconf gpgsm
 COPY --from=gosu /go/bin/gosu /usr/local/bin/gosu
 RUN gosu --version && gosu nobody true
+COPY --from=gosu /out/gosu-notices/ /usr/share/licenses/gosu/

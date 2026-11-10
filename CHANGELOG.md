@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Retain the rebuilt Caddy and gosu licenses and available upstream notices in
+  their runtime images, alongside the unchanged binaries.
+
 - Remove unused GnuPG package-acquisition tools from the database runtime image,
   preserving PostgreSQL, apt signature verification and existing privileges.
 
