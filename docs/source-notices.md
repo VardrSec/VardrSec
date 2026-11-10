@@ -58,3 +58,10 @@ establish complete corresponding source, reproducible builds or fulfillment of
 source-delivery obligations. Review the archive and remaining delivery scope
 before redistribution. Missing objects or archive failure leave no completed
 manifest; retain partial output and use a new destination.
+
+## Runtime license locations
+
+The proxy retains Caddy's license and available upstream notice at
+`/usr/share/licenses/caddy/`. The database retains gosu's equivalent files at
+`/usr/share/licenses/gosu/`. These copies accompany the rebuilt binaries; they
+do not replace dependency notices or complete corresponding-source delivery.

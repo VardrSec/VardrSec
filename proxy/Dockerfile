@@ -9,8 +9,13 @@ RUN go mod init vardrsec-proxy-build \
         github.com/go-jose/go-jose/v4@v4.1.6 \
         github.com/klauspost/compress@v1.20.2 \
     && go build -trimpath -o /out/caddy .
+RUN caddy_notice_source="$(go list -m -f '{{.Dir}}' github.com/caddyserver/caddy/v2)" \
+    && mkdir -p /out/caddy-notices \
+    && cp "$caddy_notice_source/LICENSE" /out/caddy-notices/LICENSE \
+    && if [ -f "$caddy_notice_source/NOTICE" ]; then cp "$caddy_notice_source/NOTICE" /out/caddy-notices/NOTICE; fi
 
 FROM caddy@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489
 COPY --from=build /out/caddy /usr/bin/caddy
 RUN apk upgrade --no-cache && apk add --no-cache curl \
     && setcap cap_net_bind_service=+ep /usr/bin/caddy
+COPY --from=build /out/caddy-notices/ /usr/share/licenses/caddy/
