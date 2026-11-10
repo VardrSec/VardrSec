@@ -63,10 +63,11 @@ checks; persistent idle availability grants no execution permission.
 Before admission, prepare the reviewed immutable worker image and separate
 `compose.worker.json` profile, fresh readiness volume, existing enrolled Runner
 key, public Runner trust, local grants and human-signed job approval. Map needs
-its explicit managed configuration and current additive schema `0040runtimesequence`.
+its explicit managed configuration and matching schema: persistent-v3 requires
+`0041persistentruntime`; finite v1/v2 retain their versioned migration boundaries.
 Private approval keys stay outside Map/Runner; the host STOP secret uses native
-host custody. See [host boundaries](nm2-worker-host-observation.md) and the
-[coupled acceptance plan](nm2-worker-acceptance-plan.md).
+host custody. See [host boundaries](nm2-worker-host-observation.md) and
+[local managed setup](local-managed-setup.md).
 
 The worker's startup wait is finite. Start its explicitly selected profile only
 when these preparations are complete, then invoke:

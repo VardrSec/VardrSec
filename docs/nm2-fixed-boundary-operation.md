@@ -3,7 +3,7 @@
 The owner-selected attempts have ended. Earlier held parent receipts are
 preserved; retained Windows A and the corrected Ubuntu observation now close C07
 within its approved scope. Ubuntu's bounded-load measurement does not close C09.
-[Exact cohorts and outcomes](nm2-worker-acceptance-evidence.md#c07-completed-boundary-and-drain-2026-11-08)
+Exact cohorts and outcomes
 remain recorded separately. Manual testing is stopped; this retained operation
 definition authorizes no further run or retry.
 

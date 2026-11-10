@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Reconcile public guides after removal of working records; complete Full export
+  and stop instructions and correct historical security/platform descriptions.
+
 - Record the owner-approved single Full managed workflow through evidence export
   and clean stop; retain existing Mapless evidence and separate release gates.
 

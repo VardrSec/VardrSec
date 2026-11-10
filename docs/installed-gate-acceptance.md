@@ -104,7 +104,7 @@ receipt and checks the restored account's records against it.
 This is source-built development acceptance on Linux containers, including Docker
 Desktop. It does not establish a published release, real-target coverage, host/VPN
 routing, a fresh-host trust experience or full tool-mode compatibility. Those
-remain in the [acceptance plan](acceptance.md). Write readback is tested only in
+remain in the acceptance plan. Write readback is tested only in
 the declared synchronous isolated fixture; asynchronous/shared-system strategies,
 additional tool modes and external client delivery are not established here.
 

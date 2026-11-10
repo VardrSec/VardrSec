@@ -30,8 +30,7 @@ offer, license compatibility decision or legal compliance assertion. It does
 not inventory transitive dependencies, bundled tools, base images or packages.
 Git object hashes bind the collected bytes to the selected local objects; they
 do not authenticate repository provenance. Review the
-[release license inventory](release-license-inventory.md) and remaining
-[release checklist](community-alpha-release.md) separately, and collect again
+[release license inventory](release-license-inventory.md) and [support limits](limitations.md) separately, and collect again
 from the exact reviewed release candidate before artifact delivery.
 
 ## Optional source archives
