@@ -2,6 +2,7 @@
 
 import json
 import hashlib
+import io
 from pathlib import Path
 import shutil
 import subprocess
@@ -134,6 +135,25 @@ class SourceGitBindingTests(unittest.TestCase):
                     for component in manifest["components"].values()
                 )
             )
+            # Local export rules must not turn an incomplete source delivery
+            # into a successful, hash-bound manifest.
+            (repos["map"] / ".git" / "info").mkdir(exist_ok=True)
+            (repos["map"] / ".git" / "info" / "attributes").write_text(
+                "LICENSE export-ignore\n", encoding="utf-8"
+            )
+            filtered = root / "filtered-sources"
+            with self.assertRaisesRegex(ValueError, "omits tracked files"):
+                source_notices.assemble(checkout, filtered, repos, include_sources=True)
+            self.assertFalse((filtered / "manifest.json").exists())
+            tampered = root / "tampered.tar"
+            with tarfile.open(tampered, "w") as output:
+                member = tarfile.TarInfo("map/LICENSE")
+                member.size = 7
+                output.addfile(member, io.BytesIO(b"changed"))
+            with self.assertRaisesRegex(ValueError, "Git blob mismatch"):
+                source_notices.verify_source_archive(
+                    repos["map"], manifest["components"]["map"]["tree"], "map", tampered
+                )
             with self.assertRaisesRegex(ValueError, "new destination"):
                 source_notices.assemble(checkout, destination, repos)
             self.assertEqual(
