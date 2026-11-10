@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Attribute the Full web source link to its pinned revision only when the actual
+  build context is the clean managed Map checkout; custom builds keep a
+  repository link without claiming an exact revision.
+
 - Retain the rebuilt Caddy and gosu licenses and available upstream notices in
   their runtime images, alongside the unchanged binaries.
 
