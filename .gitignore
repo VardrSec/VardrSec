@@ -37,3 +37,29 @@ CLAUDE.md
 /.private-notes/
 /internal-notes/
 /VardrSec-Internal-Notes/
+
+# Private planning, decision records and acceptance receipts stay outside this repository.
+/docs/adr/
+/docs/evidence/
+/docs/*roadmap*
+/docs/*handoff*
+/docs/*checkpoint*
+/docs/*development-notes*
+/docs/alpha-os-exposure.md
+/docs/alpha-security-assessment.md
+/docs/caddy-v3-jwk-exposure.md
+/docs/certificate-renewal-acceptance.md
+/docs/gau-tls-review.md
+/docs/glibc-gettext-language-exposure.md
+/docs/installed-gate-acceptance.md
+/docs/mapless-packaging.md
+/docs/native-trust-acceptance.md
+/docs/nm2-fixed-boundary-operation.md
+/docs/nm2-persistent-worker-contract.md
+/docs/nm2-worker-host-observation.md
+/docs/residual-risk-register.md
+/docs/tool-network-acceptance.md
+
+# Unpublished development fragments belong in local notes; public changes go in CHANGELOG.md.
+/changelog/nm*.md
+/changelog/unreleased*.md

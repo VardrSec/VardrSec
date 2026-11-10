@@ -1,13 +1,9 @@
 # Local Full managed setup
 
-Source-built development path, available for owner acceptance. Matched component
-pins passed existing installation, recovery and compatibility checks. Windows
-Full preparation and restricted enrollment passed at `c8adbfe`; that observation
-started no worker or job. The supported review/sign/register, execution and
-evidence-export path subsequently passed one explicitly owner-approved synthetic
-Windows observation. Human usability and the owner walkthrough remain separate;
-this is not release acceptance.
-Mapless retains its independent [signed local workflow](mapless.md).
+Use this explicit source-built Full workflow to prepare signing custody,
+review and authorize one job, execute it, export its evidence and stop safely.
+Mapless has its independent [signed local workflow](mapless.md).
+Read the [support and safety limits](limitations.md) before use.
 
 Normal installation and `start` run the Full core services only. The commands
 below separately prepare custody, configure an enrolled Runner, approve a finite
@@ -95,7 +91,7 @@ downgrades to a finite or legacy protocol. Availability continues until explicit
 stop; `--max-attempts` and `--idle-timeout-seconds` are optional finite-session
 controls. Subsequent start requires physical predecessor exit, Map retirement
 and original Runner reconciliation. A held result preserves state for inspection.
-Use the returned runtime ID with the existing [status/stop/report controls](nm2-worker-operator.md).
+Use the returned runtime ID with the existing [status/stop/report controls](managed-worker-operator.md).
 
 Inspect the completed job and evidence in Map, confirm findings yourself, then
 export the report through the existing research workflow.
@@ -136,7 +132,7 @@ state and still-active enrolled key to reconcile the exact run. Keep Map running
 until this step completes; neither command refunds spent authorization.
 
 Confirm physical exit and `terminal_observed`. A held or uncertain result needs
-the existing [recovery controls](nm2-worker-operator.md); do not clear its state
+the existing [recovery controls](managed-worker-operator.md); do not clear its state
 or repeat an uncertain report. Platform stop preserves volumes and evidence.
 Stopping core services alone is not a substitute for stopping the separately
 enabled managed worker.

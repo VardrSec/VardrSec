@@ -1,4 +1,4 @@
-# Development image evidence
+# Container image security reports
 
 Collect inventory and vulnerability evidence for all five Compose service images
 before considering an image set for release. This is explicit distribution build
@@ -93,7 +93,7 @@ engagement data are mounted. No images, signatures or releases are published.
 
 ## Current release status
 
-The [alpha assessment](alpha-security-assessment.md) records focused remediation,
+The alpha assessment records focused remediation,
 vendor/exposure questions and the remaining blockers for the newer candidate.
 The following paragraph describes the initial baseline before those changes.
 

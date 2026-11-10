@@ -214,7 +214,7 @@ rebuild the frontend. Bindings remain loopback-only.
 
 Caddy generates an installation-specific CA in its persistent proxy-data volume
 and renews leaf certificates. Compose cannot enroll the host browser's trust store.
-See [accelerated leaf-renewal acceptance](certificate-renewal-acceptance.md) for the
+See accelerated leaf-renewal acceptance for the
 renewal/restart fixture and the remaining certificate lifecycle release gates.
 Only `trust/root.crt`, the public root, is exported; its private key stays in the
 proxy volume, which must never be mounted in Runner. Verify the certificate and its
@@ -268,7 +268,7 @@ trust enrollment, ordinary HTTPS and rejection after exact certificate removal.
 The installed browser fixture independently uses a fresh, explicitly enrolled NSS
 profile. These checks do not replace the unfamiliar-user usability exercise.
 
-The [native trust workflow](native-trust-acceptance.md) exercises enrollment and
+The native trust workflow exercises enrollment and
 removal on disposable hosted Windows/macOS machines. Full Docker Desktop/fresh-host
 application acceptance remains separate from those certificate-store checks.
 
@@ -331,7 +331,7 @@ operation remains available. Raw-packet scans, headless-browser tooling, operato
 wordlists and nuclei template provisioning are not certified by this baseline.
 No capability or privileged mode is enabled automatically. Diagnose the intended
 tools and host/VPN target reachability before explicitly invoking `jobs run`.
-The [tool/network fixture](tool-network-acceptance.md) documents selected modes,
+The tool/network fixture documents selected modes,
 synthetic private-namespace/host checks and the remaining real-VPN/Desktop gates.
 See [networking and VPN guidance](networking.md) for choosing native or container Runner.
 
