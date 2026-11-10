@@ -68,3 +68,11 @@ and unverifiable checkouts receive no exact-revision attribution. Map versions
 that support the source link then identify the repository instead. This metadata
 does not establish reproducible builds or complete corresponding-source delivery.
 Mapless does not build or attribute a Map web image.
+
+## Runtime license locations
+
+The proxy retains Caddy's license and available upstream notice at
+`/usr/share/licenses/caddy/`. The database retains gosu's equivalent files at
+`/usr/share/licenses/gosu/`. The proxy also retains the distribution wrapper's
+unchanged license and notice at `/usr/share/licenses/vardrsec/`. These copies accompany the rebuilt binaries; they
+do not replace dependency notices or complete corresponding-source delivery.
