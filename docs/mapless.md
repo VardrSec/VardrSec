@@ -4,7 +4,7 @@ This is the merged, source-built Full/Mapless integration. Compatible component
 pins and Ubuntu installed workflows passed; configured Windows Docker Desktop
 workflows, subsequent canonical new installations and portable recovery also passed.
 Evidence boundaries and remaining release acceptance are in the
-[New Moon ledger](new-moon-acceptance.md#current-nm-3-distribution-status).
+[support limits](limitations.md).
 Windows 11 with Docker Desktop Linux containers and Ubuntu
 24.04 remain required; no native-only substitute is selected.
 

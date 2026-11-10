@@ -3,8 +3,8 @@
 VardrSec is not an operating-system-specific application. Its components run natively
 on their supported operating systems. NM-3 source-built Community acceptance is
 closed for Windows 11 Docker Desktop (Linux/amd64 containers) and Ubuntu 24.04/amd64
-Compose installations. The Ubuntu-first Community Alpha release plan and release
-approval are separate; Windows remains a required New Moon target. Requirements
+Compose installations. Windows 11 is the primary Community target; Ubuntu compatibility remains
+required. Source acceptance and release approval are separate. Requirements
 below distinguish application support from Docker's requirements.
 
 ## Two deployment methods
@@ -28,7 +28,7 @@ not independently certified by that observation.
 | macOS Docker Desktop (Linux containers) | Experimental; no fresh-host install or recovery acceptance |
 | Native Map, Runner, Gate on Windows or Linux | Supported for individual development and execution as documented by each component; not an integrated distribution |
 
-Keep [NM-3 source acceptance](new-moon-acceptance.md#exit-criteria-closeout) distinct
+Keep source-built compatibility distinct
 from a published release and from unverified platforms. macOS Docker, other Linux
 distributions and genuine VPN behavior do not inherit Windows/Ubuntu acceptance.
 
@@ -37,7 +37,7 @@ distributions and genuine VPN behavior do not inherit Windows/Ubuntu acceptance.
 New Moon retains Windows 11 with Docker Desktop as a required distribution target.
 The Full/Mapless cohort has canonical Windows Docker Desktop installation/recovery,
 configured Windows workflow and fresh Ubuntu installation/workflow/recovery evidence; see the
-[current NM-3 boundaries](new-moon-acceptance.md#current-nm-3-distribution-status).
+[support limits](limitations.md).
 Windows prerequisites were already installed and retained Docker resources were
 preserved. Native Windows redacted export keeps its documented Windows 11 24H2+
 and fixed-local-NTFS boundary; native Linux controlled execution requires its
@@ -57,7 +57,7 @@ without changing any checkout: Map and Runner in fresh virtual environments from
 | Distribution scripts | Unit tests on `windows-latest` in CI; native certificate-store enrollment on Windows and macOS | `Compose acceptance` and `Native certificate trust` |
 | Map + Runner + Gate loopback acceptance (`scripts/integration/run.py`) | 104 checks pass with the companions Map CI pins (Runner `e8bc306`, Gate `af29a93`) on SQLite | Linux only (CI) |
 
-Limitations of that 2026-10-31 observation (later integrated evidence is in the ledger):
+Limitations of that 2026-10-31 observation (later container support is summarized above):
 
 - The loopback acceptance failed against then-current Runner 0.54.0 and Gate 0.2.0 on every
   operating system, because its harness does not approve Runner's new credential references
@@ -71,11 +71,12 @@ Limitations of that 2026-10-31 observation (later integrated evidence is in the 
 
 ## Future work (planning direction, not commitments)
 
-- **Community Alpha v0.1.0:** Ubuntu source-built Docker Compose distribution.
+- **Community Alpha:** Windows 11 Docker Desktop is primary; Ubuntu 24.04/amd64
+  source-built Compose remains required. Neither is a published release.
 - **New Moon:** NM-3 Windows 11 Docker Desktop and Ubuntu source-built distribution
   acceptance is closed. Keep native component execution for justified host/VPN/keychain needs;
   integrated native deployment, genuine VPN behavior and prerequisite provisioning
   remain unqualified.
 - **Later:** evaluate macOS; consider prebuilt container images and simplified installers
-  after the licensing and security requirements in the
-  [release checklist](community-alpha-release.md) are met.
+  after the [licensing review](release-license-inventory.md) and
+  [security and support requirements](limitations.md) are resolved.

@@ -397,9 +397,8 @@ Use the [backup and restore commands](recovery.md) to create a portable snapshot
 and verify it in a separate installation before any controlled upgrade. Restored
 applications remain stopped until credential review and explicit startup.
 
-The [New Moon ledger](new-moon-acceptance.md) records current installation and
-recovery evidence. Windows 11 with Docker Desktop is the primary Community
+Windows 11 with Docker Desktop is the primary Community
 target; Linux compatibility remains required. Older Ubuntu-first checkpoints
 are historical. Certificate lifetime coverage, broader tool/network modes and
-real VPN retain their recorded limitations in [acceptance](acceptance.md).
+real VPN retain their documented [support limits](limitations.md).
 No image or release is published here.

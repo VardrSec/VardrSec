@@ -54,5 +54,5 @@ collected URLs; configured provider API credentials could also be exposed. These
 are implications of disabled verification, not evidence that an actual engagement
 or credential was compromised. Runtime confirmation here covers the named
 Linux/amd64 binaries and controlled provider, not every provider/platform mode.
-Keep the [alpha security task](community-alpha.md) open and retain the raw image
+Keep the alpha security task open and retain the raw image
 findings independently of this behavioral finding.

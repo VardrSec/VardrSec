@@ -6,6 +6,12 @@ This records the existing licenses, not a compatibility opinion,
 permission to publish, or substitute for the actual license texts. Source-built
 packaging is a proposal, not an exemption from license conditions.
 
+This inventory applies to the historical revisions below. It does not clear
+the component set currently selected by `versions.json`; transitive review and
+artifact notice/source delivery remain open. Use [source notices](source-notices.md)
+to collect the current exact-pin top-level notices without treating them as
+complete corresponding source.
+
 ## Reviewed inputs
 
 Distribution `bc865d2d448f4d80738738a91c7f332d8aa6bfaa`; exact component pins:
@@ -156,4 +162,4 @@ Zero security findings would not close these licensing tasks.
    artifacts. This inventory and its links are not that complete delivery bundle.
 5. Freeze the candidate, refresh evidence, and approve the packaging/publication
    decision explicitly. Security dispositions and unfamiliar-user testing remain
-   separate open gates in the [release checklist](community-alpha-release.md).
+   separate open gates in the release checklist.
