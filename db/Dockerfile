@@ -16,5 +16,9 @@ RUN apt-get update \
     && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libapt-pkg7.0)" ge 3.0.4 \
     && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' zlib1g)" ge '1:1.3.dfsg+really1.3.1-1+deb13u1' \
     && rm -rf /var/lib/apt/lists/*
+# These base-image package acquisition tools are not needed by the database
+# entrypoint or server. Keep apt's signature verifier; do not autoremove.
+RUN apt-get purge -y --no-auto-remove \
+    dirmngr gnupg gnupg-l10n gpg gpg-agent gpgconf gpgsm
 COPY --from=gosu /go/bin/gosu /usr/local/bin/gosu
 RUN gosu --version && gosu nobody true

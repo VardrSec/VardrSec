@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Remove unused GnuPG package-acquisition tools from the database runtime image,
+  preserving PostgreSQL, apt signature verification and existing privileges.
+
 - Verify optional component source archives against every tracked Git blob;
   refuse omitted/altered files and unsupported LFS/submodule payloads before
   recording a completed delivery manifest.
