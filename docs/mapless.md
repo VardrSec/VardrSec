@@ -95,7 +95,7 @@ Gate authorization. No background execution is enabled.
 
 ### Review a local Recon candidate
 
-With the NM-4 compatibility cohort, derive review-only Gate cases from an existing
+Derive review-only Gate cases from an existing
 successful finite Recon run through the same Docker Runner and export transfer:
 
 ```sh
@@ -113,7 +113,7 @@ authorize the new case.
 
 ### Optional local assistant metadata
 
-The NM-4 toolkit includes the already-declared optional MCP SDK. Configure an MCP
+The toolkit includes the optional MCP SDK. Configure an MCP
 client to launch the canonical Python entrypoint directly with raw stdio:
 
 ```sh
@@ -184,5 +184,5 @@ This path supports the fixed HTTP Gate assessment and explicit finite Recon
 profile described above. The older Recon projection remains dormant; execution
 requires the separately compiled profile and verified managed tool bytes.
 C09 sleep acceptance, broader Recon,
-independent benchmarks and release acceptance remain separate roadmap gates;
+independent benchmarks and release acceptance remain separate release requirements;
 these are not silently accepted or removed.

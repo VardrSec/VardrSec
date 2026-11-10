@@ -1,1 +1,0 @@
-{"acceptance_credit":false,"cleanup":{"cause":"unknown","empty_builtin_bridge_id_change_count":1,"owned_container_count":6,"status":"stopped_retained_inventory_checked"},"failure":{"reason":"idle_status_refused","stage":"idle_control_observation"},"nm2_exit_status":"incomplete","schema":"vardr.nm2-desktop-idle-held-public/1","status":"held"}

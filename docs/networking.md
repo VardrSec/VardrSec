@@ -9,7 +9,7 @@ platform reach the target without the platform's help?*
 
 | Situation | Status |
 | --- | --- |
-| Container Runner reaches a synthetic service on the Compose network, a shared private namespace, or the host through `host.docker.internal` | Verified by the [tool and network acceptance](tool-network-acceptance.md) on Ubuntu 22.04/24.04 |
+| Container Runner reaches a synthetic service on the Compose network, a shared private namespace, or the host through `host.docker.internal` | Verified by the tool and network acceptance on Ubuntu 22.04/24.04 |
 | Native Runner on the host talking to the Compose-hosted Map over trusted HTTPS | Covered by the [installation](installation.md) and trust acceptance |
 | Container Runner reaching a target **through a host VPN** | **Not verified.** Behavior depends on the VPN client, its routing mode and any kill-switch or firewall rules |
 | Split tunnelling, DNS policy, reconnect and kill-switch behavior | **Not verified** |

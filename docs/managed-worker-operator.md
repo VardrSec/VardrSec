@@ -1,6 +1,6 @@
 # Prepared managed-worker controls
 
-## Explicit launch candidate
+## Explicit launch
 
 `python vardrsec.py worker launch` selects one worker in the existing Full
 installation. It uses the same API, enrollment, Runner ID, owner login and
@@ -17,8 +17,8 @@ The launch config is a JSON object with `docker`, `docker_sha256`, `compose`,
 `core_images` and `source`. Use absolute local paths and the existing
 Docker context. The override contains only external `runner` network and
 `runner-state` volume mappings. `core_images` maps api, db, proxy and web
-to their reviewed full image IDs. `source` follows the source bindings in
-[the lifecycle ADR](adr/0006-host-lifecycle-intent-storage.md). Use the
+to their reviewed full image IDs. Preserve the exact `source` binding generated
+by worker preparation. Use the
 raw override SHA-256, the normalized worker model SHA-256, and the canonical
 JSON digests of `core_images` and of the object containing
 `credential_names` and `https_port`.
@@ -34,29 +34,17 @@ physically exited, retired in Map, and locally reconciled. A held result
 preserves the resources and durable intent for inspection. Follow the
 original report and reconciliation flow for an admitted worker.
 
-The opt-in `persistent-launch-empty` CI case verifies first and next launch
-in one Full installation. The same installed fixture accepts an explicitly
-selected Compose 5.6.1 binary and local Docker context on Docker Desktop.
-It retains both exact exited containers and checks zero issued jobs, physical
-stop, Map retirement and local Runner audit for each. This slice is separate
-from the required completed-job, cancellation and containment checks.
-The opt-in `persistent-launch-completed` case runs one approved local fixture
-job, checks its result evidence, retires and reconciles the first worker,
-then verifies that the next worker joins that exact retired audit.
-
 ## Admission of a prepared worker
 
-This is a default-disabled NM-2 development candidate. The retained one-attempt
-Desktop slice passed; current v2 Desktop/Linux acceptance remains open. Ordinary
-installation, Full/Mapless startup and manual
-Runner commands retain their behavior. This command does not build, start or
-automatically restart a container.
+Managed admission is disabled by default. Ordinary installation, Full/Mapless
+startup and manual Runner commands retain their behavior. Admission does not
+build, start or automatically restart a container.
 
-The normal CLI protocol now selects `persistent-v3`, whose source and component
-tests are development candidates. The owner approved STOP reporting until
-revocation or physical retirement for isolated testing on 2026-11-06; see
-[the implementation contract](nm2-persistent-worker-contract.md).
-No persistent deployment or NM-2 closeout is claimed.
+The normal CLI protocol selects `persistent-v3`; legacy and finite protocols
+must be chosen explicitly. Availability continues until explicit operator stop.
+STOP reporting ends on revocation or physical retirement. Its trusted host can
+falsely report exit, so protect host custody and preserve physical-exit checks.
+
 Every job retains fresh finite authorization, grant, budget, lease and result
 checks; persistent idle availability grants no execution permission.
 
@@ -66,7 +54,7 @@ key, public Runner trust, local grants and human-signed job approval. Map needs
 its explicit managed configuration and matching schema: persistent-v3 requires
 `0041persistentruntime`; finite v1/v2 retain their versioned migration boundaries.
 Private approval keys stay outside Map/Runner; the host STOP secret uses native
-host custody. See [host boundaries](nm2-worker-host-observation.md) and
+host custody. See host boundaries and
 [local managed setup](local-managed-setup.md).
 
 The worker's startup wait is finite. Start its explicitly selected profile only
