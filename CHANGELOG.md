@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Remove unused GnuPG package-acquisition tools from the database runtime image,
+  preserving PostgreSQL, apt signature verification and existing privileges.
+
 - Provide separate source-built Full and Mapless installations on Windows 11
   Docker Desktop and Ubuntu 24.04/amd64, with explicit mode selection.
 - Connect reviewed Gate jobs to separately enabled managed workers. Normal
