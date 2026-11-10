@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Verify optional component source archives against every tracked Git blob;
+  refuse omitted/altered files and unsupported LFS/submodule payloads before
+  recording a completed delivery manifest.
+
 - Provide separate source-built Full and Mapless installations on Windows 11
   Docker Desktop and Ubuntu 24.04/amd64, with explicit mode selection.
 - Connect reviewed Gate jobs to separately enabled managed workers. Normal

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tarfile
 
 
 REPOSITORIES = {
@@ -100,6 +101,55 @@ def blobs(repo, entries):
     if position != len(raw):
         raise ValueError("Unexpected notice Git object data")
     return output
+
+
+def verify_source_archive(repo, tree, name, archive):
+    """Require every tracked blob, unchanged; a pointer is not delivered source."""
+    expected = {}
+    for entry in git(repo, "ls-tree", "-r", "-z", tree).split(b"\0"):
+        if not entry:
+            continue
+        header, path = entry.split(b"\t", 1)
+        mode, kind, oid = header.decode("ascii").split()
+        if kind != "blob" or mode not in ("100644", "100755", "120000"):
+            raise ValueError("Source archives require separately delivered submodules")
+        expected[name + "/" + path.decode("utf-8")] = (mode, oid)
+    observed = set()
+    with tarfile.open(archive, "r:") as source:
+        for member in source:
+            if member.isdir():
+                continue
+            if member.name not in expected or member.name in observed:
+                raise ValueError("Unexpected or duplicate source archive member")
+            mode, oid = expected[member.name]
+            if mode == "120000":
+                if not member.issym():
+                    raise ValueError("Source archive symlink mismatch")
+                data = member.linkname.encode("utf-8")
+                digest = hashlib.sha1(
+                    b"blob " + str(len(data)).encode("ascii") + b"\0" + data,
+                    usedforsecurity=False,
+                )
+            else:
+                if not member.isfile() or bool(member.mode & 0o111) != (mode == "100755"):
+                    raise ValueError("Source archive file mode mismatch")
+                digest = hashlib.sha1(
+                    b"blob " + str(member.size).encode("ascii") + b"\0",
+                    usedforsecurity=False,
+                )
+                with source.extractfile(member) as contents:
+                    first = True
+                    while chunk := contents.read(1024 * 1024):
+                        if first and chunk.startswith(b"version https://git-lfs.github.com/spec/v1\n"):
+                            raise ValueError("Source archives require separately delivered LFS payloads")
+                        first = False
+                        digest.update(chunk)
+            if digest.hexdigest() != oid:
+                raise ValueError("Source archive Git blob mismatch")
+            observed.add(member.name)
+    if observed != set(expected):
+        raise ValueError("Source archive omits tracked files; inspect export attributes")
+    return len(observed)
 
 
 def assemble(root, destination, repositories, *, include_sources=False):
@@ -200,8 +250,8 @@ def assemble(root, destination, repositories, *, include_sources=False):
             output.write(data)
     if include_sources:
         manifest["scope"] = (
-            "Top-level notices and Git tree archives; export attributes may exclude files. "
-            "No submodule/LFS hydration, dependencies, generated build inputs, source offer or compliance assertion"
+            "Top-level notices and verified complete tracked-blob Git tree archives. "
+            "No dependencies, external/generated build inputs, source offer or compliance assertion"
         )
         for name, component in components.items():
             archive = destination / name / "source.tar"
@@ -214,6 +264,9 @@ def assemble(root, destination, repositories, *, include_sources=False):
                     component["tree"],
                     output=output,
                 )
+            tracked_files = verify_source_archive(
+                locations[name], component["tree"], name, archive
+            )
             digest, size = hashlib.sha256(), 0
             with archive.open("rb") as source:
                 while chunk := source.read(1024 * 1024):
@@ -224,8 +277,10 @@ def assemble(root, destination, repositories, *, include_sources=False):
                 "format": "git_archive_tar_tree",
                 "sha256": digest.hexdigest(),
                 "bytes": size,
+                "tracked_files": tracked_files,
+                "tracked_blobs_verified": True,
                 "source_url": f"https://github.com/{component['repository']}/tree/{component['commit']}",
-                "limitations": "Export attributes apply; submodule contents and LFS payloads are not included; no completeness assertion",
+                "limitations": "Complete tracked blobs only; external dependencies and generated build inputs are not included; no corresponding-source compliance assertion",
             }
     encoded = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
     with (destination / "manifest.json").open("xb") as output:
@@ -258,7 +313,7 @@ def main(argv, *, root):
             {name: getattr(args, name + "_repo") for name in REPOSITORIES},
             include_sources=args.include_sources,
         )
-    except (OSError, KeyError, TypeError, UnicodeError, ValueError):
+    except (OSError, KeyError, TypeError, UnicodeError, ValueError, tarfile.TarError):
         raise ValueError(
             "Cannot collect pinned notices; check local Git objects and use a new output directory. No sources were fetched"
         ) from None

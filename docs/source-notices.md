@@ -38,14 +38,21 @@ from the exact reviewed release candidate before artifact delivery.
 Add `--include-sources` to collect `COMPONENT/source.tar` for the distribution
 and each pinned component. Each archive is streamed from the exact committed Git
 tree, without checkout filters or untracked/modified files. Its manifest entry
-records byte length, SHA-256, format and a source reference beside the existing
-commit and tree IDs. Notice-only output remains the default.
+records byte length, SHA-256, format, verified tracked-file count and a source
+reference beside the existing commit and tree IDs. Notice-only output remains
+the default.
 
-These are standard Git archives: export attributes may exclude files; tree-based
-archives do not substitute commit metadata with `export-subst`. Local repository
-export attributes can also affect the archive. Submodule contents and Git LFS
-payloads are not hydrated; LFS pointers may be present. Dependencies, generated
-files, external build inputs and tool/base-image sources are not assembled.
+These are standard Git archives, checked against every tracked Git blob before
+the completed manifest is written. Missing, duplicate, altered or wrong-type
+members refuse completion, as do changed executable bits. Committed or local
+export attributes that omit a file therefore cause refusal rather than a
+successful incomplete delivery. Tree-based archives do not substitute commit
+metadata with `export-subst`.
+
+Submodules and Git LFS pointers require separately delivered source and refuse
+this archive mode; they are not silently represented as complete payloads.
+Dependencies, generated files, external build inputs and tool/base-image sources
+are not assembled.
 Archives are not extracted by this command. This option therefore does not
 establish complete corresponding source, reproducible builds or fulfillment of
 source-delivery obligations. Review the archive and remaining delivery scope
