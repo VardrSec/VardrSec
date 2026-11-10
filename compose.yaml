@@ -47,6 +47,7 @@ services:
       context: ${MAP_SOURCE:-./.sources/map}/frontend
       args:
         NEXT_PUBLIC_API_URL: https://localhost:${HTTPS_PORT:-8443}/backend
+        NEXT_PUBLIC_VARDRMAP_REVISION: ${VARDRMAP_SOURCE_REVISION:-}
     environment:
       VARDRMAP_AUTH_METHODS: local
       AUTH_SECRET: ${AUTH_SECRET:?Run configuration setup first}

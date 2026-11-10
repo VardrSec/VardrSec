@@ -78,9 +78,41 @@ def compose(*args, **kwargs):
     return run("docker", "compose", *flags, *args, **kwargs)
 
 
+def map_source_revision():
+    """Attribute only a clean managed Map checkout used by the resolved build."""
+    try:
+        model = json.loads(compose("config", "--format", "json", capture_output=True,
+                                   text=True).stdout)
+        source = ROOT / ".sources" / "map"
+        build = model["services"]["web"]["build"]
+        context = build["context"]
+        if Path(context).resolve() != (source / "frontend").resolve():
+            return ""
+        if (build.get("dockerfile", "Dockerfile") != "Dockerfile"
+                or build.get("dockerfile_inline") or build.get("additional_contexts")):
+            return ""
+        for path in (source.parent, source, source / "frontend", source / ".git"):
+            _refuse_source_link(path)
+        if not (source / ".git").is_dir():
+            return ""
+        _require_source_git_binding(source)
+        item = json.loads((ROOT / "versions.json").read_text(encoding="utf-8"))["components"]["map"]
+        revision = item["commit"]
+        if item["repository"] != "VardrSec/VardrMap" or not re.fullmatch("[0-9a-f]{40}", revision):
+            return ""
+        head = run("git", "-C", str(source), "rev-parse", "HEAD", capture_output=True, text=True).stdout.strip()
+        dirty = run("git", "-C", str(source), "status", "--porcelain", "--untracked-files=all", "--ignored",
+                    capture_output=True, text=True).stdout.strip()
+        return revision if head == revision and not dirty else ""
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        # Custom or unverifiable builds retain the explicitly labeled repository
+        # link. Never display configuration output: it may contain credentials.
+        return ""
+
+
 # Exact shipped Full model, normalized for checkout line endings. Updating the
 # model requires reviewing this fresh-install boundary alongside its tests.
-STANDARD_FULL_SHA256 = "f37b23086000958ca23e1244109457f7fd5949dd9fb5bacfc601b4d51c967d0b"
+STANDARD_FULL_SHA256 = "5e747c413208170125cbdfd1109e64ecca282558092cab31631da34ea8752fda"
 STANDARD_MAPLESS_SHA256 = "80653a1435ab148ec6943a4145e0a0d52675a51a3f2eef245c95100cfc921e6f"
 
 
@@ -805,7 +837,10 @@ def dispatch(args, parser):
         if mapless and os.path.lexists(ROOT / ".active-images.mapless.json"):
             raise ValueError("Mapless images are frozen; build in a separate workspace and use the controlled updater")
         build_prerequisites()
-        compose("--profile", "tools", "build")
+        environment = dict(os.environ)
+        if not mapless:
+            environment["VARDRMAP_SOURCE_REVISION"] = map_source_revision()
+        compose("--profile", "tools", "build", env=environment)
     elif args.action == "database-role":
         import database_roles
 

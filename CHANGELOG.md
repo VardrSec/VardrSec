@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Attribute the Full web source link to its pinned revision only when the actual
+  build context is the clean managed Map checkout; custom builds keep a
+  repository link without claiming an exact revision.
+
 - Remove unused GnuPG package-acquisition tools from the database runtime image,
   preserving PostgreSQL, apt signature verification and existing privileges.
 

@@ -18,6 +18,36 @@ import source_notices
 
 
 class SourceGitBindingTests(unittest.TestCase):
+    def test_map_revision_requires_actual_clean_pinned_build_context(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            template = root / "template"
+            template.mkdir()
+            source = root / ".sources" / "map"
+            git = self.local_repository(source, template)
+            (source / "frontend").mkdir()
+            (source / "frontend" / "Dockerfile").write_text("FROM scratch\n")
+            (source / ".gitignore").write_text(".env.local\n")
+            for arguments in (("add", "."), ("-c", "user.name=Fixture", "-c",
+                              "user.email=fixture@example.invalid", "commit", "-m", "fixture")):
+                subprocess.run([git, "-C", str(source), *arguments], check=True, capture_output=True)
+            revision = source_notices.revision(source, "HEAD^{commit}")
+            (root / "versions.json").write_text(json.dumps({"components": {"map": {
+                "repository": "VardrSec/VardrMap", "commit": revision}}}))
+            build = {"context": str(source / "frontend")}
+            def model(*args, **kwargs):
+                return subprocess.CompletedProcess([], 0, stdout=json.dumps({"services": {"web": {"build": build}}}))
+            with patch.object(vardrsec, "ROOT", root), patch.object(vardrsec, "compose", side_effect=model):
+                self.assertEqual(vardrsec.map_source_revision(), revision)
+                (source / ".env.local").write_text("synthetic local build input")
+                self.assertEqual(vardrsec.map_source_revision(), "")
+                (source / ".env.local").unlink()
+                build["context"] = str(root / "custom")
+                self.assertEqual(vardrsec.map_source_revision(), "")
+                build["context"] = str(source / "frontend")
+                build["dockerfile_inline"] = "FROM scratch"
+                self.assertEqual(vardrsec.map_source_revision(), "")
+
     def test_notices_use_pinned_blobs_and_preserve_existing_output(self):
         with tempfile.TemporaryDirectory(prefix="vardr-notices-") as directory:
             root = Path(directory).resolve()

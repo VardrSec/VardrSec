@@ -58,3 +58,13 @@ establish complete corresponding source, reproducible builds or fulfillment of
 source-delivery obligations. Review the archive and remaining delivery scope
 before redistribution. Missing objects or archive failure leave no completed
 manifest; retain partial output and use a new destination.
+
+## Full web source attribution
+
+The standard Full build supplies the Map source revision to the web image only
+when its resolved build context is the clean, pinned managed checkout, including
+the absence of ignored local build inputs. Custom contexts, alternate Dockerfiles
+and unverifiable checkouts receive no exact-revision attribution. Map versions
+that support the source link then identify the repository instead. This metadata
+does not establish reproducible builds or complete corresponding-source delivery.
+Mapless does not build or attribute a Map web image.
