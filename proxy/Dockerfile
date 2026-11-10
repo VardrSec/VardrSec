@@ -19,3 +19,5 @@ COPY --from=build /out/caddy /usr/bin/caddy
 RUN apk upgrade --no-cache && apk add --no-cache curl \
     && setcap cap_net_bind_service=+ep /usr/bin/caddy
 COPY --from=build /out/caddy-notices/ /usr/share/licenses/caddy/
+
+COPY LICENSE NOTICE /usr/share/licenses/vardrsec/

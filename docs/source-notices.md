@@ -63,5 +63,6 @@ manifest; retain partial output and use a new destination.
 
 The proxy retains Caddy's license and available upstream notice at
 `/usr/share/licenses/caddy/`. The database retains gosu's equivalent files at
-`/usr/share/licenses/gosu/`. These copies accompany the rebuilt binaries; they
+`/usr/share/licenses/gosu/`. The proxy also retains the distribution wrapper's
+unchanged license and notice at `/usr/share/licenses/vardrsec/`. These copies accompany the rebuilt binaries; they
 do not replace dependency notices or complete corresponding-source delivery.
