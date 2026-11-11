@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Backport the maintained util-linux mount/descriptor security fixes and their
+  header/flag follow-ups, retaining the Trixie ABI and corresponding source.
+
+- Bound database Archive::Tar entry allocation using the upstream security fix,
+  with guarded original/modified source and license delivery.
+
+- Backport the upstream infocmp analysis bound to the existing Trixie ncurses
+  source; retain original/modified source without replacing runtime libraries.
+
+- Rebuild SQLite 3.54.1 on the existing runtime platform and retain matching
+  source materials; ship the reviewed original Go module source collection.
+
+
 ## [0.1.0-dev.1] — source snapshot prepared
 
 This version identifies the development source snapshot, not a published release.
