@@ -87,3 +87,8 @@ and retains Runner's per-tool source manifests and patch/source archives for
 independent review. This separate artifact includes source/package metadata,
 unlike the narrow notice collector. It is not a whole-filesystem export or
 proof that all transitive corresponding source is complete.
+
+The native hash allowlist also covers versioned `libxml2` and `libpcap` shared
+library payloads under `/usr/lib` (including multiarch directories). These are
+hash-only entries for comparison to source-build/regression receipts; links
+remain explicitly unresolved and are never followed by the collector.

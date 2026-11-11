@@ -142,3 +142,20 @@ Unresolved: unvendored librsvg Rust crates (`cargo update --workspace`), mutable
 upstream patch/notice inputs, full toolchain/relinking materials and reproducible
 native builds. The selected final-image native byte comparison is documented
 in `release-license-review-2026-11-11.md`; it does not close these source gaps.
+
+### Linux native recipe inputs captured
+
+The follow-up bundle retains PostgreSQL 18.6, OpenSSL 3.5.8 and OpenLDAP 2.6.14
+sources, 22 legal texts, recipe modifications and static ELF evidence; SHA-256
+`1020e7c70f06e1c7270f90dc1958d03996aff323346e8e5d72d0f4e7d90df777`.
+See `map-psycopg-native-inputs-2026-11-11.json` for capture provenance and scope.
+Static `PQlibVersion` and LDAP vendor-version constants confirm 180006 and
+20614; OpenSSL embeds 3.5.8. OpenLDAP's detached signature verified with the key
+linked from its official HTTPS download page; this is not an independent
+web-of-trust certification. No wheel library was loaded or executed.
+
+These inputs nominally cover five of 15 native files, with libpq recipe edits
+retained; source-to-binary reproduction is still unproven. Ten distro-derived
+files need exact source-RPM release/patch mapping, including Linux Kerberos
+1.15.1. Clean upstream sources cannot stand in for unknown distro patches.
+Neither this capture nor retained license texts establishes legal clearance.

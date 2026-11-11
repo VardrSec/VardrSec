@@ -66,7 +66,7 @@ the fresh CI image evidence rather than this local result.
 ## Candidate integration boundary
 
 This branch selects Runner PR #134 commit
-`c7ac178223d2e88d0bf6227cbf9e76a18ccf01a9` for integration verification, with
+`e19ed1ff14a301e7b52647112ad38a7184bb1846` for integration verification, with
 Go 1.27.4, brotli 1.2.7 and compress 1.20.2 source overrides. It also selects
 already-merged Gate `7f610397335c75414d9a47ebabf0c4aab380e14b`, including its
 Go 1.27.4 fix. These are candidate source pins, not release approval.
@@ -84,3 +84,28 @@ binary SHA-256 was
 This local candidate evidence does not replace the pending integrated image scan.
 The original old-SDK full-suite failures were reproduced without the backport
 and are documented in Runner's backport review; no crypto policy was weakened.
+
+## Focused entity-amplification regression
+
+The exact retained Debian baseline and VardrSec-patched sources were compiled
+in an isolated Linux workspace with the same local flags. A bounded internal
+entity fixture expands to 20,736,000 bytes; an ordinary control expands to
+100,000 bytes. The patched source accepts the control and rejects excessive
+amplification both with and without `XML_PARSE_HUGE`. The baseline accepts the
+excessive case with `XML_PARSE_HUGE`, so this is a differentiating regression,
+not merely a smoke check that both revisions pass. No external entities or
+network targets are used; runs have 256 MiB address-space, 8-second CPU and
+12-second wall-clock limits.
+
+`db/libxml2-entity-regression.c` now runs during the package build against the
+actual stripped library extracted from the produced Debian package. The build
+retains its verdict and library hash with corresponding source. The runtime
+notice collector also hashes installed libxml2/libpcap payloads so these can be
+matched to the relevant build receipts. Fresh CI receipts are required before
+claiming these checks passed in an image. This tests the entity-amplification
+backport only, not every libxml2 CVE, independent binary reproducibility or a
+scanner waiver. Raw vulnerability gates remain unchanged.
+
+The advisory's use-after-free in `xmlParseInternalSubset` is not directly
+reproduced by this amplification fixture. The check establishes behavior of
+the retained backport, not comprehensive memory-safety coverage of that CVE.

@@ -52,6 +52,16 @@ class RuntimeNoticeTests(unittest.TestCase):
         self.assertNotIn(b'native-code', files.values())
         self.assertNotIn(b'private', files.values())
 
+    def test_modified_native_package_payloads_are_hashed_not_retained(self):
+        names = ['usr/lib/x86_64-linux-gnu/libxml2.so.2.9.14',
+                 'usr/lib/x86_64-linux-gnu/libpcap.so.1.10.7']
+        m, files = collect([(name, b'payload') for name in names] +
+                           [('usr/lib/other.so.1.2', b'not-selected')])
+        self.assertEqual(m['native_file_count'], 2)
+        self.assertEqual({entry['path'] for entry in m['native_files']}, set(names))
+        self.assertNotIn(b'payload', files.values())
+        self.assertNotIn(b'not-selected', files.values())
+
     def test_site_packages_legal_text_and_root_app_license(self):
         m, _ = collect([('usr/local/lib/python3.12/site-packages/foo-1.dist-info/licenses/LICENSE', b'text'),
                         ('app/LICENSE', b'AGPL')])

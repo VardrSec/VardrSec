@@ -35,6 +35,27 @@ sha256sum SAX2.c parser.c entities.c dict.c valid.c xpointer.c xmlIO.c xinclude.
 sha256sum debian/patches/series debian/patches/vardr-*.patch > /out/source/evidence/patch-SHA256SUMS
 # Retain the ordinary Debian packaging and exported-symbol checks.
 dpkg-buildpackage -us -uc -B --build-profiles=nopython >> /tmp/package-build.log 2>&1 || { tail -n 70 /tmp/package-build.log; exit 1; }
+# Exercise the actual stripped package payload, not the host libxml2. This
+# bounded offline regression must accept ordinary entities and reject excessive
+# amplification both with and without XML_PARSE_HUGE. No external I/O occurs.
+regression_payload=$(mktemp -d)
+for package in ../libxml2_*_*.deb; do
+    dpkg-deb -x "$package" "$regression_payload"
+done
+regression_library=$(find "$regression_payload/usr/lib" -type f -name 'libxml2.so.2*')
+test -n "$regression_library"
+test "$(printf '%s\n' "$regression_library" | wc -l)" -eq 1
+regression_libdir=$(dirname "$regression_library")
+cc -Wall -Wextra -Werror -Iinclude /build/libxml2-entity-regression.c \
+    "$regression_library" -o /tmp/libxml2-entity-regression
+(ulimit -c 0; ulimit -v 262144; ulimit -t 8
+ LD_LIBRARY_PATH="$regression_libdir" timeout 12s /tmp/libxml2-entity-regression) \
+    > /out/source/evidence/entity-amplification-regression.txt 2>&1 || {
+    cat /out/source/evidence/entity-amplification-regression.txt; exit 1;
+}
+(cd "$regression_payload" && find usr/lib -type f -name 'libxml2.so.2*' -exec sha256sum {} \;) \
+    > /out/source/evidence/entity-regression-library-SHA256SUMS
+cp /build/libxml2-entity-regression.c /out/source/evidence/
 debian/rules clean >> /tmp/package-build.log 2>&1
 dpkg-source --build . >> /tmp/package-build.log 2>&1
 cp ../libxml2_*_*.deb /out/packages/
@@ -59,7 +80,9 @@ The applied patch ledger and patched file hashes identify the source compiled.
 The package and payload hashes identify the exact binary packages produced.
 The full packaging log and environment inventory are retained for review.
 Debian packaging success is NOT proof that every upstream regression ran.
-No targeted CVE regression or independently reproducible binary claim is made.
+The bounded entity-amplification regression tests the exact stripped package
+library, with ordinary-entity controls and XML_PARSE_HUGE on/off. This does not
+cover every CVE regression or independently reproducible binaries.
 No scanner suppression, vulnerability exception or release approval is granted.
 EOF
 cd /out/source

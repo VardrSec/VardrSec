@@ -25,7 +25,8 @@ LEGAL_NAME = re.compile(r'(?:licen[cs]e|copying|notice|copyright)(?:[._-][a-z0-9
 PYTHON_SITE = re.compile(r'^usr/local/lib/python3\.[0-9]+/site-packages/')
 NATIVE = re.compile(
     r'^(?:usr/local/lib/python3\.[0-9]+/site-packages/psycopg_binary\.libs/[^/]+\.so(?:\.[^/]+)*'
-    r'|app/node_modules/@img/sharp-libvips-linux-x64/lib/libvips-cpp\.so(?:\.[^/]+)*)$')
+    r'|app/node_modules/@img/sharp-libvips-linux-x64/lib/libvips-cpp\.so(?:\.[^/]+)*'
+    r'|usr/lib/(?:[a-z0-9_-]+/)?lib(?:xml2|pcap)\.so\.[0-9.]+)$')
 
 
 def path_name(raw):

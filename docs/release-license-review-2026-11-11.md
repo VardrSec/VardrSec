@@ -126,3 +126,22 @@ not source completeness, whole-wheel identity, legal compatibility or release
 clearance. That older collector omitted generated Go-license/provenance names;
 the current collector includes them, with fresh candidate evidence still needed.
 The full OS and linked-module notice/source reconciliation remains open.
+
+## Linked Go module reconciliation
+
+A follow-up on exact `58f210c` image evidence matched 1,218 linked-module
+occurrences in 11 Go binaries against retained notices in the same image,
+rather than treating module-cache inventory as linkage proof. Nine binaries
+had raw build metadata; Gate/proxy used exact-image scanner GoBinary inventory.
+Eight module/version occurrences lacked matched retained notices. Seven have
+license files in their checksum-verified official module archives; Censys SDK
+v0.19.1's module archive has no conventional license file and remains unresolved.
+Nuclei's local source replacement was identified from its retained original
+source and BSD license, not guessed from its local filesystem replacement path.
+
+The next Runner candidate fixes the omitted `LICENCE` filename spelling and
+retains Gate's dependency notice archive and exact module metadata alongside its
+binary. Fresh actual-image evidence must confirm that these changes close the
+seven identified delivery gaps; collecting supplemental files alone is not
+proof that they shipped or that terms are satisfied. No license compatibility
+or source-completeness waiver is implied by the linkage inventory.

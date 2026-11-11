@@ -1,0 +1,624 @@
+{
+  "release_clearance": false,
+  "sources": [
+    {
+      "name": "postgresql",
+      "version": "18.6",
+      "url": "https://github.com/postgres/postgres/archive/REL_18_6.tar.gz",
+      "scope": "exact recipe source input; source-to-binary reproduction not established",
+      "resolved_url": "https://codeload.github.com/postgres/postgres/tar.gz/refs/tags/REL_18_6",
+      "status": "captured",
+      "file": "postgresql-18.6.tar.gz",
+      "sha256": "ff9b1187e3ab120282b9f3e09a5efba2425838b3a843150c5cb2f019f47ac400",
+      "size": 29996378,
+      "legal_files": [
+        {
+          "source_member": "postgres-REL_18_6/COPYRIGHT",
+          "file": "notices/postgresql/postgres-REL_18_6/COPYRIGHT",
+          "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd"
+        },
+        {
+          "source_member": "postgres-REL_18_6/src/backend/jit/llvm/SectionMemoryManager.LICENSE",
+          "file": "notices/postgresql/postgres-REL_18_6/src/backend/jit/llvm/SectionMemoryManager.LICENSE",
+          "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee"
+        },
+        {
+          "source_member": "postgres-REL_18_6/src/backend/regex/COPYRIGHT",
+          "file": "notices/postgresql/postgres-REL_18_6/src/backend/regex/COPYRIGHT",
+          "sha256": "5027cfe4f54842896b01ca6be28becc9a018623aaadc0f5b51350da71118cb0e"
+        },
+        {
+          "source_member": "postgres-REL_18_6/src/tools/copyright.pl",
+          "file": "notices/postgresql/postgres-REL_18_6/src/tools/copyright.pl",
+          "sha256": "9c3682a8fe827a303da44a00cd2f7c48907df273ee917957c517a2d35d5070be"
+        }
+      ],
+      "upstream_tag": "REL_18_6",
+      "upstream_commit": "724edf9bde9d356724ad384a2e196edc3c9f80f7",
+      "captured_hashes_reverified": true
+    },
+    {
+      "name": "openssl",
+      "version": "3.5.8",
+      "url": "https://github.com/openssl/openssl/archive/openssl-3.5.8.tar.gz",
+      "scope": "exact recipe source input; source-to-binary reproduction not established",
+      "resolved_url": "https://codeload.github.com/openssl/openssl/tar.gz/refs/tags/openssl-3.5.8",
+      "status": "captured",
+      "file": "openssl-3.5.8.tar.gz",
+      "sha256": "59f86483992995df5a213df38d93f31eeafe3b34599309b3e088ba67ca0aad9c",
+      "size": 53396153,
+      "legal_files": [
+        {
+          "source_member": "openssl-openssl-3.5.8/AUTHORS.md",
+          "file": "notices/openssl/openssl-openssl-3.5.8/AUTHORS.md",
+          "sha256": "b9f638dfc06b59c2d3b808186c3b30f713805a5db390f5b77b1703ac58acb83e"
+        },
+        {
+          "source_member": "openssl-openssl-3.5.8/LICENSE.txt",
+          "file": "notices/openssl/openssl-openssl-3.5.8/LICENSE.txt",
+          "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+        },
+        {
+          "source_member": "openssl-openssl-3.5.8/external/perl/Text-Template-1.56/LICENSE",
+          "file": "notices/openssl/openssl-openssl-3.5.8/external/perl/Text-Template-1.56/LICENSE",
+          "sha256": "9837f05336ef3cbacb6a96e1672a0426d81ad01191f214b8d48e22ca62338181"
+        },
+        {
+          "source_member": "openssl-openssl-3.5.8/util/perl/OpenSSL/copyright.pm",
+          "file": "notices/openssl/openssl-openssl-3.5.8/util/perl/OpenSSL/copyright.pm",
+          "sha256": "04213b69dbebc8ba0dd8a6216af1d9422f9b63619c1cf2f1d8aa107b83bbb608"
+        }
+      ],
+      "upstream_tag": "openssl-3.5.8",
+      "upstream_commit": "f4dc4d58b48d346a8270183f89acf826d459b0ca",
+      "captured_hashes_reverified": true
+    },
+    {
+      "name": "openldap",
+      "version": "2.6.14",
+      "url": "https://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.6.14.tgz",
+      "scope": "exact recipe source input; source-to-binary reproduction not established",
+      "resolved_url": "https://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.6.14.tgz",
+      "status": "captured",
+      "file": "openldap-2.6.14.tar.gz",
+      "sha256": "806dcd21d366428187fba3278da773d5930f774852c9e92517f950d585f19107",
+      "size": 6524817,
+      "legal_files": [
+        {
+          "source_member": "openldap-2.6.14/libraries/liblmdb/COPYRIGHT",
+          "file": "notices/openldap/openldap-2.6.14/libraries/liblmdb/COPYRIGHT",
+          "sha256": "3c87f63656b6a12fda225b6f798c547fe89e3404f499e890b445761eb310fd4f"
+        },
+        {
+          "source_member": "openldap-2.6.14/libraries/liblmdb/LICENSE",
+          "file": "notices/openldap/openldap-2.6.14/libraries/liblmdb/LICENSE",
+          "sha256": "310fe25c858a9515fc8c8d7d1f24a67c9496f84a91e0a0e41ea9975b1371e569"
+        },
+        {
+          "source_member": "openldap-2.6.14/libraries/librewrite/Copyright",
+          "file": "notices/openldap/openldap-2.6.14/libraries/librewrite/Copyright",
+          "sha256": "aa44e094663d4662fe7eb78e6345e5d78952ab6cb720b6239481a6a3a573b1a8"
+        },
+        {
+          "source_member": "openldap-2.6.14/build/LICENSE-2.0.1",
+          "file": "notices/openldap/openldap-2.6.14/build/LICENSE-2.0.1",
+          "sha256": "735325c476792b6092b662c9adcedbf54571a6f39a48e75eb91e5ed147212292"
+        },
+        {
+          "source_member": "openldap-2.6.14/doc/guide/release/license-plain.sdf",
+          "file": "notices/openldap/openldap-2.6.14/doc/guide/release/license-plain.sdf",
+          "sha256": "8792cbc4f1baffe8fe3946bec8036b4bb86c2400727d15f3682b85d0cdf7183d"
+        },
+        {
+          "source_member": "openldap-2.6.14/doc/guide/release/copyright.sdf",
+          "file": "notices/openldap/openldap-2.6.14/doc/guide/release/copyright.sdf",
+          "sha256": "f8eed57d48725d49324ddca046109f7a0ef48b658193d204baa5a443292ab495"
+        },
+        {
+          "source_member": "openldap-2.6.14/doc/guide/release/copyright-plain.sdf",
+          "file": "notices/openldap/openldap-2.6.14/doc/guide/release/copyright-plain.sdf",
+          "sha256": "bfd87a2c3c5c86c8886520a7939051a049310884361ac166b98524c93d5dd42b"
+        },
+        {
+          "source_member": "openldap-2.6.14/doc/guide/release/license.sdf",
+          "file": "notices/openldap/openldap-2.6.14/doc/guide/release/license.sdf",
+          "sha256": "4ebc8603398ad270990de3a3f5f7e350e58a745163a67c4845dc2c2860f08bb0"
+        },
+        {
+          "source_member": "openldap-2.6.14/contrib/ldaptcl/COPYRIGHT",
+          "file": "notices/openldap/openldap-2.6.14/contrib/ldaptcl/COPYRIGHT",
+          "sha256": "ccbceda09d04fa3aa5cfaeaf5855269595d151fe513ed3a8add089fc74396920"
+        },
+        {
+          "source_member": "openldap-2.6.14/contrib/ldapc++/COPYRIGHT",
+          "file": "notices/openldap/openldap-2.6.14/contrib/ldapc++/COPYRIGHT",
+          "sha256": "4205d7b96093d7252f2ee9653316a97c2e74a456e4317774d6a525354b74d94a"
+        },
+        {
+          "source_member": "openldap-2.6.14/contrib/ldapc++/AUTHORS",
+          "file": "notices/openldap/openldap-2.6.14/contrib/ldapc++/AUTHORS",
+          "sha256": "9ccb9016114c57097e13ee440156976d987a0696f05de27e15e27cbde47378d0"
+        },
+        {
+          "source_member": "openldap-2.6.14/contrib/slapd-modules/ppm/LICENSE",
+          "file": "notices/openldap/openldap-2.6.14/contrib/slapd-modules/ppm/LICENSE",
+          "sha256": "c9ffd34605a66ce03841cefa99b1b106dc299a9a940926dae288bb7a2a1e5d1a"
+        },
+        {
+          "source_member": "openldap-2.6.14/COPYRIGHT",
+          "file": "notices/openldap/openldap-2.6.14/COPYRIGHT",
+          "sha256": "5b4dfc20608c4d5d75573e899569b8ee0e06658ebcf14fa14566e309bcbab14c"
+        },
+        {
+          "source_member": "openldap-2.6.14/LICENSE",
+          "file": "notices/openldap/openldap-2.6.14/LICENSE",
+          "sha256": "310fe25c858a9515fc8c8d7d1f24a67c9496f84a91e0a0e41ea9975b1371e569"
+        }
+      ],
+      "captured_hashes_reverified": true,
+      "signature_verification": {
+        "valid": true,
+        "fingerprint": "3CE269B5398BC8B785645E987F67D5FD1CE1CBCE",
+        "key_source": "https://www.openldap.org/software/download/OpenLDAP/gpg-pubkey.txt",
+        "key_authentication": "HTTPS official OpenLDAP download page link; no independent web-of-trust certification",
+        "log": "openldap-signature-verification.txt"
+      }
+    }
+  ],
+  "schema": "vardr.psycopg-native-source-inputs/1",
+  "psycopg_tag_commit": "a67654d1e7afbf9b3a619557838f62de1c790e7c",
+  "exact_runtime_binding": "15 wheel-native SHA256 values matched final58f API image evidence run43000959367",
+  "source_to_binary_reproduced": false,
+  "native_inventory": [
+    {
+      "file": "libcom_err-2abe824b.so.2.1",
+      "sha256": "5426dcb54dd01c9eedda05e2179f0e47114e8b48a534ffe9e94916e79471b257",
+      "build_id": "2addb65846a50ce45f0c9b62ea35dda62c6ad7a2",
+      "source_package_release_verified": false
+    },
+    {
+      "file": "libcrypt-bc2db45e.so.1",
+      "sha256": "e2a6f6ff300e287a60dfc0c6fdb76ee01e333068df7c60b4e87453d942ccda65",
+      "build_id": null,
+      "source_package_release_verified": false
+    },
+    {
+      "file": "libcrypto-2d1629ee.so.3",
+      "sha256": "ac767da23afff24a34a1a86e6464f65ff45c8e3374850c117c1cffbfcd879da0",
+      "build_id": "a6d748739aab5c4097f329b48040525962db8cf4",
+      "source_package_release_verified": false,
+      "upstream_family": "OpenSSL",
+      "nominal_version": "3.5.8",
+      "evidence": "embedded version string"
+    },
+    {
+      "file": "libgssapi_krb5-497db0c6.so.2.2",
+      "sha256": "ef73998b86c24e54667a843be6d589442dd082e1b9fc605aa15bcc2293858806",
+      "build_id": "0caec124d97114da40ddeb0fed1fad5d14c3d626",
+      "source_package_release_verified": false
+    },
+    {
+      "file": "libk5crypto-b1f99d5c.so.3.1",
+      "sha256": "bf04d7ebe3937aba3855c15acbd991482286a484aeea38bb9ced85e772ea2fb0",
+      "build_id": "5ff9d1075a8d5d62f77f5ce56c935fcd92c62efa",
+      "source_package_release_verified": false
+    },
+    {
+      "file": "libkeyutils-dfe70bd6.so.1.5",
+      "sha256": "c29e41b03cf4b2dffbfb4960946e2b42f82c0ca5d53d231d3f0fc597ba274488",
+      "build_id": "2e01d5ac08c1280d013aab96b292ac58bc30a263",
+      "source_package_release_verified": false,
+      "upstream_family": "keyutils",
+      "nominal_version": "1.5.8",
+      "evidence": "embedded version string"
+    },
+    {
+      "file": "libkrb5-fcafa220.so.3.3",
+      "sha256": "94dc6413050486a6c8de4b6f3bfdd288390892b72bc68580c6c53929721fa07b",
+      "build_id": "52c5b6279da9cd210e5d58d1b1e0e080e5c8b232",
+      "source_package_release_verified": false,
+      "upstream_family": "Kerberos",
+      "nominal_version": "1.15.1",
+      "evidence": "embedded KRB5_BRAND"
+    },
+    {
+      "file": "libkrb5support-d0bcff84.so.0.1",
+      "sha256": "0eb5322b05ac46e4db7ddb779ee0269006dd01801aaa67b84f8e7f753bfdddf2",
+      "build_id": "779381063daecc27e8480c8f79f0651162586478",
+      "source_package_release_verified": false
+    },
+    {
+      "file": "liblber-a44a5afb.so.2.0.200",
+      "sha256": "862a4715f500831283bebf04347491b17a3adb93e56a335d00a6e1b278258929",
+      "build_id": "085bc718209f0d57d8005260302effceb334dee2",
+      "source_package_release_verified": false,
+      "upstream_family": "OpenLDAP",
+      "nominal_version": "2.6.14",
+      "evidence": "paired OpenLDAP recipe; not own version string"
+    },
+    {
+      "file": "libldap-7c3a4b12.so.2.0.200",
+      "sha256": "1408b751ee5e666470af890e13a508b38a57870b6a261697e27f9c6493b645fc",
+      "build_id": "2c17f2efa6bdffc037b7dd21e191ff5185f47c02",
+      "source_package_release_verified": false,
+      "upstream_family": "OpenLDAP",
+      "nominal_version": "2.6.14",
+      "evidence": "ldap_get_option API vendor version constant0x5086=20614"
+    },
+    {
+      "file": "libpcre-9513aab5.so.1.2.0",
+      "sha256": "02eda850e04931656d8af81f5171bff74d8bec1553d3d85c3d32d7fc5efe8864",
+      "build_id": "9ca3d11f018beeb719cdb34be800bf1641350d0a",
+      "source_package_release_verified": false,
+      "upstream_family": "PCRE",
+      "nominal_version": "8.32",
+      "evidence": "embedded version string"
+    },
+    {
+      "file": "libpq-e9b5c9ac.so.5.18",
+      "sha256": "adee4abe45a36e8f147b15e08aceca893c255dfd4133a047884807931ca8046d",
+      "build_id": "6068c3489ea2fa2d6077c5e57bdb84470e1a7dba",
+      "source_package_release_verified": false,
+      "upstream_family": "PostgreSQL",
+      "nominal_version": "18.6",
+      "evidence": "PQlibVersion returns0x2bf26=180006"
+    },
+    {
+      "file": "libsasl2-84219a89.so.3.0.0",
+      "sha256": "e84be55110f16f7ca930af373e9f41fa7f4ec60733c013d933d1443ae5056a98",
+      "build_id": "27050d93fb3e36936d254151da66c0c4ec559ff8",
+      "source_package_release_verified": false,
+      "upstream_family": "CyrusSASL",
+      "nominal_version": "2.1.26",
+      "evidence": "embedded version string"
+    },
+    {
+      "file": "libselinux-0922c95c.so.1",
+      "sha256": "99e60178aed625f6d2e2af58bccf605b13619b1544058e9f985a2772affb4a88",
+      "build_id": "903a0bd0bfb4fee8c284f41beb9773ded94cbc52",
+      "source_package_release_verified": false
+    },
+    {
+      "file": "libssl-8bd944e8.so.3",
+      "sha256": "ef566b112dc7532a689c07de999c16efda3b4872df0c9d011bdcf00b94dd8a2e",
+      "build_id": "3b45c024e64b0821b0b948ce5b1b2746942c2199",
+      "source_package_release_verified": false,
+      "upstream_family": "OpenSSL",
+      "nominal_version": "3.5.8",
+      "evidence": "paired OpenSSL recipe and linked crypto; not own version string"
+    }
+  ],
+  "recipe_modifications": [
+    "libpq DefaultGSSMode prefer -> disable via embedded patch",
+    "libpq DEFAULT_PGSOCKET_DIR -> /var/run/postgresql via sed on Linux"
+  ],
+  "remaining_blockers": [
+    "Manylinux2014 mutable build image tag and cache key do not supply exact image digest/RPM inventory.",
+    "Ten distro-derived native files lack exact source-RPM release and patch-set mapping; nominal upstream versions are not complete source provenance.",
+    "Kerberos1.22.2 recipe download is macOS-only; Linux embedded Kerberos is1.15.1.",
+    "libcrypt/libcom_err/libselinux nominal source versions unresolved; do not infer from SONAME or kernel compatibility strings.",
+    "No source-to-binary rebuild proof, replacement/relinking verification or full native license delivery clearance."
+  ],
+  "retained_files": [
+    {
+      "file": "notices/openldap/openldap-2.6.14/COPYRIGHT",
+      "sha256": "5b4dfc20608c4d5d75573e899569b8ee0e06658ebcf14fa14566e309bcbab14c",
+      "size": 2345
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/LICENSE",
+      "sha256": "310fe25c858a9515fc8c8d7d1f24a67c9496f84a91e0a0e41ea9975b1371e569",
+      "size": 2214
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/build/LICENSE-2.0.1",
+      "sha256": "735325c476792b6092b662c9adcedbf54571a6f39a48e75eb91e5ed147212292",
+      "size": 2434
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/contrib/ldapc++/AUTHORS",
+      "sha256": "9ccb9016114c57097e13ee440156976d987a0696f05de27e15e27cbde47378d0",
+      "size": 32
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/contrib/ldapc++/COPYRIGHT",
+      "sha256": "4205d7b96093d7252f2ee9653316a97c2e74a456e4317774d6a525354b74d94a",
+      "size": 234
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/contrib/ldaptcl/COPYRIGHT",
+      "sha256": "ccbceda09d04fa3aa5cfaeaf5855269595d151fe513ed3a8add089fc74396920",
+      "size": 1196
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/contrib/slapd-modules/ppm/LICENSE",
+      "sha256": "c9ffd34605a66ce03841cefa99b1b106dc299a9a940926dae288bb7a2a1e5d1a",
+      "size": 2244
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/doc/guide/release/copyright-plain.sdf",
+      "sha256": "bfd87a2c3c5c86c8886520a7939051a049310884361ac166b98524c93d5dd42b",
+      "size": 279
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/doc/guide/release/copyright.sdf",
+      "sha256": "f8eed57d48725d49324ddca046109f7a0ef48b658193d204baa5a443292ab495",
+      "size": 2990
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/doc/guide/release/license-plain.sdf",
+      "sha256": "8792cbc4f1baffe8fe3946bec8036b4bb86c2400727d15f3682b85d0cdf7183d",
+      "size": 274
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/doc/guide/release/license.sdf",
+      "sha256": "4ebc8603398ad270990de3a3f5f7e350e58a745163a67c4845dc2c2860f08bb0",
+      "size": 281
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/libraries/liblmdb/COPYRIGHT",
+      "sha256": "3c87f63656b6a12fda225b6f798c547fe89e3404f499e890b445761eb310fd4f",
+      "size": 715
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/libraries/liblmdb/LICENSE",
+      "sha256": "310fe25c858a9515fc8c8d7d1f24a67c9496f84a91e0a0e41ea9975b1371e569",
+      "size": 2214
+    },
+    {
+      "file": "notices/openldap/openldap-2.6.14/libraries/librewrite/Copyright",
+      "sha256": "aa44e094663d4662fe7eb78e6345e5d78952ab6cb720b6239481a6a3a573b1a8",
+      "size": 1031
+    },
+    {
+      "file": "notices/openssl/openssl-openssl-3.5.8/AUTHORS.md",
+      "sha256": "b9f638dfc06b59c2d3b808186c3b30f713805a5db390f5b77b1703ac58acb83e",
+      "size": 1022
+    },
+    {
+      "file": "notices/openssl/openssl-openssl-3.5.8/LICENSE.txt",
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+      "size": 10175
+    },
+    {
+      "file": "notices/openssl/openssl-openssl-3.5.8/external/perl/Text-Template-1.56/LICENSE",
+      "sha256": "9837f05336ef3cbacb6a96e1672a0426d81ad01191f214b8d48e22ca62338181",
+      "size": 18412
+    },
+    {
+      "file": "notices/openssl/openssl-openssl-3.5.8/util/perl/OpenSSL/copyright.pm",
+      "sha256": "04213b69dbebc8ba0dd8a6216af1d9422f9b63619c1cf2f1d8aa107b83bbb608",
+      "size": 1145
+    },
+    {
+      "file": "notices/postgresql/postgres-REL_18_6/COPYRIGHT",
+      "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+      "size": 1198
+    },
+    {
+      "file": "notices/postgresql/postgres-REL_18_6/src/backend/jit/llvm/SectionMemoryManager.LICENSE",
+      "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+      "size": 15141
+    },
+    {
+      "file": "notices/postgresql/postgres-REL_18_6/src/backend/regex/COPYRIGHT",
+      "sha256": "5027cfe4f54842896b01ca6be28becc9a018623aaadc0f5b51350da71118cb0e",
+      "size": 4362
+    },
+    {
+      "file": "notices/postgresql/postgres-REL_18_6/src/tools/copyright.pl",
+      "sha256": "9c3682a8fe827a303da44a00cd2f7c48907df273ee917957c517a2d35d5070be",
+      "size": 2040
+    },
+    {
+      "file": "openldap-2.6.14.tar.gz",
+      "sha256": "806dcd21d366428187fba3278da773d5930f774852c9e92517f950d585f19107",
+      "size": 6524817
+    },
+    {
+      "file": "openldap-2.6.14.tgz.asc",
+      "sha256": "a0e4877f3f5a61314d76c22bac09009334e85ce029acb11d003abeb29dfb070b",
+      "size": 833
+    },
+    {
+      "file": "openldap-official-signing-key.asc",
+      "sha256": "24a64d58467923ede12ed5dbc551d8a252a8a29719c5fa3a2a01908fbe9befaa",
+      "size": 3485
+    },
+    {
+      "file": "openldap-signature-verification.txt",
+      "sha256": "18989a17b575a5407899a3641d1403e3f39a515ceadeabb6f3db8e70662c5ed3",
+      "size": 811
+    },
+    {
+      "file": "openssl-3.5.8.tar.gz",
+      "sha256": "59f86483992995df5a213df38d93f31eeafe3b34599309b3e088ba67ca0aad9c",
+      "size": 53396153
+    },
+    {
+      "file": "postgresql-18.6.tar.gz",
+      "sha256": "ff9b1187e3ab120282b9f3e09a5efba2425838b3a843150c5cb2f019f47ac400",
+      "size": 29996378
+    },
+    {
+      "file": "recipe/.github/workflows/packages-bin.yml",
+      "sha256": "a51bb109a2098fb7cb791784e654da0796a7c04e4ed8c9112e19abe1026fe961",
+      "size": 9142
+    },
+    {
+      "file": "recipe/tools/ci/build_libpq.sh",
+      "sha256": "2cb45ac4c8bb5e8fc3c738c597817bcb2d224bc66073d10023f15665bee9cb8b",
+      "size": 7120
+    },
+    {
+      "file": "recipe/tools/ci/strip_wheel.sh",
+      "sha256": "2453beca664ec8d0fb3b1645ff9e97031b55608b0bca98d47b733775ac933aab",
+      "size": 1183
+    },
+    {
+      "file": "recipe/tools/ci/wheel_linux_before_all.sh",
+      "sha256": "239552169c742123b245a6a1143740eef78720e495b2f4b1c765c4cbb2eb1b86",
+      "size": 1415
+    },
+    {
+      "file": "static/PQlibVersion.disassembly.txt",
+      "sha256": "6baff3bd76e924d8b04e93c6c6563a822946a78c324def577623f45d45ad2cff",
+      "size": 350
+    },
+    {
+      "file": "static/ldap_get_option.disassembly.txt",
+      "sha256": "ff43f39e23e7bd89e185b625d614a13491109ca64d9255092fd93d8f53fba5fb",
+      "size": 23731
+    },
+    {
+      "file": "static/libcom_err-2abe824b.so.2.1.dynamic.txt",
+      "sha256": "345e07363c4df25cd27cf67575035694b6d23cd5499d89dad5eed525701b7ae8",
+      "size": 1543
+    },
+    {
+      "file": "static/libcom_err-2abe824b.so.2.1.notes.txt",
+      "sha256": "e3034e2fc33e1a71851303d4720f154146523d997d7bf6c17a6522a6d03cb553",
+      "size": 226
+    },
+    {
+      "file": "static/libcrypt-bc2db45e.so.1.dynamic.txt",
+      "sha256": "72bbaf7be237dc8741517bd1276c24209f8f3315fc4f67d0c6848b602df918fd",
+      "size": 1564
+    },
+    {
+      "file": "static/libcrypt-bc2db45e.so.1.notes.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "file": "static/libcrypto-2d1629ee.so.3.dynamic.txt",
+      "sha256": "05cd8324c4751dffc6560c6ad86370669007a65d9f1b736e30fd0feb78be1c9b",
+      "size": 1817
+    },
+    {
+      "file": "static/libcrypto-2d1629ee.so.3.notes.txt",
+      "sha256": "550fdc5e37f7791cd9dfb5c5ba8cba933ab5eb4fc5fcbe7c89284fa237811423",
+      "size": 226
+    },
+    {
+      "file": "static/libgssapi_krb5-497db0c6.so.2.2.dynamic.txt",
+      "sha256": "4fbed1a1040f81cef4950c5d9353a1900f719e70f77ac6b1c7016a1cecb840a4",
+      "size": 2137
+    },
+    {
+      "file": "static/libgssapi_krb5-497db0c6.so.2.2.notes.txt",
+      "sha256": "745475a4d7abf930dd474a71df0fdae0756225215b259f51c67a78d67170f902",
+      "size": 226
+    },
+    {
+      "file": "static/libk5crypto-b1f99d5c.so.3.1.dynamic.txt",
+      "sha256": "1d3786b7db90ebabd17de1d47e797fc2b1ee89b77e20d6443582bd0db8c2ce72",
+      "size": 1807
+    },
+    {
+      "file": "static/libk5crypto-b1f99d5c.so.3.1.notes.txt",
+      "sha256": "46c6c25719c8407aa4c8cd86e893610e48c2bd9121cd5ce043858646ca459fd9",
+      "size": 226
+    },
+    {
+      "file": "static/libkeyutils-dfe70bd6.so.1.5.dynamic.txt",
+      "sha256": "714d0983e1802526f2c1eacefd843f75b6994e93978afbb47b748158a0e726f4",
+      "size": 1549
+    },
+    {
+      "file": "static/libkeyutils-dfe70bd6.so.1.5.notes.txt",
+      "sha256": "50fde4a11070ce52de497f497cabb9192909cc6e54a21d87c4ecada78647af56",
+      "size": 226
+    },
+    {
+      "file": "static/libkrb5-fcafa220.so.3.3.dynamic.txt",
+      "sha256": "a0249cf2d7488d56194c3749f30e066289467faf1a3717f7326e54fb1ee36c45",
+      "size": 1983
+    },
+    {
+      "file": "static/libkrb5-fcafa220.so.3.3.notes.txt",
+      "sha256": "c245108e7acc8a07e7e23777cd9ffaf104dbbd55d4b132e5f4feeae64b7e85e1",
+      "size": 226
+    },
+    {
+      "file": "static/libkrb5support-d0bcff84.so.0.1.dynamic.txt",
+      "sha256": "204f0a6429b707ebb11c021f076178b4d7bf23a1714b3f486518f1a09860c851",
+      "size": 1871
+    },
+    {
+      "file": "static/libkrb5support-d0bcff84.so.0.1.notes.txt",
+      "sha256": "b19b67770a5d574c1f0997af800efcb1b1186075fa2b2c5a2e342c5171bd6bee",
+      "size": 226
+    },
+    {
+      "file": "static/liblber-a44a5afb.so.2.0.200.dynamic.txt",
+      "sha256": "6c6fe5520c0132aa889be3b9c4be209c41118234afb370ada44e998517175353",
+      "size": 1549
+    },
+    {
+      "file": "static/liblber-a44a5afb.so.2.0.200.notes.txt",
+      "sha256": "e56c09ee176aaf76b6c28087c60e0bf3d3628c3222b0b57ec5a3e4561d6ed4d5",
+      "size": 226
+    },
+    {
+      "file": "static/libldap-7c3a4b12.so.2.0.200.dynamic.txt",
+      "sha256": "99a44327a1d6f48c547af3d4ca36212faad59d98610df74e7a2efa77d9321ac8",
+      "size": 2040
+    },
+    {
+      "file": "static/libldap-7c3a4b12.so.2.0.200.notes.txt",
+      "sha256": "486e878a6e58fe9c04e08fe9cc29a1cd521d15e5d3c0d00d27b82c8cc225a459",
+      "size": 226
+    },
+    {
+      "file": "static/libpcre-9513aab5.so.1.2.0.dynamic.txt",
+      "sha256": "0f725cace73b199b463953ab7202a0e20a3c277b86e9019d660481a66f5b49d9",
+      "size": 1465
+    },
+    {
+      "file": "static/libpcre-9513aab5.so.1.2.0.notes.txt",
+      "sha256": "5d2a5d9aa2e8b5f1d020d96fdb0dfa2500bcda9d43391b41d63dd1b076cf8fef",
+      "size": 226
+    },
+    {
+      "file": "static/libpq-e9b5c9ac.so.5.18.dynamic.txt",
+      "sha256": "591072bc4db92fa668ce9442a99314b354b117259b0bf1935d1adef0ee53e514",
+      "size": 1939
+    },
+    {
+      "file": "static/libpq-e9b5c9ac.so.5.18.notes.txt",
+      "sha256": "ae3be91fe6dc4a83fa21b8b3e7764d3f363c251c3aafb828ea3c4bc545407d59",
+      "size": 226
+    },
+    {
+      "file": "static/libsasl2-84219a89.so.3.0.0.dynamic.txt",
+      "sha256": "02aad208ac370540a68879390a726815aac226875441cd0ba13d7b39b5134fab",
+      "size": 2124
+    },
+    {
+      "file": "static/libsasl2-84219a89.so.3.0.0.notes.txt",
+      "sha256": "b8374f2aa310c0c8d6d7220a66dd64198829c5eb01bb757223499f2d1c0807b4",
+      "size": 226
+    },
+    {
+      "file": "static/libselinux-0922c95c.so.1.dynamic.txt",
+      "sha256": "f3b35c220c2498bf020acaca1c7692bae59a2d4b5e846697190b0427c73bdde9",
+      "size": 1696
+    },
+    {
+      "file": "static/libselinux-0922c95c.so.1.notes.txt",
+      "sha256": "1d9fa988923829923489340278970836bbc5c2929bcc3564526aa6f945330537",
+      "size": 226
+    },
+    {
+      "file": "static/libssl-8bd944e8.so.3.dynamic.txt",
+      "sha256": "1048e1d57b23f0bad49265c739a19ba6fcc2213502c7259c3fbebd3d3fa7d00b",
+      "size": 1953
+    },
+    {
+      "file": "static/libssl-8bd944e8.so.3.notes.txt",
+      "sha256": "12a6c21cf5bb68d4a568181e3102290745cae84f4ac21a9cb44829da5b42ca17",
+      "size": 226
+    }
+  ]
+}
