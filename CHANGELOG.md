@@ -4,6 +4,8 @@
 
 - Extend the database libxml2 backport with maintained dictionary, validation,
   XPointer, output and XInclude security fixes, retaining the patch sources.
+- Select the reviewed Runner libpcap fix and Dalfox dependency notice/source
+  delivery for both Full and Mapless installations.
 
 - Backport the maintained libxml2 entity-parsing security fix in the database
   image and retain its exact source and build recipe alongside package notices.
