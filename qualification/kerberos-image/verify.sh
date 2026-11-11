@@ -9,7 +9,24 @@ docker run --rm --network none --entrypoint sh "$id" -eu -c '
   cd /usr/share/doc/libkrb5-3/vardr-source
   sha256sum -c SHA256SUMS
   cd /
-  sha256sum -c /usr/share/doc/libkrb5-3/vardr-source/evidence/package-files-SHA256SUMS
+  # Debian slim deliberately omits non-runtime docs and lintian hints.
+  # Keep every present byte checked, and allow only these exact omissions
+  # when the inherited dpkg exclusion rules are themselves present.
+  cat /etc/dpkg/dpkg.cfg.d/*
+  while read -r expected path; do
+    if [ -f "$path" ]; then
+      printf "%s  %s\n" "$expected" "$path" | sha256sum -c -
+    else
+      case "$path" in
+        ./usr/share/doc/libgssapi-krb5-2/changelog.Debian.gz|./usr/share/doc/libk5crypto3/changelog.Debian.gz|./usr/share/doc/libkrb5-3/README.Debian|./usr/share/doc/libkrb5-3/README.gz|./usr/share/doc/libkrb5-3/changelog.Debian.gz|./usr/share/doc/libkrb5support0/changelog.Debian.gz)
+          grep -Fxq "path-exclude=/usr/share/doc/*" /etc/dpkg/dpkg.cfg.d/* ;;
+        ./usr/share/lintian/overrides/libgssapi-krb5-2|./usr/share/lintian/overrides/libkrb5-3|./usr/share/lintian/overrides/libkrb5support0)
+          grep -Fxq "path-exclude=/usr/share/lintian/*" /etc/dpkg/dpkg.cfg.d/* ;;
+        *) echo "FAIL: unexpected missing package payload: $path" >&2; exit 1 ;;
+      esac
+      printf "BASE-POLICY NON-RUNTIME OMISSION: %s\n" "$path"
+    fi
+  done < /usr/share/doc/libkrb5-3/vardr-source/evidence/package-files-SHA256SUMS
   for package in libgssapi-krb5-2 libk5crypto3 libkrb5-3 libkrb5support0; do
     test "$(dpkg-query -W -f="\${Version}" "$package")" = "1.21.3-5+deb13u1+vardr1"
   done
