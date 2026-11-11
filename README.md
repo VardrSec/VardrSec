@@ -10,6 +10,9 @@ components with Docker Compose.
 > there are no automatic updates. Review the [support and safety limits](docs/limitations.md)
 > before using it.
 
+Source snapshot: **0.1.0-dev.1**. See the [changelog](CHANGELOG.md). This label does
+not change the development status or component pins in `versions.json`.
+
 ## Choose an installation
 
 **Full** includes Map, Runner, Gate, PostgreSQL and the HTTPS proxy. **Mapless**
@@ -17,27 +20,14 @@ provides the Runner/Gate CLI without a Map account, API key or PostgreSQL servic
 Use a separate checkout and installation state for each mode; existing Mapless
 history is preserved rather than automatically imported into Full.
 
-Prerequisites: Git, Python 3.10+, Docker with Compose, and the platform-specific
-requirements in the [installation guide](docs/installation.md).
+Choose **one** guide and follow it from prerequisites through the first result:
 
-```powershell
-# Windows 11 with Docker Desktop using Linux containers; choose one mode.
-.\install.ps1 --full
-.\install.ps1 --mapless
-.\runner.ps1 workspace list
-```
+- **[Full: install → trust → account → assessment](docs/installation.md).** Use this for the Map web workspace and connected Runner.
+- **[Mapless: install → workspace → authorize → execute → export](docs/mapless.md).** Use this for standalone CLI work with no Map connection.
 
-```sh
-# Linux; choose one mode.
-./install.sh --full
-./install.sh --mapless
-./runner.sh workspace list
-```
-
-The entrypoints prompt for a mode when invoked interactively without one.
-Installation prints the applicable trust and account-setup steps. Trust only your
-own local CA after checking its fingerprint. Browser trust is not established by
-starting Compose alone; never bypass certificate verification to make setup work.
+Both guides use the shipped Windows/Ubuntu installers and the exact component
+pins. Normal startup does not execute assessments. Managed workers are a separate
+opt-in after Full setup, not another installation mode.
 
 ## Start using the platform
 

@@ -9,8 +9,12 @@ release readiness.
 
 Normal startup is inert. Managed workers require explicit enablement, and each
 job still requires valid authorization and local credential grants. Availability
-is not execution authority. Legacy manual/advisory workflows and controlled
-managed workflows have different documented enforcement boundaries.
+is not execution authority. In the [manual Full walkthrough](installation.md#first-assessment-walkthrough),
+scope and testing-window checks are advisory; stop-work refuses execution.
+The [managed Full workflow](local-managed-setup.md) enforces its signed Gate plan,
+credential grants, targets and finite budgets. It does not provide unrestricted
+unattended execution of all recon/scanner pipelines. The [Mapless workflow](mapless.md)
+uses its own signed local authorization and ledger, not Map’s queue or account.
 
 Do not rely on controlled execution across host suspend/resume: that behavior is
 not qualified. A server-side stop cannot be assumed to reach a disconnected
