@@ -83,3 +83,25 @@ Go module cache. The compressed archive is inert data and is not extracted by
 the service. It may include unlinked cached modules; it does not establish
 license compatibility, exhaustive notice coverage or complete corresponding
 source. Compiler and binary build commands are unchanged.
+
+## Database libxml2 source
+
+The database image rebuilds its existing Debian libxml2 version with the
+maintained Ubuntu CVE-2026-6653 backport. PostgreSQL's version and configuration
+are unchanged. The build checks the Debian source descriptor, both source
+archives and the patch against fixed SHA-256 values before unpacking or building.
+Build tools remain in a discarded stage.
+
+`/usr/share/doc/libxml2/vardr-source/` contains the original source archive,
+modified Debian source archive and descriptor, patch, build recipe, provenance,
+build metadata and `SHA256SUMS`. Existing Debian copyright/common-license files
+remain installed. To export just these sources from a checkout:
+
+```text
+docker build --target libxml2-source-delivery --output type=local,dest=../libxml2-source -f db/Dockerfile db
+```
+
+Choose a new destination outside the checkout. This source delivery covers the
+modified library; it does not establish complete source delivery for every image
+package. A custom package suffix does not itself clear vulnerability findings;
+version-based scanners may require separate review of the retained patch evidence.

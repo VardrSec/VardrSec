@@ -1,0 +1,18 @@
+libxml2 security backport
+
+Debian source: 2.12.7+dfsg+really2.9.14-2.1+deb13u3
+https://deb.debian.org/debian/pool/main/libx/libxml2/
+Upstream fix: https://gitlab.gnome.org/GNOME/libxml2/-/commit/463bbeeca1805b5c4828f50d0fefc4eebaf620df
+Backport: Ubuntu 2.9.14+dfsg-1.3ubuntu3.8, debian/patches/CVE-2026-6653.patch
+https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.14+dfsg-1.3ubuntu3.8/libxml2_2.9.14+dfsg-1.3ubuntu3.8.debian.tar.xz
+Ubuntu source archive SHA-256: f0f8de7efd6370a8fe39a5c88e9a2ee9350ee2882ccc8aaf8ae8f30fbde34ff4
+Patch SHA-256: 6c2b8a7b6fa470efcb1854e5c73bd7e1ae1663d8b111e27ce9232bbc1fe44f54
+Local package suffix: +vardr1
+
+The original source tarball, modified Debian source, patch, build recipe and
+package build metadata accompany this notice. See the package copyright file
+at /usr/share/doc/libxml2/copyright and /usr/share/common-licenses/ for terms.
+The Dockerfile builds from the pinned original PostgreSQL base, not this
+resulting image. Build with the db directory as context. The separate
+libxml2-source-delivery target exports the same source without a runtime image.
+This covers the modified libxml2 package, not every package in the image.
