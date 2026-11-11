@@ -13,7 +13,7 @@
     },
     "runner": {
       "repository": "VardrSec/VardrRunner",
-      "commit": "cfff913cd0a6219f344bb5fee7f4cfe51233e599",
+      "commit": "c7ac178223d2e88d0bf6227cbf9e76a18ccf01a9",
       "review": "https://github.com/VardrSec/VardrRunner/pull/134",
       "readiness_contract": 1
     },
