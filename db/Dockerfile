@@ -11,6 +11,7 @@ RUN set -eu; for file in \
         "https://deb.debian.org/debian/pool/main/libx/libxml2/$file" --output "$file"; \
     done
 COPY libxml2-CVE-2026-6653.patch /build/CVE-2026-6653.patch
+COPY libxml2-CVE-2026-861*.patch libxml2-CVE-2026-74860.patch /build/
 COPY build-libxml2.sh libxml2-source.txt Dockerfile /build/
 RUN --network=none sh /build/build-libxml2.sh
 

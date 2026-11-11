@@ -7,7 +7,7 @@ Backport: Ubuntu 2.9.14+dfsg-1.3ubuntu3.8, debian/patches/CVE-2026-6653.patch
 https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.14+dfsg-1.3ubuntu3.8/libxml2_2.9.14+dfsg-1.3ubuntu3.8.debian.tar.xz
 Ubuntu source archive SHA-256: f0f8de7efd6370a8fe39a5c88e9a2ee9350ee2882ccc8aaf8ae8f30fbde34ff4
 Patch SHA-256: 6c2b8a7b6fa470efcb1854e5c73bd7e1ae1663d8b111e27ce9232bbc1fe44f54
-Local package suffix: +vardr1
+Local package suffix: +vardr2
 
 The original source tarball, modified Debian source, patch, build recipe and
 package build metadata accompany this notice. See the package copyright file
@@ -16,3 +16,12 @@ The Dockerfile builds from the pinned original PostgreSQL base, not this
 resulting image. Build with the db directory as context. The separate
 libxml2-source-delivery target exports the same source without a runtime image.
 This covers the modified libxml2 package, not every package in the image.
+
+Additional unmodified backports: CVE-2026-74860, CVE-2026-86138,
+CVE-2026-86140, CVE-2026-86142, CVE-2026-86143 and CVE-2026-86144.
+Source: Ubuntu 2.9.14+dfsg-1.3ubuntu3.10, debian/patches/
+https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/libxml2/2.9.14+dfsg-1.3ubuntu3.10/libxml2_2.9.14+dfsg-1.3ubuntu3.10.debian.tar.xz
+Archive SHA-256: d2d821830eb60edbcfcbe30e2827420e9e439e98c85c812352969cdda764d60b
+Each patch's exact SHA-256 is checked by build-libxml2.sh before use.
+Python bindings remain excluded from the runtime package build; retaining their
+source fix does not introduce a new runtime component.
