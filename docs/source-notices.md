@@ -130,3 +130,14 @@ checksums, SHA-256 manifest and upstream legal texts inside the source ZIPs.
 The archive is inert and never extracted/executed by the service. It can include
 unlinked cached versions or dual-licensed sources; it is not a final linkage or
 license-compatibility decision. Modified local forks retain separate provenance.
+
+## ncurses source delivery
+
+The image backports the upstream `infocmp` analysis-copy bound for
+CVE-2025-69720 to Debian's existing Trixie source. Only `ncurses-bin` is
+installed; the existing ncurses and libtinfo libraries remain unchanged.
+Original/modified Debian source, the patch, build metadata and checksums are
+retained in `/usr/share/doc/ncurses-bin/vardr-source/`. The
+`ncurses-source-delivery` build target exports the same source materials.
+No unstable binary packages or repositories are introduced. A custom package
+version does not itself resolve version-based scanner findings.
