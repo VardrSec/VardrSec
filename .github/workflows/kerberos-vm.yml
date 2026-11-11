@@ -31,8 +31,27 @@ jobs:
           # Keep diagnostics even when official mirror DNS is temporarily unavailable.
           uname -a > artifacts/kerberos-vm-host/kernel.txt
           sha256sum qualification/kerberos-vm/{run.py,guest.sh,inputs.json} > artifacts/kerberos-vm-host/harness-SHA256SUMS
-          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o APT::Update::Error-Mode=any update
-          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils xorriso e2fsprogs
+          # Avoid the hosted runner's mirror+file transport without editing its
+          # apt configuration, resolver, firewall, proxy, or trust keyring.
+          sources="$RUNNER_TEMP/kerberos-ubuntu.sources"
+          printf '%s\n' \
+            'Types: deb' \
+            'URIs: https://archive.ubuntu.com/ubuntu/' \
+            'Suites: noble noble-updates noble-backports' \
+            'Components: main universe' \
+            'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' \
+            '' \
+            'Types: deb' \
+            'URIs: https://security.ubuntu.com/ubuntu/' \
+            'Suites: noble-security' \
+            'Components: main universe' \
+            'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg' > "$sources"
+          cp "$sources" artifacts/kerberos-vm-host/ubuntu.sources
+          apt_options=(-o "Dir::Etc::sourcelist=$sources" -o Dir::Etc::sourceparts=-
+            -o Acquire::Retries=2 -o Acquire::http::Timeout=30
+            -o Acquire::https::Timeout=30 -o APT::Update::Error-Mode=any)
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils xorriso e2fsprogs
           qemu-system-x86_64 --version > artifacts/kerberos-vm-host/qemu.txt
           dpkg-query -W > artifacts/kerberos-vm-host/packages.txt
           uname -a > artifacts/kerberos-vm-host/kernel.txt
