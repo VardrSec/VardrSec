@@ -1,0 +1,27 @@
+{
+  "schema": "vardr.libvips-build-tool-review/1",
+  "failed_run": 43034290944,
+  "failed_job": 130568971328,
+  "error": "Meson version is 1.9.1 but project requires >= 1.11.0",
+  "required_by": {
+    "name": "fontconfig",
+    "version": "2.18.3",
+    "source_url": "https://gitlab.freedesktop.org/fontconfig/fontconfig/-/archive/2.18.3/fontconfig-2.18.3.tar.gz",
+    "source_sha256": "9ae01e1d53acdef56010c5451cd34aa41d325b2faccd8606448d8fa01b2496b3",
+    "path": "fontconfig-2.18.3/meson.build",
+    "line": 3,
+    "requirement": ">= 1.11.0",
+    "file_sha256": "ea972b1281a1557cdbdaa48a64eedabfbc278994c02223d4203c81e8f822b745"
+  },
+  "tool": {
+    "name": "meson",
+    "version": "1.11.0",
+    "registry": "https://pypi.org/pypi/meson/1.11.0/json",
+    "filename": "meson-1.11.0-py3-none-any.whl",
+    "sha256": "9774eb62bbf2cb8043aa3feb771c09b510d112c0c382221e29aea7453ecce753",
+    "size": 1078425,
+    "requires_python": ">=3.7",
+    "yanked": false
+  },
+  "scope": "Ordinary qualification build tool compatibility only; no shipping replacement or security regression execution."
+}
