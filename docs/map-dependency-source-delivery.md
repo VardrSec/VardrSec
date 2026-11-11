@@ -103,3 +103,26 @@ patches, libpq/OpenSSL and other native source/notice inventory before closing i
 No package download failed or was silently skipped. This is a partial source
 bundle, not a completed release gate. Distribution and final wheel/image matching
 remain outstanding.
+
+### Psycopg binary upstream mapping
+
+Upstream tag `3.3.6` resolves to
+`a67654d1e7afbf9b3a619557838f62de1c790e7c`; its complete source Git archive and
+wheel build recipes are now retained. The compatible CPython 3.12 x86_64
+manylinux wheel was downloaded and verified against PyPI SHA-256
+`1679a1cb93fbe5a6d1fd58d82cbddcc6fcb8c61446ba7cae6eb2a7b19bc585de`.
+This wheel has **15** bundled native shared libraries and one LGPL-3.0 license
+text. No native code was loaded or executed. Static string evidence identifies
+OpenSSL **3.5.8** and Kerberos **1.15.1**. The recipe specifies libpq **18.6** and
+OpenLDAP **2.6.14**, but those recipe values are not independent binary proof.
+Its Kerberos **1.22.2** source download is **macOS-only** and must not be used as
+the source mapping for this Linux wheel. Linux distro-derived libraries need
+exact package/source reconciliation.
+
+The source archive, wheel, license text and per-native-file SHA-256 inventory
+are retained together. The committed
+`map-psycopg-binary-source-mapping-2026-11-11.json` records their provenance and
+checksums. This closes upstream recipe discovery and package capture, not full
+native delivery: the final image's wheel hash has not been matched, tag-to-wheel
+attestation has not been verified, and native sources/notices and replacement
+material remain incomplete.
