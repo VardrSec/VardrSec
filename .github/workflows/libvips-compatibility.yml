@@ -1,0 +1,51 @@
+name: Ordinary libvips candidate compatibility
+on:
+  pull_request:
+    paths:
+      - 'qualification/libvips-compat/**'
+      - '.github/workflows/libvips-compatibility.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Test preparation harness
+        run: |
+          python3 -m unittest discover -s qualification/libvips-compat -p 'test_*.py' -v
+          node --check qualification/libvips-compat/fixtures.cjs
+      - name: Retrieve exact existing candidate evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/VardrSec/VardrSec/actions/artifacts/13865981097/zip > "$RUNNER_TEMP/libvips-input.zip"
+          python3 qualification/libvips-compat/prepare.py "$RUNNER_TEMP/libvips-input.zip" "$RUNNER_TEMP/compatibility"
+      - name: Run benign fixtures using target Node image
+        run: |
+          set -euo pipefail
+          image=$(python3 -c 'import json; print(json.load(open("qualification/libvips-compat/pins.json"))["target_node_image"])')
+          docker pull "$image"
+          docker image inspect "$image" > "$RUNNER_TEMP/compatibility/runtime-image.json"
+          for variant in original candidate; do
+            docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+              --cpus 2 --memory 2g --pids-limit 256 --user "$(id -u):$(id -g)" \
+              -e "QUALIFICATION_TARGET_IMAGE=$image" \
+              -v "$RUNNER_TEMP/compatibility:/work" \
+              -v "$PWD/qualification/libvips-compat:/harness:ro" \
+              "$image" node /harness/fixtures.cjs /work "$variant"
+          done
+      - name: Preserve bounded compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: libvips-ordinary-compatibility-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/compatibility/*.json
+            ${{ runner.temp }}/compatibility/fixtures
+          retention-days: 14
+          if-no-files-found: warn
