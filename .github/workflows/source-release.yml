@@ -22,6 +22,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_python_source_delivery.py'
           python -m unittest discover -s tests -p 'test_license_evidence.py'
           python -m unittest discover -s tests -p 'test_gosu_dependency.py'
+          python -m unittest discover -s tests -p 'test_runtime_notice_evidence.py'
       - name: Acquire exact declared component sources
         run: python vardrsec.py sources
       - name: Build twice, compare and verify source-only artifact

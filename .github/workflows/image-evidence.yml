@@ -34,6 +34,29 @@ jobs:
           PY
       - name: Collect all image SBOMs and unfiltered vulnerability reports
         run: python image_evidence.py collect
+      - name: Inspect legal notices and selected native identities without starting images
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_runtime_notice_evidence.py'
+          mkdir -p artifacts/runtime-notices
+          for service in api web db proxy runner; do
+            image=$(docker compose --profile tools config --format json | python -c 'import json,sys; print(json.load(sys.stdin)["services"][sys.argv[1]]["image"])' "$service")
+            digest=$(docker image inspect --format '{{.Id}}' "$image")
+            id=$(docker create "$image")
+            trap 'docker rm "$id" >/dev/null' EXIT
+            docker export "$id" | python runtime_notice_evidence.py --image-id "$digest" --service "$service" --distribution-commit "$(git rev-parse HEAD)" --output "artifacts/runtime-notices/$service.tar"
+            docker rm "$id" >/dev/null
+            trap - EXIT
+          done
+      - name: Preserve exact-image runtime notice evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: runtime-notice-evidence
+          path: artifacts/runtime-notices/
+          if-no-files-found: error
+          retention-days: 30
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: '1.27.4'
