@@ -18,7 +18,7 @@ Counts are scanner occurrences, not distinct exploitable defects. Evidence preda
 
 - **GO-2026-6859:** the separate proxy govulncheck artifact 13841202514 reports vulnerable net/http symbols in Go 1.27.3, fixed in 1.27.4. This was not yet in the Trivy database. Upgrade exact Go builder pins and rebuild affected binaries; rerun both scanners. Advisory: https://pkg.go.dev/vuln/GO-2026-6859 .
 - **CVE-2026-116587 / GHSA-mgcc-cww5-fp2q:** proxy contains go-jose/v3 3.0.5 with no fixed v3 version reported; patched v4 also exists in the graph. RSA JWK processing denial-of-service requires an exact upstream/runtime boundary analysis, not an assumption that v4 presence fixes v3. Advisory: https://github.com/go-jose/go-jose/security/advisories/GHSA-mgcc-cww5-fp2q .
-- **CVE-2026-6653:** db libxml2 `2.12.7+dfsg+really2.9.14-2.1+deb13u3+vardr2` is still reported CRITICAL with no scanner fixed version. Existing build applies checksum-verified Ubuntu backport `db/libxml2-CVE-2026-6653.patch`; `db/build-libxml2.sh` includes seven additional patches and retains corresponding source under `/usr/share/doc/libxml2/vardr-source/`. Verify the exact binary/source/backport relationship and regression coverage before disposition. Package version alone does not prove the backport ineffective, but the patch's presence alone is not scanner clearance.
+- **CVE-2026-6653:** db libxml2 `2.12.7+dfsg+really2.9.14-2.1+deb13u3+vardr2` is still reported CRITICAL with no scanner fixed version. Existing build applies checksum-verified Ubuntu backport `db/libxml2-CVE-2026-6653.patch`; `db/build-libxml2.sh` includes six additional patches and retains corresponding source under `/usr/share/doc/libxml2/vardr-source/`. Verify the exact binary/source/backport relationship and regression coverage before disposition. Package version alone does not prove the backport ineffective, but the patch's presence alone is not scanner clearance.
 - **CVE-2026-39824 / GO-2026-5024:** db gosu x/sys 0.1.0, fixed 0.44.0, scanner UNKNOWN. Advisory concerns Windows NewNTUnicodeString overflow; shipped gosu is Linux. Track platform applicability separately from dependency upgrade, without suppressing the finding globally.
 - **GO-2026-5932:** x/crypto 0.58.0 appears in proxy and six Runner tools; scanner UNKNOWN with fixed pseudo-version `0.58.1-0.20261009181718-2f1f834330b2`. Concerns unsafe/unmaintained OpenPGP. Proxy govulncheck finds the module but no vulnerable imported package. That does not establish the same result for all six tools. Require per-tool symbol evidence or an appropriate upstream upgrade, rather than a blanket exception.
 
@@ -47,3 +47,18 @@ with the fix in unstable, and Trixie SQLite 3.46.1 as vulnerable to
 also fixed in unstable. Both have a no-DSA classification for stable. This is
 not VardrSec risk acceptance: no mixed-distribution upgrade is selected. A
 reviewed backport or application-specific applicability evidence is still needed.
+
+## Additional proxy boundary evidence
+
+The prior boundary artifact `13840948684` contains a receipt for Caddy v2.11.7, binary SHA-256 `2ccf2914cbfe65d113ce4db51dc62bfd774f020b6ef33882d07d2d30442f370b`, and Caddyfile SHA-256 `19f70759f4cb954ab75b47eb9af8829067d4efd2fce3d77e488a85d1bc492fd4`. Bounded fixtures reached both `/acme/local/new-account` and `/backend/acme/local/new-account` and verified unchanged forwarding of body and Authorization bytes. In an explicitly enabled ACME-server control, a malformed private JWK was rejected before nonce validation, while the public-key control reached the nonce check. The fixture did not install host trust.
+
+This matches the configured boundary: admin API disabled; internal TLS issuer; only reverse-proxy, rewrite and subroute HTTP handlers; no ACME-server handler. The upstream Caddy v2.11.7 source registers ACME as the separately configured `http.handlers.acme_server` module and dispatches smallstep ACME API routes from that handler (https://github.com/caddyserver/caddy/blob/v2.11.7/modules/caddypki/acmeserver/acmeserver.go).
+
+Conclusion: the evidence supports absence of the reviewed untrusted JWK ingress through the shipped configuration, not removal of vulnerable code or safety of arbitrary Caddy configurations. The old receipt does not cover the newly rebuilt Go 1.27.4 binary. A matching fresh receipt plus a documented configuration-scoped assessment is needed; leave raw findings intact. Enabling an ACME handler, authentication/JWK processing, admin access, other issuers/loaders or other applications invalidates this conclusion. The upstream advisory still lists go-jose/v3 <=3.0.5 as affected with no patched v3 release.
+
+The gosu recipe now uses committed `gosu.go.mod`/`gosu.go.sum`, verifies module
+checksums, then builds with network disabled and `-mod=readonly`. It retains
+source archives for the three linked modules, module hashes and binary build
+metadata in `/usr/share/licenses/gosu/source/`. The same locked local build with
+`GOPROXY=off` reproduced the binary hash above. Image delivery remains subject to
+the fresh CI image evidence rather than this local result.

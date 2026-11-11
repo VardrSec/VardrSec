@@ -26,9 +26,10 @@ WORKDIR /src
 # module (checksum database verified) with the patched toolchain used elsewhere.
 # x/sys 0.44.0 removes GO-2026-5024 from the module graph (Windows-only path).
 # moby/sys/user is raised to 0.4.1 for GO-2026-6686 (unbounded user/group file parsing).
-RUN go mod init vardrsec-gosu-build \
-    && go get github.com/tianon/gosu@6456aaa0f3c854d199d0f037f068eb97515b7513 github.com/moby/sys/user@v0.4.1 golang.org/x/sys@v0.44.0 \
-    && go build -trimpath -ldflags '-d -w' -o /go/bin/gosu github.com/tianon/gosu
+COPY gosu.go.mod /src/go.mod
+COPY gosu.go.sum /src/go.sum
+RUN go mod download && go mod verify
+RUN --network=none go build -mod=readonly -trimpath -ldflags '-d -w' -o /go/bin/gosu github.com/tianon/gosu
 RUN gosu_notice_source="$(go list -m -f '{{.Dir}}' github.com/tianon/gosu)" \
     && mkdir -p /out/gosu-notices \
     && cp "$gosu_notice_source/LICENSE" /out/gosu-notices/LICENSE \
@@ -39,6 +40,15 @@ RUN cd /go/pkg/mod \
     && find . -type f \( -iname 'license*' -o -iname 'notice*' -o -iname 'copying*' -o -iname 'copyright*' \) -print0 > /tmp/module-notices \
     && tar --null -T /tmp/module-notices -czf /out/gosu-notices/dependency-notices.tar.gz \
     && cp /usr/local/go/LICENSE /out/gosu-notices/GO-LICENSE
+# Retain exact checksum-verified source archives for all three linked modules.
+RUN mkdir -p /out/gosu-notices/source \
+    && cp /src/go.mod /src/go.sum /out/gosu-notices/source/ \
+    && go list -m all > /out/gosu-notices/source/modules.txt \
+    && go version -m /go/bin/gosu > /out/gosu-notices/source/binary-build-info.txt \
+    && cd /go/pkg/mod/cache/download \
+    && find . -type f \( -name '*.zip' -o -name '*.mod' -o -name '*.info' -o -name '*.ziphash' \) -print0 | LC_ALL=C sort -z > /tmp/gosu-source-files \
+    && tar --null -T /tmp/gosu-source-files --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -cf /out/gosu-notices/source/module-sources.tar \
+    && cd /out/gosu-notices/source && sha256sum ./* > SHA256SUMS
 
 FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
 RUN apt-get update \
