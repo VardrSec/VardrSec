@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Backport the maintained util-linux mount/descriptor security fixes and their
+  header/flag follow-ups, retaining the Trixie ABI and corresponding source.
+
 - Bound database Archive::Tar entry allocation using the upstream security fix,
   with guarded original/modified source and license delivery.
 

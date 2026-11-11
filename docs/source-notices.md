@@ -155,3 +155,19 @@ and modified module, patch provenance, license texts and checksums. Builds
 verify both original and modified source hashes and stop on unexpected source
 changes. The package/module version is not relabeled as an upstream fixed
 release. Final scanner disposition remains a separate release requirement.
+
+## util-linux source delivery
+
+The image rebuilds the existing Trixie util-linux source with the remaining
+upstream stable mount-hook, source-resolution and descriptor-close-on-exec
+security changes. Existing Debian patches are retained; upstream's missing
+header and corrected symlink-resolution flag are included. Runtime ABI and
+feature configuration remain unchanged. `mount`, `util-linux` and their five
+exact-version sibling libraries are replaced together, preserving Debian
+dependency constraints. Other build products remain in the builder.
+
+`/usr/share/doc/util-linux/vardr-source/` retains original/modified Debian
+source, patch identities, build metadata, recipe and checksums. Existing
+package copyright remains installed. The `util-linux-source-delivery` build
+target exports the same materials. A custom package version does not itself
+clear vulnerability findings.
