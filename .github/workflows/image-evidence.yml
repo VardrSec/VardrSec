@@ -54,6 +54,32 @@ jobs:
           cat artifacts/proxy-go-reachability.txt
           # Finding exit code 3 is evidence, never an accepted risk. Other errors fail collection.
           if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then exit "$status"; fi
+      - name: Verify rebuilt gosu module and retain Go reachability
+        shell: bash
+        run: |
+          set -euo pipefail
+          db=$(docker compose --profile tools config --format json | python -c 'import json,sys; print(json.load(sys.stdin)["services"]["db"]["image"])')
+          id=$(docker create "$db")
+          docker cp "$id:/usr/local/bin/gosu" "$RUNNER_TEMP/gosu"
+          docker rm "$id" > /dev/null
+          go version -m "$RUNNER_TEMP/gosu" > artifacts/gosu-build-info.txt
+          grep -Eq 'golang.org/x/sys[[:space:]]+v0\.44\.0[[:space:]]' artifacts/gosu-build-info.txt
+          set +e
+          "$RUNNER_TEMP/proxy-go-bin/govulncheck" -mode=binary -show verbose "$RUNNER_TEMP/gosu" > artifacts/gosu-go-reachability.txt 2>&1
+          status=$?
+          set -e
+          cat artifacts/gosu-go-reachability.txt
+          if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then exit "$status"; fi
+      - name: Preserve gosu dependency and reachability evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: gosu-go-evidence
+          path: |
+            artifacts/gosu-build-info.txt
+            artifacts/gosu-go-reachability.txt
+          if-no-files-found: error
+          retention-days: 7
       - name: Verify the configured proxy JWK ingress boundary
         run: python tests/proxy_jwk_boundary.py --caddy "$RUNNER_TEMP/caddy"
       - name: Preserve proxy boundary evidence

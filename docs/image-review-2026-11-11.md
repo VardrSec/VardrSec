@@ -24,3 +24,26 @@ Counts are scanner occurrences, not distinct exploitable defects. Evidence preda
 
 Remaining OS and unknown findings need package/advisory-specific review. No suppression, acceptance, clean-image, reproducible-image or release-ready claim is made here. CI must rebuild pinned sources and collect fresh receipts/SBOMs/vulnerability and reachability reports before judging remediation. Preserve exact artifact digests before Actions retention expires.
 
+
+## Subsequent bounded remediation
+
+The database gosu build now selects `golang.org/x/sys v0.44.0`. A separate
+Linux/amd64 build of the exact gosu commit with Go 1.27.4 succeeded and its
+embedded module list confirms x/sys 0.44.0; `gosu --version` reports 1.19.
+Two local builds matched SHA-256
+`34d7c9c6f0427a70c52aee706e389d92d52daca3491ad99ba32c61bb7dc71d15`;
+`go mod verify` passed and govulncheck 1.9.0 reported no vulnerabilities.
+This evidence covers this Linux/amd64 binary, not every database image package.
+CI additionally checks the actual binary copied out of the resulting database
+image, retains its module list and performs binary govulncheck. This is a module
+upgrade, not a suppression or a claim that the old Windows-specific path was
+exploitable on Linux. [Upstream advisory](https://pkg.go.dev/vuln/GO-2026-5024).
+
+The stable OS package backlog cannot be cleared by an unqualified apt upgrade:
+Debian currently lists Trixie util-linux 2.41.5 as vulnerable to
+[CVE-2026-76642](https://security-tracker.debian.org/tracker/CVE-2026-76642),
+with the fix in unstable, and Trixie SQLite 3.46.1 as vulnerable to
+[CVE-2026-119373](https://security-tracker.debian.org/tracker/CVE-2026-119373),
+also fixed in unstable. Both have a no-DSA classification for stable. This is
+not VardrSec risk acceptance: no mixed-distribution upgrade is selected. A
+reviewed backport or application-specific applicability evidence is still needed.
