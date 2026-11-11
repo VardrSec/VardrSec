@@ -1,17 +1,28 @@
-# Standalone Community workflow
+# Mapless installation and first assessment
 
-This is the merged, source-built Full/Mapless integration. Compatible component
-pins and Ubuntu installed workflows passed; configured Windows Docker Desktop
-workflows, subsequent canonical new installations and portable recovery also passed.
-Evidence boundaries and remaining release acceptance are in the
-[support limits](limitations.md).
-Windows 11 with Docker Desktop Linux containers and Ubuntu
-24.04 remain required; no native-only substitute is selected.
+This is the canonical CLI-only source-built path using the **same Runner and
+Gate** as Full, without Map, PostgreSQL, an account or an API key. For the web
+workspace, use the separate [Full installation](installation.md). No automatic
+history or identity migration connects the modes; keep their checkouts and state
+separate. This is development software, not a published Community release.
 
-## Install and keep state
+Follow steps 1–3 for a signed Gate assessment, then keep the state and issuer
+backups in step 4. Finite Recon and the local assistant are optional workflows
+after that path. Read the [support limits](limitations.md) first.
 
-In a separate clean distribution checkout, with Python 3.10+, Git, Docker and
-Compose 2.17+ available:
+## 1. Install and create a workspace
+
+Use Windows 11 Docker Desktop with Linux/amd64 containers or Ubuntu 24.04/amd64.
+Install Python 3.10+, Git, Docker and Compose 2.17+ first, then check that Docker
+is running and accessible. Use a private directory outside synchronized folders.
+See [platforms](platforms.md) for experimental and unsupported environments.
+
+Create a separate clean checkout:
+
+```sh
+git clone https://github.com/VardrSec/VardrSec.git vardrsec-mapless
+cd vardrsec-mapless
+```
 
 To coexist with another installation, choose a distinct `COMPOSE_PROJECT_NAME`
 before installing (`export COMPOSE_PROJECT_NAME=assessment-local` on Linux,
@@ -19,13 +30,25 @@ before installing (`export COMPOSE_PROJECT_NAME=assessment-local` on Linux,
 installation completes. The installed image record then preserves the selected
 project across shells; a restored installation preserves its separate project.
 
-```sh
-python3 vardrsec.py install --mapless
-python3 vardrsec.py doctor
-python3 vardrsec.py runner -- workspace create "Local assessment"
+Windows PowerShell:
+
+```powershell
+.\install.ps1 --mapless
+py -3 vardrsec.py doctor
+.\runner.ps1 workspace create "Local assessment"
 ```
 
-On Windows use `python` for the same commands. Keep the returned workspace ID.
+Ubuntu:
+
+```sh
+./install.sh --mapless
+python3 vardrsec.py doctor
+./runner.sh workspace create "Local assessment"
+```
+
+Both installers delegate to `vardrsec.py install --mapless`. The remaining
+examples use `python3`; on Windows replace it with `py -3` and use one line
+instead of Bash's `\` continuations. Keep the returned workspace ID.
 The mode marker selects the Mapless model on subsequent commands. Installation
 builds the pinned Runner/Gate toolkit and creates a stopped Runner container.
 Its project-scoped build tag does not replace Full's development tag. Installation
@@ -43,7 +66,7 @@ checked for overlap with existing Docker networks and retained with the installe
 project/image selection. Existing networks, including retained fixture networks,
 are left untouched; this option does not add a service or change Runner privileges.
 
-## Authorize one assessment
+## 2. Authorize one Gate assessment
 
 Use an operator-chosen private Docker volume for the signing key. It is separate
 from Runner execution state and is mounted only for these two issuer commands:
@@ -77,7 +100,62 @@ The bundle contains exactly six public authorization documents. It contains no
 signing key, but unresolved case data remains private engagement data. Keep the
 issuer volume; recreating a volume or issuer is not authority recovery.
 
-## Execute, inspect and export
+## 3. Execute, inspect and export
+
+Run one explicitly selected signed job. For example, if the case references
+`OWNER_TOKEN`, provide its value privately in the caller's environment, set
+`VARDRRUNNER_WORKER_CREDENTIAL_ENV` to `OWNER_TOKEN`, then run:
+
+```sh
+python3 vardrsec.py runner --controlled --input-directory authorization/bundle \
+  --output-directory assessment-result -- --env OWNER_TOKEN
+```
+
+For multiple references the declaration is a comma-separated list, and each
+reference needs its own `--env NAME`. No secret value appears in the command.
+Private targets additionally require the existing explicit private-target policy;
+an approved hostname does not authorize other destinations.
+
+This foreground one-shot mode reuses the native containment owner, existing
+signed authorization ledger, credential grants, finite leases and job journal.
+Its temporary root bootstrap drops to the established owner/SDK identities;
+ordinary Runner remains UID 10001 with no capabilities. The signing volume is
+never mounted into execution. There is no queue polling or automatic retry.
+
+Successful execution retains original evidence in Runner state and copies the
+existing redacted export to `assessment-result/result/` (`artifact.json`,
+`audit.json`, `manifest.json`). Inspection uses the same journal:
+
+```sh
+python3 vardrsec.py runner -- audit list --engagement WORKSPACE_ID --json
+python3 vardrsec.py runner -- audit show RUN_ID
+python3 vardrsec.py runner --output-directory recovered-export -- \
+  audit export-run RUN_ID --output /exports/result
+```
+
+A failed export does not undo execution or restore a spent permission. The
+wrapper uses a fresh export volume and retains it with its named stopped container
+if transfer fails; recover its export
+or use the journal commands. Never rerun a consumed bundle to recover files.
+
+## 4. Back up and maintain the installation
+
+Use [encrypted backup and restore](encrypted-backups.md) for the whole Runner
+state and exact toolkit image. The separate issuer volume is deliberately outside
+execution backup: retain it and keep a separately protected operator backup before
+moving hosts. Restoring execution state does not issue new permission or replay a
+job. State-compatible Mapless image updates use the existing
+[controlled updater](updates.md#mapless-updates), leaving Runner stopped.
+Runner storage migrations and automatic Full/Mapless migration remain deferred;
+separate installations and explicit evidence export preserve data.
+
+This path supports the fixed HTTP Gate assessment and explicit finite Recon
+profile described below. The older Recon projection remains dormant; execution
+requires the separately compiled profile and verified managed tool bytes.
+Controlled execution across suspend/resume is not qualified. Broader Recon,
+independent benchmarks and release review remain outside this workflow’s claims.
+
+## Optional workflows
 
 ### Finite Recon
 
@@ -86,7 +164,7 @@ The compatible Runner source also provides explicit `workspace authorize
 and original HTTPS/443 GET-root candidates, then use the same private issuer,
 six-document bundle, controlled execution and export commands below. The complete
 input format and review procedure are in Runner's
-[finite Recon walkthrough](https://github.com/VardrSec/VardrRunner/blob/dfcd8f2a48eca451f91e2f5b06a636f5c393100d/docs/finite-recon.md).
+[finite Recon walkthrough](https://github.com/VardrSec/VardrRunner/blob/cc15dec86574d595c84f323aec813c241b4e56f8/docs/finite-recon.md).
 
 Recon binds both managed tool hashes and consumes one finite permission across
 DNS and HTTP. It preserves the original Host/TLS name while connecting to a
@@ -130,59 +208,3 @@ MCP client before canonical issuer, execution or maintenance commands. Concurren
 MCP/canonical CLI operation is not claimed by this cohort; no new lock service or
 background execution authority is introduced. The ordinary CLI workflow does not
 require MCP.
-
-### Gate or Recon execution
-
-Run one explicitly selected signed job. For example, if the case references
-`OWNER_TOKEN`, provide its value privately in the caller's environment, set
-`VARDRRUNNER_WORKER_CREDENTIAL_ENV` to `OWNER_TOKEN`, then run:
-
-```sh
-python3 vardrsec.py runner --controlled --input-directory authorization/bundle \
-  --output-directory assessment-result -- --env OWNER_TOKEN
-```
-
-For multiple references the declaration is a comma-separated list, and each
-reference needs its own `--env NAME`. No secret value appears in the command.
-Private targets additionally require the existing explicit private-target policy;
-an approved hostname does not authorize other destinations.
-
-This foreground one-shot mode reuses the native containment owner, existing
-signed authorization ledger, credential grants, finite leases and job journal.
-Its temporary root bootstrap drops to the established owner/SDK identities;
-ordinary Runner remains UID 10001 with no capabilities. The signing volume is
-never mounted into execution. There is no queue polling or automatic retry.
-
-Successful execution retains original evidence in Runner state and copies the
-existing redacted export to `assessment-result/result/` (`artifact.json`,
-`audit.json`, `manifest.json`). Inspection uses the same journal:
-
-```sh
-python3 vardrsec.py runner -- audit list --engagement WORKSPACE_ID --json
-python3 vardrsec.py runner -- audit show RUN_ID
-python3 vardrsec.py runner --output-directory recovered-export -- \
-  audit export-run RUN_ID --output /exports/result
-```
-
-A failed export does not undo execution or restore a spent permission. The
-wrapper uses a fresh export volume and retains it with its named stopped container
-if transfer fails; recover its export
-or use the journal commands. Never rerun a consumed bundle to recover files.
-
-## Recovery and remaining capabilities
-
-Use [encrypted backup and restore](encrypted-backups.md) for the whole Runner
-state and exact toolkit image. The separate issuer volume is deliberately outside
-execution backup: retain it and keep a separately protected operator backup before
-moving hosts. Restoring execution state does not issue new permission or replay a
-job. State-compatible Mapless image updates use the existing
-[controlled updater](updates.md#mapless-updates), leaving Runner stopped.
-Runner storage migrations and automatic Full/Mapless migration remain deferred;
-separate installations and explicit evidence export preserve data.
-
-This path supports the fixed HTTP Gate assessment and explicit finite Recon
-profile described above. The older Recon projection remains dormant; execution
-requires the separately compiled profile and verified managed tool bytes.
-C09 sleep acceptance, broader Recon,
-independent benchmarks and release acceptance remain separate release requirements;
-these are not silently accepted or removed.

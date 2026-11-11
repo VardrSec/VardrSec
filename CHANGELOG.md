@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Clarify the separate Full and Mapless first-assessment paths and distinguish
+  manual advisory checks from controlled execution requirements.
+
 - Extend the database libxml2 backport with maintained dictionary, validation,
   XPointer, output and XInclude security fixes, retaining the patch sources.
 - Select the reviewed Runner libpcap fix and Dalfox dependency notice/source
