@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Select the checksum-verified fixed x/crypto revision in the frozen proxy graph;
+  retain the existing Caddy release and verified JOSE v3 source backport.
+
 - Run the existing Mapless installed journey independently of the Full database
   build and retain its sanitized receipt; its authorization checks are unchanged.
 
