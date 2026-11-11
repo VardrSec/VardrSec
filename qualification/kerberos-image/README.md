@@ -1,3 +1,47 @@
+# Source-built Kerberos database integration
+
+The normal `db/Dockerfile` now builds the four Kerberos client-library packages
+from exact source inside the previously qualified disposable Debian TCG guest.
+No prebuilt binary endpoint, GitHub token or expiring Actions artifact is needed.
+The approved PostgreSQL package/ABI and runtime configuration are unchanged.
+Both PostgreSQL 18.6 and libpq5 directly require libgssapi-krb5-2; removing it is
+not a compatible fix.
+
+Docker installs build tools only inside its disposable stage. QEMU runs as UID
+65534, with no host mounts/devices, KVM, published ports or security relaxation.
+The preparation boot acquires normal signed Debian dependencies; the package
+build boot has no virtual NIC. Full ordinary Debian tests, symbol checks and the
+bounded stripped-library regression must pass. Newly built package bytes must
+also match all four independently reproduced package hashes before installation.
+Any mismatch fails closed; there is no stale-artifact fallback.
+
+The image retains corresponding source plus the VM builder scripts, input pins,
+prepared dependency inventory, keyring prerequisite and source-only build
+receipt. Source-only receipts contain an input hash, not a fabricated Git commit.
+The Docker-context and standalone harness copies are checked byte-for-byte.
+
+The normal Full installation/build commands use this Dockerfile automatically.
+Mapless does not build a database. A cold database build needs around 4 GiB guest
+memory plus build overhead and additional disposable disk space; the first build
+can take tens of minutes under TCG. The guest preparation/build budgets remain
+30/120 minutes. Docker may reuse an unchanged successful build layer. Windows
+Docker Desktop end-to-end qualification remains an independent platform check.
+
+The candidate acceptance workflow now tests the ordinary Compose recipe. Its
+explicit override changes only the image alias, never the recipe or runtime
+policy. It verifies source/runtime custody and PostgreSQL smoke, then exports
+the stopped image for retained legal notices and bounded component inventory.
+CI time budgets are expanded to accommodate the unchanged upstream tests, not
+to skip or suppress them. Whole-image reproducibility and unrelated CVEs/legal
+reviews remain open; this change does not authorize release or deployment.
+
+## Historical offline candidate evidence (through beba220)
+
+The following material documents the previously verified candidate snapshot.
+Its offline `prepare.py` commands require that exact retained source snapshot;
+they intentionally reject the changed current Dockerfile. They are not the
+normal current build path.
+
 # Qualified Kerberos candidate database image
 
 This is an isolated acceptance workflow, not a production build path or release.

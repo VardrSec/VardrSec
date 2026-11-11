@@ -5,6 +5,13 @@ PostgreSQL and a local HTTPS proxy. For the CLI-only alternative, follow the
 [Mapless walkthrough](mapless.md) instead. Do not run both installers in the same
 checkout. Neither mode is a published Community release.
 
+The database source build uses a disposable QEMU/TCG guest inside the Docker
+build stage to run the unchanged Debian Kerberos tests under ordinary guest
+kernel policy. No host VM configuration, devices or security-policy changes are
+needed. Allocate at least 4 GiB guest memory plus Docker/build overhead; the
+first uncached database build can take tens of minutes. See the
+[build evidence and boundaries](../qualification/kerberos-image/README.md).
+
 ## 1. Check prerequisites and clone
 
 Windows 11 Docker Desktop with Linux/amd64 containers is the primary Community

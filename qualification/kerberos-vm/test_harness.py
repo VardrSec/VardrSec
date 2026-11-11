@@ -66,5 +66,20 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(len(inputs['sources']), 3)
 
 
+class BuildContextTests(unittest.TestCase):
+    def test_docker_context_harness_is_exact_copy(self):
+        for name in ('run.py', 'guest.sh', 'inputs.json'):
+            self.assertEqual((ROOT/name).read_bytes(), (ROOT.parents[1]/'db/kerberos-vm'/name).read_bytes())
+
+    def test_source_build_uses_guest_without_security_bypass(self):
+        dockerfile=(ROOT.parents[1]/'db/Dockerfile').read_text()
+        self.assertIn('USER 65534:65534',dockerfile)
+        self.assertIn('--source-only --work /work/qualification',dockerfile)
+        self.assertIn('kerberos-vm/finalize.py',dockerfile)
+        for forbidden in ('--privileged', 'seccomp=unconfined', 'DEB_BUILD_OPTIONS=nocheck', '--security=insecure'):
+            self.assertNotIn(forbidden,dockerfile)
+        self.assertNotIn('distribution_commit\': revision,', (ROOT/'run.py').read_text())
+
+
 if __name__ == '__main__':
     unittest.main()

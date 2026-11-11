@@ -68,6 +68,7 @@ def extract(work, phase):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--work', type=Path, required=True, help='Fresh dedicated directory')
+    p.add_argument('--source-only', action='store_true', help='Build context without Git metadata; record input hash, not a claimed revision')
     args = p.parse_args()
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=False)
@@ -89,7 +90,8 @@ def main():
     (build / 'INPUT-SHA256SUMS').write_text(hashes)
     shutil.copyfile(HERE / 'guest.sh', source / 'guest.sh')
     shutil.copyfile(HERE / 'inputs.json', source / 'inputs.json')
-    revision = subprocess.check_output(['git', '-C', str(REPO), 'rev-parse', 'HEAD'], text=True).strip()
+    revision = ('source-inputs-sha256:' + hashlib.sha256(hashes.encode()).hexdigest() if args.source_only
+                else subprocess.check_output(['git', '-C', str(REPO), 'rev-parse', 'HEAD'], text=True).strip())
     (source / 'revision.txt').write_text(revision + '\n')
     run('xorriso', '-as', 'mkisofs', '-quiet', '-V', 'QUALINPUT', '-J', '-R', '-o', work / 'inputs.iso', source)
     run('qemu-img', 'create', '-f', 'qcow2', '-F', 'qcow2', '-b', work / 'base.qcow2', work / 'guest.qcow2', '24G')
@@ -113,7 +115,9 @@ def main():
         if phase == 'prepare':
             (work / 'prepared-disk.sha256').write_text(sha(work / 'guest.qcow2') + '\n')
     (work / 'verified.json').write_text(json.dumps({
-        'schema': 1, 'distribution_commit': revision, 'image_sha512': inputs['image_sha512'],
+        'schema': 1, 'distribution_commit': None if args.source_only else revision,
+        'source_inputs_sha256': hashlib.sha256(hashes.encode()).hexdigest(),
+        'image_sha512': inputs['image_sha512'],
         'prepared_disk_sha256': (work / 'prepared-disk.sha256').read_text().strip(),
         'full_debian_package_build_passed': True, 'offline_build_boot': True,
         'release_clearance': False, 'independent_reproducibility': False,

@@ -1,15 +1,17 @@
-FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6 AS krb5-backport
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential byacc comerr-dev debhelper docbook-to-man libkeyutils-dev \
-    libldap2-dev liblmdb-dev libnss-myhostname libsasl2-dev libssl-dev libverto-dev \
-    pkgconf ss-dev keyutils libcmocka-dev python3-kdcproxy python3-pyrad ca-certificates curl \
-    && rm -rf /var/lib/apt/lists/*
-WORKDIR /build
-RUN set -eu; for file in krb5_1.21.3-5+deb13u1.dsc krb5_1.21.3.orig.tar.gz krb5_1.21.3-5+deb13u1.debian.tar.xz; do \
-    curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
-      "https://deb.debian.org/debian/pool/main/k/krb5/$file" -o "$file"; done
-COPY build-krb5.sh krb5-CVE-2026-119079.patch krb5-keyring-test-diagnostic.patch krb5-sequence-regression.c Dockerfile /build/
-RUN --network=none sh /build/build-krb5.sh
+# Ordinary source build, with unchanged upstream tests in a disposable TCG guest.
+# Docker's default seccomp policy remains intact; the guest build has no NIC.
+FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS krb5-backport
+RUN apt-get -o Acquire::Retries=2 -o APT::Update::Error-Mode=any update \
+    && apt-get install -y --no-install-recommends ca-certificates python3 qemu-system-x86 qemu-utils cloud-image-utils xorriso e2fsprogs \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /work /out && chown 65534:65534 /work /out
+WORKDIR /repo
+COPY kerberos-vm/ /repo/qualification/kerberos-vm/
+COPY build-krb5.sh krb5-CVE-2026-119079.patch krb5-keyring-test-diagnostic.patch krb5-sequence-regression.c Dockerfile /repo/db/
+# No host mounts, devices, KVM, published ports, added capabilities or policy changes.
+USER 65534:65534
+RUN python3 qualification/kerberos-vm/run.py --source-only --work /work/qualification \
+    && python3 qualification/kerberos-vm/finalize.py /work/qualification /out
 
 FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6 AS libxml2-backport
 RUN apt-get update && apt-get install -y --no-install-recommends \

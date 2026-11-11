@@ -1,7 +1,8 @@
 # Isolated Debian Kerberos package qualification
 
-This is a separate evidence workflow, not a replacement database image or a
-release. Docker's default seccomp policy blocks kernel keyrings. The reviewed
+This is a separate evidence workflow, not a release. The normal database
+Dockerfile also uses the same harness from its Docker context; tests keep the
+three shared harness files byte-identical. Docker's default seccomp policy blocks kernel keyrings. The reviewed
 Debian test suite deliberately rejects the resulting EPERM. This workflow does
 not relax that policy or change the test to pass.
 
@@ -40,9 +41,9 @@ debugfs after the VM exits. A missing or nonzero guest verdict fails the job.
 Successful qualification would establish this package build/test result in this
 VM. It would not prove independently reproducible binaries, close unrelated
 vulnerabilities, or automatically qualify a runtime image. Build dependencies
-are recorded, not snapshot-locked. Production Dockerfiles are unchanged; any
-future consumption must bind the verified packages and evidence by checksum and
-rerun actual-image acceptance before making a release claim.
+are recorded, not snapshot-locked. The normal source build now binds all four output package hashes to independently
+reproduced bytes and retains VM builder/source custody. Actual-image acceptance
+remains separate from package qualification; no release claim is implied.
 
 Local harness checks do not boot a VM:
 
