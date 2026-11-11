@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Bound database Archive::Tar entry allocation using the upstream security fix,
+  with guarded original/modified source and license delivery.
+
 - Backport the upstream infocmp analysis bound to the existing Trixie ncurses
   source; retain original/modified source without replacing runtime libraries.
 

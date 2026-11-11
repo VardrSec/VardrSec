@@ -67,6 +67,17 @@ COPY libxml2-CVE-2026-6653.patch /build/CVE-2026-6653.patch
 COPY libxml2-CVE-2026-861*.patch libxml2-CVE-2026-74860.patch /build/
 COPY build-libxml2.sh libxml2-source.txt Dockerfile /build/
 RUN --network=none sh /build/build-libxml2.sh
+COPY archive-tar.patch archive-tar-source.txt /build/archive-tar/
+RUN --network=none mkdir -p /out/archive-tar-source \
+    && echo 'b46ebbba5898fa4d050d610aaf79e6a90e90b4f8d44689c3d9e361145d14a704  /usr/share/perl/5.40/Archive/Tar.pm' | sha256sum -c - \
+    && cp /usr/share/perl/5.40/Archive/Tar.pm /out/archive-tar-source/Tar.pm.original \
+    && cp /usr/share/perl/5.40/Archive/Tar.pm /out/archive-tar-source/Tar.pm \
+    && patch --fuzz=0 /out/archive-tar-source/Tar.pm /build/archive-tar/archive-tar.patch \
+    && echo 'e741b0a26fdd5ed3e0515b421cc6f6790f1352833f6765a198e33fd4da954d81  /out/archive-tar-source/Tar.pm' | sha256sum -c - \
+    && cp /build/archive-tar/* /out/archive-tar-source/ \
+    && cp /usr/share/doc/perl-base/copyright /out/archive-tar-source/perl-copyright \
+    && cp /usr/share/common-licenses/Artistic /usr/share/common-licenses/GPL-1 /out/archive-tar-source/ \
+    && cd /out/archive-tar-source && sha256sum ./* > SHA256SUMS
 
 FROM scratch AS libxml2-source-delivery
 COPY --from=libxml2-backport /out/source/ /
@@ -107,6 +118,9 @@ COPY --from=ncurses-build /out/packages/ /tmp/ncurses-security/
 RUN --network=none dpkg --install /tmp/ncurses-security/*.deb \
     && apt-get check && rm -rf /tmp/ncurses-security
 COPY --from=ncurses-build /out/source/ /usr/share/doc/ncurses-bin/vardr-source/
+RUN echo 'b46ebbba5898fa4d050d610aaf79e6a90e90b4f8d44689c3d9e361145d14a704  /usr/share/perl/5.40/Archive/Tar.pm' | sha256sum -c -
+COPY --from=libxml2-backport /out/archive-tar-source/Tar.pm /usr/share/perl/5.40/Archive/Tar.pm
+COPY --from=libxml2-backport /out/archive-tar-source/ /usr/share/doc/perl-modules-5.40/vardr-source/
 # These base-image package acquisition tools are not needed by the database
 # entrypoint or server. Keep apt's signature verifier; do not autoremove.
 RUN apt-get purge -y --no-auto-remove \

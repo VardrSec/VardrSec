@@ -1,3 +1,4 @@
 build-libxml2.sh text eol=lf
 libxml2-CVE-*.patch -text
 infocmp-bound.patch -text
+archive-tar.patch -text

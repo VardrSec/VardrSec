@@ -141,3 +141,17 @@ retained in `/usr/share/doc/ncurses-bin/vardr-source/`. The
 `ncurses-source-delivery` build target exports the same source materials.
 No unstable binary packages or repositories are introduced. A custom package
 version does not itself resolve version-based scanner findings.
+
+## Database Archive::Tar backport
+
+The database image retains Perl's existing interpreter/ABI and Archive::Tar
+3.02_001, backporting only the upstream CVE-2026-9538 allocation bound.
+Declared entries larger than 1 GiB are refused before allocation. The upstream
+`$Archive::Tar::MAX_FILE_SIZE` setting remains available; zero disables that
+cap. Extraction/link policy is unchanged.
+
+`/usr/share/doc/perl-modules-5.40/vardr-source/` contains the exact original
+and modified module, patch provenance, license texts and checksums. Builds
+verify both original and modified source hashes and stop on unexpected source
+changes. The package/module version is not relabeled as an upstream fixed
+release. Final scanner disposition remains a separate release requirement.
