@@ -149,3 +149,31 @@ already-shipped client-library packages are installed in this first database
 qualification. Fresh CI packaging/runtime evidence is required: this is not
 proof that other images or other Kerberos findings are fixed. No scanner
 exception or residual-risk acceptance is introduced.
+
+## Deterministic binary and proxy source candidate
+
+Gate PR #38 (`2474296597b6ccd082e2e405662fd1f2cada69f4`) passed two-build
+binary and canonical-archive comparisons for Linux amd64/arm64, Darwin
+amd64/arm64 and Windows amd64 in run 43033154378. These are bounded binary
+and archive checks, not OCI image reproducibility. Runner PR #134 candidate
+`acda08afb034aec8ad385e56d96156c57ad974f5` applies the same explicit
+`-buildvcs=false` flag when compiling Gate. Its new CI remains a separate
+qualification requirement; the source pins do not grant release approval.
+
+The proxy now commits its Caddy 2.11.7 dependency graph and retains a
+file-hash-verified go-jose/v3 3.0.5 source backport of the upstream v4.1.6
+RSA/JWK handling fixes. It retains the original module ZIP, complete patched
+source, licenses and before/after hash manifest. The original upstream version
+is not relabeled as a nonexistent fixed release. Preparation tests reject
+incorrect input bytes; final compilation is network-disabled and read-only
+with respect to module resolution. Local final-graph JOSE tests, an actual
+Caddy build and the loopback JWK boundary fixture passed. A fresh image build,
+source-custody receipt and raw scan remain required. Direct unmarshalling of
+private JWKs remains an API capability; this is not permission to trust arbitrary
+private-key input or enable unrelated Caddy handlers.
+
+Database and proxy module notice/source archives use sorted members, fixed
+metadata and deterministic compression, retaining original file bytes. Tests
+cover independent input timestamps, order and hardlink layouts. This removes
+one archive nondeterminism source; mutable OS package inputs and build logs
+still prevent a claim of independently reproducible whole images.

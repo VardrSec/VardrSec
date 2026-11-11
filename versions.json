@@ -13,14 +13,14 @@
     },
     "runner": {
       "repository": "VardrSec/VardrRunner",
-      "commit": "38db681b18d502f3f65873f8004a0cd1dbf8eb63",
+      "commit": "acda08afb034aec8ad385e56d96156c57ad974f5",
       "review": "https://github.com/VardrSec/VardrRunner/pull/134",
       "readiness_contract": 1
     },
     "gate": {
       "repository": "VardrSec/VardrGate",
-      "commit": "7f610397335c75414d9a47ebabf0c4aab380e14b",
-      "review": "https://github.com/VardrSec/VardrGate/pull/37"
+      "commit": "2474296597b6ccd082e2e405662fd1f2cada69f4",
+      "review": "https://github.com/VardrSec/VardrGate/pull/38"
     }
   },
   "source_installation": true
