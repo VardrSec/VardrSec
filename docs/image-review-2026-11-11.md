@@ -62,3 +62,16 @@ source archives for the three linked modules, module hashes and binary build
 metadata in `/usr/share/licenses/gosu/source/`. The same locked local build with
 `GOPROXY=off` reproduced the binary hash above. Image delivery remains subject to
 the fresh CI image evidence rather than this local result.
+
+## Candidate integration boundary
+
+This branch selects Runner PR #133 commit
+`393ad65d4cf8a1f2fc9e4bf456c884ce58d4682a` for integration verification, with
+Go 1.27.4, brotli 1.2.7 and compress 1.20.2 source overrides. It also selects
+already-merged Gate `7f610397335c75414d9a47ebabf0c4aab380e14b`, including its
+Go 1.27.4 fix. These are candidate source pins, not release approval.
+The earlier tables and license/source bundles remain bound to their recorded
+pre-remediation SBOMs; regenerate inventories from the candidate image evidence.
+The source manifest still declares development status and no published images.
+Nuclei's reachable deprecated OpenPGP finding remains unresolved; moving that
+package to a separate module is not considered a remediation.

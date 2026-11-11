@@ -13,11 +13,12 @@ identities and scanner/database validation were rechecked locally with
 license review. The receipt names CI merge commit
 `12c82d11b9145f3dd09ee6f1319bff7688f524c9`, not a published release.
 
-Its source manifest matches the currently selected component pins:
+Its source manifest records the pre-remediation component pins:
 Map `8bde9ff0c919db83c8995f46eac7bd828163892d`, Runner
 `cc15dec86574d595c84f323aec813c241b4e56f8`, Gate
 `ecd180627c9e692a8df532122713577d0afcefa1`. Newer component version headings do not
-change these image inputs. Refresh this review after changing pins or rebuilding
+change these historical image inputs. The candidate branch now changes Runner
+and Gate pins; this report does not clear the new images. Refresh this review after changing pins or rebuilding
 images; build-time dependency resolution can also change their contents.
 
 The [machine-readable review](release-license-review-2026-11-11.json) records the
