@@ -42,9 +42,14 @@ else
     (cd /build && sha256sum -c INPUT-SHA256SUMS)
     # Require real guest kernel-keyring support. This prerequisite is not a
     # substitute for the unchanged upstream tests, which must also all pass.
-    key=$(keyctl add user vardr-qualification-probe qualification-data @p)
-    test "$(keyctl pipe "$key")" = qualification-data
-    keyctl revoke "$key"
+    # A child process keyring (@p) is not possessed by its later sibling.
+    # Give the probe a dedicated session inherited by each keyctl invocation.
+    # This changes no permissions, policy or upstream test expectations.
+    keyctl session - sh -eu -c '
+        key=$(keyctl add user vardr-qualification-probe qualification-data @s)
+        test "$(keyctl pipe "$key")" = qualification-data
+        keyctl revoke "$key"
+    '
     printf '%s\n' 'Guest keyring create/read/revoke succeeded' > /out/vm/keyring-prerequisite.txt
     sh /build/build-krb5.sh
     test -s /out/source/evidence/sequence-regression.txt
