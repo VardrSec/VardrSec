@@ -19,9 +19,9 @@ docker run --rm --network none --entrypoint sh "$id" -eu -c '
     else
       case "$path" in
         ./usr/share/doc/libgssapi-krb5-2/changelog.Debian.gz|./usr/share/doc/libk5crypto3/changelog.Debian.gz|./usr/share/doc/libkrb5-3/README.Debian|./usr/share/doc/libkrb5-3/README.gz|./usr/share/doc/libkrb5-3/changelog.Debian.gz|./usr/share/doc/libkrb5support0/changelog.Debian.gz)
-          grep -Fxq "path-exclude=/usr/share/doc/*" /etc/dpkg/dpkg.cfg.d/* ;;
+          grep -Fxq "path-exclude /usr/share/doc/*" /etc/dpkg/dpkg.cfg.d/* ;;
         ./usr/share/lintian/overrides/libgssapi-krb5-2|./usr/share/lintian/overrides/libkrb5-3|./usr/share/lintian/overrides/libkrb5support0)
-          grep -Fxq "path-exclude=/usr/share/lintian/*" /etc/dpkg/dpkg.cfg.d/* ;;
+          grep -Fxq "path-exclude /usr/share/lintian/overrides/*" /etc/dpkg/dpkg.cfg.d/* ;;
         *) echo "FAIL: unexpected missing package payload: $path" >&2; exit 1 ;;
       esac
       printf "BASE-POLICY NON-RUNTIME OMISSION: %s\n" "$path"
