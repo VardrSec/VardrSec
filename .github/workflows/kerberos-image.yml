@@ -1,0 +1,63 @@
+name: Qualified Kerberos database image acceptance
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/kerberos-image.yml'
+      - 'qualification/kerberos-image/**'
+      - 'db/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  accept-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate fail-closed artifact consumption
+        run: |
+          python -m unittest discover -s qualification/kerberos-image -v
+          bash -n qualification/kerberos-image/verify.sh
+      - name: Fetch exact successful VM qualification artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/kerberos-image
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/VardrSec/VardrSec/actions/runs/43060945526 \
+            -o artifacts/kerberos-image/qualified-run.json
+          python - <<'PY'
+          import json
+          r = json.load(open('artifacts/kerberos-image/qualified-run.json'))
+          assert r['id'] == 43060945526
+          assert r['head_sha'] == 'ea358d51a89d401125be73112aa381a066a71d8f'
+          assert r['conclusion'] == 'success'
+          assert r['path'] == '.github/workflows/kerberos-vm.yml'
+          PY
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/VardrSec/VardrSec/actions/artifacts/13875193642/zip \
+            -o "$RUNNER_TEMP/qualified-krb5.zip"
+          python qualification/kerberos-image/prepare.py "$RUNNER_TEMP/qualified-krb5.zip" . db/qualified-krb5
+          cp db/qualified-krb5/consumption.json db/Dockerfile.qualification artifacts/kerberos-image/
+      - name: Build actual database recipe with checksum-bound qualified packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --progress=plain -f db/Dockerfile.qualification -t vardr-db-qualified-candidate db \
+            2>&1 | tee artifacts/kerberos-image/build.log
+      - name: Verify installed bytes, corresponding source and isolated PostgreSQL smoke
+        run: bash qualification/kerberos-image/verify.sh vardr-db-qualified-candidate
+      - name: Preserve candidate acceptance evidence without publication
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: kerberos-image-acceptance
+          path: artifacts/kerberos-image/
+          if-no-files-found: error
+          retention-days: 14
