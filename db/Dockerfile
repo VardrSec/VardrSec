@@ -18,7 +18,7 @@ RUN --network=none sh /build/build-libxml2.sh
 FROM scratch AS libxml2-source-delivery
 COPY --from=libxml2-backport /out/source/ /
 
-FROM golang:1.27.3@sha256:9048d5e7751706200eb1719c7dae0436950d362f29a1da91fa05e5c63867c60f AS gosu
+FROM golang:1.27.4@sha256:08bcb99a38f85a265f9a93d1d3323e2440eec333380f3ea26ee0dec9264bb41c AS gosu
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local GODEBUG=http2client=0
 WORKDIR /src
 # The reviewed PostgreSQL image bundles gosu 1.19.0 built with Go 1.24.6. Keep that

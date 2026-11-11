@@ -25,7 +25,7 @@ protected encrypted drive and private ACLs/permissions; identity loss prevents
 recovery. The public `age1...` recipient may be supplied to the backup machine.
 Never paste private keys into command arguments, environment variables or Git.
 Official binaries are available for Windows/macOS/Linux; development CI builds
-the pinned official age v1.3.2 module with Go 1.27.3 and checksum verification.
+the pinned official age v1.3.2 module with Go 1.27.4 and checksum verification.
 Implicit toolchain downloads are disabled for that CI build, so its compiler
 matches the declared pin. The age package version and encrypted format are
 unchanged; the existing Windows/Linux round trips and installed restore drill

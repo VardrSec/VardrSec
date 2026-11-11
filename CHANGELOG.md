@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Build distribution Go binaries with Go 1.27.4 and retain pinned builder identity.
+- Add repeatable, verified source-only snapshots and CI review artifacts.
+- Refresh exact-image dependency/license evidence without asserting redistribution clearance.
+
 ## [0.1.0-dev.1] — source snapshot prepared
 
 This version identifies the development source snapshot, not a published release.
