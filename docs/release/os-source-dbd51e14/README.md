@@ -64,3 +64,14 @@ pinned checksums before being saved. No huge source archives are committed here.
 
 The capture was verified with all 514 pinned files and every repository signature,
 index binding, recipe revision, Git blob and declared source checksum check enabled.
+
+## License and recipient-delivery review
+
+See [the bounded obligation matrix](license-review/REVIEW.md),
+[recipient source/relinking guidance](license-review/SOURCE-AND-RELINKING.md),
+and [caller/source provenance](license-review/libdb-caller-evidence.json).
+These distinguish source acquisition from recipient delivery and demonstrated
+relinking, and do not grant legal clearance. Findings refer to the original
+reviewed inventory; subsequent supplementary captures need reconciliation.
+
+The [sqv static-source supplement](sqv-static/README.md) closes the separately identified 65-pair retention gap; final image reconciliation, relinking and recipient delivery remain pending.

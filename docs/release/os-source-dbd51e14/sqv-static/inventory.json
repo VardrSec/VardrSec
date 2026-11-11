@@ -1,0 +1,392 @@
+[
+  {
+    "source": "rust-aho-corasick",
+    "version": "1.1.3-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-anstream",
+    "version": "0.6.15-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-anstyle",
+    "version": "1.0.8-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-anstyle-parse",
+    "version": "0.2.1-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-anstyle-query",
+    "version": "1.0.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-anyhow",
+    "version": "1.0.95-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-argon2",
+    "version": "0.5.3-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-base64",
+    "version": "0.22.1-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-base64ct",
+    "version": "1.6.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-bitflags",
+    "version": "2.8.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-blake2",
+    "version": "0.10.6-3",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-block-buffer",
+    "version": "0.10.4-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-buffered-reader",
+    "version": "1.3.1-2",
+    "built_using": true,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-cfg-if",
+    "version": "1.0.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-chrono",
+    "version": "0.4.39-2",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-clap",
+    "version": "4.5.23-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-clap-builder",
+    "version": "4.5.23-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-clap-lex",
+    "version": "0.7.4-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-colorchoice",
+    "version": "1.0.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-cpufeatures",
+    "version": "0.2.16-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-crypto-common",
+    "version": "0.1.6-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-digest",
+    "version": "0.10.7-2",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-dyn-clone",
+    "version": "1.0.16-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-generic-array",
+    "version": "0.14.7-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-getrandom",
+    "version": "0.2.15-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-iana-time-zone",
+    "version": "0.1.63-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-idna",
+    "version": "1.0.3-2",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-idna-adapter",
+    "version": "1.1.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-idna-mapping",
+    "version": "1.0.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-lalrpop-util",
+    "version": "0.20.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-lazy-static",
+    "version": "1.5.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-libc",
+    "version": "0.2.169-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-linux-raw-sys",
+    "version": "0.4.14-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-memchr",
+    "version": "2.7.4-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-memsec",
+    "version": "0.7.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-nettle",
+    "version": "7.3.0-1",
+    "built_using": true,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-nettle-sys",
+    "version": "2.3.1-1",
+    "built_using": true,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-num-traits",
+    "version": "0.2.19-2",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-password-hash",
+    "version": "0.5.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-rand-core",
+    "version": "0.6.4-2",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-regex",
+    "version": "1.11.1-2",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-regex-automata",
+    "version": "0.4.9-2",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-regex-syntax",
+    "version": "0.8.5-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-rustix",
+    "version": "0.38.37-4",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-sequoia-openpgp",
+    "version": "2.0.0-2+deb13u1",
+    "built_using": true,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-sequoia-policy-config",
+    "version": "0.8.0-1",
+    "built_using": true,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-serde",
+    "version": "1.0.217-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-sha1collisiondetection",
+    "version": "0.3.2-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-smallvec",
+    "version": "1.13.2-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-strsim-0.10",
+    "version": "0.10.0-4",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-subtle",
+    "version": "2.6.1-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-terminal-size",
+    "version": "0.4.1-2",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-thiserror",
+    "version": "2.0.11-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-thiserror-1",
+    "version": "1.0.69-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-tinyvec",
+    "version": "1.6.0-2",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-tinyvec-macros",
+    "version": "0.1.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-toml-0.5",
+    "version": "0.5.11-4",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-typenum",
+    "version": "1.17.0-3",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-unicode-bidi",
+    "version": "0.3.17-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-unicode-joining-type",
+    "version": "1.0.0-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-unicode-normalization",
+    "version": "0.1.24-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-utf8-iter",
+    "version": "1.0.4-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-utf8parse",
+    "version": "0.2.1-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rust-xxhash-rust",
+    "version": "0.8.15-1",
+    "built_using": false,
+    "index": "trixie-Sources.xz"
+  },
+  {
+    "source": "rustc",
+    "version": "1.85.0+dfsg3-1",
+    "built_using": true,
+    "index": "security-Sources.xz"
+  }
+]

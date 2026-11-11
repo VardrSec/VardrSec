@@ -1,0 +1,372 @@
+{
+  "scope": "dbd51e14a902249f2576fef18da8dd76b58097bc only; read-only engineering review; no legal clearance",
+  "legal_files_checked": 273,
+  "legal_hash_failures": [],
+  "inventory_sha256": "a599b35299b9f65e33d5e2afab9a7fc30a8c2553bde027eeeeb879fdc5acc0a1",
+  "legal_manifest_sha256": "7e8e74d46e092adc1950ed8913702e9208dd108c4c7238e8d6c94c35b7ed467e",
+  "packages_index_sha256": "7778d3e3f303b7ddb8ce0fe7c8d57473a076c6bf2e8f241f75421d2396352498",
+  "sqv": {
+    "package": "sqv",
+    "version": "1.3.0-3+b2",
+    "binary_sha256": "97760aa17acceee0cace13d9edbed781d891b43e0dec0d6ddc4bd5e4c3ac65aa",
+    "built_using": [
+      {
+        "source": "rust-buffered-reader",
+        "version": "1.3.1-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-nettle",
+        "version": "7.3.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-nettle-sys",
+        "version": "2.3.1-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-sequoia-openpgp",
+        "version": "2.0.0-2+deb13u1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-sequoia-policy-config",
+        "version": "0.8.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rustc",
+        "version": "1.85.0+dfsg3-1",
+        "present_in_os_inventory": false
+      }
+    ],
+    "static_built_using": [
+      {
+        "source": "rust-aho-corasick",
+        "version": "1.1.3-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-anstream",
+        "version": "0.6.15-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-anstyle",
+        "version": "1.0.8-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-anstyle-parse",
+        "version": "0.2.1-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-anstyle-query",
+        "version": "1.0.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-anyhow",
+        "version": "1.0.95-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-argon2",
+        "version": "0.5.3-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-base64",
+        "version": "0.22.1-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-base64ct",
+        "version": "1.6.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-bitflags",
+        "version": "2.8.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-blake2",
+        "version": "0.10.6-3",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-block-buffer",
+        "version": "0.10.4-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-buffered-reader",
+        "version": "1.3.1-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-cfg-if",
+        "version": "1.0.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-chrono",
+        "version": "0.4.39-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-clap",
+        "version": "4.5.23-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-clap-builder",
+        "version": "4.5.23-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-clap-lex",
+        "version": "0.7.4-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-colorchoice",
+        "version": "1.0.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-cpufeatures",
+        "version": "0.2.16-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-crypto-common",
+        "version": "0.1.6-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-digest",
+        "version": "0.10.7-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-dyn-clone",
+        "version": "1.0.16-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-generic-array",
+        "version": "0.14.7-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-getrandom",
+        "version": "0.2.15-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-iana-time-zone",
+        "version": "0.1.63-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-idna",
+        "version": "1.0.3-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-idna-adapter",
+        "version": "1.1.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-idna-mapping",
+        "version": "1.0.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-lalrpop-util",
+        "version": "0.20.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-lazy-static",
+        "version": "1.5.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-libc",
+        "version": "0.2.169-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-linux-raw-sys",
+        "version": "0.4.14-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-memchr",
+        "version": "2.7.4-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-memsec",
+        "version": "0.7.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-nettle",
+        "version": "7.3.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-nettle-sys",
+        "version": "2.3.1-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-num-traits",
+        "version": "0.2.19-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-password-hash",
+        "version": "0.5.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-rand-core",
+        "version": "0.6.4-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-regex",
+        "version": "1.11.1-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-regex-automata",
+        "version": "0.4.9-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-regex-syntax",
+        "version": "0.8.5-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-rustix",
+        "version": "0.38.37-4",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-sequoia-openpgp",
+        "version": "2.0.0-2+deb13u1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-sequoia-policy-config",
+        "version": "0.8.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-serde",
+        "version": "1.0.217-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-sha1collisiondetection",
+        "version": "0.3.2-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-smallvec",
+        "version": "1.13.2-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-strsim-0.10",
+        "version": "0.10.0-4",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-subtle",
+        "version": "2.6.1-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-terminal-size",
+        "version": "0.4.1-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-thiserror",
+        "version": "2.0.11-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-thiserror-1",
+        "version": "1.0.69-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-tinyvec",
+        "version": "1.6.0-2",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-tinyvec-macros",
+        "version": "0.1.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-toml-0.5",
+        "version": "0.5.11-4",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-typenum",
+        "version": "1.17.0-3",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-unicode-bidi",
+        "version": "0.3.17-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-unicode-joining-type",
+        "version": "1.0.0-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-unicode-normalization",
+        "version": "0.1.24-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-utf8-iter",
+        "version": "1.0.4-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-utf8parse",
+        "version": "0.2.1-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rust-xxhash-rust",
+        "version": "0.8.15-1",
+        "present_in_os_inventory": false
+      },
+      {
+        "source": "rustc",
+        "version": "1.85.0+dfsg3-1",
+        "present_in_os_inventory": false
+      }
+    ]
+  }
+}
