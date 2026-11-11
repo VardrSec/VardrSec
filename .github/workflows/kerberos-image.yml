@@ -49,7 +49,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker build --progress=plain -f db/Dockerfile.qualification -t vardr-db-qualified-candidate db \
+          # Only a fresh CI checkout is configured; existing installations are never touched.
+          python vardrsec.py configure
+          docker compose -f compose.yaml -f qualification/kerberos-image/compose.candidate.json build --progress plain db \
             2>&1 | tee artifacts/kerberos-image/build.log
       - name: Verify installed bytes, corresponding source and isolated PostgreSQL smoke
         run: bash qualification/kerberos-image/verify.sh vardr-db-qualified-candidate

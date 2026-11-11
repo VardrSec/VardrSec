@@ -48,3 +48,33 @@ python qualification/kerberos-image/reproduce.py \
   second.zip 3b04ad8e6b1dd95836b9348d8f18bdba5479eb741d4338adf9312f7c9de996f9 \
   reproduction-evidence.json
 ```
+
+## Offline custody and normal Compose candidate build
+
+Keep the exact first ZIP (including its complete source and evidence), second ZIP
+and comparison receipt in your own durable storage. GitHub retention is not a
+permanent distribution mechanism. No release endpoint or new registry is created
+by this work. The checks below operate on local ZIP files without accessing
+GitHub. Building the remaining database recipe still needs its existing network
+sources; this is not an offline full-image build.
+
+Use a **fresh isolated checkout** of this branch, never an existing installation:
+
+```sh
+python qualification/kerberos-image/reproduce.py \
+  first.zip 5cb8a64e59f2ff8f945adfa934e4e989d62fec754751f38f70bf3765495fdae9 \
+  second.zip 3b04ad8e6b1dd95836b9348d8f18bdba5479eb741d4338adf9312f7c9de996f9 \
+  reproduction-evidence.json
+python qualification/kerberos-image/prepare.py first.zip . db/qualified-krb5
+python vardrsec.py configure
+docker compose -f compose.yaml -f qualification/kerberos-image/compose.candidate.json build db
+bash qualification/kerberos-image/verify.sh vardr-db-qualified-candidate
+```
+
+The explicit override changes only the database build recipe and candidate image
+alias; all runtime configuration remains inherited and unchanged. `build db`
+does not start the stack, create database volumes, or touch running services.
+The smoke test separately creates and removes its own temporary, network-disabled
+container. Do not use `up`, `install`, `update`, or tag/push a release based on
+this candidate evidence. Ordinary default builds are not silently switched to
+these packages. Promoting this path remains a separate reviewed decision.
