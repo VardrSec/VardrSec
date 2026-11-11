@@ -40,7 +40,15 @@ for package in /out/packages/*.deb; do dpkg-deb -x "$package" "$payload"; done
 library=$(find "$payload/usr/lib" -type f -name 'libkrb5.so.3.*')
 test -n "$library"; test "$(printf '%s\n' "$library" | wc -l)" -eq 1
 libdir=$(dirname "$library")
-cc -O2 -Wall -Wextra -Werror -Wl,--export-dynamic -Ibuild/include \
+# Debian moves installed headers to the multi-dev include prefix. Use the
+# exact development package produced above, never ambient system/build headers.
+headers=$(mktemp -d)
+set -- ../krb5-multidev_*_*.deb
+test "$#" -eq 1
+dpkg-deb -x "$1" "$headers"
+sha256sum "$1" > /out/source/evidence/header-package-SHA256SUMS
+test -f "$headers/usr/include/mit-krb5/krb5.h"
+cc -O2 -Wall -Wextra -Werror -Wl,--export-dynamic -I"$headers/usr/include/mit-krb5" \
  /build/krb5-sequence-regression.c "$library" -Wl,-rpath-link,"$libdir" -ldl -o /tmp/krb-sequence-regression
 (ulimit -c 0; ulimit -v 262144; ulimit -t 10
  LD_LIBRARY_PATH="$libdir" timeout 15 /tmp/krb-sequence-regression patched) > /out/source/evidence/sequence-regression.txt

@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "package_bytes_reproduced": true,
+  "separately_prepared_vm_disks": true,
+  "prepared_dependency_inventory_identical": true,
+  "first": {
+    "receipt": {
+      "schema": 1,
+      "distribution_commit": "5a0281ff0e3b6e97432a7c779211ff14c0110c94",
+      "image_sha512": "d25999de0770d4cde1be72c299ba3ad94eac7ea8fd4d18f8cc86c69df69337e2e8a91d64465a9bfd8f2a78c566fcbcb0842eacc91c09efdef72d719d9f13b535",
+      "prepared_disk_sha256": "76d1a0dd574fb71085ff734d15055c167d2f123ef4141c7aa4da3b42485f88c5",
+      "full_debian_package_build_passed": true,
+      "offline_build_boot": true,
+      "release_clearance": false,
+      "independent_reproducibility": false
+    },
+    "packages": {
+      "libgssapi-krb5-2_1.21.3-5+deb13u1+vardr1_amd64.deb": "d019946d53f8ddb021369278eee9e295f066d520815a52ec587eaf888d0975ff",
+      "libk5crypto3_1.21.3-5+deb13u1+vardr1_amd64.deb": "8b3f51f53f5b6dbf4976503c26ff8f3bc1922fd4c52c548c5f79d0b4b0587874",
+      "libkrb5-3_1.21.3-5+deb13u1+vardr1_amd64.deb": "18a7e7fcb6cb359e9ba354b84aee4ffef36a7e82cda62096203aaedb7d6b7a5d",
+      "libkrb5support0_1.21.3-5+deb13u1+vardr1_amd64.deb": "6bf313f95949ca7efea4848032db3eab52b9057cdb88e22b657591f83d073cc6"
+    },
+    "inputs": {
+      "Dockerfile": "f278480f63de705afb755cc695568f105010550421654a7508baa562ab4a4f68",
+      "build-krb5.sh": "9c3dc271961941eb3f95ba5baf0b2d27be62c41d2b4f367bd21f87a53eda9d98",
+      "krb5-CVE-2026-119079.patch": "1c9f5facbcb81930d9c7dac552750273045e35e85dbfbc873b2ce140acf96705",
+      "krb5-keyring-test-diagnostic.patch": "357afeceee72f52a2d5297e5bb086f0fc8a67a22dac8a2aac9d2a369ac35bc24",
+      "krb5-sequence-regression.c": "829f11467e22892f05f58d79bc956a8305e367bca19fc72197b3e9a12e420b52",
+      "krb5_1.21.3.orig.tar.gz": "b7a4cd5ead67fb08b980b21abd150ff7217e85ea320c9ed0c6dadd304840ad35",
+      "krb5_1.21.3-5+deb13u1.dsc": "d17d2840bc97fea2c2375245569ca67838a2b557ee083c6cbe42b129a317212c",
+      "krb5_1.21.3-5+deb13u1.debian.tar.xz": "02b873b239fbe7ddf016dfe44deba4130673f4606c18c93da0622e2bc8500fb4",
+      "evidence/patched-source-SHA256SUMS": "97330976c6bdb0854eb2762abf428b44651d2bdd476d315ed38655cdf4236862"
+    },
+    "prepared_packages_sha256": "cdb1d90354dccda72663017e470fb7bd14f2ad0f3ecf07fcf7dd04b4add57051",
+    "archive_sha256": "5cb8a64e59f2ff8f945adfa934e4e989d62fec754751f38f70bf3765495fdae9"
+  },
+  "second": {
+    "receipt": {
+      "schema": 1,
+      "distribution_commit": "1623e5dcea86410b30cbda6e348116040d71d990",
+      "image_sha512": "d25999de0770d4cde1be72c299ba3ad94eac7ea8fd4d18f8cc86c69df69337e2e8a91d64465a9bfd8f2a78c566fcbcb0842eacc91c09efdef72d719d9f13b535",
+      "prepared_disk_sha256": "e34da0c13c52452449c862a6064f6f3e2c32b30a9253a6a6bbd73bd559db8b4e",
+      "full_debian_package_build_passed": true,
+      "offline_build_boot": true,
+      "release_clearance": false,
+      "independent_reproducibility": false
+    },
+    "packages": {
+      "libgssapi-krb5-2_1.21.3-5+deb13u1+vardr1_amd64.deb": "d019946d53f8ddb021369278eee9e295f066d520815a52ec587eaf888d0975ff",
+      "libk5crypto3_1.21.3-5+deb13u1+vardr1_amd64.deb": "8b3f51f53f5b6dbf4976503c26ff8f3bc1922fd4c52c548c5f79d0b4b0587874",
+      "libkrb5-3_1.21.3-5+deb13u1+vardr1_amd64.deb": "18a7e7fcb6cb359e9ba354b84aee4ffef36a7e82cda62096203aaedb7d6b7a5d",
+      "libkrb5support0_1.21.3-5+deb13u1+vardr1_amd64.deb": "6bf313f95949ca7efea4848032db3eab52b9057cdb88e22b657591f83d073cc6"
+    },
+    "inputs": {
+      "Dockerfile": "f278480f63de705afb755cc695568f105010550421654a7508baa562ab4a4f68",
+      "build-krb5.sh": "9c3dc271961941eb3f95ba5baf0b2d27be62c41d2b4f367bd21f87a53eda9d98",
+      "krb5-CVE-2026-119079.patch": "1c9f5facbcb81930d9c7dac552750273045e35e85dbfbc873b2ce140acf96705",
+      "krb5-keyring-test-diagnostic.patch": "357afeceee72f52a2d5297e5bb086f0fc8a67a22dac8a2aac9d2a369ac35bc24",
+      "krb5-sequence-regression.c": "829f11467e22892f05f58d79bc956a8305e367bca19fc72197b3e9a12e420b52",
+      "krb5_1.21.3.orig.tar.gz": "b7a4cd5ead67fb08b980b21abd150ff7217e85ea320c9ed0c6dadd304840ad35",
+      "krb5_1.21.3-5+deb13u1.dsc": "d17d2840bc97fea2c2375245569ca67838a2b557ee083c6cbe42b129a317212c",
+      "krb5_1.21.3-5+deb13u1.debian.tar.xz": "02b873b239fbe7ddf016dfe44deba4130673f4606c18c93da0622e2bc8500fb4",
+      "evidence/patched-source-SHA256SUMS": "97330976c6bdb0854eb2762abf428b44651d2bdd476d315ed38655cdf4236862"
+    },
+    "prepared_packages_sha256": "cdb1d90354dccda72663017e470fb7bd14f2ad0f3ecf07fcf7dd04b4add57051",
+    "archive_sha256": "3b04ad8e6b1dd95836b9348d8f18bdba5479eb741d4338adf9312f7c9de996f9"
+  },
+  "release_clearance": false,
+  "scope": "Four linux-amd64 Kerberos runtime packages; not entire-image reproducibility or distribution clearance"
+}
