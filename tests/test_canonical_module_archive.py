@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import tarfile
 import tempfile
 import unittest
@@ -15,8 +16,22 @@ class CanonicalModuleArchives(unittest.TestCase):
             self.assertEqual((root / context / 'canonical_module_archive.sh').read_bytes(), SCRIPT.read_bytes())
 
     def run_archive(self, mode, root, output, success=True):
-        result = subprocess.run(['bash', str(SCRIPT), mode, str(root), str(output)], capture_output=True)
-        self.assertEqual(result.returncode == 0, success, result.stderr.decode())
+        command = ['bash', str(SCRIPT), mode, str(root), str(output)]
+        if os.name == 'nt':
+            # PATH's bash may be the WSL launcher, not Git's GNU/MSYS tools.
+            git = shutil.which('git')
+            self.assertIsNotNone(git, 'Git for Windows is required for this GNU tooling test')
+            candidates = [parent / 'bin/bash.exe' for parent in Path(git).parents]
+            bash = next((path for path in candidates if path.is_file()), None)
+            self.assertIsNotNone(bash, 'Git for Windows bash.exe not found')
+            # Convert all filesystem arguments inside the matching MSYS runtime.
+            command = [str(bash), '-c',
+                       'export PATH="/usr/bin:/bin:$PATH"; exec bash "$(cygpath -u -- "$1")" "$2" '
+                       '"$(cygpath -u -- "$3")" "$(cygpath -u -- "$4")"',
+                       'archive-test', str(SCRIPT), mode, str(root), str(output)]
+        result = subprocess.run(command, capture_output=True)
+        diagnostic = (result.stdout + result.stderr).decode(errors='replace')
+        self.assertEqual(result.returncode == 0, success, diagnostic)
 
     def test_notices_are_byte_identical_with_preserved_content(self):
         with tempfile.TemporaryDirectory() as temp:
