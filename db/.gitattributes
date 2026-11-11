@@ -1,2 +1,6 @@
 build-libxml2.sh text eol=lf
 libxml2-CVE-*.patch -text
+build-krb5.sh text eol=lf
+krb5-*.patch -text
+kerberos-vm/*.sh text eol=lf
+kerberos-vm/*.sha256 text eol=lf

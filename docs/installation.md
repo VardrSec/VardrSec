@@ -454,3 +454,12 @@ issuer custody, signed one-job execution and export. Compatible pins and actual
 Windows/Linux installed acceptance are tracked separately. Arguments after the
 `runner --` separator still belong to Runner. No automatic Full/Mapless state or
 authority migration is implied.
+
+### Full database source build resources
+
+The Full database build qualifies its Kerberos client backport inside a disposable
+4 GiB QEMU TCG guest, with unchanged upstream tests and Docker's default policy.
+Allow additional Docker memory overhead and tens of minutes for a cold build.
+The installer builds this database before parallel application images and reuses
+Docker's normal cache. Mapless does not build the database. No existing runtime
+permissions or PostgreSQL package ABI are changed.
