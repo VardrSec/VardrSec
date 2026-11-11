@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rebuild SQLite 3.54.1 on the existing runtime platform and retain matching
+  source materials; ship the reviewed original Go module source collection.
+
+
 ## [0.1.0-dev.1] — source snapshot prepared
 
 This version identifies the development source snapshot, not a published release.

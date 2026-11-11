@@ -106,3 +106,27 @@ Choose a new destination outside the checkout. This source delivery covers the
 modified library; it does not establish complete source delivery for every image
 package. A custom package suffix does not itself clear vulnerability findings;
 version-based scanners may require separate review of the retained patch evidence.
+
+## SQLite source delivery
+
+The runtime image rebuilds Debian SQLite 3.54.1 source with Trixie's build-only
+Tcl 9.0 dependency. Upstream executable source, the legacy `libsqlite3.so.0`
+SONAME and Debian feature flags are retained. No unstable repository/binary
+package is installed. Only `libsqlite3-0` enters the runtime; its only runtime
+dependency is libc6. Existing application roles and privileges are unchanged.
+
+`/usr/share/doc/libsqlite3-0/vardr-source/` contains original and modified Debian
+source, build metadata, the image recipe, provenance and `SHA256SUMS`. Existing
+package copyright remains installed. The four upstream inputs are hash-pinned
+to Debian's immutable snapshot. This covers SQLite, not every image component.
+A `sqlite-source-delivery` build target exports the same materials separately.
+
+## Original Go dependency sources
+
+The proxy retains `go-module-sources.tar.gz` in `/usr/share/licenses/caddy/`.
+The same archive is packaged under Runner's `vardrrunner/notices/` directory.
+It contains 17 exact original source versions and their module metadata, Go
+checksums, SHA-256 manifest and upstream legal texts inside the source ZIPs.
+The archive is inert and never extracted/executed by the service. It can include
+unlinked cached versions or dual-licensed sources; it is not a final linkage or
+license-compatibility decision. Modified local forks retain separate provenance.

@@ -27,3 +27,5 @@ RUN apk upgrade --no-cache && apk add --no-cache curl \
 COPY --from=build /out/caddy-notices/ /usr/share/licenses/caddy/
 
 COPY LICENSE NOTICE /usr/share/licenses/vardrsec/
+
+COPY go-module-sources.tar.gz /usr/share/licenses/caddy/go-module-sources.tar.gz
