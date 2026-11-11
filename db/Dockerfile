@@ -13,6 +13,12 @@ RUN gosu_notice_source="$(go list -m -f '{{.Dir}}' github.com/tianon/gosu)" \
     && cp "$gosu_notice_source/LICENSE" /out/gosu-notices/LICENSE \
     && if [ -f "$gosu_notice_source/NOTICE" ]; then cp "$gosu_notice_source/NOTICE" /out/gosu-notices/NOTICE; fi
 
+# Keep legal texts from the exact downloaded module cache as inert notice data.
+RUN cd /go/pkg/mod \
+    && find . -type f \( -iname 'license*' -o -iname 'notice*' -o -iname 'copying*' -o -iname 'copyright*' \) -print0 > /tmp/module-notices \
+    && tar --null -T /tmp/module-notices -czf /out/gosu-notices/dependency-notices.tar.gz \
+    && cp /usr/local/go/LICENSE /out/gosu-notices/GO-LICENSE
+
 FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
 RUN apt-get update \
     && apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg7.0 zlib1g \
