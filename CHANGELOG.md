@@ -5,6 +5,8 @@
 - Build distribution Go binaries with Go 1.27.4 and retain pinned builder identity.
 - Add repeatable, verified source-only snapshots and CI review artifacts.
 - Refresh exact-image dependency/license evidence without asserting redistribution clearance.
+- Backport bounded RSA JWK parsing to the proxy's existing go-jose v3 API and
+  retain original/patched source, build metadata and dependency notices.
 
 ## [0.1.0-dev.1] — source snapshot prepared
 
