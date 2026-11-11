@@ -3,3 +3,16 @@ tests/fixtures/nm2-fixed-runner-loss/** text eol=lf
 tests/fixtures/nm2-clock-suspend/** text eol=lf
 install.sh text eol=lf
 runner.sh text eol=lf
+
+# Preserve reviewed upstream patch bytes for cross-platform checksum verification.
+db/krb5-CVE-2026-119079.patch text eol=lf
+db/krb5-keyring-test-diagnostic.patch text eol=lf
+
+# Canonical Docker build helpers must retain executable POSIX line endings.
+scripts/release/canonical_module_archive.sh text eol=lf
+db/canonical_module_archive.sh text eol=lf
+proxy/canonical_module_archive.sh text eol=lf
+db/*.sh text eol=lf
+db/kerberos-vm/*.sh text eol=lf
+qualification/kerberos-vm/*.sh text eol=lf
+qualification/kerberos-image/*.sh text eol=lf

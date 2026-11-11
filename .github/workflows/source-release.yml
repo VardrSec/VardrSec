@@ -1,0 +1,50 @@
+name: Source snapshot verification
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  source-snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Test offline collector and snapshot verification
+        run: |
+          python -m unittest discover -s tests -p 'test_source*.py'
+          python -m unittest discover -s tests -p 'test_python_source_delivery.py'
+          python -m unittest discover -s tests -p 'test_license_evidence.py'
+          python -m unittest discover -s tests -p 'test_gosu_dependency.py'
+          python -m unittest discover -s tests -p 'test_runtime_notice_evidence.py'
+      - name: Acquire exact declared component sources
+        run: python vardrsec.py sources
+      - name: Build twice, compare and verify source-only artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/source-snapshot"
+          mkdir "$out"
+          python source_release.py create --root . --map-repo .sources/map --runner-repo .sources/runner --gate-repo .sources/gate --output "$out/source-a.tar.gz"
+          sleep 2
+          python source_release.py create --root . --map-repo .sources/map --runner-repo .sources/runner --gate-repo .sources/gate --output "$RUNNER_TEMP/source-b.tar.gz"
+          cmp "$out/source-a.tar.gz" "$RUNNER_TEMP/source-b.tar.gz"
+          digest=$(sha256sum "$out/source-a.tar.gz" | cut -d ' ' -f 1)
+          commit=$(git rev-parse HEAD)
+          python source_release.py verify "$out/source-a.tar.gz" --sha256 "$digest" --commit "$commit"
+          printf '%s  source-a.tar.gz\n' "$digest" > "$out/SHA256SUMS"
+          printf 'distribution_commit=%s\npython=%s\ngit=%s\nscope=unpublished Git-tracked source snapshot only; no images or dependencies\n' "$commit" "$(python --version)" "$(git --version)" > "$out/verification.txt"
+          echo 'Source snapshot reproduced byte-for-byte twice and verified. This does not clear image, license, authenticity or publication gates.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain verified source snapshot for review (not a release)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: source-snapshot-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/source-snapshot/
+          if-no-files-found: error
+          retention-days: 30

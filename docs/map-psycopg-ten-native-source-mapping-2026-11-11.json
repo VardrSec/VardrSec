@@ -1,0 +1,1636 @@
+{
+  "schema": 1,
+  "release_clearance": false,
+  "nine_native_files_mapped": [
+    {
+      "wheel_file": "libcom_err-2abe824b.so.2.1",
+      "wheel_sha256": "5426dcb54dd01c9eedda05e2179f0e47114e8b48a534ffe9e94916e79471b257",
+      "build_id": "2addb65846a50ce45f0c9b62ea35dda62c6ad7a2",
+      "rpm_url": "https://vault.centos.org/7.9.2009/os/x86_64/Packages/libcom_err-1.42.9-19.el7.x86_64.rpm",
+      "rpm_sha256": "b98e19c3bbf6de458697a895654db0d75e93e7738ef22bc1540e2c78fa91748b",
+      "rpm_payload_sha256": "2abe824bc4b40f400391ad327090796ecc2cd48df173c2f82134ec5c1d3d6c91",
+      "source_rpm": "e2fsprogs-1.42.9-19.el7.src.rpm",
+      "matching_sections": {
+        ".text": "6bb544fadd9c4d8d244b5493a145d4acee1787a880ea8f191b562c428c08f60e",
+        ".rodata": "a6f7b64bb00940ffeb10fbeb28903b1bcb195d8d8b830a57e6be8d9f544c875e",
+        ".eh_frame": "438481f2ff3ef81be667f4d8badac75067c963209eef709c409e9545fc33b0e8"
+      }
+    },
+    {
+      "wheel_file": "libgssapi_krb5-497db0c6.so.2.2",
+      "wheel_sha256": "ef73998b86c24e54667a843be6d589442dd082e1b9fc605aa15bcc2293858806",
+      "build_id": "0caec124d97114da40ddeb0fed1fad5d14c3d626",
+      "rpm_url": "https://vault.centos.org/7.9.2009/updates/x86_64/Packages/krb5-libs-1.15.1-55.el7_9.x86_64.rpm",
+      "rpm_sha256": "0b514834510f57ab09a2051d0b0c2be8a61777452ad125d1b3e5e90abeb6fa22",
+      "rpm_payload_sha256": "497db0c6049bd447c873af5e262950d544adf23b1812c85457d836225f147582",
+      "source_rpm": "krb5-1.15.1-55.el7_9.src.rpm",
+      "matching_sections": {
+        ".text": "17d4b4ce27650528b7acfc468385b13864f5bcbe3636a4e1e8c29137ac7f1abe",
+        ".rodata": "a11b7b2f88e76819a415fda2e735fcc141934a187cdc28dd55a1f0b0292ecb26",
+        ".eh_frame": "86e2a30747d616d7078e5f2edefe325090728539007c6bd1a19903f4339eec5b"
+      }
+    },
+    {
+      "wheel_file": "libk5crypto-b1f99d5c.so.3.1",
+      "wheel_sha256": "bf04d7ebe3937aba3855c15acbd991482286a484aeea38bb9ced85e772ea2fb0",
+      "build_id": "5ff9d1075a8d5d62f77f5ce56c935fcd92c62efa",
+      "rpm_url": "https://vault.centos.org/7.9.2009/updates/x86_64/Packages/krb5-libs-1.15.1-55.el7_9.x86_64.rpm",
+      "rpm_sha256": "0b514834510f57ab09a2051d0b0c2be8a61777452ad125d1b3e5e90abeb6fa22",
+      "rpm_payload_sha256": "b1f99d5c69d39204a197d12b6e647068b38373982ee39f77be19aec82ee65787",
+      "source_rpm": "krb5-1.15.1-55.el7_9.src.rpm",
+      "matching_sections": {
+        ".text": "5906253cc5414aa22ca2451593a3372fc1c6bbabe019f5a1455860ec236de206",
+        ".rodata": "8d304de860bfee66d3048d7e7242a4dfc6407f1c051a6299cce7705de05d73bf",
+        ".eh_frame": "3f2fa2e475eba2a8237be8f76d9f805e516e17eab0a7b38d16a7d1cd966697bb"
+      }
+    },
+    {
+      "wheel_file": "libkeyutils-dfe70bd6.so.1.5",
+      "wheel_sha256": "c29e41b03cf4b2dffbfb4960946e2b42f82c0ca5d53d231d3f0fc597ba274488",
+      "build_id": "2e01d5ac08c1280d013aab96b292ac58bc30a263",
+      "rpm_url": "https://vault.centos.org/7.9.2009/os/x86_64/Packages/keyutils-libs-1.5.8-3.el7.x86_64.rpm",
+      "rpm_sha256": "16c7cb17dd4eced77c44697bc431c0ac9eb012da78fc91abacd828d3aa8e5dd3",
+      "rpm_payload_sha256": "dfe70bd63f57aa3fc805f88ffb04b9440794faacbf7cffd080fc68984d25f3fb",
+      "source_rpm": "keyutils-1.5.8-3.el7.src.rpm",
+      "matching_sections": {
+        ".text": "886a89191c18f72df1bf7a5131a4394a0fa7d4b6a570a4b270e54297cef217a0",
+        ".rodata": "28b8029b91d1a9bcdd4b04eb43d5dc2fda198de6ccc61d9748de47a87b7a89e6",
+        ".eh_frame": "f5ce2f77339451eb771ff01fb25cd9345bb924048cf9626c9194d48b54065a60"
+      }
+    },
+    {
+      "wheel_file": "libkrb5-fcafa220.so.3.3",
+      "wheel_sha256": "94dc6413050486a6c8de4b6f3bfdd288390892b72bc68580c6c53929721fa07b",
+      "build_id": "52c5b6279da9cd210e5d58d1b1e0e080e5c8b232",
+      "rpm_url": "https://vault.centos.org/7.9.2009/updates/x86_64/Packages/krb5-libs-1.15.1-55.el7_9.x86_64.rpm",
+      "rpm_sha256": "0b514834510f57ab09a2051d0b0c2be8a61777452ad125d1b3e5e90abeb6fa22",
+      "rpm_payload_sha256": "fcafa2202eb41916a526c8f4b07df4f389c2ca2d55f1684f77006fad56433742",
+      "source_rpm": "krb5-1.15.1-55.el7_9.src.rpm",
+      "matching_sections": {
+        ".text": "9202fda90ca2c053b9843b6205a0259030fefddcd63997b858c0efc3b07451e2",
+        ".rodata": "e11bd288eb093c5754fa3f58cae650774c0a762e84351773d408e84253bfb4ba",
+        ".eh_frame": "d36d8d5880c4c8b8eb4d63b064f3ef79f21cf3cb19fdf70154931ee946d36d70"
+      }
+    },
+    {
+      "wheel_file": "libkrb5support-d0bcff84.so.0.1",
+      "wheel_sha256": "0eb5322b05ac46e4db7ddb779ee0269006dd01801aaa67b84f8e7f753bfdddf2",
+      "build_id": "779381063daecc27e8480c8f79f0651162586478",
+      "rpm_url": "https://vault.centos.org/7.9.2009/updates/x86_64/Packages/krb5-libs-1.15.1-55.el7_9.x86_64.rpm",
+      "rpm_sha256": "0b514834510f57ab09a2051d0b0c2be8a61777452ad125d1b3e5e90abeb6fa22",
+      "rpm_payload_sha256": "d0bcff84b227e7cc1eefcee71e1dc5aaabf5cf5802c0595458b6c1b5867eac73",
+      "source_rpm": "krb5-1.15.1-55.el7_9.src.rpm",
+      "matching_sections": {
+        ".text": "7383db9ff8e3b00295c374f2ae7ef88bda65b44516ad1fd6415500b22606600d",
+        ".rodata": "938ee29b8d207e8251606c2e942738b71c31ef57b3c0878608f5fd985effb46d",
+        ".eh_frame": "e60892f92812344dd526f9cd2bf1272a5d8d6c7f3fc112eab289ddb221c7845e"
+      }
+    },
+    {
+      "wheel_file": "libpcre-9513aab5.so.1.2.0",
+      "wheel_sha256": "02eda850e04931656d8af81f5171bff74d8bec1553d3d85c3d32d7fc5efe8864",
+      "build_id": "9ca3d11f018beeb719cdb34be800bf1641350d0a",
+      "rpm_url": "https://vault.centos.org/7.9.2009/os/x86_64/Packages/pcre-8.32-17.el7.x86_64.rpm",
+      "rpm_sha256": "cf2b84402e9a9fcf92c8a8a965c4e8d217e82e80c0945de2ce8d46c17131ad28",
+      "rpm_payload_sha256": "9513aab50d64bb4655550e1ba0c62fbcf6e7cbe0d64cba0814224d2631a85027",
+      "source_rpm": "pcre-8.32-17.el7.src.rpm",
+      "matching_sections": {
+        ".text": "8ade6aa7f7cc47f9b57d12cb6afae6dadcea0704a5fe1b8dfe99bde964e6ece3",
+        ".rodata": "153c8c63f470a5aac4ff15d9491e88ed195a48f0b0279f16cb58fd423e198e14",
+        ".eh_frame": "208a1a133bf03a51b5da5d3b8bd2f8962544d270def87266de179f3f043e69d5"
+      }
+    },
+    {
+      "wheel_file": "libsasl2-84219a89.so.3.0.0",
+      "wheel_sha256": "e84be55110f16f7ca930af373e9f41fa7f4ec60733c013d933d1443ae5056a98",
+      "build_id": "27050d93fb3e36936d254151da66c0c4ec559ff8",
+      "rpm_url": "https://vault.centos.org/7.9.2009/updates/x86_64/Packages/cyrus-sasl-lib-2.1.26-24.el7_9.x86_64.rpm",
+      "rpm_sha256": "e1d065bfaef705d407c6134352d1afc64ecf26a5970a0e5282f6dda745483db8",
+      "rpm_payload_sha256": "84219a89b635c809c66b297f2970df52f1f38dd429426c213d0340dea5e7ec9d",
+      "source_rpm": "cyrus-sasl-2.1.26-24.el7_9.src.rpm",
+      "matching_sections": {
+        ".text": "0b051fdac6ba4293c7511fc3db7a22d8430159b037d5ecc0f24b7140c74e07fc",
+        ".rodata": "6c976f604078dc434bf659024e1278d6bbb6a5bfafe75747c4d9226fe3897d96",
+        ".eh_frame": "7a990ccdd15ab9f8b966168f27a486076d7a23d5995a44f88ac37ec99438171a"
+      }
+    },
+    {
+      "wheel_file": "libselinux-0922c95c.so.1",
+      "wheel_sha256": "99e60178aed625f6d2e2af58bccf605b13619b1544058e9f985a2772affb4a88",
+      "build_id": "903a0bd0bfb4fee8c284f41beb9773ded94cbc52",
+      "rpm_url": "https://vault.centos.org/7.9.2009/os/x86_64/Packages/libselinux-2.5-15.el7.x86_64.rpm",
+      "rpm_sha256": "06a5ab8e6feff677b312426988773600996a0a299878bf661e149a53d42c3edb",
+      "rpm_payload_sha256": "0922c95c5680d2e9633205df5b5533f44809bb36a9bdb47c0d5c44d0eaa20630",
+      "source_rpm": "libselinux-2.5-15.el7.src.rpm",
+      "matching_sections": {
+        ".text": "0bda64db3fa743577658464fc3fa537a9e84993ebd26333d57eb4ed9cdfad29e",
+        ".rodata": "b7102e4307a0ba225c2e7b552845e9d1474d80c8cecd563afe3477b99efaa29e",
+        ".eh_frame": "227ef0c7e356ee286cb243d3aa468c81c32d43cf81ca0d6f47d0ce911c1445bf"
+      }
+    }
+  ],
+  "source_rpms": [
+    {
+      "url": "https://vault.centos.org/7.9.2009/os/Source/SPackages/keyutils-1.5.8-3.el7.src.rpm",
+      "file": "keyutils-1.5.8-3.el7.src.rpm",
+      "sha256": "eff16e16f707fd28436afe4cf7b7c2e34b9f827e7f6beacf3c6eecbf74e9f850",
+      "size": 77575,
+      "members": [
+        {
+          "path": "keyutils-1.5.8.tar.bz2",
+          "size": 64880,
+          "sha256": "6c7da37272eb39abc2ebafc9ba4a580d7cf8725b61e1db21e508de7ab24b819c"
+        },
+        {
+          "path": "keyutils.spec",
+          "size": 8854,
+          "sha256": "631ce8054e69beecc5a30076e3a8cf6b8e16f3f909eb29f5df43f4c671c1d93a"
+        }
+      ]
+    },
+    {
+      "url": "https://vault.centos.org/7.9.2009/os/Source/SPackages/e2fsprogs-1.42.9-19.el7.src.rpm",
+      "file": "e2fsprogs-1.42.9-19.el7.src.rpm",
+      "sha256": "718f64bd465d1770eaf6490157a861d3dba2846b4a636a67d27bd4d38e6b86cf",
+      "size": 4765994,
+      "members": [
+        {
+          "path": "e2fsck.conf",
+          "size": 112,
+          "sha256": "5b083fd8c81beac019750533c2e004ae9bc12962b2f81aaa64366825d0e357fb"
+        },
+        {
+          "path": "e2fsprogs-1.40.4-sb_feature_check_ignore.patch",
+          "size": 1570,
+          "sha256": "52663bff4b2327ded3f236ec8385ab120f67a2799d869ff0c82596e5e024bb66"
+        },
+        {
+          "path": "e2fsprogs-1.42.10-Fix-nroff-macro-issue-in-chattr-man-page.patch",
+          "size": 1145,
+          "sha256": "66dffc42cb91dc5dbfecc69d8394dea4cff1a443ebe3849891f01410b6e401c4"
+        },
+        {
+          "path": "e2fsprogs-1.42.11-Fix-32-64-bit-overflow-when-multiplying-by-blocks-cl.patch",
+          "size": 8165,
+          "sha256": "fef9528ec4e479d436ee82225a24a01a657dfa039e267ae2158cc28c905b219e"
+        },
+        {
+          "path": "e2fsprogs-1.42.11-e2fsck-free-ctx-fs-not-fs-at-the-end-of-fsck.patch",
+          "size": 1091,
+          "sha256": "035c23019b8473d5c299a35150270cf197c024a0e17cfe561ed3ec980ae29d61"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-Clarify-how-the-description-of-the-dir_nlink-feature.patch",
+          "size": 1107,
+          "sha256": "5bb126e7887724fee93f637691bf767c280028bb227eb71e5a1ddc93fd3af79c"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-e2fsck-fix-fd-leak-in-reserve_stdio_fds.patch",
+          "size": 787,
+          "sha256": "e0a9cfd11db3a981e4570a173b5669d9567126bcb502ca3ec4228b54cf395a5e"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-e2fsck-fix-free-pointer-dereferences.patch",
+          "size": 1359,
+          "sha256": "ed65416eef614c1a6876a067ff637e43791591a50d7e5a300aa451a70acf63f1"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-e2fsck-fix-last-mount-time-and-last-write-time-in-pr.patch",
+          "size": 1716,
+          "sha256": "dedd02c60a2e24f8b3e349a94d213050cee050e67cb00b3ec13995c3a4be8648"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-e2fsck-fix-off-by-one-bounds-check-on-group-number.patch",
+          "size": 1400,
+          "sha256": "54c7cdb0d319e212b128f5d4947bb02a977f56b5aaaf642207c474e1ba14a293"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-e2fsck-fix-potential-Floating-Point-Exception-in-sho.patch",
+          "size": 2331,
+          "sha256": "4487b355df1bb057f0b8fad4897e7f60745185f8078d238512b2bca9ae8ac389"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-e2fsck-if-any-problems-are-fixed-in-pass-0-check-the.patch",
+          "size": 2069,
+          "sha256": "a7d2bf69809a7f8195afb5d2eb999a4fef459359242925406c4c805df7c50072"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-e2fsck-remove-resize-inode-if-both-resize_inode-and-.patch",
+          "size": 2865,
+          "sha256": "244b0bb677718ecf0c15e6c06d2e05f2d684861136361a0233b5e7c35fb4ce3b"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-e2fsck-set-dir_nlink-feature-if-large-dir-exists.patch",
+          "size": 3329,
+          "sha256": "c18a77e6dedee98e783406cba76ec2233e6255faf992b0018bc6ed23c99c5a01"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-e2fsprogs-introduce-ext2fs_close_free-helper.patch",
+          "size": 12549,
+          "sha256": "57823125805e3c9fcfb73056c8b4f6172948fdb531325e3fd0713c4d0eb12290"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-filefrag-don-t-ignore-fsync-errors.patch",
+          "size": 885,
+          "sha256": "ce89879fad149bb87e0b45a790aa7ff753e2cc597e8483b3b9e482bc97ed4da7"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-libext2fs-automatically-enable-meta_bg-to-avoid-fill.patch",
+          "size": 1289,
+          "sha256": "9e1e246227cb733dbbec89ce62250a417b51668c3441ec10dbcf0e30a2599027"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-libext2fs-don-t-create-filesystems-with-meta_bg-and-.patch",
+          "size": 1820,
+          "sha256": "6f6a768e17bddf39b2203efb4f02c121652015b6149fdfb41f23ee5ff2dbf4b7"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-libext2fs-fix-ext2fs_open2-error-for-meta_bg-image-f.patch",
+          "size": 1653,
+          "sha256": "66b5afe9aec70e91a6765dc33400ef8a91ba11e478039619bf4dd30a92f77e11"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-libext2fs-fix-maximum-bg-overhead-calculation-with-m.patch",
+          "size": 1473,
+          "sha256": "2f57a8e886b49e320cffd115e339b6acb6a038b2f2f449f7ae82d84ad4677c34"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-misc-fix-Coverity-bugs.patch",
+          "size": 2867,
+          "sha256": "20e23e443f833f5596e8427056e2169a3bbba6b16e67eb485380ddf6119ea4da"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-mke2fs-Avoid-crashes-infinite-loops-for-absurdly-lar.patch",
+          "size": 1370,
+          "sha256": "2f15d01a79bf87e9b840a114319c893ead512250f8e4b215493c8e92b646fbfb"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-14-resize2fs-Remove-the-real-kilobytes-rant-from-man-pa.patch",
+          "size": 2039,
+          "sha256": "d0ce5fa8348affed76168350dc021c5e7909a7474ec0e36652a25b7bf0204767"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-Fix-typo-in-the-ext4-5-man-page.patch",
+          "size": 710,
+          "sha256": "58d8899897e527eeb7f022473ba151944ee0da159d4ccf4ccc739848ac4ae843"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-add-revision-to-the-is_before_linux_ver.patch",
+          "size": 1881,
+          "sha256": "3fe7337575ccf74128a5089d5abc1304280db42815878c0a69699e3f63e7c024"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-chattr-manpage-j-update.patch",
+          "size": 1763,
+          "sha256": "fd69bab9d3194ccb89685ad7499cd8bb75eba44fc81e67ce6d36ec49227a2673"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-chattr-manpage-reorder.patch",
+          "size": 7630,
+          "sha256": "ac723f8c56a872e5cf416ee15c34ebd33aa4f76cd77ace4820e7e8a5f19a3db4"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-chattr-manpage-update.patch",
+          "size": 8288,
+          "sha256": "b6bd09b5cf973ff3f2c306d4bfd5997b03c5d1e2c90232ef8b2592f44f838b5a"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-defrag-backwards-files.patch",
+          "size": 1769,
+          "sha256": "066511af44589559586813f995d46f2928b628b63f1cbf825cbb8139cb40aca3"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-disable-resize_inode-feature-if-64bit-feature-is-enabled.patch",
+          "size": 2224,
+          "sha256": "80bc66a2b2844b84820aa02949209ddc1b77e6b24b7a2b2881e05acb9387a0b5"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-dont-require-fsck-for-resize-p.patch",
+          "size": 2156,
+          "sha256": "2a0593245cc1eb7d25825920ba7e39d47bb9e288badc7d408011f85a002bb760"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-e2fsck-abort-if-there-is-a-corrupted-directory-block.patch",
+          "size": 1767,
+          "sha256": "fa5c72b3f3b1eb11b4da67be34e2fbf66560e00ecdaaac257257d6f15d2ebe53"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-e2fsck-clarify-overflow-link-count-error-message.patch",
+          "size": 3492,
+          "sha256": "5c5ceaced8022afa2aafafd56a53688dadee58f2a00fd3071301d2d9ffd43d29"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-e2fsck-don-t-try-to-rehash-a-deleted-directory.patch",
+          "size": 1625,
+          "sha256": "94337ae83f848032e5fede18c5f6656ba8cab8c3c6cf7da26b99a4867a743ef9"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-e2image-fix-metadata-image-handling-on-big-endian-sy.patch",
+          "size": 7949,
+          "sha256": "f118c106bb775e07ca320ad528094f1ef7f33cdbad007348d00e619ce7baf9dc"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-enable-64bit-feature-by-default.patch",
+          "size": 1066,
+          "sha256": "d7173c6cb65c733e53b6992c6fec1e5070268f39420e422476fbd71de5d2c621"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-enable-lazy_itable_init-on-newer-kernel-by-default.patch",
+          "size": 1366,
+          "sha256": "caf9cac36b0e8c3f56334ada42f29fe0a796217956779830938c77524adc0c96"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-ext4-manpage-add-attrs.patch",
+          "size": 1839,
+          "sha256": "ed6c288e51dcd5981435af18724b619f041d0def3cea79b25fecf3e605aad82a"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-ext4-manpage-add-mountopts.patch",
+          "size": 15955,
+          "sha256": "bab6019ff287896c0c69d4bac4fc0e585e8ea14819d623ac16e0bb4bccd41e07"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-fix-endian-handling-of-ext3_extent_header.patch",
+          "size": 1774,
+          "sha256": "eb646d12816fc309c2ba129815c250692267616d05998f0649ccf4c4dab7f711"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-force-journal-remove.patch",
+          "size": 2378,
+          "sha256": "aeebc5ff74b102ff95e21c65349b2b16aa77907806daee0e2c3dabb5ccf9c4c6"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-libext2fs-avoid-buffer-overflow.patch",
+          "size": 2164,
+          "sha256": "92b582cb70e74c107d8fa3bd78057642953f5aa424968af3649cfbb599692c13"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-libext2fs-buffer-overflow-closefs.patch",
+          "size": 2075,
+          "sha256": "52d431ef133406e7e55ffa89619013b50b3d0b677f0ade8accc6259becc20ebd"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-libext2fs-detect-correct-superblock-adjustments-when.patch",
+          "size": 2468,
+          "sha256": "f5ec863fb7f3dd703d6f6db1617ec8306df7e3242638936f697a89f11e79a93a"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-libext2fs-don-t-always-read-backup-group-descriptors.patch",
+          "size": 4756,
+          "sha256": "8c2b52907d1eff04fcbe7212e1b7b7bbaae42e80e79592dc60e64cce8d4ffce6"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-libsupport-add-checks-to-prevent-buffer-overrun-bugs.patch",
+          "size": 6461,
+          "sha256": "d8e2f9cedd59e668f0fba23aed9fabf1ef6050de191158b6483e18414c27e64a"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-mke2fs-clean-up-kernel-version-tests.patch",
+          "size": 2701,
+          "sha256": "d681b99d6bbced24ff919f817410f748cfb8c2f88fcb90bef2a493791c5f613b"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-mke2fs.conf-Introduce-rhel6-fs_type.patch",
+          "size": 789,
+          "sha256": "86fe339ef85ce6e4effd28102d913b0caf08d130dcd9f84516bcfdab4f2db2b4"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-mkfs-revision-too-high.patch",
+          "size": 1291,
+          "sha256": "031889b91e5c440875f87f04d40c6a81783020ddf5b6e7be5fae58f74bda5807"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-no-ppc-altivec.patch",
+          "size": 416,
+          "sha256": "02ca72bfc3869880c7e635e4092f7aacaffbb71bb8801876d48cda8acf5b6eac"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-resize2fs-clear-uninit-BG.patch",
+          "size": 3090,
+          "sha256": "6ec9fcb962623c4b6b093a9cff1a56d719540afc238b379844974e8816076da3"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-resize2fs-fix-resizing-large-file-systems-when-block.patch",
+          "size": 904,
+          "sha256": "93173eedd329f52e6d93d9fdd77e9c04448c4b312ddb5768efcd53e00dada82e"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-resize2fs-fs-with-errors.patch",
+          "size": 2734,
+          "sha256": "25065eeaf9530c5344fe981d5236a9ef3e353c3c1b163b9b393f8f268f869c88"
+        },
+        {
+          "path": "e2fsprogs-1.42.9-set-pointer-to-NULL-after-ext2fs_free.patch",
+          "size": 1790,
+          "sha256": "972a60afcf30fc91c123cc26808aa202dd65520b38b6ccda69ca60211db898f4"
+        },
+        {
+          "path": "e2fsprogs-1.42.9.tar.xz",
+          "size": 4656468,
+          "sha256": "b63e95f71209c3d8b07e320a4c602eedb9eaf5b1f565807ad92f519299cd8868"
+        },
+        {
+          "path": "e2fsprogs-1.43.3-libext2fs-don-t-ignore-fsync-errors.patch",
+          "size": 2489,
+          "sha256": "fd296246d529d5c86fa4cb2d1f41ef3d9c9aabf22514ddaf89d27e13b11c087f"
+        },
+        {
+          "path": "e2fsprogs-1.43.4-tune2fs-edit-dire-warning-about-check-intervals.patch",
+          "size": 2250,
+          "sha256": "e9b330b8ec47028d27c5d4c8b55c6283668d82044a8d740f0ac83f71d48a966e"
+        },
+        {
+          "path": "e2fsprogs-1.43.6-libext2fs-skip-start_blk-adjustment-when-stride-and-.patch",
+          "size": 1820,
+          "sha256": "ecbef42de51292a149cdbcc737f3cd03a6597fdd762a4fc93ad36738e74cf792"
+        },
+        {
+          "path": "e2fsprogs-1.44.1-e2fsck-warn-if-checkinterval-and-broken_system_clock.patch",
+          "size": 1293,
+          "sha256": "b73ad4b91ed876148514ed3a3f8019cb9afdcd80b1d27688a4566ffaf69eae42"
+        },
+        {
+          "path": "e2fsprogs-1.45.6-e2fsck-fix-file-systems-with-an-overly-large-s_first.patch",
+          "size": 2215,
+          "sha256": "dac78a2f8d8d329ace5e5da9b2644918d86a5b77cc7f42574d6ef558d0703ff5"
+        },
+        {
+          "path": "e2fsprogs-1.45.6-resize2fs-disable-the-meta_bg-feature-if-necessary.patch",
+          "size": 2092,
+          "sha256": "fe2037590801c23b8a5909d826666db88ef84b481b0e52dd965d39ce35999687"
+        },
+        {
+          "path": "e2fsprogs-1.45.6-tests-add-f_first_meta_bg_too_big-test.patch",
+          "size": 2388,
+          "sha256": "da07404b36b5d011abc9efa7d16837c4bbfa8a92b57ea43d520a707684ee7757"
+        },
+        {
+          "path": "e2fsprogs-1.45.6-tests-add-the-r_meta_bg_shrink-test.patch",
+          "size": 1647,
+          "sha256": "c490c1d2e81c7618b2f13885f35105312ed30adff83fc851ebdaf26a3070d85f"
+        },
+        {
+          "path": "e2fsprogs-1.45.6-tests-make-sure-MKE2FS_FIRST_META_BG-is-unset-while-.patch",
+          "size": 814,
+          "sha256": "55074995d52dc5ad46d24fe92fd534a3623c6d86b522bab397501e47eff23e82"
+        },
+        {
+          "path": "e2fsprogs.spec",
+          "size": 40329,
+          "sha256": "c022e7440b98f30c4b6bef58dc547244ff5b7f7fb682c3fc808bcd6d3a559355"
+        },
+        {
+          "path": "ext2_types-wrapper.h",
+          "size": 886,
+          "sha256": "b2a1c2a40436e281330b301ff9e9b6f6de6686981b3ce3644b57675ed90a33dc"
+        },
+        {
+          "path": "image.gz",
+          "size": 533,
+          "sha256": "c5efb962742f90c0e7fa4e93965bfe764d09f3e24b4b2beef790ff080189fb8a"
+        }
+      ]
+    },
+    {
+      "url": "https://vault.centos.org/7.9.2009/os/Source/SPackages/libselinux-2.5-15.el7.src.rpm",
+      "file": "libselinux-2.5-15.el7.src.rpm",
+      "sha256": "978ed00b9c7ca78a51e0aff48070c69ebe4fbfca0e64f618627ebdbe8786a089",
+      "size": 311489,
+      "members": [
+        {
+          "path": "libselinux-2.5.tar.gz",
+          "size": 189019,
+          "sha256": "94c9e97706280bedcc288f784f67f2b9d3d6136c192b2c9f812115edba58514f"
+        },
+        {
+          "path": "libselinux-rhel.patch",
+          "size": 47437,
+          "sha256": "542e07b31a77ac38b6c23a039f7515e516f701451f3097aa487198b8a31f376d"
+        },
+        {
+          "path": "libselinux.spec",
+          "size": 95897,
+          "sha256": "323ce10ee95e9150020f61718616b763acfcb346fd277e5d74352457d56888ea"
+        },
+        {
+          "path": "selinuxconlist.8",
+          "size": 504,
+          "sha256": "df5e0b3258df0953242b19bf1712e0c9bee53badfcab9a91071c915d3edd2098"
+        },
+        {
+          "path": "selinuxdefcon.8",
+          "size": 604,
+          "sha256": "ddfbbc31f2eb107b12d2c949612b997ff7dc86aff78019493b0a3a894ff65e29"
+        }
+      ]
+    },
+    {
+      "url": "https://vault.centos.org/7.9.2009/os/Source/SPackages/pcre-8.32-17.el7.src.rpm",
+      "file": "pcre-8.32-17.el7.src.rpm",
+      "sha256": "b96493d8ea6def2e9a40dade4feedcea2b4bbfe8ce4c13a3465e99f21ef2c43d",
+      "size": 1428012,
+      "members": [
+        {
+          "path": "pcre-8.21-multilib.patch",
+          "size": 752,
+          "sha256": "70245197053c2caa40ef2381e8838ad7300da95d9b89963f3836787c1ac27db2"
+        },
+        {
+          "path": "pcre-8.32-A-new-flag-is-set-when-property-checks-are-present-i.patch",
+          "size": 32312,
+          "sha256": "d965d32b9082011f1d722031e4847c63bf83a02b1cf328748ff8d7fe5c5aa945"
+        },
+        {
+          "path": "pcre-8.32-Add-support-for-PT_PXGRAPH-PT_PXPRINT-and-PT_PXPUNCT.patch",
+          "size": 4401,
+          "sha256": "1fa74a250e79ca65145fc4444f9138e3c8b01105002e437baed801d3f4f694dc"
+        },
+        {
+          "path": "pcre-8.32-Fix-bad-compile-of-Qx-.-where-x-is-any-character.patch",
+          "size": 1776,
+          "sha256": "21b7c9d22f207a954cc21b994794b991d95ac6cd1801c9d9d2e87471f30d4401"
+        },
+        {
+          "path": "pcre-8.32-Fix-bad-starting-data-when-char-with-more-than-one-o.patch",
+          "size": 2478,
+          "sha256": "2bebe05026a5c68aaa9d557e3ca47cd10d1bc2395355752c12331a37ca2baaf3"
+        },
+        {
+          "path": "pcre-8.32-Fix-buffer-overflow-for-forward-reference-within-bac.patch",
+          "size": 2129,
+          "sha256": "3109867e93028807eeb3ec72e948ac6728d8b9809642a6e7e78129daa4f8826a"
+        },
+        {
+          "path": "pcre-8.32-Fix-buffer-overflow-for-lookbehind-within-mutually-r.patch",
+          "size": 2178,
+          "sha256": "a06bc819d341578e0bc63474799d227c0fa2c174a13cf6400f315cfca355bccb"
+        },
+        {
+          "path": "pcre-8.32-Fix-buffer-overflow-for-named-references-in-situatio.patch",
+          "size": 7842,
+          "sha256": "7b954bfcbca8e43308b2613c971eb84f882af1b600f102d9a6456416ad0fea3e"
+        },
+        {
+          "path": "pcre-8.32-Fix-bug-when-there-are-unset-groups-prior-to-ACCEPT-.patch",
+          "size": 2451,
+          "sha256": "e8e21723664d20c4b6efd05adbab61fac30680c487765e3dbfcd32d5afba7809"
+        },
+        {
+          "path": "pcre-8.32-Fix-checking-whether-a-group-could-match-an-empty-st.patch",
+          "size": 8193,
+          "sha256": "fa3f9d66e6940a90ea9892cd9bdc8f06b324338df93dd5a3beaf37d65fec3416"
+        },
+        {
+          "path": "pcre-8.32-Fix-compile-time-loop-for-recursive-reference-within.patch",
+          "size": 3272,
+          "sha256": "0da061c647c801a58040c585dc278d7756db30b31a8caa747b3bf58a432f6055"
+        },
+        {
+          "path": "pcre-8.32-Fix-compiler-crash-misbehaviour-for-zero-repeated-gr.patch",
+          "size": 5560,
+          "sha256": "7646fccefc8c0a9e8055902c9d49d25eec16c5ac9a0b76ecd5ff3df59b81fc24"
+        },
+        {
+          "path": "pcre-8.32-Fix-duplicate-names-memory-calculation-error.patch",
+          "size": 4183,
+          "sha256": "6547766186843196e1a3b2b9d66110670d2567ab727cfc9ee692575a297cccc3"
+        },
+        {
+          "path": "pcre-8.32-Fix-forward-search-in-JIT-when-link-size-is-3-or-gre.patch",
+          "size": 1462,
+          "sha256": "33effd1213cd2ff2608d89dfccb87fa0bcfa242279a77adc86c39a98b5d375fe"
+        },
+        {
+          "path": "pcre-8.32-Fix-group-empty-match-bug.patch",
+          "size": 2484,
+          "sha256": "98be2cc337f0b941218522e60a44bc3ac6a37290cd62b4b853862720af2333d5"
+        },
+        {
+          "path": "pcre-8.32-Fix-named-forward-reference-to-duplicate-group-numbe.patch",
+          "size": 2244,
+          "sha256": "6131130f69869ccc517226df4fc608fbadd9ba4ef211eeaf5d1e7939df84daff"
+        },
+        {
+          "path": "pcre-8.32-Fix-run-for-ever-bug-for-deeply-nested-sequences.patch",
+          "size": 3139,
+          "sha256": "701ba0be1454bceacd4589f690acf32dca5fd50fa9fe3eb6e1e8e5b560021e6e"
+        },
+        {
+          "path": "pcre-8.32-Fix-two-buffer-over-read-issues-in-16-and-32-bit-mod.patch",
+          "size": 3938,
+          "sha256": "7cada29e53c3647897c47b14f2ea4da1fa6c73a2f07a020c0f4bef63ba53993c"
+        },
+        {
+          "path": "pcre-8.32-Fix-workspace-overflow-for-ACCEPT-with-deeply-nested.patch",
+          "size": 7311,
+          "sha256": "e26c70869fe096dedff6ff3bf3406be5255ba13b875a4b12342bea611e6901f9"
+        },
+        {
+          "path": "pcre-8.32-Fix-zero-repeat-assertion-condition-bug.patch",
+          "size": 1943,
+          "sha256": "71fe45846c15be92377f77916b0899c9fff784c71d0988a2dbdfe10d349c23a2"
+        },
+        {
+          "path": "pcre-8.32-Update-POSIX-class-handling-in-UCP-mode.patch",
+          "size": 34685,
+          "sha256": "0631f871e2318a10a6f7214aad22dff92d04776fe38f80d759844ae895da424b"
+        },
+        {
+          "path": "pcre-8.32-refused_spelling_terminated.patch",
+          "size": 1932,
+          "sha256": "33f58b42c93cb396104fad9c8f06f9b52c150a5eefc7820565e4022f7180d63a"
+        },
+        {
+          "path": "pcre-8.32.tar.bz2",
+          "size": 1361156,
+          "sha256": "a913fb9bd058ef380a2d91847c3c23fcf98e92dc3b47cd08a53c021c5cde0f55"
+        },
+        {
+          "path": "pcre-8.33-Fix-empty-matching-possessive-zero-repeat-groups-bug.patch",
+          "size": 6157,
+          "sha256": "9caa4d87b6cb20c90ea64eff765e090566e0e12c6baf05cdcb1edddb8d738e3c"
+        },
+        {
+          "path": "pcre-8.33-RC1-Fix-pcregrep-so-that-it-can-find-empty-lines.patch",
+          "size": 5857,
+          "sha256": "4be48f119bfeb01ca9d1edb88ed3abdfd2f87074eaf5d5262a18012d9d011f04"
+        },
+        {
+          "path": "pcre-8.33-RC1-Fix-pcretest-crash-with-a-data-line-longer-than-6553.patch",
+          "size": 1827,
+          "sha256": "de9c8fbe0d19ab5e554b3dcf68f9d4b4772edef1e98264abb15d2b4aecfb1645"
+        },
+        {
+          "path": "pcre-8.33-RC1-Fix-segfault-when-pcre_dfa_exec-is-called-with-an-ou.patch",
+          "size": 17463,
+          "sha256": "e873dab54616d822fc6b33ee8d72bf7870f0d8b0f14d2b5605af05652658da5b"
+        },
+        {
+          "path": "pcre-8.34-Fix-range-check-in-JIT-path.patch",
+          "size": 1537,
+          "sha256": "0ce0dfae9d8368fb644e802f7170b99e07423f18e07a9096d4fbad255d893ef3"
+        },
+        {
+          "path": "pcre-8.34-RC1-Fix-XCLASS-POSIX-types-in-JIT.patch",
+          "size": 2428,
+          "sha256": "e793ee64947e8a6c76074c1d116ff40f24f7dae30092ab4fd80475e17b7a7ae0"
+        },
+        {
+          "path": "pcre-8.37-RC1-Fix-static-linking-issue-with-pkg-config.patch",
+          "size": 1644,
+          "sha256": "57f9ac24d1256fa6b4a557428b1fbf0c8119919beea31746b5371eb86bc86e0d"
+        },
+        {
+          "path": "pcre.spec",
+          "size": 22956,
+          "sha256": "6e30e55f47631d54196a584d14ba0e6d7c357bb97cbd505cc276d2f8f662d805"
+        }
+      ]
+    },
+    {
+      "url": "https://vault.centos.org/7.9.2009/updates/Source/SPackages/krb5-1.15.1-55.el7_9.src.rpm",
+      "file": "krb5-1.15.1-55.el7_9.src.rpm",
+      "sha256": "d154824d46dff5aece0cdb8e4c9df299058bacadbaf7fb16be8d9163ca2814bb",
+      "size": 11554886,
+      "members": [
+        {
+          "path": "Add-German-translation.patch",
+          "size": 313765,
+          "sha256": "f1f4192eab04baed51db238e6913a6c78e6ce775d1ba5c22082f9c2afe4c7720"
+        },
+        {
+          "path": "Add-KDC-policy-pluggable-interface.patch",
+          "size": 37152,
+          "sha256": "f907873415a502309bd841889d028652668eed60b8b64408d2288211950d8da1"
+        },
+        {
+          "path": "Add-PKINIT-UPN-tests-to-t_pkinit.py.patch",
+          "size": 4599,
+          "sha256": "c543dbb52ec3a1bb6d4c40e6366acdad58981c50b22908d21ebb37d2216f9f43"
+        },
+        {
+          "path": "Add-PKINIT-test-case-for-generic-client-cert.patch",
+          "size": 2135,
+          "sha256": "e465fdaf7176eec197d53e145901012c8d9d2a6b037f867e6fec0f0668177404"
+        },
+        {
+          "path": "Add-a-hash-table-implementation-to-libkrb5support.patch",
+          "size": 21631,
+          "sha256": "4bc94523cf939585be9b5bd95f88019bb300d42247de7a83364384fd9baa6f40"
+        },
+        {
+          "path": "Add-certauth-pluggable-interface.patch",
+          "size": 40682,
+          "sha256": "9244bbd97e5007ad627e44f807de7034dffb1e56f59f4071fa898c37ea7f2d4b"
+        },
+        {
+          "path": "Add-k5_dir_filenames-to-libkrb5support.patch",
+          "size": 6882,
+          "sha256": "7708616b6995b61ef92a63ea111fbf5c22a5cd815f00536b1a09560c67f17e42"
+        },
+        {
+          "path": "Add-k5test-expected_msg-expected_trace.patch",
+          "size": 3746,
+          "sha256": "9371806c13ecf4ff907b7761edd8114e86e67583c8e289a26a3201547b891b19"
+        },
+        {
+          "path": "Add-libkrb5support-hex-functions-and-tests.patch",
+          "size": 18495,
+          "sha256": "4e37e2b0285547d3ff49ccf953da09e75dbcc79f781992f785e6c4edb0361167"
+        },
+        {
+          "path": "Add-support-to-query-the-SSF-of-a-GSS-context.patch",
+          "size": 16432,
+          "sha256": "b754e1c0d6067aa006560d855aa4dc8721a982fe4ada9d091df55acdccec198c"
+        },
+        {
+          "path": "Add-test-case-for-PKINIT-DH-renegotiation.patch",
+          "size": 1903,
+          "sha256": "c9446aafe97d0a9e87c8370be4fe1866f3b86bb7ae091d480ad624dab7849388"
+        },
+        {
+          "path": "Add-test-cases-for-preauth-fallback-behavior.patch",
+          "size": 36087,
+          "sha256": "4a6f15c1c7942545fab20fe4a5cc4426d46bf585d6668a9cbeb02ffda7fdda1a"
+        },
+        {
+          "path": "Add-test-cert-generation-to-make-certs.sh.patch",
+          "size": 3873,
+          "sha256": "4e71b15ae0b380a8ee98844ba75fcdd653e3552bd88ab74a654050a10e8562ca"
+        },
+        {
+          "path": "Add-test-cert-with-no-extensions.patch",
+          "size": 1530,
+          "sha256": "9bea01f5063b2d3bcee6d9f223a18d3be5bdeb00aa2a5344f195a5549245e24e"
+        },
+        {
+          "path": "Add-tests-for-per-request-preauth-data-scoping.patch",
+          "size": 8850,
+          "sha256": "d653cfae60f5b44162ba57c13607680a1e79a8bf07d6e31d3b15059a58890b78"
+        },
+        {
+          "path": "Add-the-certauth-dbmatch-module.patch",
+          "size": 12119,
+          "sha256": "91a4b6332ce5eb8d75af50cc1fccfcdabb433486e6fdcf9064ddc0963cdf892a"
+        },
+        {
+          "path": "Add-the-client_name-kdcpreauth-callback.patch",
+          "size": 1911,
+          "sha256": "e19bcbcb2756c83c4e0c6bd44a2ba2630223f73080cd9925a2ac98ba6286b218"
+        },
+        {
+          "path": "Add-timestamp-helper-functions.patch",
+          "size": 2813,
+          "sha256": "8c098a752e004bf4b3e0481689d6d49debbfa6803df1391b1524552d508408cf"
+        },
+        {
+          "path": "Add-timestamp-tests.patch",
+          "size": 25620,
+          "sha256": "72da9a70ca6099c6e810670ff15c192a98ca68d6267b568d4dfd1162a5937c93"
+        },
+        {
+          "path": "Add-vector-support-to-k5_sha256.patch",
+          "size": 3924,
+          "sha256": "cb1a4d77b16236980a919243592df678127f22620e86ba9a4a659f0559b543d4"
+        },
+        {
+          "path": "Add-y2038-documentation.patch",
+          "size": 2258,
+          "sha256": "5fc0b076013adbe1446e5358a9378ab2bb51bffdd763a077c5a0cbb5be835d37"
+        },
+        {
+          "path": "Address-some-optimized-out-memset-calls.patch",
+          "size": 3919,
+          "sha256": "318797dc09c9dcebd926e1e18c7bcbd0ca050db1a77db88c915b38b9b182b623"
+        },
+        {
+          "path": "Adjust-processing-of-pa_type-ccache-config.patch",
+          "size": 4546,
+          "sha256": "f6cee9dd272736cb381f7c3d139a9bd7808753d55eb6cbc938cef01309233e88"
+        },
+        {
+          "path": "Allow-clock-skew-in-krb5-gss_context_time.patch",
+          "size": 1338,
+          "sha256": "ece3aa14ec2cad2751149ea105c3602c707bbbef62cd0221e79bcecb853f196d"
+        },
+        {
+          "path": "Bring-back-general-kerberos-man-page.patch",
+          "size": 18155,
+          "sha256": "0dc2ecb816d56a01768f3256be1c769eebc3daa4c9101d742275aea0d4b9cec1"
+        },
+        {
+          "path": "Continue-after-KDC_ERR_PREAUTH_FAILED.patch",
+          "size": 4992,
+          "sha256": "1b1947ff888e648ab790451d84a583b235eba254de906bc4f35b09a13554053f"
+        },
+        {
+          "path": "Continue-after-KRB5_CC_END-in-KCM-cache-iteration.patch",
+          "size": 1737,
+          "sha256": "abc7c710d3e147dea720226360b360707b92faeb8355efd4aa0fa2e78183c9a4"
+        },
+        {
+          "path": "Continue-preauth-after-client-side-failures.patch",
+          "size": 4867,
+          "sha256": "e019d4397b3deddd5a8a93880d1bed3bdc43c912de89075f53e6f2000fa1ec78"
+        },
+        {
+          "path": "Convert-some-pkiDebug-messages-to-TRACE-macros.patch",
+          "size": 19579,
+          "sha256": "e5e43bb7de08c7c3c3f0dd7d3b15c863ec9c3971284a14ad9a8bec5890ad8899"
+        },
+        {
+          "path": "Correct-error-handling-bug-in-prior-commit.patch",
+          "size": 1201,
+          "sha256": "cd828cb40642cc0d0728bf6f09a1b72305befc20ff368feb77d1fc8039776560"
+        },
+        {
+          "path": "Correct-kpasswd_server-description-in-krb5.conf-5.patch",
+          "size": 1074,
+          "sha256": "0700e77da351be403f94b6d9b8d7c607b7c13c5253823d4b7905a40e4bb5fc05"
+        },
+        {
+          "path": "Deindent-crypto_retrieve_X509_sans.patch",
+          "size": 10442,
+          "sha256": "8abacbecd214a5755313ba99d6965b73fcaefe67eeadf0cc5865b9876d43b432"
+        },
+        {
+          "path": "Do-expiration-warnings-for-all-init_creds-APIs.patch",
+          "size": 16683,
+          "sha256": "fb4ea03c9bf6ca08023381dffb5666dfc8592f0ad6bd337451d6d38660d329b4"
+        },
+        {
+          "path": "Document-and-check-init_creds-context-requirement.patch",
+          "size": 4946,
+          "sha256": "281d43e1681ee272ddc85d66e4e3d1f92a0fcb90bf429defbf8a3f04819a08f0"
+        },
+        {
+          "path": "Don-t-include-all-MEMORY-ccaches-in-collection.patch",
+          "size": 3087,
+          "sha256": "bff19020c50fe6df6cfc313ff92a8bd47eaa1ae14fc4495dd2768ba03a020862"
+        },
+        {
+          "path": "Echo-KDC-cookies-in-preauth-tryagain.patch",
+          "size": 3180,
+          "sha256": "1c1f0b4f3426b3b89f50f57cc9997d747ecea11f302d3bcb06fa626f3c0fa5fb"
+        },
+        {
+          "path": "Exit-with-status-0-from-kadmind.patch",
+          "size": 1299,
+          "sha256": "28fafafbedff1f550a36b62be36600a8c5e2dbf874c58698c73d082b3ad9d33d"
+        },
+        {
+          "path": "Expose-context-errors-in-pkinit_server_plugin_init.patch",
+          "size": 3277,
+          "sha256": "623acf31b7c5b7bc7d40fa0cb5fb385be2fe266a67fbd3ae1b3aa4e6ee376b34"
+        },
+        {
+          "path": "Fix-KDC-null-deref-on-TGS-inner-body-null-server.patch",
+          "size": 1507,
+          "sha256": "52a3d7d7fad34ae23c0924a3e8dbf51f9e8806e68d23c9b5cf884e3214fbcc77"
+        },
+        {
+          "path": "Fix-LDAP-policy-enforcement-of-pw_expiration.patch",
+          "size": 11053,
+          "sha256": "7059ef2b6cee5ccc78d0f06bf28ec8300ec4a7d35c61d360f904691faa5a938c"
+        },
+        {
+          "path": "Fix-PKINIT-cert-matching-data-construction.patch",
+          "size": 3580,
+          "sha256": "e96bf6698fb50b73bac96fdcd7a6a3d59fb30c56a175c500edbef0ba279318f3"
+        },
+        {
+          "path": "Fix-bugs-in-kdcpolicy-commit.patch",
+          "size": 5335,
+          "sha256": "84f3fbf5348dd008aad9288bef7e9e4033f3ac39480849b0ffa3e6637f4b7416"
+        },
+        {
+          "path": "Fix-bugs-with-concurrent-use-of-MEMORY-ccaches.patch",
+          "size": 12962,
+          "sha256": "5c99bba6d514df38ce1255af0204a4aff37ab154bc02959595b2bb09428c7d7f"
+        },
+        {
+          "path": "Fix-certauth-built-in-module-returns.patch",
+          "size": 4476,
+          "sha256": "8fbfaa27af68b7134b2d3d9eee73c9ea1db305cb65961921572b04e39bc10f3b"
+        },
+        {
+          "path": "Fix-flaws-in-LDAP-DN-checking.patch",
+          "size": 13916,
+          "sha256": "abfab2c4d65fc6b15ce888f69ddcde0014b4c27dedd0ac709246f9a728e0ca33"
+        },
+        {
+          "path": "Fix-hex-conversion-of-PKINIT-certid-strings.patch",
+          "size": 3022,
+          "sha256": "18f15725c675c176612a92c3fb38c225a80b09e621d766029d73d3d130355e90"
+        },
+        {
+          "path": "Fix-in_clock_skew-and-use-it-in-AS-client-code.patch",
+          "size": 2494,
+          "sha256": "1cee2e3522ce5d5cf69acaff830663b8c0ac3fb9a0b8b45d0da0d658bea18fc5"
+        },
+        {
+          "path": "Fix-integer-overflows-in-PAC-parsing.patch",
+          "size": 3640,
+          "sha256": "89b460f305d16be45b33fd2dfb42560c1549160ea52f8d84333e8b21cdca4a51"
+        },
+        {
+          "path": "Fix-make-certs.sh-for-OpenSSL-1.1.patch",
+          "size": 3462,
+          "sha256": "eaeb16ac7a05cfee2dea1496496bf7f42508a3f6616fafa1eab72d191cb32c93"
+        },
+        {
+          "path": "Fix-more-time-manipulations-for-y2038.patch",
+          "size": 3610,
+          "sha256": "aa3315f05dc71c5ffd4ef8fcd83f003ac72c8277f2145564c0e930d4c29b9bd6"
+        },
+        {
+          "path": "Fix-segfault-in-finish_dispatch.patch",
+          "size": 4136,
+          "sha256": "fd9e963590d7b64804ec70f5277491806e3daa7264d3b954beeef7f415296b14"
+        },
+        {
+          "path": "Ignore-dotfiles-in-profile-includedir.patch",
+          "size": 2636,
+          "sha256": "4075f33757adbb2b7333d4d8e03f7f9b86789c8a40b6a7ff77a4e6e8a49a3df9"
+        },
+        {
+          "path": "Improve-PKINIT-UPN-SAN-matching.patch",
+          "size": 6340,
+          "sha256": "6fe91d5a212bfa081f20a9da0ba9b2bbfd0812c5971c4d7c7e5f7a240193607b"
+        },
+        {
+          "path": "In-FIPS-mode-add-plaintext-fallback-for-RC4-usages-a.patch",
+          "size": 12861,
+          "sha256": "aee75ca2fe2359ac7f27bada69375132f533d9cc1a5b74ededf57d76f55e6f1b"
+        },
+        {
+          "path": "Include-preauth-name-in-trace-output-if-possible.patch",
+          "size": 26605,
+          "sha256": "878d5fc4428dc2c34e818564397c9bdf57a2afae176b23a2390223a9a5cfa374"
+        },
+        {
+          "path": "Limit-ticket-lifetime-to-2-31-1-seconds.patch",
+          "size": 8058,
+          "sha256": "ed98dfb6124e5e58c9c9cbfcb6e9fec3506e7dd8b1eceefaf75731adb5410ade"
+        },
+        {
+          "path": "Log-when-non-root-ksu-authorization-fails.patch",
+          "size": 1216,
+          "sha256": "dfd27434c3c6d47bb513d3097e6810f7f266629a0b5e7d9a243a575dce8cf47a"
+        },
+        {
+          "path": "Make-krb5_preauth_context-a-pointer-type.patch",
+          "size": 5616,
+          "sha256": "db10477c093876615e5f8d64445cb13ed25a68f811015965b8c3c5e200fe444f"
+        },
+        {
+          "path": "Make-timestamp-manipulations-y2038-safe.patch",
+          "size": 76685,
+          "sha256": "12c69d9d9107f15848362351e40bedb6a69d4eea0cd462ec0ced7a58953de06e"
+        },
+        {
+          "path": "Merge-duplicate-subsections-in-profile-library.patch",
+          "size": 4050,
+          "sha256": "d24bb0ab9b479aa26d7bb90a1d080463eb9aa5b18c1672aa61161d66d5196fa0"
+        },
+        {
+          "path": "Modernize-kerberos-7.patch",
+          "size": 19770,
+          "sha256": "788f359113a4fd16ec940058ae90d0bf2761ecb115cff9c97c0c4e78dc255f09"
+        },
+        {
+          "path": "Prefer-TCP-to-UDP-for-password-changes.patch",
+          "size": 6539,
+          "sha256": "467cba9d4640f5867c61212f3bfa8a47106594bed71869c3f802fb00f9f4558f"
+        },
+        {
+          "path": "Preserve-method-data-in-get_in_tkt.c.patch",
+          "size": 11115,
+          "sha256": "a3412ce69aa3a4f47c00ee608719d75945cd7706be7a4e36c456182bb10093bf"
+        },
+        {
+          "path": "Prevent-KDC-unset-status-assertion-failures.patch",
+          "size": 3882,
+          "sha256": "5eac892e7c2bb83e2e7eaf98832f7d4199fb875aad20d7aa69cfbd5da111ee81"
+        },
+        {
+          "path": "Process-profile-includedir-in-sorted-order.patch",
+          "size": 3985,
+          "sha256": "a4cb12dacafa43a82f066a8c04b50d2b143c9fdf3a54a91b41721de25d73f33b"
+        },
+        {
+          "path": "Properly-scope-per-request-preauth-data.patch",
+          "size": 21078,
+          "sha256": "0bb99c9c99898d293153929eb93bcdad33ccfd9ce0221e159099c8c52f9e236b"
+        },
+        {
+          "path": "Remove-incomplete-PKINIT-OCSP-support.patch",
+          "size": 5464,
+          "sha256": "d9809ff546223c925b9d3ca23e31384c12f9a3a8926ff70ac4000510fb253b41"
+        },
+        {
+          "path": "Remove-incorrect-KDC-assertion.patch",
+          "size": 2371,
+          "sha256": "92cb3d79bc4ea91e6b236886697c57b214639aaa554acdd15f3107397031b459"
+        },
+        {
+          "path": "Remove-nodes-option-from-make-certs-scripts.patch",
+          "size": 1948,
+          "sha256": "ace4c1394f46bf01ffccdaa55310690bc751e26e5abdba9b337cbec123354dd6"
+        },
+        {
+          "path": "Remove-sent_nontrivial_preauth-field.patch",
+          "size": 2567,
+          "sha256": "a1b8060a5de10dd3240c133653e420ae23b1643bf4130e002674128d0f27795b"
+        },
+        {
+          "path": "Remove-vestigial-svr_principal.c-code.patch",
+          "size": 4854,
+          "sha256": "d170997349dcf9aaac6230ba2a30aba263211c0ad961d56513d16ed13266ff72"
+        },
+        {
+          "path": "Return-UPN-SANs-as-strings.patch",
+          "size": 8819,
+          "sha256": "4088a2ec13cd7ef774571fcea2c1d5d65ce6f1d6689cdc0eff1fb4994a13e8c4"
+        },
+        {
+          "path": "Save-SANs-separately-and-unparse-them-with-NO_REALM.patch",
+          "size": 6264,
+          "sha256": "ffb9af88db938c8e0582ec5a5b687c094eb3bcf9383cc10d28ccfa4978fa0acb"
+        },
+        {
+          "path": "Simplify-PKINIT-cert-iteration-and-selection.patch",
+          "size": 28585,
+          "sha256": "16243420fe102287443d57235806caa11ec27d600fb0b124ac7c970c2d18d5ae"
+        },
+        {
+          "path": "Simplify-k5_preauth_tryagain.patch",
+          "size": 8172,
+          "sha256": "a79b3686668aa77568ce80543c75e1001932a3ef0f2538e33191e13c63a04235"
+        },
+        {
+          "path": "Track-preauth-failures-instead-of-tries.patch",
+          "size": 7217,
+          "sha256": "41b3d12e9837c2e2bfc4bb7a4b654f873f178977efbb0d07045568a3092dd7f9"
+        },
+        {
+          "path": "Try-harder-to-avoid-password-change-replay-errors.patch",
+          "size": 3895,
+          "sha256": "bc23f029130f6be6c94e729d43e7c11c9bab67f7ef69c1d1e95270a9f1955af6"
+        },
+        {
+          "path": "Update-man-pages-to-reference-kerberos-7.patch",
+          "size": 14360,
+          "sha256": "71d5f977eeb49f964418ee5a770bbc6e31a3f5ff38914a5a8d28fabcc2c6b824"
+        },
+        {
+          "path": "Use-SHA-256-instead-of-MD5-for-audit-ticket-IDs.patch",
+          "size": 1701,
+          "sha256": "a9c6c1a5e7abc959346d124b0fa443dc03ca874691faa30db856c6cc0e6aff08"
+        },
+        {
+          "path": "Use-SHA256-instead-of-SHA1-for-PKINIT-CMS-digest.patch",
+          "size": 6311,
+          "sha256": "47494a5770da9be344606e538dae817e129ba97b9d73b09da39778dd3d5aa73b"
+        },
+        {
+          "path": "Use-a-hash-table-for-MEMORY-ccache-resolution.patch",
+          "size": 6200,
+          "sha256": "4f62f00a6fcd61540b03e8bbc3461ef0d5e2128cf28e64c0a04e0bbf8efe20b8"
+        },
+        {
+          "path": "Use-krb5_timestamp-where-appropriate.patch",
+          "size": 11791,
+          "sha256": "672adfe9ec1517c24362168720d2b31cf29e7ab85756c6fd4885751358aaa360"
+        },
+        {
+          "path": "Use-the-canonical-client-principal-name-for-OTP.patch",
+          "size": 1233,
+          "sha256": "690127309411bc669d420b3b9ef8263e03c1184c17d850ba16c9e9c1dbb54734"
+        },
+        {
+          "path": "_kadmind",
+          "size": 378,
+          "sha256": "3b9fbe27257ee2110003e606785db3131c552e1ef167db9b520d30d8bb0272cd"
+        },
+        {
+          "path": "_kpropd",
+          "size": 388,
+          "sha256": "e08ba9cdc606780b27e926a58996b51dbe9ad843af18f385b32aa76082357957"
+        },
+        {
+          "path": "kadm5.acl",
+          "size": 22,
+          "sha256": "04c5b8b6937937a19c967b8cab89428d7f593e38f17c3b241e4accd071096cee"
+        },
+        {
+          "path": "kadmin.service",
+          "size": 384,
+          "sha256": "1aecf8da34412ada5cf840266108b38ef0ccd031b5e4e97a4aa7465ec055ddc5"
+        },
+        {
+          "path": "kadmin.sysconfig",
+          "size": 14,
+          "sha256": "c8d4fd86f9ab8e7ef89778157e31253a0d7dc6a2af7413c6e711cf482836299c"
+        },
+        {
+          "path": "kadmind.init",
+          "size": 2399,
+          "sha256": "503e454f81ba5ca81a4fe02b3b5e759996e1a24b492813ced9a114ad899002c3"
+        },
+        {
+          "path": "kadmind.logrotate",
+          "size": 185,
+          "sha256": "91a2367067fc427c7b55d02f7a17b5aac7bac13db58e772b06ce33aff2b1075a"
+        },
+        {
+          "path": "kdc.conf",
+          "size": 451,
+          "sha256": "2df494c7cf8cb2a6b90a15c9abdf3581013ed6a36d09195155b6b05d66f8886e"
+        },
+        {
+          "path": "kerberos-adm.portreserve",
+          "size": 17,
+          "sha256": "6ef900554723e77cbbf98d4c0e7e24f0e5432a65da7915e866f8699aaf7e405a"
+        },
+        {
+          "path": "kprop.service",
+          "size": 268,
+          "sha256": "aa20991a407acdb90d0319cbf5ccad61312964372771d01f8cef86c6a5e49b4c"
+        },
+        {
+          "path": "kprop.sysconfig",
+          "size": 13,
+          "sha256": "c37687c587a54ea4dba04d5401b728bf93c3e5a07c4eb7f682bcb6cac407da6c"
+        },
+        {
+          "path": "kpropd.init",
+          "size": 2055,
+          "sha256": "feffeee095427901bf9e85e867d6e26e5485e5038e0567db5c7198538285b7ea"
+        },
+        {
+          "path": "krb5-1.11-kpasswdtest.patch",
+          "size": 688,
+          "sha256": "149b281cf73e252471710b9c5b7cc4fe8f7407b78c67fb45b5f1f2fa43f48a26"
+        },
+        {
+          "path": "krb5-1.11-run_user_0.patch",
+          "size": 1366,
+          "sha256": "e92b90f88a81fc21a6ffa30f3a448f900bbae9d5841163ef3de182c9a5fdbe06"
+        },
+        {
+          "path": "krb5-1.12-api.patch",
+          "size": 1213,
+          "sha256": "8bf5e915171df551b50228d990f7e3a6758fe9dc73124ec793c81fd200ff28db"
+        },
+        {
+          "path": "krb5-1.12-ksu-path.patch",
+          "size": 772,
+          "sha256": "d58d10f04896f0e9fd2425ea5276f707dc77261e16ac84065b88512e8a6c23a3"
+        },
+        {
+          "path": "krb5-1.12-ktany.patch",
+          "size": 10301,
+          "sha256": "f85d5ede66145b2c015c175fde955669afcc2bd62371687ec3fefdca00e1877c"
+        },
+        {
+          "path": "krb5-1.12.1-pam.patch",
+          "size": 21713,
+          "sha256": "3dfb309c11de49496e53c5291c564b6cd4e63ab90a3453130fe54eaf7a83e397"
+        },
+        {
+          "path": "krb5-1.13-dirsrv-accountlock.patch",
+          "size": 3229,
+          "sha256": "2a2fcf7fe112f1a99d6f2346896122e7de2c1c7888cc15f90e70b728473cccb5"
+        },
+        {
+          "path": "krb5-1.15-beta1-buildconf.patch",
+          "size": 3012,
+          "sha256": "73e51208c6a99b4c12f7cd836f595531a01a074a56b31cff21cb2458a8aa31af"
+        },
+        {
+          "path": "krb5-1.15-beta1-selinux-label.patch",
+          "size": 32138,
+          "sha256": "e131cd10cb75a7a8e90cc90d5bc38ac5d8c88aaf9d3ab887c4279152b05ed53f"
+        },
+        {
+          "path": "krb5-1.15.1-pdfs.tar",
+          "size": 1280000,
+          "sha256": "04d364e6078665da2dda8b15402f8a042c4fbbb83654f2253003b16eb803f1d9"
+        },
+        {
+          "path": "krb5-1.15.1.tar.gz",
+          "size": 9375538,
+          "sha256": "437c8831ddd5fde2a993fef425dedb48468109bb3d3261ef838295045a89eb45"
+        },
+        {
+          "path": "krb5-1.15.1.tar.gz.asc",
+          "size": 811,
+          "sha256": "ee03cbe8a825986359d46da0d53e1833564de24735d9b4fc8ee1cca33fa3d8c0"
+        },
+        {
+          "path": "krb5-1.3.1-dns.patch",
+          "size": 597,
+          "sha256": "4b000f65f1b3a48170476773b807a38383996f93ad1262912a2adb3861277d18"
+        },
+        {
+          "path": "krb5-1.9-debuginfo.patch",
+          "size": 1290,
+          "sha256": "5425c3522f4484ff2a46a6a2c3f25e1b7c7832b7d8935a150236abdb69f8513b"
+        },
+        {
+          "path": "krb5-krb5kdc.conf",
+          "size": 34,
+          "sha256": "0230ea099e111fcfabafc58fe0c0c22b84098286ac9bac748ad546b029ef32c2"
+        },
+        {
+          "path": "krb5-kvno-230379.patch",
+          "size": 2181,
+          "sha256": "e772fe191f16c65223aa83965251489771c7901e77081329d6ce53ba150dfac1"
+        },
+        {
+          "path": "krb5.conf",
+          "size": 597,
+          "sha256": "e2402c7780701218e469d6a4753f3926c7b0d65a758de4568344ace7023d28fe"
+        },
+        {
+          "path": "krb5.spec",
+          "size": 159913,
+          "sha256": "461b5a83cb368f5d2e82b9ff0fd4303181be1bf3e76b1635ccf5763a5d448b60"
+        },
+        {
+          "path": "krb5_prop.portreserve",
+          "size": 14,
+          "sha256": "275f3ebae93853261e881b8b0565a3130806f68b080208acfc40b0a9b6119f42"
+        },
+        {
+          "path": "krb5kdc.init",
+          "size": 2197,
+          "sha256": "f90041645538af580c1c8d5576fe9e35f960099fc76f452dc53e69aed5ce03d7"
+        },
+        {
+          "path": "krb5kdc.logrotate",
+          "size": 185,
+          "sha256": "fc6962a6e553c3126be27ddb47fd13f00cdbefc16fdd89908c3e7b03163b792e"
+        },
+        {
+          "path": "krb5kdc.service",
+          "size": 351,
+          "sha256": "4ce5bcaefb05a6fa45d22c414a19abf1d927b14c336356bbac17ffa530c93971"
+        },
+        {
+          "path": "krb5kdc.sysconfig",
+          "size": 14,
+          "sha256": "edf95267244d57b6c953ea3ad197c12e2e342e237d2b31d2d75e5aeac3e06e03"
+        },
+        {
+          "path": "ksu.pamd",
+          "size": 70,
+          "sha256": "7063702eca2b8ba0dd483d72d686d0718448e89041a3e158d5dfdf1656461f8e"
+        },
+        {
+          "path": "noport.c",
+          "size": 2242,
+          "sha256": "2e79f6fe94bd9f6380e907fb99051f5815cd149f23b273c4b9a4803f7b109f31"
+        },
+        {
+          "path": "nss_wrapper-0.0-20140204195100.git3d58327.tar.xz",
+          "size": 217980,
+          "sha256": "2fd29f37c11e95cd267b0e9e17efa3f3b5c7d26a6ff02ccac164543e56c83439"
+        },
+        {
+          "path": "socket_wrapper-0.0-20140204194748.gitf3b2ece.tar.xz",
+          "size": 295048,
+          "sha256": "ee8c216bab650ef4d0482e593c68c1648a66b2179089276471c1d727fbb38450"
+        }
+      ]
+    },
+    {
+      "url": "https://vault.centos.org/7.9.2009/updates/Source/SPackages/cyrus-sasl-2.1.26-24.el7_9.src.rpm",
+      "file": "cyrus-sasl-2.1.26-24.el7_9.src.rpm",
+      "sha256": "c49472bd08c6060f53a9dace005b81cf466836790d2dcb407a536820f6319e77",
+      "size": 1782723,
+      "members": [
+        {
+          "path": "0001-CVE-2022-24407-Escape-password-for-SQL-insert-update.patch",
+          "size": 2600,
+          "sha256": "e3fd32d2d20a181917d261e2ed9b912be80b6c73311a8d4fd44c49fa823bc2f9"
+        },
+        {
+          "path": "cyrus-sasl-2.1.20-saslauthd.conf-path.patch",
+          "size": 1754,
+          "sha256": "d68755884b0e7ddc702c51e5679ff7195c1e2cb0caf264ba682798ec05961506"
+        },
+        {
+          "path": "cyrus-sasl-2.1.21-sizes.patch",
+          "size": 5404,
+          "sha256": "dcdf41b63b815636548982c90cc27e952d4da71af90353d2fb97f1eda049a429"
+        },
+        {
+          "path": "cyrus-sasl-2.1.22-kerberos4.patch",
+          "size": 963,
+          "sha256": "8bce010604d619a724d397f88b6b3c3b854f96137fd9932fb01b1800e640c330"
+        },
+        {
+          "path": "cyrus-sasl-2.1.22-ldap-timeout.patch",
+          "size": 1028,
+          "sha256": "4b2e8e362fb18531b0c83b99992842522aa5fb207870b33481feb028e681f79c"
+        },
+        {
+          "path": "cyrus-sasl-2.1.23-man.patch",
+          "size": 961,
+          "sha256": "88e22ac8c73c610e394ef7711d6f30d6feb325bd2467f646163c2d7126d2e38a"
+        },
+        {
+          "path": "cyrus-sasl-2.1.25-no_rpath.patch",
+          "size": 829,
+          "sha256": "56d171f0e1e5bb417d29f1232860bd01d94097da6a22e013cf71dd9424f35507"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-error-message-when-config-has-typo.patch",
+          "size": 1380,
+          "sha256": "df9847a5b1a9af8725987b7f767dd97d3a91282c62112d88e2f2e2f073816e21"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-gss-spnego.patch",
+          "size": 5365,
+          "sha256": "583ffe8291f82c5999ff8be8d2060ae51ead668ae838be767e2e1ef4dfaa44ed"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-gss-ssf.patch",
+          "size": 19229,
+          "sha256": "aa8f29b37c7886977c267f5298ded3e01b6eb828e9f8952844fc803135fbba31"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-gssapi-non-encrypt.patch",
+          "size": 1422,
+          "sha256": "30da63bfb87c2e4603cefecaee5cb6f9437285170bd899371521c8911c8b5a1a"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-gssapi-use-per-connection-mutex.patch",
+          "size": 24069,
+          "sha256": "5201b08d8404e22e8a09ff7da691774ef7f172141afaa3dc91b73aeb17b0a221"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-handle-single-character-mechanisms.patch",
+          "size": 765,
+          "sha256": "bfe21b3f82aad684bc067e2ef8cab8ace015971ca81b4ec83baf384df2ebbe5f"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-keytab.patch",
+          "size": 1249,
+          "sha256": "a1cfd3c826bdc30457bbe7a6b8c9bb8f84f8803c68697b63f1aef0c76b9158a5"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-make-client-thread-sage.patch",
+          "size": 1803,
+          "sha256": "1ad28b6e2b4d6a3c98dd787545e5c8266a80323eb12c849fbb266f2f150ee0b6"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-md5global.patch",
+          "size": 13824,
+          "sha256": "7ebba0b36fde5fbb8b8e88520e358a6c6e63dd4f6d9ae10be9e2d32d82b11f4f"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-nodlcompatorsrp.tar.gz",
+          "size": 1708059,
+          "sha256": "c7c7d4a404aca991680f91805e7e21abc73d18cfb603d8570011262e5c721c1e"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-null-crypt.patch",
+          "size": 3114,
+          "sha256": "9f690321fbeff0745a887576a99bf668367aeac356c30697000890350d7aebbf"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-obsolete-macro.patch",
+          "size": 309,
+          "sha256": "a127e3eb73abd0b777a1f7075861c1a24dba64c9799aa267aa842dc2d8d09407"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-ppc.patch",
+          "size": 1026,
+          "sha256": "9aa6ed96c2ea19abdbc699fbcf8b0e8c6f0ba6dac218525761c634121415aa71"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-prefer-SCRAM-SHA-1-over-PLAIN.patch",
+          "size": 1765,
+          "sha256": "ff8889db47e959487f5e1ddf290bfef13dc894b14ab57e42310acbabc51f52b4"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-release-server_creds.patch",
+          "size": 683,
+          "sha256": "7a67fef500d2dc3554fb2215268ce433d01e9f79f6b75375a0ec812d19e22b17"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-relro.patch",
+          "size": 4106,
+          "sha256": "dbb4e9113be8dfd4b98624fe63a806a75d42cff7cd1f77eab16c77fbee583a47"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-revert-gssapi-flags.patch",
+          "size": 650,
+          "sha256": "d6864c02dcbf97220c3dbdb5c2852438832e21f3efc29e6d5dbd0f105d5cb7d8"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-saslauthd-user.patch",
+          "size": 934,
+          "sha256": "1d0ade6b1bf9b787f8757b9485df88218fe0c16fa8bd3d4a9932b002525eca2e"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-size_t.patch",
+          "size": 467,
+          "sha256": "b85b20bdd25b42098e07a8ba7e435f02b5cd882dcf69572c4d32de4a5e4f41bb"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-sql.patch",
+          "size": 62747,
+          "sha256": "48fcb9818f005d35e3a237ca5c91bc9bacbddc6d5dc773565222df99e82aee42"
+        },
+        {
+          "path": "cyrus-sasl-2.1.26-warnings.patch",
+          "size": 3324,
+          "sha256": "4d40155e68f644a395ba976b5fe692f9e8d3b75193dc6c4ee68f90c4fc71a39c"
+        },
+        {
+          "path": "cyrus-sasl.spec",
+          "size": 40313,
+          "sha256": "fd6bc0d083a77ad411a6db6312bed47cce5de0b5931a9a4da62b1e35d95bf96d"
+        },
+        {
+          "path": "make-no-dlcompatorsrp-tarball.sh",
+          "size": 945,
+          "sha256": "5986afc9cb9b431158339c3022d0c1aaf11eeb5bfd98b532742fb390a8c22263"
+        },
+        {
+          "path": "sasl-checkpass.c",
+          "size": 3731,
+          "sha256": "9ea5c3f4cb49675fe2c46f509bd8cb2d4ae426d846bde15b36738c7bc77dd11f"
+        },
+        {
+          "path": "sasl-mechlist.c",
+          "size": 2174,
+          "sha256": "fff5d01bef2f52b0a82a3c16e133c53e8fddd5ef2e61a4acd60a15789c631059"
+        },
+        {
+          "path": "saslauthd.service",
+          "size": 295,
+          "sha256": "c469a8284515d29a3dc0676463647c0811089c3e7fbd54c7b222ff4f47992bdd"
+        },
+        {
+          "path": "saslauthd.sysconfig",
+          "size": 429,
+          "sha256": "45394f7413e0426d54af7a632a0148ea6d67687c02fcbd750261bba4838b2277"
+        }
+      ]
+    }
+  ],
+  "verification": "Nine RPM-to-wheel bindings have matching full GNU build IDs, auditwheel original-hash prefixes and byte-identical .text/.rodata/.eh_frame. Six source and six binary RPM OpenPGP header+payload signatures valid under official CentOS7 HTTPS-fetched key 6341AB2753D78A78A7C27BB124C6A8A7F4A80EB5; isolated keydb, no web-of-trust certification. No whole ELF or source rebuild equivalence claimed.",
+  "remaining": [
+    "Independent source-to-binary rebuild and auditwheel transformation proof not established",
+    "Complete legal compatibility and replacement/relinking review not asserted"
+  ],
+  "tenth_library": {
+    "wheel_file": "libcrypt-bc2db45e.so.1",
+    "source": "libxcrypt4.5.2",
+    "source_sha256": "71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071",
+    "image_manifest_sha256": "21c37461985655aaa25ed3a923b28e6c9d4dd9e10edc0281eb50385184bddd31",
+    "historical_tag": "2026.09.14-1",
+    "original_binary_sha256": "911a4a9ca3be5c81e47b5053c336d95aefe068a4efef1d1571c626f8d1529c8a",
+    "matching_sections": {
+      ".text": "90724d27cc1b44dfb17c7757119881eb4a9f2c6308e0859de219c0f018b3584a",
+      ".rodata": "643948bf27595874e7859171aea7f3a0f8c9d40897865e3c26322fe76cee0fbf",
+      ".eh_frame": "ecd442a1f93938dc60873084f3a17571a4fdb578b77fc6814fa812e8963d4610"
+    },
+    "recipe": "install-libxcrypt.sh",
+    "recipe_modification": "Remove XCRYPT symbol versions; build glibc obsolete API with all hashes. Exact script retained from digest-verified image layer.",
+    "source_binding": "Exact source hash asserted by immutable image config; source download matches. Original binary hash prefix matches wheel filename; selected code/data/unwind sections identical. Not proof of whole independent rebuild."
+  },
+  "source_mapping_count": 10,
+  "retained_files": [
+    {
+      "path": "compare.py",
+      "size": 1224,
+      "sha256": "9a021ad54582c8c61a42f5f541358f32d33f81727ed40a2315d510689cbbd677"
+    },
+    {
+      "path": "check.py",
+      "size": 1512,
+      "sha256": "2caca6f9a7e2293fa624e1d1fc95b21d19533774f884cf4b313a3772e0bcae78"
+    },
+    {
+      "path": "sources.py",
+      "size": 1066,
+      "sha256": "b5552baddb56d121e4491480e484ce04f1335e4e72c61d62ad67e7db9f0b9301"
+    },
+    {
+      "path": "historical.py",
+      "size": 1207,
+      "sha256": "133977d1bdbd6a68aa37857aa81070acf26205e41a9c7e6f92ec96c90a9c6cba"
+    },
+    {
+      "path": "verify-rpms.py",
+      "size": 844,
+      "sha256": "b9fe70902883b68f957cb14573f04c3bcf8f5247759a84314466711d39250e3c"
+    },
+    {
+      "path": "rpm-signature-verification.json",
+      "size": 11843,
+      "sha256": "5d22a0dc6d69f85c9ac3d061d03fe80a394fb945a64bc4cafb311866c6b131d2"
+    },
+    {
+      "path": "centos7-key.asc",
+      "size": 1690,
+      "sha256": "8b48b04b336bd725b9e611c441c65456a4168083c4febc28e88828d8ec14827f"
+    },
+    {
+      "path": "libxcrypt-4.5.2.tar.xz",
+      "size": 669820,
+      "sha256": "71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071"
+    },
+    {
+      "path": "install-libxcrypt.sh",
+      "size": 1893,
+      "sha256": "2a1e4846c84b32c02e6ebf93b3b8dc0837f67ed5a0b89be1c9200ae5d2f8dde8"
+    },
+    {
+      "path": "2026.09.14-1-manifest.json",
+      "size": 5132,
+      "sha256": "21c37461985655aaa25ed3a923b28e6c9d4dd9e10edc0281eb50385184bddd31"
+    },
+    {
+      "path": "2026.09.14-1-config.json",
+      "size": 14430,
+      "sha256": "39a05dc0326ceac96e9a21e5d415c2b50a3ca176dc026da5f2233868046fe797"
+    },
+    {
+      "path": "libxcrypt-recipe-layer.tar.gz",
+      "size": 1116,
+      "sha256": "c674de7c7ee655b7dc85c8bcdc59d78a0298771562cdef1c9871c92c90a8053b"
+    },
+    {
+      "path": "2026.09.14-1-libxcrypt-layer.tar.gz",
+      "size": 380488,
+      "sha256": "0ed130695b570a3871c0dc35e45a7f4307541729e71c9796279b66eefa34c6db"
+    },
+    {
+      "path": "source-rpms/cyrus-sasl-2.1.26-24.el7_9.src.rpm",
+      "size": 1782723,
+      "sha256": "c49472bd08c6060f53a9dace005b81cf466836790d2dcb407a536820f6319e77"
+    },
+    {
+      "path": "source-rpms/e2fsprogs-1.42.9-19.el7.src.rpm",
+      "size": 4765994,
+      "sha256": "718f64bd465d1770eaf6490157a861d3dba2846b4a636a67d27bd4d38e6b86cf"
+    },
+    {
+      "path": "source-rpms/keyutils-1.5.8-3.el7.src.rpm",
+      "size": 77575,
+      "sha256": "eff16e16f707fd28436afe4cf7b7c2e34b9f827e7f6beacf3c6eecbf74e9f850"
+    },
+    {
+      "path": "source-rpms/krb5-1.15.1-55.el7_9.src.rpm",
+      "size": 11554886,
+      "sha256": "d154824d46dff5aece0cdb8e4c9df299058bacadbaf7fb16be8d9163ca2814bb"
+    },
+    {
+      "path": "source-rpms/libselinux-2.5-15.el7.src.rpm",
+      "size": 311489,
+      "sha256": "978ed00b9c7ca78a51e0aff48070c69ebe4fbfca0e64f618627ebdbe8786a089"
+    },
+    {
+      "path": "source-rpms/pcre-8.32-17.el7.src.rpm",
+      "size": 1428012,
+      "sha256": "b96493d8ea6def2e9a40dade4feedcea2b4bbfe8ce4c13a3465e99f21ef2c43d"
+    },
+    {
+      "path": "cyrus-sasl-lib-2.1.26-24.el7_9.x86_64.rpm",
+      "size": 159320,
+      "sha256": "e1d065bfaef705d407c6134352d1afc64ecf26a5970a0e5282f6dda745483db8"
+    },
+    {
+      "path": "keyutils-libs-1.5.8-3.el7.x86_64.rpm",
+      "size": 25920,
+      "sha256": "16c7cb17dd4eced77c44697bc431c0ac9eb012da78fc91abacd828d3aa8e5dd3"
+    },
+    {
+      "path": "krb5-libs-1.15.1-55.el7_9.x86_64.rpm",
+      "size": 829408,
+      "sha256": "0b514834510f57ab09a2051d0b0c2be8a61777452ad125d1b3e5e90abeb6fa22"
+    },
+    {
+      "path": "libcom_err-1.42.9-19.el7.x86_64.rpm",
+      "size": 43092,
+      "sha256": "b98e19c3bbf6de458697a895654db0d75e93e7738ef22bc1540e2c78fa91748b"
+    },
+    {
+      "path": "libselinux-2.5-15.el7.x86_64.rpm",
+      "size": 166012,
+      "sha256": "06a5ab8e6feff677b312426988773600996a0a299878bf661e149a53d42c3edb"
+    },
+    {
+      "path": "pcre-8.32-17.el7.x86_64.rpm",
+      "size": 432020,
+      "sha256": "cf2b84402e9a9fcf92c8a8a965c4e8d217e82e80c0945de2ce8d46c17131ad28"
+    }
+  ]
+}

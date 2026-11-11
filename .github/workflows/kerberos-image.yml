@@ -1,0 +1,55 @@
+name: Qualified Kerberos database image acceptance
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/kerberos-image.yml'
+      - 'qualification/kerberos-image/**'
+      - 'db/**'
+permissions:
+  contents: read
+jobs:
+  accept-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate fail-closed artifact consumption
+        run: |
+          python -m unittest discover -s qualification/kerberos-image -v
+          bash -n qualification/kerberos-image/verify.sh
+          python -m unittest discover -s qualification/kerberos-vm -v
+          bash -n db/kerberos-vm/guest.sh
+      - name: Build normal database recipe from source in default Docker policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only a fresh CI checkout is configured; existing installations are never touched.
+          mkdir -p artifacts/kerberos-image
+          python vardrsec.py configure
+          docker compose -f compose.yaml -f qualification/kerberos-image/compose.candidate.json build --progress plain db \
+            2>&1 | tee artifacts/kerberos-image/build.log
+      - name: Verify installed bytes, corresponding source and isolated PostgreSQL smoke
+        run: bash qualification/kerberos-image/verify.sh vardr-db-qualified-candidate
+      - name: Collect stopped-image legal notices and bounded component inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_runtime_notice_evidence.py'
+          image=$(cat artifacts/kerberos-image/image-id.txt)
+          container=$(docker create "$image")
+          trap 'docker rm "$container" >/dev/null' EXIT
+          docker export "$container" | python runtime_notice_evidence.py \
+            --image-id "$image" --service db --distribution-commit "$(git rev-parse HEAD)" \
+            --output artifacts/kerberos-image/runtime-notices.tar
+          docker rm "$container" >/dev/null
+          trap - EXIT
+      - name: Preserve candidate acceptance evidence without publication
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: kerberos-image-acceptance
+          path: artifacts/kerberos-image/
+          if-no-files-found: error
+          retention-days: 14

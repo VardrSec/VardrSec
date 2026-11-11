@@ -2,8 +2,36 @@
 
 ## Unreleased
 
+- Preserve POSIX line endings for database/VM build scripts on Windows, preventing
+  guest preparation from failing before the unchanged upstream tests can run.
+
+- Select the checksum-verified fixed x/crypto revision in the frozen proxy graph;
+  retain the existing Caddy release and verified JOSE v3 source backport.
+
+- Run the existing Mapless installed journey independently of the Full database
+  build and retain its sanitized receipt; its authorization checks are unchanged.
+
+- Retain and verify all integrated OS backport source payloads from the exact
+  images selected for security evidence, including Full and Mapless components.
+
+- Build distribution Go binaries with Go 1.27.4 and retain pinned builder identity.
+- Add repeatable, verified source-only snapshots and CI review artifacts.
+- Refresh exact-image dependency/license evidence without asserting redistribution clearance.
 - Backport bounded RSA JWK parsing to the proxy's existing go-jose v3 API and
   retain original/patched source, build metadata and dependency notices.
+
+- Backport the maintained util-linux mount/descriptor security fixes and their
+  header/flag follow-ups, retaining the Trixie ABI and corresponding source.
+
+- Bound database Archive::Tar entry allocation using the upstream security fix,
+  with guarded original/modified source and license delivery.
+
+- Backport the upstream infocmp analysis bound to the existing Trixie ncurses
+  source; retain original/modified source without replacing runtime libraries.
+
+- Rebuild SQLite 3.54.1 on the existing runtime platform and retain matching
+  source materials; ship the reviewed original Go module source collection.
+
 
 ## [0.1.0-dev.1] — source snapshot prepared
 
