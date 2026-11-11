@@ -43,7 +43,7 @@ jobs:
           for service in api web db proxy runner; do
             image=$(docker compose --profile tools config --format json | python -c 'import json,sys; print(json.load(sys.stdin)["services"][sys.argv[1]]["image"])' "$service")
             digest=$(docker image inspect --format '{{.Id}}' "$image")
-            id=$(docker create "$image")
+            id=$(docker create "$digest")
             trap 'docker rm "$id" >/dev/null' EXIT
             if [ "$service" = db ]; then
               mkdir -p artifacts/native-source-delivery

@@ -65,8 +65,8 @@ the fresh CI image evidence rather than this local result.
 
 ## Candidate integration boundary
 
-This branch selects Runner PR #133 commit
-`29035447a702a845b4361f1b7fcb7f1a690ed088` for integration verification, with
+This branch selects Runner PR #134 commit
+`cfff913cd0a6219f344bb5fee7f4cfe51233e599` for integration verification, with
 Go 1.27.4, brotli 1.2.7 and compress 1.20.2 source overrides. It also selects
 already-merged Gate `7f610397335c75414d9a47ebabf0c4aab380e14b`, including its
 Go 1.27.4 fix. These are candidate source pins, not release approval.

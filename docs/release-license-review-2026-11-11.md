@@ -96,3 +96,33 @@ No existing gate is weakened or waived by this report. Unresolved legal
 interpretations require qualified review rather than an automated compatibility
 assertion. Reproducibility, vulnerability disposition and operational acceptance
 remain independent requirements.
+
+## Subsequent bounded delivery and runtime checks
+
+The historical table above is not a final candidate inventory. Subsequent work
+captured 46 exact Python source distributions and 93 legal texts, five focused
+npm packages, the psycopg-binary upstream source/wheel mapping, and all 33 direct
+sharp-libvips recipe inputs (28 source archives and five patches) with 98 legal
+texts. See `map-dependency-source-delivery.md` and the linked hash manifests.
+These captures do not include every transitive dependency. In particular,
+librsvg's Rust crates remain unvendored and its recipe performs a workspace
+update; direct recipe inputs alone cannot prove the original build.
+
+Image-evidence run [42995798879](https://github.com/VardrSec/VardrSec/actions/runs/42995798879)
+for distribution head `7b4747048a591dbbbf045f6352e3bd88ca0ccd9d`
+(retained receipt commit `48576dc6f00fdf11263365f8db00501e010ca3a2`)
+provided 795 allowlisted runtime notice files across five images. Their file
+hashes and image identities were checked against the paired image receipts.
+Runtime artifact `13844982085` has ZIP SHA-256
+`4eaca9dfa07b42fe5590fa73e0a86320f0aa100a78290620f4edc7794cdf3d52`;
+paired image artifact `13844233198` has ZIP SHA-256
+`9227379a20b0c82770cdf8fba7d40dd56f61128f1787f1a901ddd1c1fecdd0f3`.
+All 15 selected psycopg native library files matched the previously verified
+wheel; the actual libvips binary matched the verified npm archive with SHA-256
+`4aa73553408c3964071728f4a231a8e86918e39bc49f1fbae75355f7ea933ea9`.
+
+This closes the selected native-byte identity check for those exact images,
+not source completeness, whole-wheel identity, legal compatibility or release
+clearance. That older collector omitted generated Go-license/provenance names;
+the current collector includes them, with fresh candidate evidence still needed.
+The full OS and linked-module notice/source reconciliation remains open.

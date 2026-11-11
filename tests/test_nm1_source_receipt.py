@@ -21,7 +21,7 @@ class SourceReceiptTests(unittest.TestCase):
     def test_git_line_ending_normalization(self):
         with tempfile.TemporaryDirectory() as workspace:
             root = Path(workspace)
-            (root / 'versions.json').write_bytes((ROOT / 'versions.json').read_bytes().replace(b'\n', b'\r\n'))
+            (root / 'versions.json').write_bytes((ROOT / 'versions.json').read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n'))
             self.assertEqual(verify_distribution_manifest(root), REVIEWED_DISTRIBUTION_MANIFEST_SHA256)
 
 if __name__ == '__main__':

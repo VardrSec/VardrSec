@@ -13,8 +13,8 @@
     },
     "runner": {
       "repository": "VardrSec/VardrRunner",
-      "commit": "29035447a702a845b4361f1b7fcb7f1a690ed088",
-      "review": "https://github.com/VardrSec/VardrRunner/pull/133",
+      "commit": "cfff913cd0a6219f344bb5fee7f4cfe51233e599",
+      "review": "https://github.com/VardrSec/VardrRunner/pull/134",
       "readiness_contract": 1
     },
     "gate": {

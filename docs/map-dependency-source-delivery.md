@@ -126,3 +126,19 @@ checksums. This closes upstream recipe discovery and package capture, not full
 native delivery: the final image's wheel hash has not been matched, tag-to-wheel
 attestation has not been verified, and native sources/notices and replacement
 material remain incomplete.
+
+### Direct libvips input capture completed
+
+A subsequent capture retained all 33 direct recipe inputs: 28 source archives,
+five patches, and 98 legal texts. All 134 retained files were independently
+rehash-checked against the capture manifest. Bundle SHA-256:
+`435d30da8507886b947cdab4927dd46117c90b85c73875988592dac70bf1c411`.
+`map-libvips-source-inputs-2026-11-11.json` records URLs, redirect results,
+local archive-relative paths and hashes. These are hashes of retrieved bytes,
+not an independent upstream checksum attestation or original-build proof.
+The earlier recipe-only manifest remains a historical discovery record.
+
+Unresolved: unvendored librsvg Rust crates (`cargo update --workspace`), mutable
+upstream patch/notice inputs, full toolchain/relinking materials and reproducible
+native builds. The selected final-image native byte comparison is documented
+in `release-license-review-2026-11-11.md`; it does not close these source gaps.
