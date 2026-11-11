@@ -1,0 +1,26 @@
+# Image evidence review (11 November 2026)
+
+## Verified evidence, not release clearance
+
+Reviewed pre-remediation image-evidence run: https://github.com/VardrSec/VardrSec/actions/runs/42988221940 . Artifact 13840484215 (development-image-evidence), SHA-256 `ccf2cb223490f5def91aa4dc611ea4fe72df73a5375f3564bfbfc3de9a27eb37`, expires 18 November. Receipt collected 11 November 08:46 UTC against distribution PR merge tree `12c82d11b9145f3dd09ee6f1319bff7688f524c9`. Trivy 0.76.1 database updated 10 November 19:01 UTC. Receipt/hash/image/config/database checks passed, but `image_evidence.py check` exited 1 BLOCKED. Workflow completion is not vulnerability acceptance.
+
+| Image | Critical | High | Medium | Low | Unknown |
+|---|---:|---:|---:|---:|---:|
+| api | 0 | 47 | 79 | 66 | 15 |
+| db | 1 | 113 | 135 | 120 | 16 |
+| proxy | 0 | 1 | 2 | 0 | 1 |
+| runner | 0 | 49 | 83 | 69 | 21 |
+| web | 0 | 46 | 74 | 64 | 10 |
+
+Counts are scanner occurrences, not distinct exploitable defects. Evidence predates the new remediation branches and does not certify their resulting images.
+
+## Findings needing remediation or supported disposition
+
+- **GO-2026-6859:** the separate proxy govulncheck artifact 13841202514 reports vulnerable net/http symbols in Go 1.27.3, fixed in 1.27.4. This was not yet in the Trivy database. Upgrade exact Go builder pins and rebuild affected binaries; rerun both scanners. Advisory: https://pkg.go.dev/vuln/GO-2026-6859 .
+- **CVE-2026-116587 / GHSA-mgcc-cww5-fp2q:** proxy contains go-jose/v3 3.0.5 with no fixed v3 version reported; patched v4 also exists in the graph. RSA JWK processing denial-of-service requires an exact upstream/runtime boundary analysis, not an assumption that v4 presence fixes v3. Advisory: https://github.com/go-jose/go-jose/security/advisories/GHSA-mgcc-cww5-fp2q .
+- **CVE-2026-6653:** db libxml2 `2.12.7+dfsg+really2.9.14-2.1+deb13u3+vardr2` is still reported CRITICAL with no scanner fixed version. Existing build applies checksum-verified Ubuntu backport `db/libxml2-CVE-2026-6653.patch`; `db/build-libxml2.sh` includes seven additional patches and retains corresponding source under `/usr/share/doc/libxml2/vardr-source/`. Verify the exact binary/source/backport relationship and regression coverage before disposition. Package version alone does not prove the backport ineffective, but the patch's presence alone is not scanner clearance.
+- **CVE-2026-39824 / GO-2026-5024:** db gosu x/sys 0.1.0, fixed 0.44.0, scanner UNKNOWN. Advisory concerns Windows NewNTUnicodeString overflow; shipped gosu is Linux. Track platform applicability separately from dependency upgrade, without suppressing the finding globally.
+- **GO-2026-5932:** x/crypto 0.58.0 appears in proxy and six Runner tools; scanner UNKNOWN with fixed pseudo-version `0.58.1-0.20261009181718-2f1f834330b2`. Concerns unsafe/unmaintained OpenPGP. Proxy govulncheck finds the module but no vulnerable imported package. That does not establish the same result for all six tools. Require per-tool symbol evidence or an appropriate upstream upgrade, rather than a blanket exception.
+
+Remaining OS and unknown findings need package/advisory-specific review. No suppression, acceptance, clean-image, reproducible-image or release-ready claim is made here. CI must rebuild pinned sources and collect fresh receipts/SBOMs/vulnerability and reachability reports before judging remediation. Preserve exact artifact digests before Actions retention expires.
+
