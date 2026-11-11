@@ -10,9 +10,21 @@ normal kernel policy. The first boot acquires ordinary build dependencies. The
 second boot has **no virtual NIC** and runs the exact repository
 `db/build-krb5.sh`, including the full Debian tests, symbol checks and stripped
 package regression. A real guest keyring create/read/revoke prerequisite must
-also succeed. There is no SSH access, public port forwarding, host directory
+also succeed. The guest has no SSH access, public port forwarding, host directory
 share, KVM permission adjustment, or persistent infrastructure. QEMU uses TCG
 software emulation, bounded to two virtual CPUs and 4 GiB RAM.
+
+QEMU tooling runs in a disposable, digest-pinned official Debian 13 container,
+not an installation on the Ubuntu host. This avoids the unavailable Ubuntu
+package mirrors without changing DNS, firewalls, proxy configuration or package
+signature verification. The container uses Docker's default seccomp profile,
+drops all capabilities, enables no-new-privileges, and runs the harness as the
+runner's non-root UID. It is bounded to two CPUs, 6 GiB RAM and 512 processes.
+Only its dedicated output directory is writable from the host; the repository
+is mounted read-only. Neither privileged mode nor a KVM device is used. The
+Debian tool image digest, installed package versions and preparation logs are
+retained. Guest test requirements and the second boot's no-NIC check remain
+unchanged.
 
 The image is pinned to the official 20261103-2651 QCOW2 SHA512 in `inputs.json`.
 The official HTTPS checksum manifest is preserved and checked against that
