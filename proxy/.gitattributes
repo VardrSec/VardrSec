@@ -1,0 +1,2 @@
+patch-go-jose-v3.sh text eol=lf
+go-jose-v3-rsa.patch -text

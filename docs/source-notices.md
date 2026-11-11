@@ -106,3 +106,20 @@ Choose a new destination outside the checkout. This source delivery covers the
 modified library; it does not establish complete source delivery for every image
 package. A custom package suffix does not itself clear vulnerability findings;
 version-based scanners may require separate review of the retained patch evidence.
+
+## Proxy go-jose v3 source backport
+
+The proxy keeps its existing Caddy release and go-jose v3 API. A hash-pinned
+source patch adapts upstream's RSA parameter checks and rejection of private
+embedded header keys. As in the maintained upstream fix, RSA JWK moduli above
+4096 bits are refused by default. Ordinary public keys and explicitly parsed
+private JWKs remain supported; this is not a blanket PEM/TLS key-size limit.
+
+`/usr/share/licenses/caddy/go-jose-v3/` contains the original checksum-verified
+v3.0.5 source ZIP, patched source archive, patch, Apache license, source identity,
+wrapper module graph, binary build information, build recipe and `SHA256SUMS`.
+These are inert source/notice files. The Go build information explicitly records
+the local module replacement; it is not an upstream patched v3 release. No CVE
+ignore or scanner exception is applied. Missing version metadata for a local
+replacement is not proof of vulnerability clearance; retain its source evidence
+when reviewing the final image.
