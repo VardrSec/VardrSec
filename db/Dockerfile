@@ -1,3 +1,18 @@
+# Ordinary source build, with unchanged upstream tests in a disposable TCG guest.
+# Docker's default seccomp policy remains intact; the guest build has no NIC.
+FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS krb5-backport
+RUN apt-get -o Acquire::Retries=2 -o APT::Update::Error-Mode=any update \
+    && apt-get install -y --no-install-recommends ca-certificates python3 qemu-system-x86 qemu-utils cloud-image-utils xorriso e2fsprogs \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /work /out && chown 65534:65534 /work /out
+WORKDIR /repo
+COPY kerberos-vm/ /repo/qualification/kerberos-vm/
+COPY build-krb5.sh krb5-CVE-2026-119079.patch krb5-keyring-test-diagnostic.patch krb5-sequence-regression.c Dockerfile /repo/db/
+# No host mounts, devices, KVM, published ports, added capabilities or policy changes.
+USER 65534:65534
+RUN python3 qualification/kerberos-vm/run.py --source-only --work /work/qualification \
+    && python3 qualification/kerberos-vm/finalize.py /work/qualification /out
+
 FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6 AS libxml2-backport
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential debhelper liblzma-dev zlib1g-dev pkg-config rename ca-certificates curl \
@@ -59,3 +74,8 @@ COPY --from=libxml2-backport /out/packages/ /tmp/libxml2-backport/
 RUN dpkg --install /tmp/libxml2-backport/*.deb \
     && rm -rf /tmp/libxml2-backport
 COPY --from=libxml2-backport /out/source/ /usr/share/doc/libxml2/vardr-source/
+
+# Replace only the four qualified Kerberos client libraries; retain PostgreSQL ABI.
+COPY --from=krb5-backport /out/packages/ /tmp/krb5-backport/
+RUN dpkg --install /tmp/krb5-backport/*.deb && rm -rf /tmp/krb5-backport
+COPY --from=krb5-backport /out/source/ /usr/share/doc/libkrb5-3/vardr-source/
