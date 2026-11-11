@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Retain rebuilt proxy/database Go dependency legal texts and the Go license
+  alongside their existing runtime notices, and select Runner’s upstream
+  license-corrected LDAP source dependency.
+
 - Align Full and Mapless source pins with merged source-access links, license
   notice delivery and the public-documentation cleanup.
 

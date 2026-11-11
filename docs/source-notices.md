@@ -76,3 +76,10 @@ The proxy retains Caddy's license and available upstream notice at
 `/usr/share/licenses/gosu/`. The proxy also retains the distribution wrapper's
 unchanged license and notice at `/usr/share/licenses/vardrsec/`. These copies accompany the rebuilt binaries; they
 do not replace dependency notices or complete corresponding-source delivery.
+
+Each rebuilt Caddy/gosu notice directory also includes `GO-LICENSE` and
+`dependency-notices.tar.gz`, preserving legal text paths from that builder's
+Go module cache. The compressed archive is inert data and is not extracted by
+the service. It may include unlinked cached modules; it does not establish
+license compatibility, exhaustive notice coverage or complete corresponding
+source. Compiler and binary build commands are unchanged.

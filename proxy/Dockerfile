@@ -14,6 +14,12 @@ RUN caddy_notice_source="$(go list -m -f '{{.Dir}}' github.com/caddyserver/caddy
     && cp "$caddy_notice_source/LICENSE" /out/caddy-notices/LICENSE \
     && if [ -f "$caddy_notice_source/NOTICE" ]; then cp "$caddy_notice_source/NOTICE" /out/caddy-notices/NOTICE; fi
 
+# Keep legal texts from the exact downloaded module cache as inert notice data.
+RUN cd /go/pkg/mod \
+    && find . -type f \( -iname 'license*' -o -iname 'notice*' -o -iname 'copying*' -o -iname 'copyright*' \) -print0 > /tmp/module-notices \
+    && tar --null -T /tmp/module-notices -czf /out/caddy-notices/dependency-notices.tar.gz \
+    && cp /usr/local/go/LICENSE /out/caddy-notices/GO-LICENSE
+
 FROM caddy@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489
 COPY --from=build /out/caddy /usr/bin/caddy
 RUN apk upgrade --no-cache && apk add --no-cache curl \
