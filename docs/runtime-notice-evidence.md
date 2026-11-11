@@ -31,7 +31,12 @@ Only conventional basenames LICENSE/LICENCE, COPYING, NOTICE and copyright
 - `/usr/share/doc/`, `/usr/share/licenses/`
 - `/usr/local/lib/python3.<minor>/site-packages/`
 - `/usr/local/lib/node_modules/`, `/app/node_modules/`, `/app/.next/`
+- `/opt/vardrtools/provenance/`
 - Exact top-level `/app/LICENSE`, `/app/NOTICE`, `/app/COPYING`
+
+The exact generated names `GO-LICENSE`, `openpgp-LICENSE` and
+`dependency-notices.tar.gz` are additionally allowed under `/usr/share/licenses/`
+and `/opt/vardrtools/provenance/`. Compressed notice archives stay opaque.
 
 No package metadata, application configuration, home directory, environment file,
 full filesystem export or executable is retained. Arbitrary legal text in a README,
@@ -72,3 +77,13 @@ status nor the presence of a license filename is legal approval.
 
 Tests use synthetic tar inputs only. Actual candidate-image extraction belongs in
 CI and remains unverified until that run and its artifact/receipt checks succeed.
+
+## Separate source-delivery artifact
+
+The workflow also copies only reviewed image source/provenance directories:
+`/usr/share/doc/libxml2/vardr-source`, `/usr/share/licenses/gosu/source`, and
+`/opt/vardrtools/provenance`. It checks the libxml2 and gosu retained SHA256SUMS
+and retains Runner's per-tool source manifests and patch/source archives for
+independent review. This separate artifact includes source/package metadata,
+unlike the narrow notice collector. It is not a whole-filesystem export or
+proof that all transitive corresponding source is complete.

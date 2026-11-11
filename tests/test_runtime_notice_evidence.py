@@ -118,3 +118,14 @@ class RuntimeNoticeTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class GeneratedGoLegalNamesTests(unittest.TestCase):
+    def test_generated_notice_names_are_scoped_to_license_root(self):
+        from runtime_notice_evidence import selection
+        self.assertEqual(selection('usr/share/licenses/caddy/GO-LICENSE'), 'notice')
+        self.assertEqual(selection('usr/share/licenses/gosu/dependency-notices.tar.gz'), 'notice')
+        self.assertIsNone(selection('app/private/dependency-notices.tar.gz'))
+        self.assertEqual(selection('opt/vardrtools/provenance/nuclei/openpgp-LICENSE'), 'notice')
+        self.assertEqual(selection('opt/vardrtools/provenance/httpx/dependency-notices.tar.gz'), 'notice')
+        self.assertIsNone(selection('opt/vardrtools/credentials/GO-LICENSE'))

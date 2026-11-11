@@ -66,12 +66,21 @@ the fresh CI image evidence rather than this local result.
 ## Candidate integration boundary
 
 This branch selects Runner PR #133 commit
-`393ad65d4cf8a1f2fc9e4bf456c884ce58d4682a` for integration verification, with
+`29035447a702a845b4361f1b7fcb7f1a690ed088` for integration verification, with
 Go 1.27.4, brotli 1.2.7 and compress 1.20.2 source overrides. It also selects
 already-merged Gate `7f610397335c75414d9a47ebabf0c4aab380e14b`, including its
 Go 1.27.4 fix. These are candidate source pins, not release approval.
 The earlier tables and license/source bundles remain bound to their recorded
 pre-remediation SBOMs; regenerate inventories from the candidate image evidence.
 The source manifest still declares development status and no published images.
-Nuclei's reachable deprecated OpenPGP finding remains unresolved; moving that
-package to a separate module is not considered a remediation.
+Nuclei's deprecated OpenPGP path is replaced through a pinned go-github/v30
+source backport to maintained ProtonMail 1.5.2, with complete original/patched
+source and license retention. Moving the old package to a separate module alone
+is not considered a remediation. The actual candidate Nuclei binary passed 44
+main-graph signing tests (including fresh-key signing and expired-key rejection)
+and govulncheck reported no reachable or imported-package vulnerabilities. Its
+binary SHA-256 was
+`13c41a98fd2474115621cdb8b2ab40976b203daf2a116431a14cc116aafec749`.
+This local candidate evidence does not replace the pending integrated image scan.
+The original old-SDK full-suite failures were reproduced without the backport
+and are documented in Runner's backport review; no crypto policy was weakened.

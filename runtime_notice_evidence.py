@@ -19,7 +19,8 @@ MAX_NOTICES_TOTAL = 64 * 1024 * 1024
 MAX_NATIVE = 256 * 1024 * 1024
 MAX_SELECTED = 10000
 NOTICE_ROOTS = ('usr/share/doc/', 'usr/share/licenses/',
-                'usr/local/lib/node_modules/', 'app/node_modules/', 'app/.next/')
+                'usr/local/lib/node_modules/', 'app/node_modules/', 'app/.next/',
+                'opt/vardrtools/provenance/')
 LEGAL_NAME = re.compile(r'(?:licen[cs]e|copying|notice|copyright)(?:[._-][a-z0-9._-]+)?', re.I)
 PYTHON_SITE = re.compile(r'^usr/local/lib/python3\.[0-9]+/site-packages/')
 NATIVE = re.compile(
@@ -36,6 +37,10 @@ def path_name(raw):
 
 
 def selection(name):
+    # Exact generated legal payload names used by the reviewed Go image recipes.
+    if name.startswith(('usr/share/licenses/', 'opt/vardrtools/provenance/')) and PurePosixPath(name).name in {
+            'GO-LICENSE', 'dependency-notices.tar.gz', 'openpgp-LICENSE'}:
+        return 'notice'
     if NATIVE.fullmatch(name):
         return 'native'
     if LEGAL_NAME.fullmatch(PurePosixPath(name).name) and (

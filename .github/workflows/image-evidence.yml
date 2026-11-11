@@ -45,6 +45,17 @@ jobs:
             digest=$(docker image inspect --format '{{.Id}}' "$image")
             id=$(docker create "$image")
             trap 'docker rm "$id" >/dev/null' EXIT
+            if [ "$service" = db ]; then
+              mkdir -p artifacts/native-source-delivery
+              docker cp "$id:/usr/share/doc/libxml2/vardr-source" artifacts/native-source-delivery/libxml2
+              docker cp "$id:/usr/share/licenses/gosu/source" artifacts/native-source-delivery/gosu
+              (cd artifacts/native-source-delivery/libxml2 && sha256sum -c SHA256SUMS)
+              (cd artifacts/native-source-delivery/gosu && sha256sum -c SHA256SUMS)
+            fi
+            if [ "$service" = runner ]; then
+              mkdir -p artifacts/native-source-delivery
+              docker cp "$id:/opt/vardrtools/provenance" artifacts/native-source-delivery/runner-provenance
+            fi
             docker export "$id" | python runtime_notice_evidence.py --image-id "$digest" --service "$service" --distribution-commit "$(git rev-parse HEAD)" --output "artifacts/runtime-notices/$service.tar"
             docker rm "$id" >/dev/null
             trap - EXIT
@@ -55,6 +66,14 @@ jobs:
         with:
           name: runtime-notice-evidence
           path: artifacts/runtime-notices/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve verified native corresponding-source delivery
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: native-source-delivery
+          path: artifacts/native-source-delivery/
           if-no-files-found: error
           retention-days: 30
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
