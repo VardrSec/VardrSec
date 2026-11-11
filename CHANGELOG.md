@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve POSIX line endings for database/VM build scripts on Windows, preventing
+  guest preparation from failing before the unchanged upstream tests can run.
+
 - Select the checksum-verified fixed x/crypto revision in the frozen proxy graph;
   retain the existing Caddy release and verified JOSE v3 source backport.
 

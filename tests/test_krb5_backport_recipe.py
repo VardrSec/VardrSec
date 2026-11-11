@@ -6,6 +6,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class KerberosBackportRecipeTests(unittest.TestCase):
+    def test_guest_and_build_scripts_keep_posix_line_endings(self):
+        for name in ('db/kerberos-vm/guest.sh', 'db/build-krb5.sh',
+                     'qualification/kerberos-vm/guest.sh'):
+            with self.subTest(script=name):
+                self.assertNotIn(b'\r', (ROOT / name).read_bytes())
+
     def test_exact_upstream_patch(self):
         patch = ROOT / 'db/krb5-CVE-2026-119079.patch'
         self.assertEqual(hashlib.sha256(patch.read_bytes()).hexdigest(),

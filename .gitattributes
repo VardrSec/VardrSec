@@ -12,3 +12,7 @@ db/krb5-keyring-test-diagnostic.patch text eol=lf
 scripts/release/canonical_module_archive.sh text eol=lf
 db/canonical_module_archive.sh text eol=lf
 proxy/canonical_module_archive.sh text eol=lf
+db/*.sh text eol=lf
+db/kerberos-vm/*.sh text eol=lf
+qualification/kerberos-vm/*.sh text eol=lf
+qualification/kerberos-image/*.sh text eol=lf
