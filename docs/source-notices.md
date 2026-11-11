@@ -123,3 +123,68 @@ the local module replacement; it is not an upstream patched v3 release. No CVE
 ignore or scanner exception is applied. Missing version metadata for a local
 replacement is not proof of vulnerability clearance; retain its source evidence
 when reviewing the final image.
+
+## SQLite source delivery
+
+The runtime image rebuilds Debian SQLite 3.54.1 source with Trixie's build-only
+Tcl 9.0 dependency. Upstream executable source, the legacy `libsqlite3.so.0`
+SONAME and Debian feature flags are retained. No unstable repository/binary
+package is installed. Only `libsqlite3-0` enters the runtime; its only runtime
+dependency is libc6. Existing application roles and privileges are unchanged.
+
+`/usr/share/doc/libsqlite3-0/vardr-source/` contains original and modified Debian
+source, build metadata, the image recipe, provenance and `SHA256SUMS`. Existing
+package copyright remains installed. The four upstream inputs are hash-pinned
+to Debian's immutable snapshot. This covers SQLite, not every image component.
+A `sqlite-source-delivery` build target exports the same materials separately.
+
+## Original Go dependency sources
+
+The proxy retains `go-module-sources.tar.gz` in `/usr/share/licenses/caddy/`.
+The same archive is packaged under Runner's `vardrrunner/notices/` directory.
+It contains 17 exact original source versions and their module metadata, Go
+checksums, SHA-256 manifest and upstream legal texts inside the source ZIPs.
+The archive is inert and never extracted/executed by the service. It can include
+unlinked cached versions or dual-licensed sources; it is not a final linkage or
+license-compatibility decision. Modified local forks retain separate provenance.
+
+## ncurses source delivery
+
+The image backports the upstream `infocmp` analysis-copy bound for
+CVE-2025-69720 to Debian's existing Trixie source. Only `ncurses-bin` is
+installed; the existing ncurses and libtinfo libraries remain unchanged.
+Original/modified Debian source, the patch, build metadata and checksums are
+retained in `/usr/share/doc/ncurses-bin/vardr-source/`. The
+`ncurses-source-delivery` build target exports the same source materials.
+No unstable binary packages or repositories are introduced. A custom package
+version does not itself resolve version-based scanner findings.
+
+## Database Archive::Tar backport
+
+The database image retains Perl's existing interpreter/ABI and Archive::Tar
+3.02_001, backporting only the upstream CVE-2026-9538 allocation bound.
+Declared entries larger than 1 GiB are refused before allocation. The upstream
+`$Archive::Tar::MAX_FILE_SIZE` setting remains available; zero disables that
+cap. Extraction/link policy is unchanged.
+
+`/usr/share/doc/perl-modules-5.40/vardr-source/` contains the exact original
+and modified module, patch provenance, license texts and checksums. Builds
+verify both original and modified source hashes and stop on unexpected source
+changes. The package/module version is not relabeled as an upstream fixed
+release. Final scanner disposition remains a separate release requirement.
+
+## util-linux source delivery
+
+The image rebuilds the existing Trixie util-linux source with the remaining
+upstream stable mount-hook, source-resolution and descriptor-close-on-exec
+security changes. Existing Debian patches are retained; upstream's missing
+header and corrected symlink-resolution flag are included. Runtime ABI and
+feature configuration remain unchanged. `mount`, `util-linux` and their five
+exact-version sibling libraries are replaced together, preserving Debian
+dependency constraints. Other build products remain in the builder.
+
+`/usr/share/doc/util-linux/vardr-source/` retains original/modified Debian
+source, patch identities, build metadata, recipe and checksums. Existing
+package copyright remains installed. The `util-linux-source-delivery` build
+target exports the same materials. A custom package version does not itself
+clear vulnerability findings.
