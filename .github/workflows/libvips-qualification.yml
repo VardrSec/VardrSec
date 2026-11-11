@@ -1,0 +1,45 @@
+name: Frozen libvips candidate qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/libvips/**'
+      - '.github/workflows/libvips-qualification.yml'
+permissions:
+  contents: read
+concurrency:
+  group: libvips-qualification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 200
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: lovell/sharp-libvips
+          ref: ebb95f8add54eee8bed840e3fb587e4cbec857d7
+          path: candidate-recipe
+          persist-credentials: false
+      - name: Test qualification harness
+        run: python3 -m unittest discover -s qualification/libvips -p 'test_*.py' -v
+      - name: Build two offline candidates and compare original
+        run: qualification/libvips/run.sh candidate-recipe "$RUNNER_TEMP/libvips-inputs" "$RUNNER_TEMP/libvips-evidence"
+      - name: Preserve qualification evidence even on mismatch
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: libvips-candidate-evidence-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/libvips-evidence/builder
+            ${{ runner.temp }}/libvips-evidence/run*/receipts
+            ${{ runner.temp }}/libvips-evidence/run*/build.log
+            ${{ runner.temp }}/libvips-evidence/run*/packaging/sharp-libvips-linux-x64.tar.gz
+            ${{ runner.temp }}/libvips-evidence/*normalized-library-files.tar.gz
+            ${{ runner.temp }}/libvips-evidence/elf-*
+            ${{ runner.temp }}/libvips-evidence/comparison.json
+            ${{ runner.temp }}/libvips-inputs/verified-input-inventory.json
+          retention-days: 14
+          if-no-files-found: warn
