@@ -139,6 +139,36 @@ enabled managed worker.
 
 ## Recovery boundary
 
+### Inspect before choosing a recovery action
+
+Use the runtime ID returned by `worker start` and the original preparation's
+`private_root`:
+
+```powershell
+python vardrsec.py worker status --runtime-id RUNTIME_ID --private-root PRIVATE_ROOT
+```
+
+Status observes the selected worker; it does not approve a job, renew permission
+or send an exit report. Inspect the exact job in Map and its original Runner
+record with `audit show RUN_ID` as well. Worker availability and job outcome are
+separate observations.
+
+| Observation | Meaning and next existing action |
+| --- | --- |
+| `prepared` or `configured` | This setup command did not start a worker or authorize a job. For a new assessment, continue with job review, explicit approval and registration above. |
+| `held_missing_credential_references` | The case names credentials the prepared worker does not declare. Correct the case references or select a correctly prepared worker, then review again before requesting approval. |
+| `idle-ready` | The worker is available. Check the selected job's authorization and local credential grants; availability alone grants no execution. |
+| `active` | Work is in progress. Inspect that job in Map; use the exact worker's `stop --report` flow above when stopping is required. |
+| `held` | An observation or operation could not be confirmed. Inspect `reason` when present: `physical_unconfirmed` means physical state is unconfirmed; `availability_unconfirmed` or `availability_stale` means current server availability is unconfirmed. Preserve the original state and inspect any failure fields. Do not infer exit, launch a replacement or replay the job. Use the [worker controls](managed-worker-operator.md) for the recorded phase. |
+| `stopped_observed` or `stopped` | Physical exit has been observed. Exit alone does not establish server retirement; use the original stop/report and read-only reconciliation flow above. |
+| `held_no_retirement_receipt` or `held_no_terminal_receipt` | Read-only reconciliation found no terminal receipt. Keep Map and the original custody available; do not resend an uncertain report or start a replacement worker. |
+| `terminal_observed` | A terminal server receipt was observed. Reconcile the exact run with the original Runner's `audit reconcile-managed RUN_ID` before stopping core services. |
+
+`failure_code` describes the kind of refusal, not whether an earlier write took
+effect. `failure_phase` identifies where inspection should begin. In particular,
+a connection failure or interruption after registration/reporting can leave an
+unknown outcome; use read-only reconciliation rather than repeating that write.
+
 Held setup commands include a fixed failure category and a link to this guide.
 Expected configuration refusals use `validation_refused`; local I/O failures
 retain `local_io_failed`, and unexpected failures remain `operation_failed`.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Explain existing managed-worker status and recovery actions, distinguish
+  assessment authorization from credentials, and connect policy review to evidence
+  and a separately authorized retest. Clarify exact-image security evidence limits.
+
 ## [0.1.0-dev.1] — source snapshot prepared
 
 This version identifies the development source snapshot, not a published release.

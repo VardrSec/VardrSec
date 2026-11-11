@@ -93,9 +93,10 @@ engagement data are mounted. No images, signatures or releases are published.
 
 ## Current release status
 
-The alpha assessment records focused remediation,
-vendor/exposure questions and the remaining blockers for the newer candidate.
-The following paragraph describes the initial baseline before those changes.
+Use the reports and receipt for the exact distribution commit and built images
+under review. Historical counts and checks on separate remediation candidates do
+not clear that image set. The following paragraph describes the initial baseline
+before subsequent remediation.
 
 The initial local scan blocks all five images. Findings include base OS packages,
 embedded Go runtimes and dependencies in Caddy and bundled Runner tools. Repeated
