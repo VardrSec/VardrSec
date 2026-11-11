@@ -1,173 +1,116 @@
-# Development Compose installation
+# Full installation and first assessment
 
-Source preparation also checks Git's read-only resolved worktree, absolute
-metadata directory and common metadata directory against each managed component
-directory and its `.git`. Shared `commondir` indirection outside it is refused.
-This refuses a plain `.git/config` with redirected `core.worktree`, not just
-filesystem links. Existing selected repositories are checked before preparation;
-newly initialized repositories are checked before fetch/checkout. Unavailable,
-malformed or mismatched binding observations refuse without rewriting config or
-touching outside files. Git/user configuration remains trusted operator input:
-this is not a sandbox for arbitrary hostile Git settings or concurrent mutation.
-The directory-query semantics are documented in
-[Git rev-parse](https://git-scm.com/docs/git-rev-parse).
+This is the canonical **Full** source-built installation path: Map, Runner, Gate,
+PostgreSQL and a local HTTPS proxy. For the CLI-only alternative, follow the
+[Mapless walkthrough](mapless.md) instead. Do not run both installers in the same
+checkout. Neither mode is a published Community release.
 
-Managed source preparation refuses observed symlinks/reparse points at `.sources`,
-selected component directories and `.git`, and refuses `.git` files (including
-worktree metadata references). All selected paths are checked before the first Git call.
-Links and outside files are retained; use a fresh private cache rather than
-deleting or rewriting them. These are point-in-time checks, not a guarantee
-against concurrent ancestor/cache replacement. Keep the checkout exclusively
-under trusted operator control during preparation; native Windows junction and
-concurrent-race acceptance are not established by synthetic marker tests.
+## 1. Check prerequisites and clone
 
-## Full and Mapless selection
+Windows 11 Docker Desktop with Linux/amd64 containers is the primary Community
+target; Ubuntu 24.04/amd64 is also documented. macOS Docker Desktop remains
+experimental. See [platforms](platforms.md) and [support limits](limitations.md).
 
-`python3 vardrsec.py sources --mapless` prepares only the existing exact Runner
-and Gate source pins. It needs Git and component-source access, but does not fetch
-Map, create `.env`, configure PostgreSQL, build/start containers or run tools.
-Existing different/dirty source caches are preserved and refused as before; an
-existing Map cache is not inspected or changed by this selection. Bare `sources`
-continues preparing Map, Runner and Gate for Full.
+Install Git, Python 3.10+ and Docker with Compose 2.17+ first. Docker must be
+running and accessible to your account. Use a private local directory outside
+shared/synchronized folders. The installer does not install system packages,
+change Docker access, host routes or firewall/VPN settings. Docker administrators
+can read container environments and persistent volumes.
 
-`install --mapless` now selects the standalone model in a clean checkout and
-persists the selection for build/start/stop/Runner/backup. Unmarked installations
-retain Full behavior. See the [standalone walkthrough](mapless.md) for private
-issuer custody, signed one-job execution and export. Compatible pins and actual
-Windows/Linux installed acceptance are tracked separately. Arguments after the
-`runner --` separator still belong to Runner. No automatic Full/Mapless state or
-authority migration is implied.
-
-## Quick start (source-built, not an official release)
-
-The fresh-install guard asks the existing Compose frontend to resolve the selected
-Full model with all profiles and normal interpolation, as used by installation.
-Compose determines the project
-identity, including `.env` and process overrides; the guard does not parse `.env`
-or provide placeholder secrets. Trusted Compose reads/interpolates configuration and service
-environment files internally. Its output and errors are captured, never printed or
-saved by the guard. Missing configuration, resolver failure, malformed output and
-unsupported mappings refuse before installation steps or volume inventory.
-
-Only the shipped Full service/state layout is recognized: default project-scoped
-volume names, the database and Runner state mounts, proxy state and the existing
-read-only trust/Caddyfile binds. Custom volume names, external/driver mappings,
-additional mounts/services and unresolved paths refuse. Existing `.env` files are preserved and an interrupted installation
-can still resume when the selected supported model resolves and none of its four
-state volumes is observed. Retained proxy state also prevents fresh installation:
-its CA identity and configuration belong to the existing installation, even when
-the database and Runner-state volumes are absent. Preserve it and use recovery.
-
-For a fresh checkout without `.env`, one-command Full installation is restricted to
-this revision's exact shipped `compose.yaml` (LF or CRLF) without an active-image
-override. Alternate `COMPOSE_*` settings are refused except `COMPOSE_PROJECT_NAME`.
-Custom layouts receive a refusal with recovery/clean-checkout instructions; do not
-remove configuration or volumes to bypass it. Configured recovery and update paths
-are unchanged.
-
-The installer generates the normal configuration once in memory. Preflight supplies
-these prospective defaults to trusted Compose while preserving process-variable
-precedence. It resolves and checks the standard state mappings and inventories the
-expected volumes before creating `.env` or `trust`. Only after a successful check
-does the existing exclusive writer persist those same generated values. The process
-environment is not changed. Observed layout/configuration changes refuse; exclusive
-creation never overwrites a newly appeared `.env`. This does not prevent arbitrary
-concurrent writers or prove absence of other/native/external state.
-
-The standard-layout fingerprint is a compatibility boundary, not a signature or
-hostile-file sandbox. Changes to the shipped model require coordinated review.
-Interrupted installs with complete existing configuration retain the normal resume
-path; incomplete required configuration still refuses rather than regenerating keys.
-The separate Mapless installer recognizes its exact shipped one-service model
-and refuses existing state from either mode. Its controlled one-job adapter is
-an explicit selection; ordinary startup never enables it.
-
-The subsequent bounded Docker inventory checks all four resolved state-volume
-names without reading contents. Inventory failures refuse. Absence of those
-names does not establish absence of native state, operator-selected evidence,
-other projects or external writers. Configuration and inventory are point-in-time
-observations, not protection from concurrent changes. Synthetic resolver tests do
-not establish installed acceptance across Compose versions. This is not a migration,
-backup/revocation reconciliation or no-loss upgrade check; preserve existing state
-and use a reviewed transition procedure.
-
-Tested on Ubuntu 24.04 amd64 with Docker, Compose, Python 3.10+ and Git already installed
-(`docker compose version` must work for your user). CI runs these steps on a clean hosted
-Ubuntu 24.04 machine; the unfamiliar-user, zero-prerequisite run has not been done.
+Check your Python version (`py -3 --version` on Windows or `python3 --version`
+on Ubuntu), `git --version`, `docker info` and `docker compose version`.
+The separately enabled [managed-worker path](local-managed-setup.md) has additional
+Docker/Compose requirements; the ordinary installation floor does not qualify it.
 
 ```sh
-git clone https://github.com/VardrSec/VardrSec.git vardrsec
-cd vardrsec
-python3 vardrsec.py install            # configure, sources, build, database-role, start, export-ca (several minutes)
-sudo install -m 0644 trust/root.crt /usr/local/share/ca-certificates/vardrsec-local.crt
-sudo update-ca-certificates            # trust only your own CA; compare the printed fingerprint first
+git clone https://github.com/VardrSec/VardrSec.git vardrsec-full
+cd vardrsec-full
+```
+
+For coexisting installations choose a distinct `COMPOSE_PROJECT_NAME` before
+installation, plus non-overlapping ports/networks as described under
+[configuration reference](#configuration-reference). Do not reuse retained state
+with fresh credentials.
+
+## 2. Install Full
+
+Windows PowerShell:
+
+```powershell
+.\install.ps1 --full
+```
+
+Ubuntu:
+
+```sh
+./install.sh --full
+```
+
+Both launchers call the same Python installer. The direct equivalents are
+`py -3 vardrsec.py install --full` and `python3 vardrsec.py install --full`.
+Installation configures fresh secrets, prepares exact component sources, builds
+and freezes images, prepares the database role, starts core services and exports
+the public CA. It never starts a scan or managed worker. A plain
+`docker compose up -d --build` is not a fresh-install substitute.
+
+If interrupted before installation state exists, fix the cause and retry the
+same installer. It preserves existing configuration and source checkouts. Once
+state volumes exist, installation refuses: use the failed step or `start` rather
+than deleting state. If services started before CA export failed, run
+`python3 vardrsec.py export-ca` (Windows: `py -3`) and continue below.
+See [installation safeguards](#installation-safeguards) for the exact boundaries.
+
+## 3. Trust the local CA and create an account
+
+Compare the fingerprint printed by `export-ca` against your local certificate
+before explicitly enrolling **your own** CA using the
+[platform-specific trust instructions](#explicit-certificate-trust) below.
+Trust enrollment is deliberately manual. Never bypass a certificate warning.
+
+Then create the first account:
+
+```powershell
+# Windows
+py -3 vardrsec.py bootstrap --username operator
+```
+
+```sh
+# Ubuntu
 python3 vardrsec.py bootstrap --username operator
 ```
 
-If `install` is interrupted (network drop, full disk, Docker error), fix the cause and run
-`python3 vardrsec.py install` again. It resumes: your `.env` secrets are kept, source checkouts
-are continued and never reset, and image builds reuse their cache. Nothing is deleted. Once
-the platform has been started, `install` refuses to run again (use `start`, `stop` and the
-controlled updater); if it stopped after the services started, run `python3 vardrsec.py
-export-ca` and continue with the steps above.
+Enter a passphrase privately, restart your browser and sign in at
+`https://localhost:8443`. Firefox or another browser with a separate trust store
+may need the same public CA imported explicitly.
 
-Then open `https://localhost:8443` (restart the browser; Firefox needs the CA imported in its
-own settings) and sign in. The CA step is manual on purpose: it changes your machine's trust
-and VardrSec never does that for you. A plain `docker compose up -d --build` does not work on
-a fresh clone because the secrets file and the pinned component sources do not exist yet;
-`install` creates them (and refuses to run over an existing installation). Platform startup
-never runs a scan; the first-assessment walkthrough below shows how to run one explicitly.
+## 4. Connect Runner and perform the first assessment
 
+Follow [bootstrap and diagnostics](#bootstrap-and-diagnostics) to generate a
+Runner-only key and check contact. Then follow the
+[first-assessment walkthrough](#first-assessment-walkthrough) for the explicit
+manual Gate workflow. Queueing alone does not execute work.
 
-This is a source-built development installation, not a released Community package.
-Windows 11 Docker Desktop is the primary Community target; Ubuntu 24.04/amd64
-remains supported for the documented Full and Mapless paths. macOS Docker Desktop
-remains experimental; fresh-host installation and recovery are not qualified. Docker needs
-to run *Linux containers*; that is a Docker requirement, not an operating-system requirement
-of Map, Runner or Gate, which also run natively ([platforms](platforms.md)).
+For controlled managed execution, finish Full setup first, then follow
+[local managed setup](local-managed-setup.md). It is a separate opt-in Gate-only
+workflow with signed job approvals and local credential grants, not a prerequisite
+for the manual walkthrough or permission to run arbitrary queued scanners.
 
-Prerequisites: Docker with Linux containers and Compose 2.17+ for additional build
-contexts, Python 3.10+, Git and access to the pinned component sources. Start
-from a private local directory, outside shared/synchronized folders. Docker
-administrators can read container environment variables and persistent volumes.
+For day-to-day use, `start` reuses core state and `stop` retains volumes. Stop and
+reconcile a separately enabled worker **before** stopping core services. Use
+[recovery](recovery.md) and [controlled updates](updates.md) for retained installs,
+not a fresh installer or `down --volumes`.
 
-Check `python3 --version`, `git --version`, `docker info` and
-`docker compose version`. Docker must be running and accessible to your account.
-`build` checks Compose's feature floor and Linux container mode before starting.
-Use Docker's [Ubuntu installation instructions](https://docs.docker.com/engine/install/ubuntu/)
-if prerequisites are missing. No command changes Docker access, host routes or
-firewall/VPN settings automatically.
+## Configuration reference
 
-Commands below use Ubuntu's `python3`; no optional `python` alias is required.
-On Windows, use the installed Python 3 launcher (`py -3` or `python`) instead.
-Install missing Python/Git prerequisites before cloning; the distribution does
-not provision operating-system packages.
+The rest of this guide documents configuration, trust, diagnostics and safety
+boundaries for that same installation. Commands use Ubuntu's `python3`; replace
+it with `py -3` on Windows (or a verified Python 3.10+ `python` command).
 
-Get only the distribution checkout; source acquisition below prepares its pinned
-components for you:
-
-```sh
-git clone https://github.com/VardrSec/VardrSec.git vardrsec
-cd vardrsec
-```
-
-For a new installation:
-
-```sh
-python3 vardrsec.py configure
-python3 vardrsec.py sources
-python3 vardrsec.py build
-python3 vardrsec.py database-role
-python3 vardrsec.py start
-python3 vardrsec.py export-ca
-```
-
-Configuration creates fresh random database and signing secrets without displaying
-them, and refuses to overwrite an existing `.env`. Protect that file with user-only
-permissions/ACLs. Never commit it or run `docker compose config` without `--quiet`
-in shared logs. Source preparation checks out exact manifest pins and refuses to
-overwrite dirty or different checkouts. Advanced development may supply MAP_SOURCE,
-RUNNER_SOURCE and GATE_SOURCE paths to Compose explicitly.
+Configuration creates random database/signing secrets and refuses to overwrite
+`.env`. Protect it with user-only permissions/ACLs. Never commit it or print
+`docker compose config` output in shared logs. Source acquisition uses exact
+manifest pins and refuses dirty/different checkouts; advanced source overrides
+are not the standard fresh-install path.
 
 For separate Full installations, choose a distinct `COMPOSE_PROJECT_NAME` before
 `install` or `configure` (`export COMPOSE_PROJECT_NAME=assessment-local` on Linux,
@@ -214,8 +157,8 @@ rebuild the frontend. Bindings remain loopback-only.
 
 Caddy generates an installation-specific CA in its persistent proxy-data volume
 and renews leaf certificates. Compose cannot enroll the host browser's trust store.
-See accelerated leaf-renewal acceptance for the
-renewal/restart fixture and the remaining certificate lifecycle release gates.
+The documented checks do not qualify every certificate lifecycle scenario; see
+[support limits](limitations.md).
 Only `trust/root.crt`, the public root, is exported; its private key stays in the
 proxy volume, which must never be mounted in Runner. Verify the certificate and its
 fingerprint against the local proxy before trusting it. Enroll only your own CA.
@@ -300,6 +243,20 @@ one: `python3 vardrsec.py bootstrap --username operator --generate-password`.
 Store the displayed password securely; it is shown once. Do not record terminal
 output containing it in shared logs. The default bootstrap remains interactive.
 
+In Windows PowerShell, read the Runner key privately and send a one-shot report:
+
+```powershell
+$key = Read-Host 'Runner API key' -AsSecureString
+$env:VARDRMAP_API_KEY = [System.Net.NetworkCredential]::new('', $key).Password
+py -3 vardrsec.py doctor
+.\runner.ps1 heartbeat
+```
+
+This keeps the key out of command history, but it is still present in the process
+environment while needed. Clear it with `Remove-Item Env:VARDRMAP_API_KEY` when
+finished. Target credential references for the manual assessment can be supplied
+using the same private prompt pattern; never put their values in command arguments.
+
 On Ubuntu/Bash, provide the Runner key without putting it in shell history or
 command arguments, then invoke the existing diagnostics and one-shot report:
 
@@ -336,7 +293,7 @@ synthetic private-namespace/host checks and the remaining real-VPN/Desktop gates
 See [networking and VPN guidance](networking.md) for choosing native or container Runner.
 
 `python3 vardrsec.py stop` stops services and retains all volumes. `start` reuses
-them. Never use `down --volumes` on a retained installation. No command starts scans.
+them. Never use `down --volumes` on a retained installation. Core start/stop commands do not start scans; explicit execution commands do.
 
 ## First assessment walkthrough
 
@@ -348,7 +305,7 @@ except the last step happens in the browser at `https://localhost:8443`.
 2. **Client, window and authorization.** On the engagement's Overview, use
    *Client & testing window* to create or link the client and set the window, and
    *Written authorization* to record who authorized the work and what it permits.
-   Scope and authorization are advisory records, not enforcement.
+   This manual workflow records scope and authorization; its scope/window checks are advisory (stop-work refuses execution). Controlled managed execution has separate enforced authorization checks; see [managed setup](local-managed-setup.md).
 3. **Scope.** Open Scope and add the target as an in-scope asset.
 4. **Identities and cases.** Open Review → API Surface and generate draft cases from
    your OpenAPI document. Drafts are review-only: edit each access decision for
@@ -402,3 +359,98 @@ target; Linux compatibility remains required. Older Ubuntu-first checkpoints
 are historical. Certificate lifetime coverage, broader tool/network modes and
 real VPN retain their documented [support limits](limitations.md).
 No image or release is published here.
+
+## Installation safeguards
+
+The fresh-install guard asks the existing Compose frontend to resolve the selected
+Full model with all profiles and normal interpolation, as used by installation.
+Compose determines the project
+identity, including `.env` and process overrides; the guard does not parse `.env`
+or provide placeholder secrets. Trusted Compose reads/interpolates configuration and service
+environment files internally. Its output and errors are captured, never printed or
+saved by the guard. Missing configuration, resolver failure, malformed output and
+unsupported mappings refuse before installation steps or volume inventory.
+
+Only the shipped Full service/state layout is recognized: default project-scoped
+volume names, the database and Runner state mounts, proxy state and the existing
+read-only trust/Caddyfile binds. Custom volume names, external/driver mappings,
+additional mounts/services and unresolved paths refuse. Existing `.env` files are preserved and an interrupted installation
+can still resume when the selected supported model resolves and none of its four
+state volumes is observed. Retained proxy state also prevents fresh installation:
+its CA identity and configuration belong to the existing installation, even when
+the database and Runner-state volumes are absent. Preserve it and use recovery.
+
+For a fresh checkout without `.env`, one-command Full installation is restricted to
+this revision's exact shipped `compose.yaml` (LF or CRLF) without an active-image
+override. Alternate `COMPOSE_*` settings are refused except `COMPOSE_PROJECT_NAME`.
+Custom layouts receive a refusal with recovery/clean-checkout instructions; do not
+remove configuration or volumes to bypass it. Configured recovery and update paths
+are unchanged.
+
+The installer generates the normal configuration once in memory. Preflight supplies
+these prospective defaults to trusted Compose while preserving process-variable
+precedence. It resolves and checks the standard state mappings and inventories the
+expected volumes before creating `.env` or `trust`. Only after a successful check
+does the existing exclusive writer persist those same generated values. The process
+environment is not changed. Observed layout/configuration changes refuse; exclusive
+creation never overwrites a newly appeared `.env`. This does not prevent arbitrary
+concurrent writers or prove absence of other/native/external state.
+
+The standard-layout fingerprint is a compatibility boundary, not a signature or
+hostile-file sandbox. Changes to the shipped model require coordinated review.
+Interrupted installs with complete existing configuration retain the normal resume
+path; incomplete required configuration still refuses rather than regenerating keys.
+The separate Mapless installer recognizes its exact shipped one-service model
+and refuses existing state from either mode. Its controlled one-job adapter is
+an explicit selection; ordinary startup never enables it.
+
+The subsequent bounded Docker inventory checks all four resolved state-volume
+names without reading contents. Inventory failures refuse. Absence of those
+names does not establish absence of native state, operator-selected evidence,
+other projects or external writers. Configuration and inventory are point-in-time
+observations, not protection from concurrent changes. Synthetic resolver tests do
+not establish installed acceptance across Compose versions. This is not a migration,
+backup/revocation reconciliation or no-loss upgrade check; preserve existing state
+and use a reviewed transition procedure.
+
+
+### Source cache safeguards
+
+Source preparation also checks Git's read-only resolved worktree, absolute
+metadata directory and common metadata directory against each managed component
+directory and its `.git`. Shared `commondir` indirection outside it is refused.
+This refuses a plain `.git/config` with redirected `core.worktree`, not just
+filesystem links. Existing selected repositories are checked before preparation;
+newly initialized repositories are checked before fetch/checkout. Unavailable,
+malformed or mismatched binding observations refuse without rewriting config or
+touching outside files. Git/user configuration remains trusted operator input:
+this is not a sandbox for arbitrary hostile Git settings or concurrent mutation.
+The directory-query semantics are documented in
+[Git rev-parse](https://git-scm.com/docs/git-rev-parse).
+
+Managed source preparation refuses observed symlinks/reparse points at `.sources`,
+selected component directories and `.git`, and refuses `.git` files (including
+worktree metadata references). All selected paths are checked before the first Git call.
+Links and outside files are retained; use a fresh private cache rather than
+deleting or rewriting them. These are point-in-time checks, not a guarantee
+against concurrent ancestor/cache replacement. Keep the checkout exclusively
+under trusted operator control during preparation; native Windows junction and
+concurrent-race acceptance are not established by synthetic marker tests.
+
+
+## Full and Mapless selection
+
+`python3 vardrsec.py sources --mapless` prepares only the existing exact Runner
+and Gate source pins. It needs Git and component-source access, but does not fetch
+Map, create `.env`, configure PostgreSQL, build/start containers or run tools.
+Existing different/dirty source caches are preserved and refused as before; an
+existing Map cache is not inspected or changed by this selection. Bare `sources`
+continues preparing Map, Runner and Gate for Full.
+
+`install --mapless` now selects the standalone model in a clean checkout and
+persists the selection for build/start/stop/Runner/backup. Unmarked installations
+retain Full behavior. See the [standalone walkthrough](mapless.md) for private
+issuer custody, signed one-job execution and export. Compatible pins and actual
+Windows/Linux installed acceptance are tracked separately. Arguments after the
+`runner --` separator still belong to Runner. No automatic Full/Mapless state or
+authority migration is implied.
