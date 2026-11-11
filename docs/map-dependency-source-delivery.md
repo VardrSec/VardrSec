@@ -159,3 +159,18 @@ retained; source-to-binary reproduction is still unproven. Ten distro-derived
 files need exact source-RPM release/patch mapping, including Linux Kerberos
 1.15.1. Clean upstream sources cannot stand in for unknown distro patches.
 Neither this capture nor retained license texts establishes legal clearance.
+
+### Librsvg source-lock registry capture
+
+A follow-up captured all 357 registry crate archives in the source archive's
+Cargo.lock, verifying every archive against its lock checksum, plus the full
+librsvg archive containing nine workspace packages. The bundle contains 641
+legal texts and 1,008 independently rehashed files; SHA-256
+`e2446a5ce2fc8402b31c66822cffc2d1fe7eeb726057286320062ec0e7e16a7d`.
+There are no missing registry archives in that source-lock inventory.
+
+`cargo update --workspace` does not imply unrestricted updates to external
+versions. The remaining boundary is the actual published build's post-edit
+lock, enabled features and target linkage, not an assumption that every locked
+version drifted. Eleven crates lack conventional legal filenames (their full
+sources are retained); legal-text and notice review remains incomplete.

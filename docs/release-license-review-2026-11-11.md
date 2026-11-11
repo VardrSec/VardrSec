@@ -145,3 +145,14 @@ binary. Fresh actual-image evidence must confirm that these changes close the
 seven identified delivery gaps; collecting supplemental files alone is not
 proof that they shipped or that terms are satisfied. No license compatibility
 or source-completeness waiver is implied by the linkage inventory.
+
+### Actual-image notice-gap follow-up
+
+The exact `74e5597` images close seven of the eight identified delivery gaps;
+the repeated audit covers 1,218 linked-module occurrences. Only Nuclei's
+`github.com/censys/censys-sdk-go@v0.19.1` remains unmatched. Its exact official
+Git tag has an MIT README badge/link but no conventional full license/notice
+file among 1,178 tracked paths. Record that declaration separately from full
+notice delivery; this is not an assertion that the project has no license.
+Source completeness, compatibility review and final publication obligations
+remain separate from this bounded retained-notice coverage result.

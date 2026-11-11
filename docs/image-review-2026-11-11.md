@@ -66,7 +66,7 @@ the fresh CI image evidence rather than this local result.
 ## Candidate integration boundary
 
 This branch selects Runner PR #134 commit
-`e19ed1ff14a301e7b52647112ad38a7184bb1846` for integration verification, with
+`38db681b18d502f3f65873f8004a0cd1dbf8eb63` for integration verification, with
 Go 1.27.4, brotli 1.2.7 and compress 1.20.2 source overrides. It also selects
 already-merged Gate `7f610397335c75414d9a47ebabf0c4aab380e14b`, including its
 Go 1.27.4 fix. These are candidate source pins, not release approval.
@@ -109,3 +109,24 @@ scanner waiver. Raw vulnerability gates remain unchanged.
 The advisory's use-after-free in `xmlParseInternalSubset` is not directly
 reproduced by this amplification fixture. The check establishes behavior of
 the retained backport, not comprehensive memory-safety coverage of that CVE.
+
+### Verified candidate receipts
+
+For distribution `74e5597`, the stripped library tested during packaging,
+package-payload ledger and actual database runtime library all match SHA-256
+`2a920b41d3082d80d21036999fe508dc148852faa95a1ca8f317027c84a9aa66`.
+All four bounded entity/control cases passed. All five image/revision bindings
+and 819 retained notice hashes were independently verified. This substantiates
+the focused behavior/custody claim above, not the advisory's UAF reproduction.
+
+Runner `38db681` passed all CI and actual-container smoke checks. Its seven
+bounded offline libpcap cases passed as UID 10001; loaded library SHA-256
+`9e50d62b77925e8b7a2e08e477fc8adf51f4cfbefb90b75724ed378005c82e9c`
+matches the distribution `74e5597` runtime payload. All nine shipped Go binary
+reachability scans exited zero. The change from Runner `e19ed1f` to `38db681`
+only fixes a Windows test mock; image recipes and runtime code are unchanged.
+The integration manifest now pins that fully green Runner head exactly.
+
+All five raw vulnerability gates remained blocked in the reviewed image set.
+No fixed stable Trixie package was demonstrated for the remaining foundational
+OS findings; no mixed-distribution upgrade or broad exclusion was applied.
