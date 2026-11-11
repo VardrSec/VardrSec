@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Align Full and Mapless source pins with merged source-access links, license
+  notice delivery and the public-documentation cleanup.
+
 - Align installation platform guidance, managed-worker availability and historical
   notice-delivery descriptions with the current operator guides.
 

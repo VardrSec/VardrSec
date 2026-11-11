@@ -7,20 +7,20 @@
   "components": {
     "map": {
       "repository": "VardrSec/VardrMap",
-      "commit": "a01a76fdb77e4dbd5da4a22b9c84913a02a2c35f",
-      "review": "https://github.com/VardrSec/VardrMap/pull/155",
+      "commit": "8bde9ff0c919db83c8995f46eac7bd828163892d",
+      "review": "https://github.com/VardrSec/VardrMap/pull/161",
       "readiness_contract": 1
     },
     "runner": {
       "repository": "VardrSec/VardrRunner",
-      "commit": "2bcd0f540b3a2cff7fa70b6135706b92ab8c188a",
-      "review": "https://github.com/VardrSec/VardrRunner/pull/121",
+      "commit": "c1ee7f0296d6604575eae17779d7930535bead54",
+      "review": "https://github.com/VardrSec/VardrRunner/pull/127",
       "readiness_contract": 1
     },
     "gate": {
       "repository": "VardrSec/VardrGate",
-      "commit": "57cfedfaf59b11cf626288c343f34a34c7b1df13",
-      "review": "https://github.com/VardrSec/VardrGate/pull/31"
+      "commit": "ecd180627c9e692a8df532122713577d0afcefa1",
+      "review": "https://github.com/VardrSec/VardrGate/pull/35"
     }
   },
   "source_installation": true
