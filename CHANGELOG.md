@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Backport bounded RSA JWK parsing to the proxy's existing go-jose v3 API and
+  retain original/patched source, build metadata and dependency notices.
+
 - Extend the database libxml2 backport with maintained dictionary, validation,
   XPointer, output and XInclude security fixes, retaining the patch sources.
 - Select the reviewed Runner libpcap fix and Dalfox dependency notice/source

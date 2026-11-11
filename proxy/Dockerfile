@@ -9,6 +9,9 @@ RUN go mod init vardrsec-proxy-build \
         github.com/go-jose/go-jose/v4@v4.1.6 \
         github.com/klauspost/compress@v1.20.2 \
     && go build -trimpath -o /out/caddy .
+COPY go-jose-v3-rsa.patch patch-go-jose-v3.sh go-jose-v3-source.txt /src/
+RUN sh /src/patch-go-jose-v3.sh
+
 RUN caddy_notice_source="$(go list -m -f '{{.Dir}}' github.com/caddyserver/caddy/v2)" \
     && mkdir -p /out/caddy-notices \
     && cp "$caddy_notice_source/LICENSE" /out/caddy-notices/LICENSE \

@@ -1,0 +1,24 @@
+go-jose v3 compatible RSA parsing backport
+
+Original: github.com/go-jose/go-jose/v3 v3.0.5
+Commit: be2f6548701d4ba561cd61c7d4a2f1289b66c273
+Go checksum: h1:BLLJWbC4nMZOfuPVxoZIxeYsn6Nl2r1fITaJ78UQlVQ=
+Source ZIP SHA-256: 4e7e6b60541ab03bd402e573fc2c1264297e661726c5f53529ca14ae58625a27
+
+Adapted security fix:
+https://github.com/go-jose/go-jose/commit/a0111f82742fa92bceec9ede40845e73319e6230
+CVE-2026-116587 / GHSA-mgcc-cww5-fp2q
+
+Preserve v3 public APIs and its original helper. Backport RSA modulus/prime
+bounds and rejection of private embedded header keys. Adapt the general JWS
+unprotected-header assignment without importing v4's algorithm-list API change.
+The upstream default bounds RSA JWK moduli at 4096 bits. Normal public keys and
+explicit private JWK parsing remain supported; oversized/malformed keys and
+private keys embedded in public headers are refused. This affects JWK parsing,
+not a blanket limit on PEM/TLS certificate key sizes.
+
+The upstream-derived focused regressions retain v3 call signatures. Original
+source, patched source, patch, license, module identity, Go module replacement
+and build metadata accompany this notice. The local replacement is an actual
+source backport, not an upstream fixed v3 version; scanners must retain that
+distinction. No CVE ignore or VEX exception is introduced.
