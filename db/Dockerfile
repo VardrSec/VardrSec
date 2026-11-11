@@ -1,3 +1,22 @@
+FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6 AS libxml2-backport
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential debhelper liblzma-dev zlib1g-dev pkg-config rename ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+RUN set -eu; for file in \
+    libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3.dsc \
+    libxml2_2.12.7+dfsg+really2.9.14.orig.tar.xz \
+    libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3.debian.tar.xz; do \
+      curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+        "https://deb.debian.org/debian/pool/main/libx/libxml2/$file" --output "$file"; \
+    done
+COPY libxml2-CVE-2026-6653.patch /build/CVE-2026-6653.patch
+COPY build-libxml2.sh libxml2-source.txt Dockerfile /build/
+RUN --network=none sh /build/build-libxml2.sh
+
+FROM scratch AS libxml2-source-delivery
+COPY --from=libxml2-backport /out/source/ /
+
 FROM golang:1.27.3@sha256:9048d5e7751706200eb1719c7dae0436950d362f29a1da91fa05e5c63867c60f AS gosu
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local GODEBUG=http2client=0
 WORKDIR /src
@@ -33,3 +52,9 @@ RUN apt-get purge -y --no-auto-remove \
 COPY --from=gosu /go/bin/gosu /usr/local/bin/gosu
 RUN gosu --version && gosu nobody true
 COPY --from=gosu /out/gosu-notices/ /usr/share/licenses/gosu/
+
+# Keep PostgreSQL and its ABI generation; replace only the qualified library.
+COPY --from=libxml2-backport /out/packages/ /tmp/libxml2-backport/
+RUN dpkg --install /tmp/libxml2-backport/*.deb \
+    && rm -rf /tmp/libxml2-backport
+COPY --from=libxml2-backport /out/source/ /usr/share/doc/libxml2/vardr-source/

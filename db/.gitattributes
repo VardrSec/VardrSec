@@ -1,0 +1,2 @@
+build-libxml2.sh text eol=lf
+libxml2-CVE-2026-6653.patch -text
