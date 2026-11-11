@@ -7,6 +7,16 @@ class QualificationTests(unittest.TestCase):
         self.assertEqual(len({(x['name'],x['version']) for x in cfg['crates']}),357)
         for x in cfg['native']+cfg['crates']+[cfg['original']]:
             self.assertRegex(x['sha256'],r'^[0-9a-f]{64}$');self.assertTrue(x['url'].startswith('https://'))
+    def test_meson_pin_meets_frozen_fontconfig_requirement(self):
+        q=pathlib.Path(__file__).parent
+        cfg=json.loads((q/'inputs.json').read_text())
+        review=json.loads((q/'meson-pin-review.json').read_text())
+        self.assertEqual(cfg['meson'],review['tool']['version'])
+        self.assertEqual(cfg['meson_wheel_sha256'],review['tool']['sha256'])
+        self.assertGreaterEqual(tuple(map(int,cfg['meson'].split('.'))),(1,11,0))
+        fontconfig=next(x for x in cfg['native'] if x['url']==review['required_by']['source_url'])
+        self.assertEqual(fontconfig['sha256'],review['required_by']['source_sha256'])
+        self.assertFalse(review['tool']['yanked'])
     def archive(self,root,name,member,link=False):
         p=root/name
         with tarfile.open(p,'w:gz') as t:

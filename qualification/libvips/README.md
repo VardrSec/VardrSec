@@ -10,7 +10,7 @@ Crates are unpacked with traversal/link/special-file rejection and Cargo directo
 
 The upstream recipe's manifest edits are preserved. Its workspace lock update is performed offline against vendored packages; the before/after/cbuild locks, SHA256, target-filtered metadata, package feature tree and exact Cargo invocations are retained. These are **new candidate receipts**, not the recovered historical published lock. Meson's actual cbuild invocation remains authoritative for package/features; the supplemental tree describes the default librsvg-c target graph.
 
-Candidate pins are nightly-2026-11-10, cargo-c 0.10.10, Meson 1.9.1, Ninja 1.13.0 and rustup-init 1.28.2. Availability/compatibility are not assumed: preflight verifies the official Rust channel manifest and PyPI wheel checksums before execution, rustup-init is SHA256-checked, and Cargo verifies registry checksums while installing locked cargo-c dependencies. Failures stop the experiment.
+Candidate pins are nightly-2026-11-10, cargo-c 0.10.10, Meson 1.11.0, Ninja 1.13.0 and rustup-init 1.28.2. Availability/compatibility are not assumed: preflight verifies the official Rust channel manifest and PyPI wheel checksums before execution, rustup-init is SHA256-checked, and Cargo verifies registry checksums while installing locked cargo-c dependencies. Failures stop the experiment.
 
 ## Limits and interpretation
 
@@ -28,3 +28,5 @@ bash -n qualification/libvips/run.sh
 ```
 
 Native compilation requires the isolated CI runner's Docker engine. Do not install a new container engine or alter a user's existing environment to run this experiment.
+
+Meson 1.11.0 is the minimum required by the frozen fontconfig 2.18.3 `meson.build` (line 3). The earlier 1.9.1 candidate stopped at configuration in run 43034290944. `meson-pin-review.json` records the unchanged fontconfig input hash and verified official PyPI wheel identity. This adjusts only the qualification builder tool; it does not replace shipping native libraries or qualify a completed build.
