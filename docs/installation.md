@@ -9,7 +9,8 @@ The database source build uses a disposable QEMU/TCG guest inside the Docker
 build stage to run the unchanged Debian Kerberos tests under ordinary guest
 kernel policy. No host VM configuration, devices or security-policy changes are
 needed. Allocate at least 4 GiB guest memory plus Docker/build overhead; the
-first uncached database build can take tens of minutes. See the
+first uncached database build can take tens of minutes. The Full CLI builds
+the database first, then builds application images using its normal cached layer. See the
 [build evidence and boundaries](../qualification/kerberos-image/README.md).
 
 ## 1. Check prerequisites and clone

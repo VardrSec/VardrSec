@@ -109,6 +109,14 @@ def main():
         (work / (phase + '-command.json')).write_text(json.dumps(command, indent=2) + '\n')
         try:
             run(*command, timeout=seconds)
+        except Exception:
+            # Failed Docker layers cannot be exported. Keep a bounded diagnostic
+            # in the build log without changing the guest verdict or time budget.
+            serial = work / (phase + '.serial.log')
+            if serial.is_file():
+                print('Guest ' + phase + ' serial tail (failure diagnostics):', flush=True)
+                print('\n'.join(serial.read_text(errors='replace').splitlines()[-120:]), flush=True)
+            raise
         finally:
             # Preserve even failed-boot logs. Success requires explicit guest exit.
             result = extract(work, phase)
