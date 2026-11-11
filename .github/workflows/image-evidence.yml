@@ -45,6 +45,16 @@ jobs:
             digest=$(docker image inspect --format '{{.Id}}' "$image")
             id=$(docker create "$digest")
             trap 'docker rm "$id" >/dev/null' EXIT
+            # Bind retained backport sources to the very same stopped image
+            # scanned above, including the OS fixes shared by Full and Mapless.
+            if [ "$service" != proxy ]; then
+              for package in libsqlite3-0 ncurses-bin util-linux; do
+                destination="artifacts/native-source-delivery/$service-$package"
+                mkdir -p "$destination"
+                docker cp "$id:/usr/share/doc/$package/vardr-source/." "$destination/"
+                (cd "$destination" && sha256sum -c SHA256SUMS)
+              done
+            fi
             if [ "$service" = db ]; then
               mkdir -p artifacts/native-source-delivery
               docker cp "$id:/usr/share/doc/libxml2/vardr-source" artifacts/native-source-delivery/libxml2
@@ -53,10 +63,14 @@ jobs:
               (cd artifacts/native-source-delivery/libxml2 && sha256sum -c SHA256SUMS)
               (cd artifacts/native-source-delivery/gosu && sha256sum -c SHA256SUMS)
               (cd artifacts/native-source-delivery/krb5 && sha256sum -c SHA256SUMS)
+              docker cp "$id:/usr/share/doc/perl-modules-5.40/vardr-source" artifacts/native-source-delivery/db-archive-tar
+              (cd artifacts/native-source-delivery/db-archive-tar && sha256sum -c SHA256SUMS)
             fi
             if [ "$service" = runner ]; then
               mkdir -p artifacts/native-source-delivery
               docker cp "$id:/opt/vardrtools/provenance" artifacts/native-source-delivery/runner-provenance
+              docker cp "$id:/usr/share/doc/libpcap0.8t64/vardr-source" artifacts/native-source-delivery/runner-libpcap
+              (cd artifacts/native-source-delivery/runner-libpcap && sha256sum -c SHA256SUMS)
             fi
             if [ "$service" = proxy ]; then
               mkdir -p artifacts/native-source-delivery

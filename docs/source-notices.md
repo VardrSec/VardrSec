@@ -115,11 +115,14 @@ embedded header keys. As in the maintained upstream fix, RSA JWK moduli above
 4096 bits are refused by default. Ordinary public keys and explicitly parsed
 private JWKs remain supported; this is not a blanket PEM/TLS key-size limit.
 
-`/usr/share/licenses/caddy/go-jose-v3/` contains the original checksum-verified
-v3.0.5 source ZIP, patched source archive, patch, Apache license, source identity,
-wrapper module graph, binary build information, build recipe and `SHA256SUMS`.
-These are inert source/notice files. The Go build information explicitly records
-the local module replacement; it is not an upstream patched v3 release. No CVE
+`/usr/share/licenses/caddy/go-jose-v3/` contains `upstream-module.zip`,
+`patched-source.tar`, the exact byte-edit plan `backport.json`, the Apache
+`LICENSE` and a `source.json` receipt hashing all four files. The frozen wrapper
+module graph and build recipe are retained in this repository's `proxy/` source.
+CI additionally records the actual binary's build information and source-custody
+check beside the exported source files. These are inert source/notice files.
+The Go build information explicitly records the local module replacement;
+it is not an upstream patched v3 release. No CVE
 ignore or scanner exception is applied. Missing version metadata for a local
 replacement is not proof of vulnerability clearance; retain its source evidence
 when reviewing the final image.

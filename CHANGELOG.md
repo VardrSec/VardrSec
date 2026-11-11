@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Retain and verify all integrated OS backport source payloads from the exact
+  images selected for security evidence, including Full and Mapless components.
+
 - Build distribution Go binaries with Go 1.27.4 and retain pinned builder identity.
 - Add repeatable, verified source-only snapshots and CI review artifacts.
 - Refresh exact-image dependency/license evidence without asserting redistribution clearance.
