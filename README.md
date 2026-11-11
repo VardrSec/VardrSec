@@ -10,6 +10,9 @@ components with Docker Compose.
 > there are no automatic updates. Review the [support and safety limits](docs/limitations.md)
 > before using it.
 
+Source snapshot: **0.1.0-dev.1**. See the [changelog](CHANGELOG.md). This label does
+not change the development status or component pins in `versions.json`.
+
 ## Choose an installation
 
 **Full** includes Map, Runner, Gate, PostgreSQL and the HTTPS proxy. **Mapless**
