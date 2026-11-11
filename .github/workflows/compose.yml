@@ -134,6 +134,33 @@ jobs:
           go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
           echo "$GOBIN" >> "$GITHUB_PATH"
       - run: python -m unittest discover -s tests -p 'test_*.py'
+  mapless-installation:
+    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Verify pinned Mapless authorization, native execution and portable evidence
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "tests")
+          from gate_acceptance import run_mapless_workflow
+          run_mapless_workflow()
+          PY
+      - name: Preserve the sanitized Mapless workflow receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: mapless-installed-gate-acceptance
+          path: artifacts/installed-gate/mapless.json
+          if-no-files-found: error
+          retention-days: 30
   installation:
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-24.04
@@ -176,14 +203,6 @@ jobs:
         run: |
           python tests/ubuntu_installation.py enroll
           python tests/compose_acceptance.py
-      - name: Verify pinned Mapless authorization, native execution and portable evidence
-        run: |
-          python - <<'PY'
-          import sys
-          sys.path.insert(0, "tests")
-          from gate_acceptance import run_mapless_workflow
-          run_mapless_workflow()
-          PY
       - name: Verify read-only glibc locale and environment exposure (CVE-2026-84243)
         run: python tests/glibc_locale_acceptance.py
       - name: Verify least-privilege database role (fresh install, existing-volume upgrade, recovery)

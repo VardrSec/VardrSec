@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Run the existing Mapless installed journey independently of the Full database
+  build and retain its sanitized receipt; its authorization checks are unchanged.
+
 - Retain and verify all integrated OS backport source payloads from the exact
   images selected for security evidence, including Full and Mapless components.
 
