@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Align installation platform guidance, managed-worker availability and historical
+  notice-delivery descriptions with the current operator guides.
+
 - Attribute the Full web source link to its pinned revision only when the actual
   build context is the clean managed Map checkout; custom builds keep a
   repository link without claiming an exact revision.

@@ -75,10 +75,14 @@ by their respective licenses and need provenance retained.
 | nuclei | 3.11.1 | [MIT text](https://github.com/projectdiscovery/nuclei/blob/a8c88feb4a1c8e961b7902534ce3af97e9d524a4/LICENSE.md) | Source build with recorded dependency overrides |
 | subfinder | 2.17.0 | [MIT text](https://github.com/projectdiscovery/subfinder/blob/c97f25802892093060f0fc424bfc3f39e273693a/LICENSE.md) | Source build with recorded dependency overrides |
 
-The current installers stage binaries and provenance, not a complete dependency
-notice bundle. Gau explicitly retains `upstream.LICENSE`; the other eight managed
-tool notices are not explicitly copied by those build/install paths. The collected
-document does not install notices into existing images or native tool directories.
+At the historical revisions reviewed above, installers staged binaries and
+provenance but did not explicitly retain the other eight tools' notices alongside
+Gau's `upstream.LICENSE`. Newer Runner sources retain top-level tool notices and
+collect Go-module legal texts with hashed provenance; see the
+[Runner container guide](https://github.com/VardrSec/VardrRunner/blob/main/docs/container.md).
+Those changes do not update existing images or establish complete notice/source
+delivery. Check the actual Runner revision selected by `versions.json` and the
+built artifacts; this historical inventory does not clear newer component sets.
 Before distributing binaries, bind and package the required notices and source
 materials with those exact artifacts; verify their presence in the final images.
 Native Gau remains excluded. Nuclei templates are not included in this inventory

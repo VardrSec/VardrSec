@@ -120,9 +120,9 @@ never runs a scan; the first-assessment walkthrough below shows how to run one e
 
 
 This is a source-built development installation, not a released Community package.
-The first alpha candidate's packaged distribution is officially supported on Ubuntu 24.04
-Linux/amd64. Windows/macOS Docker Desktop instructions remain experimental until their own
-full installation acceptance passes; they do not block an Ubuntu-first alpha. Docker needs
+Windows 11 Docker Desktop is the primary Community target; Ubuntu 24.04/amd64
+remains supported for the documented Full and Mapless paths. macOS Docker Desktop
+remains experimental; fresh-host installation and recovery are not qualified. Docker needs
 to run *Linux containers*; that is a Docker requirement, not an operating-system requirement
 of Map, Runner or Gate, which also run natively ([platforms](platforms.md)).
 

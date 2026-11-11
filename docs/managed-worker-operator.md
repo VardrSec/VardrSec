@@ -95,11 +95,10 @@ but a worker allocation must fit before its immutable cutoff, which reserves
 retains the matching v1 image. Omitting a protocol selects v3; it never downgrades
 to v1 or v2. In finite v2, only healthy completed jobs may advance, after native
 drain, refresh-thread quiescence, DONE and durable Map release. Failed or unknown
-work ends that incarnation. The batch, finite idle
-and admission limits remain development-candidate limits; ongoing service
-availability is not accepted by the two-job test alone.
+work ends that incarnation. Finite-v2 batch and idle limits do not define the
+default persistent-v3 availability policy.
 
-The proposed `persistent-v3` path requires owner-ready/3. Both optional limits are
+The `persistent-v3` path requires owner-ready/3. Both optional limits are
 absent by default: `--max-attempts N` can select a canonical positive decimal
 count up to signed-64-bit maximum, and `--idle-timeout-seconds S` can select
 1–86400 seconds. V3 refuses `--expires-in`; its reporting policy is separately
