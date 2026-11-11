@@ -1,0 +1,53 @@
+name: Debian Kerberos VM qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/kerberos-vm.yml'
+      - 'qualification/kerberos-vm/**'
+      - 'db/build-krb5.sh'
+      - 'db/krb5-*'
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Validate qualification harness
+        run: |
+          python -m unittest discover -s qualification/kerberos-vm -p 'test_*.py' -v
+          bash -n qualification/kerberos-vm/guest.sh
+      - name: Install official distribution VM tools on this disposable CI runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils xorriso e2fsprogs
+          mkdir -p artifacts/kerberos-vm-host
+          qemu-system-x86_64 --version > artifacts/kerberos-vm-host/qemu.txt
+          dpkg-query -W > artifacts/kerberos-vm-host/packages.txt
+          uname -a > artifacts/kerberos-vm-host/kernel.txt
+          sha256sum qualification/kerberos-vm/{run.py,guest.sh,inputs.json} > artifacts/kerberos-vm-host/harness-SHA256SUMS
+      - name: Full unchanged package tests in offline default-policy Debian VM
+        run: python qualification/kerberos-vm/run.py --work "$RUNNER_TEMP/kerberos-vm"
+      - name: Preserve VM qualification evidence including failures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: kerberos-vm-qualification
+          path: |
+            artifacts/kerberos-vm-host/
+            ${{ runner.temp }}/kerberos-vm/*.log
+            ${{ runner.temp }}/kerberos-vm/*-command.json
+            ${{ runner.temp }}/kerberos-vm/qualification-inputs.json
+            ${{ runner.temp }}/kerberos-vm/official-SHA512SUMS
+            ${{ runner.temp }}/kerberos-vm/prepared-disk.sha256
+            ${{ runner.temp }}/kerberos-vm/verified.json
+            ${{ runner.temp }}/kerberos-vm/result-prepare/vm/
+            ${{ runner.temp }}/kerberos-vm/result-build/
+          if-no-files-found: error
+          retention-days: 14
