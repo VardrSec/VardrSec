@@ -17,6 +17,21 @@ def git(directory, *args):
     ).strip()
 
 
+# Explicitly reviewed release-gate candidate manifest; do not derive this expected
+# value from the checkout being checked. An intentional pin update must review it.
+REVIEWED_DISTRIBUTION_MANIFEST_SHA256 = (
+    "c451019659f080c99a9d16abf8bc8172ac755ee2f1e13ce3011484618e99fa2c"
+)
+
+
+def verify_distribution_manifest(root):
+    actual = hashlib.sha256(
+        (root / "versions.json").read_bytes().replace(b"\r\n", b"\n")
+    ).hexdigest()
+    assert actual == REVIEWED_DISTRIBUTION_MANIFEST_SHA256, "distribution manifest differs from reviewed candidate baseline"
+    return actual
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, type=Path)
@@ -42,12 +57,10 @@ def main():
             "selection": "explicit reviewed commit",
         }
     assert "VardrSec_New_Moon_Roadmap.md" not in git(root, "ls-files").splitlines()
-    # Exact Git-normalized versions.json from the approved distribution baseline.
-    assert hashlib.sha256(
-        (root / "versions.json").read_bytes().replace(b"\r\n", b"\n")
-    ).hexdigest() == (
-        "feb56aea9a23e5b7b5e3a534cbe5dc2e2e205b3ea5355a46751aa7aa7d04fefb"
-    )
+    # NM-1 source pins remain a separate reviewed conformance matrix. Record the
+    # deliberately updated distribution candidate without claiming its pins did
+    # not change from the historical product baseline.
+    manifest_sha256 = verify_distribution_manifest(root)
     packages = {}
     for name in ("vardrrunner", "cryptography", "fastapi", "sqlalchemy", "pytest"):
         try:
@@ -63,7 +76,8 @@ def main():
         "python": sys.version,
         "go": subprocess.check_output(["go", "version"], text=True).strip(),
         "packages": packages,
-        "distribution_pins_unchanged": True,
+        "distribution_manifest_matches_reviewed_baseline": True,
+        "distribution_manifest_sha256": manifest_sha256,
     }
     with args.out.open("x", encoding="utf-8") as output:
         json.dump(receipt, output, indent=2)
