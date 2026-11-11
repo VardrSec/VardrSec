@@ -130,3 +130,22 @@ The integration manifest now pins that fully green Runner head exactly.
 All five raw vulnerability gates remained blocked in the reviewed image set.
 No fixed stable Trixie package was demonstrated for the remaining foundational
 OS findings; no mixed-distribution upgrade or broad exclusion was applied.
+
+## Stable Kerberos ASN.1 backport qualification
+
+CVE-2026-119079 affects ASN.1 decoding in application servers as well as KDCs;
+absence of the KDC daemon cannot clear shipped client libraries. The database
+candidate now rebuilds exact Debian `1.21.3-5+deb13u1` with upstream commit
+`782e5ac4fb1496a79de0b87e1fc485f897e97d6d`, without mixing distributions or
+changing the library ABI. A local isolated source build passed upstream ASN.1
+encode/decode/trval/leak exercises. A bounded 10,000-element valid authdata
+roundtrip preserved decoded data and reduced reallocations from 10,001 to one;
+exported symbols and `libkrb5.so.3` SONAME were unchanged.
+
+`db/build-krb5.sh` retains normal Debian packaging tests and symbol checks,
+executes the bounded regression against the stripped package payload, and
+retains source, patch, build environment and payload hashes. Only the four
+already-shipped client-library packages are installed in this first database
+qualification. Fresh CI packaging/runtime evidence is required: this is not
+proof that other images or other Kerberos findings are fixed. No scanner
+exception or residual-risk acceptance is introduced.

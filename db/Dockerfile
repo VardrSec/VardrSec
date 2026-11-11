@@ -1,3 +1,16 @@
+FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6 AS krb5-backport
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential byacc comerr-dev debhelper docbook-to-man libkeyutils-dev \
+    libldap2-dev liblmdb-dev libnss-myhostname libsasl2-dev libssl-dev libverto-dev \
+    pkgconf ss-dev keyutils libcmocka-dev python3-kdcproxy python3-pyrad ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+RUN set -eu; for file in krb5_1.21.3-5+deb13u1.dsc krb5_1.21.3.orig.tar.gz krb5_1.21.3-5+deb13u1.debian.tar.xz; do \
+    curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+      "https://deb.debian.org/debian/pool/main/k/krb5/$file" -o "$file"; done
+COPY build-krb5.sh krb5-CVE-2026-119079.patch krb5-sequence-regression.c Dockerfile /build/
+RUN --network=none sh /build/build-krb5.sh
+
 FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6 AS libxml2-backport
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential debhelper liblzma-dev zlib1g-dev pkg-config rename ca-certificates curl \
@@ -70,3 +83,8 @@ COPY --from=libxml2-backport /out/packages/ /tmp/libxml2-backport/
 RUN dpkg --install /tmp/libxml2-backport/*.deb \
     && rm -rf /tmp/libxml2-backport
 COPY --from=libxml2-backport /out/source/ /usr/share/doc/libxml2/vardr-source/
+
+# Stable Debian ABI retained; qualify only the database image in this patch.
+COPY --from=krb5-backport /out/packages/ /tmp/krb5-backport/
+RUN dpkg --install /tmp/krb5-backport/*.deb && rm -rf /tmp/krb5-backport
+COPY --from=krb5-backport /out/source/ /usr/share/doc/libkrb5-3/vardr-source/

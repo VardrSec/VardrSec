@@ -139,3 +139,30 @@ class GeneratedGoLegalNamesTests(unittest.TestCase):
         self.assertEqual(selection('opt/vardrtools/provenance/nuclei/openpgp-LICENSE'), 'notice')
         self.assertEqual(selection('opt/vardrtools/provenance/httpx/dependency-notices.tar.gz'), 'notice')
         self.assertIsNone(selection('opt/vardrtools/credentials/GO-LICENSE'))
+
+
+class ApplicabilityInventoryTests(unittest.TestCase):
+    def test_component_names_anywhere_links_conservative_and_no_payload(self):
+        entries = [('custom/systemd-homed', b'code'),
+                   ('usr/lib/libgssrpc.so.4', (tarfile.SYMTYPE, '/secret')),
+                   ('usr/lib/libkrb5.so.3.3', b'library')]
+        m, files = collect(entries)
+        self.assertTrue(m['component_inventory_export_completed'])
+        self.assertEqual(m['component_path_inventory']['systemd_homed'],
+                         [{'path': 'custom/systemd-homed', 'regular_file': True}])
+        self.assertFalse(m['component_path_inventory']['kerberos_admin_rpc_libraries'][0]['regular_file'])
+        self.assertEqual(m['component_path_inventory']['kerberos_servers'], [])
+        self.assertEqual(m['native_file_count'], 2)
+        self.assertNotIn(b'code', files.values())
+        self.assertNotIn('/secret', json.dumps(m))
+        self.assertFalse(m['release_clearance'])
+
+    def test_component_selection_is_exact(self):
+        for name in ('libkrb5.so.3.3', 'libkadm5srv_mit.so.12', 'kadmind', 'systemd-homework'):
+            self.assertEqual(evidence.selection('arbitrary/' + name), 'native')
+        for name in ('libkrb5.so.secret', 'my-systemd-homed', 'kadmind.conf', 'homectl.txt'):
+            self.assertIsNone(evidence.selection('arbitrary/' + name))
+
+    def test_component_inventory_deterministic(self):
+        entries = [('z/krb5kdc', b'a'), ('a/krb5kdc', b'b')]
+        self.assertEqual(collect(entries), collect(list(reversed(entries))))

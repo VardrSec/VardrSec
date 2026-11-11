@@ -29,6 +29,25 @@ NATIVE = re.compile(
     r'|usr/lib/(?:[a-z0-9_-]+/)?lib(?:xml2|pcap)\.so\.[0-9.]+)$')
 
 
+# Inventory known vulnerable components anywhere in the exported filesystem.
+# A missing basename is not proof that code was not renamed or statically linked.
+APPLICABILITY_NAMES = {
+    'systemd_homed': re.compile(r'(?:systemd-homed|systemd-homework|homectl|systemd-homed\.service)'),
+    'kerberos_servers': re.compile(r'(?:krb5kdc|kadmind|kdb5_util)'),
+    'kerberos_admin_rpc_libraries': re.compile(r'lib(?:gssrpc|kadm5(?:clnt|srv)(?:_mit)?|kdb5)\.so(?:\.[0-9]+)*'),
+    'kerberos_client_libraries': re.compile(r'lib(?:krb5|gssapi_krb5|k5crypto|krb5support)\.so(?:\.[0-9]+)*'),
+    'systemd_libraries': re.compile(r'lib(?:systemd|udev)\.so(?:\.[0-9]+)*'),
+}
+
+
+def applicability_group(name):
+    basename = PurePosixPath(name).name
+    for group, pattern in APPLICABILITY_NAMES.items():
+        if pattern.fullmatch(basename):
+            return group
+    return None
+
+
 def path_name(raw):
     name = raw[2:] if raw.startswith('./') else raw
     p = PurePosixPath(name)
@@ -42,7 +61,7 @@ def selection(name):
     if name.startswith(('usr/share/licenses/', 'opt/vardrtools/provenance/')) and PurePosixPath(name).name in {
             'GO-LICENSE', 'dependency-notices.tar.gz', 'openpgp-LICENSE'}:
         return 'notice'
-    if NATIVE.fullmatch(name):
+    if NATIVE.fullmatch(name) or applicability_group(name):
         return 'native'
     if LEGAL_NAME.fullmatch(PurePosixPath(name).name) and (
             name.startswith(NOTICE_ROOTS) or PYTHON_SITE.match(name)
@@ -67,6 +86,8 @@ def collect(stream, image_id, service, revision):
                 'release_clearance': False, 'image_identity_source': 'caller-supplied Docker inspect ID; bind to image receipt',
                 'scope': 'allowlisted conventional legal filenames and selected native hashes only',
                 'notices': [], 'native_files': [], 'unresolved_selected_entries': []}
+    manifest['component_path_inventory'] = {group: [] for group in APPLICABILITY_NAMES}
+    manifest['component_inventory_scope'] = 'known basenames anywhere in completed export; no renamed/static-code or runtime-mount coverage; absence is not vulnerability clearance'
     files, seen, notice_total = {}, set(), 0
     with tarfile.open(fileobj=stream, mode='r|*') as archive:
         for member in archive:
@@ -79,6 +100,10 @@ def collect(stream, image_id, service, revision):
             seen.add(name)
             if len(seen) > MAX_SELECTED:
                 raise ValueError('selected entry count exceeds limit')
+            group = applicability_group(name)
+            if group:
+                manifest['component_path_inventory'][group].append({
+                    'path': name, 'regular_file': member.isfile()})
             if not member.isfile():
                 # Do not dereference links, record targets, or copy special files.
                 manifest['unresolved_selected_entries'].append({'path': name, 'reason': 'not a regular file'})
@@ -115,6 +140,9 @@ def collect(stream, image_id, service, revision):
                 manifest['native_files'].append(row)
     for key in ('notices', 'native_files', 'unresolved_selected_entries'):
         manifest[key].sort(key=lambda row: row['path'])
+    for rows in manifest['component_path_inventory'].values():
+        rows.sort(key=lambda row: row['path'])
+    manifest['component_inventory_export_completed'] = True
     manifest['notice_count'] = len(manifest['notices'])
     manifest['native_file_count'] = len(manifest['native_files'])
     manifest['coverage_complete'] = False
