@@ -933,7 +933,7 @@ def dispatch(installation, args):
                 "receipt": reply,
                 "local_runner_reconciliation": "not_required_for_disable",
             }
-        return {
+        result = {
             "schema": "vardr.worker-cli/1",
             "state": "terminal_observed"
             if terminal is not None
@@ -946,6 +946,13 @@ def dispatch(installation, args):
             "receipt": reply,
             "local_runner_reconciliation": "required",
         }
+        if terminal is None:
+            result["next_action"] = (
+                "Keep Map and the original custody available. Follow the recovery "
+                "guide; do not resend an uncertain report or start a replacement worker."
+            )
+            result["help"] = "docs/local-managed-setup.md#recovery-boundary"
+        return result
     if args.action == "report-exit":
         proof = observer.observe_exit(identity)
         require(isinstance(proof, runtime.ObservedExit))

@@ -169,6 +169,11 @@ effect. `failure_phase` identifies where inspection should begin. In particular,
 a connection failure or interruption after registration/reporting can leave an
 unknown outcome; use read-only reconciliation rather than repeating that write.
 
+When `worker reconcile` finds no terminal receipt, its held reply includes fixed
+`next_action` guidance and a `help` link to this recovery boundary. These fields
+do not authorize a retry, replacement, or retirement; reconciliation remains
+read-only and these held replies retain a nonzero exit status.
+
 Held setup commands include a fixed failure category and a link to this guide.
 Expected configuration refusals use `validation_refused`; local I/O failures
 retain `local_io_failed`, and unexpected failures remain `operation_failed`.
