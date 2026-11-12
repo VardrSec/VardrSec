@@ -165,6 +165,14 @@ fingerprint against the local proxy before trusting it. Enroll only your own CA.
 `export-ca` prints the public certificate's SHA256 fingerprint for comparison
 with your certificate viewer or `openssl x509 -in trust/root.crt -noout -fingerprint -sha256`.
 
+Choose the trust scope before importing. A root CA certificate grants no
+administrator access, but Windows CurrentUser enrollment lets applications using
+that store trust other certificates issued by this CA, beyond this one URL.
+If you do not want that scope, stop before importing. An existing isolated
+browser profile can use its own certificate store; per-client `--cacert` below
+affects only that client invocation and does not configure a browser. Keep
+certificate validation enabled in either case.
+
 Windows (PowerShell, current user only):
 
 ```powershell
@@ -237,6 +245,11 @@ prompted below. Supply VARDRMAP_API_KEY through
 your shell environment when invoking `python3 vardrsec.py doctor`; do not put the key
 in shell command arguments or an image. Runner mounts only the public CA read-only.
 The initial local user retains the normal organization/ownership permission rules.
+
+The Connect Runner panel's native installation, `init` and tool-install commands
+apply to native components. Full already includes its pinned Runner, Gate and
+tools: use **Generate Runner Key**, then the distribution `doctor`, `heartbeat`
+and `runner --` commands below with the installed images.
 
 Alternatively, in a private terminal, generate a secure password instead of typing
 one: `python3 vardrsec.py bootstrap --username operator --generate-password`.
@@ -315,12 +328,29 @@ except the last step happens in the browser at `https://localhost:8443`.
 5. **Queue.** On the Dashboard choose the `vardrgate` tool, select your saved case and
    queue the job. Queuing runs nothing.
 6. **Run it explicitly.** In a private terminal, supply the Runner key and the
-   identity tokens, then claim and execute the queued job once:
+   identity tokens. Approve each credential reference for this engagement and
+   every target origin it contacts, including principal preflights. The example
+   uses the existing expiring-grant mode: replace `ENGAGEMENT_ID` with the
+   engagement UUID, `TARGET_ORIGIN` with `scheme://host[:port]`, and `MAP_BASE_URL`
+   with the exact backend URL printed by `doctor`, including its deployment path
+   (normally `https://vardrsec.localhost:8443/backend` for Full).
 
 ```bash
 export VARDRMAP_API_KEY OWNER_TOKEN PEER_TOKEN   # set beforehand without echoing them
-python3 vardrsec.py runner --env OWNER_TOKEN --env PEER_TOKEN -- jobs run
+python3 vardrsec.py runner -- credentials approve --engagement ENGAGEMENT_ID \
+  --origin TARGET_ORIGIN --env OWNER_TOKEN --issuer MAP_BASE_URL --expires-in 1800
+python3 vardrsec.py runner -- credentials approve --engagement ENGAGEMENT_ID \
+  --origin TARGET_ORIGIN --env PEER_TOKEN --issuer MAP_BASE_URL --expires-in 1800
+python3 vardrsec.py runner --env OWNER_TOKEN --env PEER_TOKEN -- jobs run --expiring-grants
 ```
+
+   These grants release reference names only for the selected engagement,
+   origin and issuer for 30 minutes; they do not authorize an assessment or
+   replace a managed job's separate approval. `--expiring-grants` is required to
+   use them and refuses legacy fallback. Existing legacy commands retain their
+   separate approval namespace. Review and answer the terminal's execution
+   confirmation; a queued job alone does not execute. See Runner's public
+   [expiring-grant instructions](https://github.com/VardrSec/VardrRunner/blob/main/docs/cli.md#expiring-gate-reference-grants).
 
    `--env NAME` passes one variable from your shell by name; its value never appears
    on a command line. A target on a private or loopback address also needs

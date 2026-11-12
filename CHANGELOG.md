@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Clarify local CA trust scope, Full versus native Runner setup, and the existing
+  expiring credential-reference prerequisite in the first-assessment guide.
+
 - Show a sanitized completed synthetic assessment, including independent write
   verification, retained report revisions and the limits of automated validation.
 
