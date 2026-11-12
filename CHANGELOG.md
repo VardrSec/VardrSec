@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add fixed recovery guidance to held worker reconciliation replies when no
+  terminal receipt is observed; retain read-only behavior and existing controls.
+
 - Explain existing managed-worker status and recovery actions, distinguish
   assessment authorization from credentials, and connect policy review to evidence
   and a separately authorized retest. Clarify exact-image security evidence limits.
