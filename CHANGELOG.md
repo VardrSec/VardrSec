@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Show a sanitized completed synthetic assessment, including independent write
+  verification, retained report revisions and the limits of automated validation.
+
 - Add fixed recovery guidance to held worker reconciliation replies when no
   terminal receipt is observed; retain read-only behavior and existing controls.
 
