@@ -32,6 +32,7 @@ opt-in after Full setup, not another installation mode.
 ## Start using the platform
 
 For Full, follow the [first-assessment walkthrough](docs/installation.md#first-assessment-walkthrough).
+See a [sanitized assessment from policy through evidence and retest](docs/assessment-example.md).
 Create an engagement, record written authorization and scope, review expected
 access for each identity, and explicitly execute the approved work. Queueing a
 case or starting core services does not grant execution authority.

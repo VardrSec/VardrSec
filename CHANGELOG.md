@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Show a sanitized completed synthetic assessment, including independent write
+  verification, retained report revisions and the limits of automated validation.
+
 - Explain existing managed-worker status and recovery actions, distinguish
   assessment authorization from credentials, and connect policy review to evidence
   and a separately authorized retest. Clarify exact-image security evidence limits.
