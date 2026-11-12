@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Explain existing managed-worker status and recovery actions, distinguish
+  assessment authorization from credentials, and connect policy review to evidence
+  and a separately authorized retest. Clarify exact-image security evidence limits.
 - Backport bounded RSA JWK parsing to the proxy's existing go-jose v3 API and
   retain original/patched source, build metadata and dependency notices.
 

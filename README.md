@@ -1,9 +1,9 @@
 # VardrSec
 
-A local-first security-testing platform. VardrMap provides the engagement interface,
-VardrRunner executes explicitly authorized work, and VardrGate evaluates API
-access-control expectations. This repository installs and maintains the selected
-components with Docker Compose.
+A local-first platform for testing API authorization. VardrGate compares actual
+access with reviewed expectations for each identity. VardrMap organizes the
+assessment, evidence and retest; VardrRunner executes explicitly authorized work.
+This repository installs and maintains the selected components with Docker Compose.
 
 > **Source-built development software, not an official release.** Build locally
 > from the component revisions in `versions.json`. No images are published and
