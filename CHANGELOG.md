@@ -17,6 +17,15 @@
 - Build distribution Go binaries with Go 1.27.4 and retain pinned builder identity.
 - Add repeatable, verified source-only snapshots and CI review artifacts.
 - Refresh exact-image dependency/license evidence without asserting redistribution clearance.
+- Show a sanitized completed synthetic assessment, including independent write
+  verification, retained report revisions and the limits of automated validation.
+
+- Add fixed recovery guidance to held worker reconciliation replies when no
+  terminal receipt is observed; retain read-only behavior and existing controls.
+
+- Explain existing managed-worker status and recovery actions, distinguish
+  assessment authorization from credentials, and connect policy review to evidence
+  and a separately authorized retest. Clarify exact-image security evidence limits.
 - Backport bounded RSA JWK parsing to the proxy's existing go-jose v3 API and
   retain original/patched source, build metadata and dependency notices.
 
