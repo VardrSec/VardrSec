@@ -4,6 +4,15 @@
 
 - Build and verify the database Kerberos client backport from exact sources in an isolated guest without relaxing Docker policy; retain full package tests and corresponding sources.
 
+- Show a sanitized completed synthetic assessment, including independent write
+  verification, retained report revisions and the limits of automated validation.
+
+- Add fixed recovery guidance to held worker reconciliation replies when no
+  terminal receipt is observed; retain read-only behavior and existing controls.
+
+- Explain existing managed-worker status and recovery actions, distinguish
+  assessment authorization from credentials, and connect policy review to evidence
+  and a separately authorized retest. Clarify exact-image security evidence limits.
 - Backport bounded RSA JWK parsing to the proxy's existing go-jose v3 API and
   retain original/patched source, build metadata and dependency notices.
 

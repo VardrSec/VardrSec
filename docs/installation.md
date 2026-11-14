@@ -339,6 +339,31 @@ python3 vardrsec.py runner --env OWNER_TOKEN --env PEER_TOKEN -- jobs run
 `inconclusive` is not a pass. It means an expectation could not be judged, for
 example a rejected credential or an unavailable resource.
 
+### Review policy, evidence and retest together
+
+For a simple ownership case, write the policy before execution: the owner may
+read the selected record; a peer and an anonymous identity must be denied. Keep
+the request, resource owner, identity references and each expected decision in
+the reviewed case. Possessing a target token establishes an identity, not
+permission to assess that target; the written authorization and scope remain
+separate requirements. A Runner API key connects Runner to Map and is not a
+target credential or a job approval.
+
+When reviewing the result, compare every identity's expected decision with its
+observed access and supporting evidence. An unexpected successful peer request
+is a candidate ownership failure requiring human confirmation. A failed owner
+baseline or credential preflight makes the comparison inconclusive rather than
+proving that peer access is safely denied.
+
+After a confirmed fix, retain the original job and evidence. Review the same
+policy against the fixed target, check the current testing window and
+authorization, and explicitly queue and execute a new job. Managed execution
+requires a fresh review and approval; never reuse a spent bundle or approval.
+Compare the original and retest evidence, link both to the finding, and export
+the reviewed report. Redact credentials, private response data and identifying
+target details before sharing it. This is an operator procedure, not a claim
+that an unfamiliar-user session or independent validation has occurred.
+
 ## Updates and recovery boundary
 
 Use the [controlled updater](updates.md) for an explicitly reviewed local image
