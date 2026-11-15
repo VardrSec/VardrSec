@@ -2,6 +2,8 @@
  * Test-only preload; never installed in runtime images. */
 #define _GNU_SOURCE
 #include <sys/acl.h>
+#include <sys/stat.h>
+#include <attr/libattr.h>
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -63,4 +65,17 @@ int acl_set_file_at(int fd, const char *path, int flags, acl_type_t type, acl_t 
     int (*next)(int, const char *, int, acl_type_t, acl_t) = dlsym(RTLD_NEXT, "acl_set_file_at");
     swap_paths("write", type);
     return next(fd, path, flags, type, acl);
+}
+
+int attr_copy_file(const char *src, const char *dst,
+                   int (*check)(const char *, struct error_context *),
+                   struct error_context *ctx)
+{
+    int (*next)(const char *, const char *,
+                int (*)(const char *, struct error_context *),
+                struct error_context *) = dlsym(RTLD_NEXT, "attr_copy_file");
+    struct stat st;
+    if (stat(src, &st) == 0 && S_ISDIR(st.st_mode))
+        swap_paths("read", ACL_TYPE_DEFAULT);
+    return next(src, dst, check, ctx);
 }

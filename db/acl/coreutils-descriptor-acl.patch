@@ -105,7 +105,7 @@ Forwarded: not-needed
    else
 --- a/src/copy.c
 +++ b/src/copy.c
-@@ -77,6 +77,71 @@
+@@ -77,6 +77,79 @@
  # include <linux/falloc.h>
  #endif
  
@@ -147,7 +147,15 @@ Forwarded: not-needed
 +      int to = acl_destination_fd (parent, relative);
 +      if (to >= 0)
 +        {
-+          result = xcopy_acl (src, from, dst, to, mode);
++          /* Debian's USE_XATTR path uses attr_copy_file. O_PATH cannot be
++             passed to fgetxattr, so give it pinned procfs object aliases. */
++          char from_name[64], to_name[64];
++          snprintf (from_name, sizeof from_name, "/proc/self/fd/%d", from);
++          snprintf (to_name, sizeof to_name, "/proc/self/fd/%d", to);
++          result = qcopy_acl (from_name, -1, to_name, -1, mode);
++          if (result != 0)
++            error (0, errno, _("preserving permissions for %s"),
++                   quoteaf (result == -2 ? src : dst));
 +          int saved = errno;
 +          close (to);
 +          errno = saved;
@@ -177,7 +185,7 @@ Forwarded: not-needed
  /* See HAVE_FALLOCATE workaround when including this file.  */
  #ifdef HAVE_LINUX_FS_H
  # include <linux/fs.h>
-@@ -3261,13 +3326,13 @@
+@@ -3261,13 +3334,13 @@
  
    if (x->preserve_mode || x->move_mode)
      {
@@ -193,7 +201,7 @@ Forwarded: not-needed
          return false;
      }
    else if (x->explicit_no_preserve_mode && new_dst)
-@@ -3277,7 +3342,7 @@
+@@ -3277,7 +3350,7 @@
        dst_mode = dst_sb.st_mode;
        if (S_ISDIR (src_mode))  /* Keep set-group-ID for directories.  */
          default_permissions |= (dst_mode & S_ISGID);
