@@ -51,6 +51,8 @@ examples use `python3`; on Windows replace it with `py -3` and use one line
 instead of Bash's `\` continuations. Keep the returned workspace ID.
 The mode marker selects the Mapless model on subsequent commands. Installation
 builds the pinned Runner/Gate toolkit and creates a stopped Runner container.
+Nuclei is not bundled; its [optional native Runner path](../README.md#optional-nuclei)
+is separate from this guarded Mapless installation.
 Its project-scoped build tag does not replace Full's development tag. Installation
 then selects the exact local image ID for subsequent commands and recovery.
 It creates no Map account, database, proxy, trusted certificate or background

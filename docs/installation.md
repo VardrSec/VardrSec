@@ -293,7 +293,9 @@ Runner is excluded from ordinary startup. The tool-enabled image includes Gate,
 libpcap (for naabu, the port-discovery tool; Nmap is not packaged) and Runner's checksum-verified managed tools. Managed tools live in
 read-only image storage, separate from persistent Runner state. Native/keychain
 operation remains available. Raw-packet scans, headless-browser tooling, operator
-wordlists and nuclei template provisioning are not certified by this baseline.
+wordlists and template provisioning are not certified by this baseline.
+Nuclei is no longer bundled; use the explicit [optional native Runner path](../README.md#optional-nuclei)
+if your assessment requires it. Full/Mapless installation guards are unchanged.
 No capability or privileged mode is enabled automatically. Diagnose the intended
 tools and host/VPN target reachability before explicitly invoking `jobs run`.
 The tool/network fixture documents selected modes,

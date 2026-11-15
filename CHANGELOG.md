@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Select verified Runner #136: Nuclei becomes an explicit optional native install
+  instead of a bundled Full/Mapless binary; preserve existing execution controls,
+  state and installation guards. Other component pins are unchanged.
+
 - Preserve POSIX line endings for database/VM build scripts on Windows, preventing
   guest preparation from failing before the unchanged upstream tests can run.
 

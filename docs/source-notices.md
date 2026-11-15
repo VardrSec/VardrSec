@@ -191,3 +191,18 @@ source, patch identities, build metadata, recipe and checksums. Existing
 package copyright remains installed. The `util-linux-source-delivery` build
 target exports the same materials. A custom package version does not itself
 clear vulnerability findings.
+
+## Optional Nuclei boundary
+
+The current manifest selects Runner f57ea3a95dd01837043eaf61a54cb2f73d9ab265
+([#136](https://github.com/VardrSec/VardrRunner/pull/136)), which omits Nuclei from
+the toolkit. Its container verification passed; retained metadata for the eight
+remaining Go binaries contains neither Nuclei nor Censys SDK. Rust Dalfox is
+checked separately against its retained Cargo inventory. This is evidence for
+that Runner image, not clearance of newly built Full/Mapless artifacts.
+
+Earlier dated inventories and their missing Censys notice finding describe their
+original bundled-Nuclei images and remain historical evidence. They must not be
+relabelled as evidence for this changed component set. Collect and review the new
+exact distribution images before publication; other source, notice and security
+obligations remain open. Operator-installed Nuclei is outside the bundled toolkit.
