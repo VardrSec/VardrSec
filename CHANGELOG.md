@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Refuse image evidence when the final database libxml2 differs from the exact
+  backport payload exercised by the bounded entity regression; retain an
+  image/source-bound receipt without changing vulnerability or publication gates.
+
 - Select verified Runner #136: Nuclei becomes an explicit optional native install
   instead of a bundled Full/Mapless binary; preserve existing execution controls,
   state and installation guards. Other component pins are unchanged.

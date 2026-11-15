@@ -39,6 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -p 'test_runtime_notice_evidence.py'
+          python -m unittest discover -s tests -p 'test_libxml2_runtime_custody.py'
           mkdir -p artifacts/runtime-notices
           for service in api web db proxy runner; do
             image=$(docker compose --profile tools config --format json | python -c 'import json,sys; print(json.load(sys.stdin)["services"][sys.argv[1]]["image"])' "$service")
@@ -80,6 +81,13 @@ jobs:
                 --binary "$RUNNER_TEMP/caddy" --image-id "$digest" --distribution-commit "$(git rev-parse HEAD)"
             fi
             docker export "$id" | python runtime_notice_evidence.py --image-id "$digest" --service "$service" --distribution-commit "$(git rev-parse HEAD)" --output "artifacts/runtime-notices/$service.tar"
+            if [ "$service" = db ]; then
+              python tests/libxml2_runtime_custody.py \
+                --source artifacts/native-source-delivery/libxml2 \
+                --runtime-notices artifacts/runtime-notices/db.tar \
+                --image-id "$digest" --distribution-commit "$(git rev-parse HEAD)" \
+                > artifacts/native-source-delivery/libxml2-runtime-custody.json
+            fi
             docker rm "$id" >/dev/null
             trap - EXIT
           done
