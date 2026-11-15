@@ -1,0 +1,66 @@
+/* Deterministic synthetic-path substitution at an ACL call boundary.
+ * Test-only preload; never installed in runtime images. */
+#define _GNU_SOURCE
+#include <sys/acl.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+static void swap_paths(const char *operation, acl_type_t type)
+{
+    static int swapped;
+    const char *mode = getenv("VARDR_ACL_SWAP_MODE");
+    if (swapped || !mode || strcmp(mode, operation) || type != ACL_TYPE_DEFAULT)
+        return;
+    swapped = 1;
+    const char *names[] = {"SRC", "DST"};
+    for (size_t i = 0; i < 2; i++) {
+        char key[64], saved[4096];
+        snprintf(key, sizeof key, "VARDR_ACL_SWAP_%s", names[i]);
+        const char *path = getenv(key);
+        if (!path)
+            continue;
+        snprintf(key, sizeof key, "VARDR_ACL_OUTSIDE_%s", names[i]);
+        const char *outside = getenv(key);
+        if (!outside || snprintf(saved, sizeof saved, "%s.saved", path) >= (int)sizeof saved
+            || rename(path, saved) || symlink(outside, path))
+            _exit(90);
+    }
+    const char *marker = getenv("VARDR_ACL_SWAP_MARKER");
+    if (!marker)
+        _exit(91);
+    int fd = open(marker, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd < 0 || close(fd))
+        _exit(92);
+}
+
+acl_t acl_get_file(const char *path, acl_type_t type)
+{
+    acl_t (*next)(const char *, acl_type_t) = dlsym(RTLD_NEXT, "acl_get_file");
+    swap_paths("read", type);
+    return next(path, type);
+}
+
+acl_t acl_get_file_at(int fd, const char *path, int flags, acl_type_t type)
+{
+    acl_t (*next)(int, const char *, int, acl_type_t) = dlsym(RTLD_NEXT, "acl_get_file_at");
+    swap_paths("read", type);
+    return next(fd, path, flags, type);
+}
+
+int acl_set_file(const char *path, acl_type_t type, acl_t acl)
+{
+    int (*next)(const char *, acl_type_t, acl_t) = dlsym(RTLD_NEXT, "acl_set_file");
+    swap_paths("write", type);
+    return next(path, type, acl);
+}
+
+int acl_set_file_at(int fd, const char *path, int flags, acl_type_t type, acl_t acl)
+{
+    int (*next)(int, const char *, int, acl_type_t, acl_t) = dlsym(RTLD_NEXT, "acl_set_file_at");
+    swap_paths("write", type);
+    return next(fd, path, flags, type, acl);
+}

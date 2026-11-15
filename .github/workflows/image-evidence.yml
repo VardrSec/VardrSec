@@ -58,6 +58,8 @@ jobs:
             fi
             if [ "$service" = db ]; then
               mkdir -p artifacts/native-source-delivery
+              docker cp "$id:/usr/share/doc/libacl1/vardr-source" artifacts/native-source-delivery/db-acl-callers
+              (cd artifacts/native-source-delivery/db-acl-callers && sha256sum -c SHA256SUMS)
               docker cp "$id:/usr/share/doc/libxml2/vardr-source" artifacts/native-source-delivery/libxml2
               docker cp "$id:/usr/share/licenses/gosu/source" artifacts/native-source-delivery/gosu
               docker cp "$id:/usr/share/doc/libkrb5-3/vardr-source" artifacts/native-source-delivery/krb5
