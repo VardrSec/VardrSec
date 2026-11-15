@@ -37,6 +37,16 @@ a trusted artifact; they are not signatures.
 
 ## Scope and remaining gates
 
+The existing image-evidence workflow now verifies this final-image comparison
+automatically with `tests/libxml2_runtime_custody.py`. It checks all retained source
+hashes, the exact reviewed CVE-2026-6653 patch, its applied ledger entry, all four
+bounded entity-regression results and the tested library hash against the stopped
+database image's native-file inventory. The runtime evidence must identify that
+same image and distribution commit and a completed export. A mismatch fails CI.
+The receipt is retained with the existing native-source artifact. This comparison
+does not execute the image, suppress a scanner finding, change the strict
+vulnerability gate, or grant release clearance.
+
 This establishes a reviewable source-to-package evidence chain, not independent
 binary reproducibility or complete runtime regression coverage. Fresh apt build
 dependencies are inventoried, not snapshot-pinned. Review the complete build log
