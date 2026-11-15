@@ -1,6 +1,14 @@
 #!/bin/sh
 # Exact Debian sources; ordinary unprivileged builds on the supported Trixie ABI.
 set -eu
+# Keep failures in cleanup/source repacking visible as well as compile failures.
+trap 'status=$?; if [ "$status" -ne 0 ]; then
+    for log in /out/source/*/evidence/*.log; do
+        [ -f "$log" ] || continue
+        printf "\\n=== %s ===\\n" "$log"
+        tail -n 100 "$log"
+    done
+fi' 0
 export DEB_BUILD_OPTIONS=parallel=2
 export DEB_BUILD_PROFILES=noudeb
 cd /build
