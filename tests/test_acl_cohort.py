@@ -1,5 +1,9 @@
 """Pure fail-closed cohort checks; no network, containers or hosted fixtures."""
 import copy
+import json
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 import hashlib
 import unittest
 
@@ -69,12 +73,48 @@ class CohortGuards(unittest.TestCase):
             with self.assertRaises(ValueError):
                 cohort.verify_trees({}, {path: "100644 blob new"}, {path: "100644 blob new"}, [path])
 
+    def test_generated_local_build_aliases(self):
+        suffix = "local-" + "a" * 32
+        tags = {name: repo + ":" + suffix for name, repo in cohort.IMAGE_REPOSITORIES.items()}
+        model = {"services": {name: {"image": tag} for name, tag in tags.items()}}
+        model["services"]["proxy"] = {"image": "vardrsec-proxy:" + suffix}
+        self.assertEqual(cohort.build_image_tags(model), tags)
+        for name in tags:
+            for bad in (cohort.IMAGE_REPOSITORIES[name] + ":development", "unreviewed:local-" + "a" * 32, "sha256:" + "a" * 64, cohort.IMAGE_REPOSITORIES[name] + ":local-" + "b" * 32):
+                changed = copy.deepcopy(model)
+                changed["services"][name]["image"] = bad
+                with self.subTest(name=name, alias=bad), self.assertRaises(ValueError):
+                    cohort.build_image_tags(changed)
+        del model["services"]["runner"]
+        with self.assertRaises(ValueError):
+            cohort.build_image_tags(model)
+
+    def test_resolves_build_aliases_without_frozen_overlay(self):
+        suffix = "local-" + "a" * 32
+        model = {"services": {name: {"image": repo + ":" + suffix} for name, repo in cohort.IMAGE_REPOSITORIES.items()}}
+        model["services"]["proxy"] = {"image": "vardrsec-proxy:" + suffix}
+        # Credentials stay in the captured configuration, never in the result.
+        model["services"]["api"]["environment"] = {"SECRET": "private-fixture-value"}
+        ids = {name: "sha256:" + str(i) * 64 for i, name in enumerate(cohort.IMAGE_REPOSITORIES)}
+        replies = [SimpleNamespace(stdout=json.dumps(model))] + [SimpleNamespace(stdout=value + "\n") for value in ids.values()]
+        fixture = Path("/disposable/distribution")
+        with patch.object(cohort, "run", side_effect=replies) as mocked:
+            actual, tags = cohort.image_ids(fixture)
+        self.assertEqual(actual, ids)
+        self.assertNotIn("private-fixture-value", repr((actual, tags)))
+        config = mocked.call_args_list[0]
+        self.assertEqual(config.args, ("docker", "compose", "--env-file", str(fixture / ".env"), "-f", str(fixture / "compose.yaml"), "--profile", "tools", "config", "--format", "json"))
+        self.assertTrue(config.kwargs["capture_output"])
+        self.assertEqual(config.kwargs["cwd"], fixture)
+        for call, tag in zip(mocked.call_args_list[1:], tags.values()):
+            self.assertEqual(call.args[:4], ("docker", "image", "inspect", tag))
+
     def test_frozen_image_binding(self):
-        built = {name: "sha256:" + str(i) * 64 for i, name in enumerate(cohort.IMAGE_TAGS)}
+        built = {name: "sha256:" + str(i) * 64 for i, name in enumerate(cohort.IMAGE_REPOSITORIES)}
         selection = {"services": {name: {"image": image} for name, image in built.items()}, "networks": {}}
         selection["services"]["proxy"] = {"image": "sha256:" + "f" * 64}
         self.assertEqual(cohort.selected_images(selection, built), built)
-        for name in cohort.IMAGE_TAGS:
+        for name in cohort.IMAGE_REPOSITORIES:
             changed = copy.deepcopy(selection)
             changed["services"][name]["image"] = "sha256:" + "e" * 64
             with self.subTest(name=name), self.assertRaises(ValueError):

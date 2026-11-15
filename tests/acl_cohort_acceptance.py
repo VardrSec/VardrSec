@@ -201,25 +201,43 @@ sha256sum -c /tmp/acl-runtime-hashes
 '''
 
 
-IMAGE_TAGS = {"db": "vardrsec-db:development", "api": "vardrmap-api:development", "web": "vardrmap-web:development", "runner": "vardrrunner:development"}
+IMAGE_REPOSITORIES = {"db": "vardrsec-db", "api": "vardrmap-api", "web": "vardrmap-web", "runner": "vardrrunner"}
 
 
-def image_ids():
+def build_image_tags(model):
+    services = model.get("services", {})
+    require(set(services) == set(IMAGE_REPOSITORIES) | {"proxy"}, "Unexpected build services")
+    tags = {}
+    suffixes = set()
+    for service, repository in IMAGE_REPOSITORIES.items():
+        tag = services[service].get("image", "")
+        require(isinstance(tag, str) and re.fullmatch(re.escape(repository) + r":local-[0-9a-f]{32}", tag) is not None, "Fresh fixture build alias mismatch")
+        tags[service] = tag
+        suffixes.add(tag.split(":", 1)[1])
+    require(len(suffixes) == 1, "Mixed fixture build aliases refused")
+    return tags
+
+
+def image_ids(fixture):
+    # Resolve the original build model without the installed image override.
+    # Config contains credentials: capture it privately; never print or retain it.
+    configuration = run("docker", "compose", "--env-file", str(fixture / ".env"), "-f", str(fixture / "compose.yaml"), "--profile", "tools", "config", "--format", "json", cwd=fixture, capture_output=True, text=True)
+    tags = build_image_tags(json.loads(configuration.stdout))
     ids = {}
-    for service, tag in IMAGE_TAGS.items():
+    for service, tag in tags.items():
         image = run("docker", "image", "inspect", tag, "--format", "{{.Id}}", capture_output=True, text=True).stdout.strip()
         require(re.fullmatch(r"sha256:[0-9a-f]{64}", image) is not None, "Invalid image identity")
         ids[service] = image
-    return ids
+    return ids, tags
 
 
 def selected_images(selection, built):
     require(isinstance(selection, dict) and set(selection) == {"services", "networks"}, "Unexpected frozen selection")
     services = selection["services"]
-    require(isinstance(services, dict) and set(services) == set(IMAGE_TAGS) | {"proxy"}, "Unexpected selected services")
+    require(isinstance(services, dict) and set(services) == set(IMAGE_REPOSITORIES) | {"proxy"}, "Unexpected selected services")
     for definition in services.values():
         require(isinstance(definition, dict) and set(definition) == {"image"} and isinstance(definition["image"], str) and re.fullmatch(r"sha256:[0-9a-f]{64}", definition["image"]) is not None, "Frozen selection requires immutable image IDs")
-    selected = {name: services[name]["image"] for name in IMAGE_TAGS}
+    selected = {name: services[name]["image"] for name in IMAGE_REPOSITORIES}
     require(selected == built, "Frozen selection differs from qualified built images")
     return selected
 
@@ -234,10 +252,10 @@ def capture():
     workspace, public = boundaries()
     receipt = json.loads((public / "provenance.json").read_text())
     require(receipt["status"] == "prepared-not-qualified", "Invalid pre-smoke receipt")
-    ids = image_ids()
+    ids, tags = image_ids(workspace / "distribution")
     selected = selection_bytes(workspace / "distribution")
     selection = selected_images(json.loads(selected), ids)
-    receipt.update(status="built-not-qualified", built_image_ids=ids, selected_image_ids=selection, active_images_sha256=digest(selected))
+    receipt.update(status="built-not-qualified", built_image_ids=ids, built_image_tags=tags, selected_image_ids=selection, active_images_sha256=digest(selected))
     (public / "provenance.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
 
@@ -255,7 +273,8 @@ def verify():
     run(sys.executable, "-c", "import vardrsec; assert vardrsec.map_source_revision() == " + repr(receipt["components"]["map"]["fixture_commit"]), cwd=fixture)
     require((fixture / "artifacts/installed-gate/accepted.json").is_file(), "Joint acceptance receipt missing")
     images = {}
-    ids = image_ids()
+    ids, tags = image_ids(fixture)
+    require(tags == receipt["built_image_tags"], "Build aliases changed during joint smoke")
     require(ids == receipt["built_image_ids"], "Images changed during joint smoke")
     selected = selection_bytes(fixture)
     require(digest(selected) == receipt["active_images_sha256"], "Frozen image selection changed during smoke")
