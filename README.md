@@ -29,6 +29,20 @@ Both guides use the shipped Windows/Ubuntu installers and the exact component
 pins. Normal startup does not execute assessments. Managed workers are a separate
 opt-in after Full setup, not another installation mode.
 
+### Optional Nuclei
+
+This revision stops bundling Nuclei in the Full/Mapless toolkit. Gate and the other
+eight bundled tools remain available. Runner's Nuclei integration and native pinned
+installer are preserved. If you rely on Nuclei, arrange the separate native Runner
+path before updating: explicitly run `vardrrunner tools install nuclei` in that
+native installation. See the [pinned Runner guidance](https://github.com/VardrSec/VardrRunner/blob/f57ea3a95dd01837043eaf61a54cb2f73d9ab265/docs/container.md#optional-nuclei).
+
+Full/Mapless wrappers do not support custom binary mounts; do not edit their
+shipped Compose files or bypass installation guards. Missing Nuclei is reported
+by Runner diagnostics; an existing queued Nuclei job still requires that tool.
+No native binary, template, credential, journal or retained installation is deleted.
+Existing installations change only through their explicit controlled update path.
+
 ## Start using the platform
 
 For Full, follow the [first-assessment walkthrough](docs/installation.md#first-assessment-walkthrough).

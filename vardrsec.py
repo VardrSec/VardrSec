@@ -38,6 +38,15 @@ def require_command(name):
         )
 
 
+def build_images(*, mapless, environment):
+    # The Full database source build runs a bounded 4 GiB TCG guest. Build it
+    # before parallel application/toolchain compilation, then reuse its normal
+    # Docker layer cache. This changes no runtime settings or install state.
+    if not mapless:
+        compose("--profile", "tools", "build", "db", env=environment)
+    compose("--profile", "tools", "build", env=environment)
+
+
 def build_prerequisites():
     require_command("docker")
     try:
@@ -840,7 +849,7 @@ def dispatch(args, parser):
         environment = dict(os.environ)
         if not mapless:
             environment["VARDRMAP_SOURCE_REVISION"] = map_source_revision()
-        compose("--profile", "tools", "build", env=environment)
+        build_images(mapless=mapless, environment=environment)
     elif args.action == "database-role":
         import database_roles
 

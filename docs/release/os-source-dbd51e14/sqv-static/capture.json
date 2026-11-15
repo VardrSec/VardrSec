@@ -1,0 +1,1962 @@
+[
+  {
+    "source": "rust-aho-corasick",
+    "version": "1.1.3-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-aho-corasick/rust-aho-corasick_1.1.3-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-aho-corasick/rust-aho-corasick_1.1.3-1.dsc",
+    "sha256": "cbf161d93f0afe1eab4799e264ef8923f06de313e1a3b63d1b80103d69c21443",
+    "bytes": 1820,
+    "status": "verified"
+  },
+  {
+    "source": "rust-aho-corasick",
+    "version": "1.1.3-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-aho-corasick/rust-aho-corasick_1.1.3.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-aho-corasick/rust-aho-corasick_1.1.3.orig.tar.gz",
+    "sha256": "8e60d3430d3a69478ad0993f19238d2df97c507009a52b3c10addcd7f6bcb916",
+    "bytes": 183311,
+    "status": "verified"
+  },
+  {
+    "source": "rust-aho-corasick",
+    "version": "1.1.3-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-aho-corasick/rust-aho-corasick_1.1.3-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-aho-corasick/rust-aho-corasick_1.1.3-1.debian.tar.xz",
+    "sha256": "88f32007e98ea9aa3aa204bc77fd9bf675a16e2e867e19c569cac46174e25073",
+    "bytes": 3900,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstream",
+    "version": "0.6.15-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstream/rust-anstream_0.6.15-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstream/rust-anstream_0.6.15-1.dsc",
+    "sha256": "7bf37fe0cf8cc662bb5034c43dfb7fa6c9ae2be2b9fa82cb2d4a1a45ad15b953",
+    "bytes": 2663,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstream",
+    "version": "0.6.15-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstream/rust-anstream_0.6.15.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstream/rust-anstream_0.6.15.orig.tar.gz",
+    "sha256": "64e15c1ab1f89faffbf04a634d5e1962e9074f2741eef6d97f3c4e322426d526",
+    "bytes": 29231,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstream",
+    "version": "0.6.15-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstream/rust-anstream_0.6.15-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstream/rust-anstream_0.6.15-1.debian.tar.xz",
+    "sha256": "ed2b979e85fc0aa0d434f4b31cfaa84c8561ed44818cf4d7755d8851a1248a7a",
+    "bytes": 4164,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstyle",
+    "version": "1.0.8-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstyle/rust-anstyle_1.0.8-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstyle/rust-anstyle_1.0.8-1.dsc",
+    "sha256": "07f24d2f671b035dd858eb88a6b134d58bd70a924226ec29470748152190ce23",
+    "bytes": 2232,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstyle",
+    "version": "1.0.8-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstyle/rust-anstyle_1.0.8.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstyle/rust-anstyle_1.0.8.orig.tar.gz",
+    "sha256": "1bec1de6f59aedf83baf9ff929c98f2ad654b97c9510f4e70cf6f661d49fd5b1",
+    "bytes": 15771,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstyle",
+    "version": "1.0.8-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstyle/rust-anstyle_1.0.8-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstyle/rust-anstyle_1.0.8-1.debian.tar.xz",
+    "sha256": "fdc6c688f98483253db68d934c4403c30bbf76aca4e52048060aa03996a88aff",
+    "bytes": 2708,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstyle-parse",
+    "version": "0.2.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstyle-parse/rust-anstyle-parse_0.2.1-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstyle-parse/rust-anstyle-parse_0.2.1-1.dsc",
+    "sha256": "b396f3b93bcdd3a0a53038627ca8620c5217d259b1ae38942c386684e581c9ae",
+    "bytes": 2502,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstyle-parse",
+    "version": "0.2.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstyle-parse/rust-anstyle-parse_0.2.1.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstyle-parse/rust-anstyle-parse_0.2.1.orig.tar.gz",
+    "sha256": "938874ff5980b03a87c5524b3ae5b59cf99b1d6bc836848df7bc5ada9643c333",
+    "bytes": 24802,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstyle-parse",
+    "version": "0.2.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstyle-parse/rust-anstyle-parse_0.2.1-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstyle-parse/rust-anstyle-parse_0.2.1-1.debian.tar.xz",
+    "sha256": "11943a37abdafa1c97c3fbf3e69713da9d245e0f8ef135e074c33cd724e28969",
+    "bytes": 2816,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstyle-query",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstyle-query/rust-anstyle-query_1.0.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstyle-query/rust-anstyle-query_1.0.0-1.dsc",
+    "sha256": "27dbc0bf61bce902be1562aa57022bdedaf87a00059292676882f7640d90a901",
+    "bytes": 2176,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstyle-query",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstyle-query/rust-anstyle-query_1.0.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstyle-query/rust-anstyle-query_1.0.0.orig.tar.gz",
+    "sha256": "5ca11d4be1bab0c8bc8734a9aa7bf4ee8316d462a08c6ac5052f888fef5b494b",
+    "bytes": 8620,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anstyle-query",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anstyle-query/rust-anstyle-query_1.0.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anstyle-query/rust-anstyle-query_1.0.0-1.debian.tar.xz",
+    "sha256": "a07155c10908d1a0411a97132d8e81c436c6fb997d78152d9268698ff9166314",
+    "bytes": 2888,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anyhow",
+    "version": "1.0.95-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anyhow/rust-anyhow_1.0.95-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anyhow/rust-anyhow_1.0.95-1.dsc",
+    "sha256": "759b1929aa692d8a5f433a9ef03a5034695ee7016f895c96a6006f01268b8e45",
+    "bytes": 1777,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anyhow",
+    "version": "1.0.95-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anyhow/rust-anyhow_1.0.95.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anyhow/rust-anyhow_1.0.95.orig.tar.gz",
+    "sha256": "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04",
+    "bytes": 52155,
+    "status": "verified"
+  },
+  {
+    "source": "rust-anyhow",
+    "version": "1.0.95-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-anyhow/rust-anyhow_1.0.95-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-anyhow/rust-anyhow_1.0.95-1.debian.tar.xz",
+    "sha256": "bcdc9c5144c95c22c7e098ca29e8227fe36a273701d531e19498aa334135d9b9",
+    "bytes": 3452,
+    "status": "verified"
+  },
+  {
+    "source": "rust-argon2",
+    "version": "0.5.3-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-argon2/rust-argon2_0.5.3-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-argon2/rust-argon2_0.5.3-1.dsc",
+    "sha256": "3cd87bca09ac99c9f5a38528bd3ffa4d6f994cfa84353689af2af0daa746af1d",
+    "bytes": 1939,
+    "status": "verified"
+  },
+  {
+    "source": "rust-argon2",
+    "version": "0.5.3-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-argon2/rust-argon2_0.5.3.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-argon2/rust-argon2_0.5.3.orig.tar.gz",
+    "sha256": "3c3610892ee6e0cbce8ae2700349fcf8f98adb0dbfbee85aec3c9179d29cc072",
+    "bytes": 28795,
+    "status": "verified"
+  },
+  {
+    "source": "rust-argon2",
+    "version": "0.5.3-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-argon2/rust-argon2_0.5.3-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-argon2/rust-argon2_0.5.3-1.debian.tar.xz",
+    "sha256": "019624a55c9ce16e276ebc8d5238787df1b16cebd5c426468073bce8d5ec67d2",
+    "bytes": 3076,
+    "status": "verified"
+  },
+  {
+    "source": "rust-base64",
+    "version": "0.22.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-base64/rust-base64_0.22.1-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-base64/rust-base64_0.22.1-1.dsc",
+    "sha256": "217563b495bf02bfc2c89b94c14d6e7e7f59d7f685d292e0f32a3b75f0cd3b23",
+    "bytes": 2111,
+    "status": "verified"
+  },
+  {
+    "source": "rust-base64",
+    "version": "0.22.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-base64/rust-base64_0.22.1.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-base64/rust-base64_0.22.1.orig.tar.gz",
+    "sha256": "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6",
+    "bytes": 81597,
+    "status": "verified"
+  },
+  {
+    "source": "rust-base64",
+    "version": "0.22.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-base64/rust-base64_0.22.1-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-base64/rust-base64_0.22.1-1.debian.tar.xz",
+    "sha256": "f7470347d420134780ee6c6f4361ec7987e9d8b7b07b3830d7b63f585e98250b",
+    "bytes": 3120,
+    "status": "verified"
+  },
+  {
+    "source": "rust-base64ct",
+    "version": "1.6.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-base64ct/rust-base64ct_1.6.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-base64ct/rust-base64ct_1.6.0-1.dsc",
+    "sha256": "bfb531d6a73c41ce44eb7e948c46a212bb0391d37d8ba68a890b4f1097290c81",
+    "bytes": 1645,
+    "status": "verified"
+  },
+  {
+    "source": "rust-base64ct",
+    "version": "1.6.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-base64ct/rust-base64ct_1.6.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-base64ct/rust-base64ct_1.6.0.orig.tar.gz",
+    "sha256": "52fcc144b1509866fe6645354b9ad3ea3b84fabe665fdf83c572b1cf2c339566",
+    "bytes": 28372,
+    "status": "verified"
+  },
+  {
+    "source": "rust-base64ct",
+    "version": "1.6.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-base64ct/rust-base64ct_1.6.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-base64ct/rust-base64ct_1.6.0-1.debian.tar.xz",
+    "sha256": "5ab1a5f8a40de29dfd287e1ef044d372cbd961460ffec0f5b162e6d66e266f55",
+    "bytes": 3060,
+    "status": "verified"
+  },
+  {
+    "source": "rust-bitflags",
+    "version": "2.8.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-bitflags/rust-bitflags_2.8.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-bitflags/rust-bitflags_2.8.0-1.dsc",
+    "sha256": "dcc92c6939080c94ccc321e3942fc7671554568fc08c25108e9b5b2305c7ba9d",
+    "bytes": 2513,
+    "status": "verified"
+  },
+  {
+    "source": "rust-bitflags",
+    "version": "2.8.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-bitflags/rust-bitflags_2.8.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-bitflags/rust-bitflags_2.8.0.orig.tar.gz",
+    "sha256": "8f68f53c83ab957f72c32642f3868eec03eb974d1fb82e453128456482613d36",
+    "bytes": 47482,
+    "status": "verified"
+  },
+  {
+    "source": "rust-bitflags",
+    "version": "2.8.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-bitflags/rust-bitflags_2.8.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-bitflags/rust-bitflags_2.8.0-1.debian.tar.xz",
+    "sha256": "7cd6a849647ee9f18570a029238bdc4ad33a277bebddfbe7624bce5726fa8fc5",
+    "bytes": 4052,
+    "status": "verified"
+  },
+  {
+    "source": "rust-blake2",
+    "version": "0.10.6-3",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-blake2/rust-blake2_0.10.6-3.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-blake2/rust-blake2_0.10.6-3.dsc",
+    "sha256": "c579de741512bd9d93336c64198379b8b8e8af2de29082543683c63da20db32e",
+    "bytes": 2397,
+    "status": "verified"
+  },
+  {
+    "source": "rust-blake2",
+    "version": "0.10.6-3",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-blake2/rust-blake2_0.10.6.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-blake2/rust-blake2_0.10.6.orig.tar.gz",
+    "sha256": "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe",
+    "bytes": 47234,
+    "status": "verified"
+  },
+  {
+    "source": "rust-blake2",
+    "version": "0.10.6-3",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-blake2/rust-blake2_0.10.6-3.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-blake2/rust-blake2_0.10.6-3.debian.tar.xz",
+    "sha256": "aced6452699de96342234b97674bf97e1dcd598094149bacdecbba5d75eb6e9e",
+    "bytes": 3272,
+    "status": "verified"
+  },
+  {
+    "source": "rust-block-buffer",
+    "version": "0.10.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-block-buffer/rust-block-buffer_0.10.4-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-block-buffer/rust-block-buffer_0.10.4-1.dsc",
+    "sha256": "825e1ba1d84ac9c8e06eecfddf93c6e36c1eeba2741873a4790866afb5f36157",
+    "bytes": 1676,
+    "status": "verified"
+  },
+  {
+    "source": "rust-block-buffer",
+    "version": "0.10.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-block-buffer/rust-block-buffer_0.10.4.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-block-buffer/rust-block-buffer_0.10.4.orig.tar.gz",
+    "sha256": "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71",
+    "bytes": 10538,
+    "status": "verified"
+  },
+  {
+    "source": "rust-block-buffer",
+    "version": "0.10.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-block-buffer/rust-block-buffer_0.10.4-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-block-buffer/rust-block-buffer_0.10.4-1.debian.tar.xz",
+    "sha256": "5977232a486753e7570377614ebb98cffb079d2a8c9993282c0d8e73091f48aa",
+    "bytes": 3012,
+    "status": "verified"
+  },
+  {
+    "source": "rust-buffered-reader",
+    "version": "1.3.1-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-buffered-reader/rust-buffered-reader_1.3.1-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-buffered-reader/rust-buffered-reader_1.3.1-2.dsc",
+    "sha256": "337fbf51f0fa38ee87b8c71c1e8117d946b300fc86b1b621447b76f08e21714c",
+    "bytes": 2569,
+    "status": "verified"
+  },
+  {
+    "source": "rust-buffered-reader",
+    "version": "1.3.1-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-buffered-reader/rust-buffered-reader_1.3.1.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-buffered-reader/rust-buffered-reader_1.3.1.orig.tar.gz",
+    "sha256": "cd098763fdb64579407a8c83cf0d751e6d4a7e161d0114c89cc181a2ca760ec8",
+    "bytes": 63723,
+    "status": "verified"
+  },
+  {
+    "source": "rust-buffered-reader",
+    "version": "1.3.1-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-buffered-reader/rust-buffered-reader_1.3.1-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-buffered-reader/rust-buffered-reader_1.3.1-2.debian.tar.xz",
+    "sha256": "69920a1b197e791c524091dfdb612f7752bb2c9bc7e143b3de9eacef5bd52722",
+    "bytes": 3152,
+    "status": "verified"
+  },
+  {
+    "source": "rust-cfg-if",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-cfg-if/rust-cfg-if_1.0.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-cfg-if/rust-cfg-if_1.0.0-1.dsc",
+    "sha256": "adbc0c23a3669be444992d4463faf18b1fda48644f16493bb52f2cf43b36a094",
+    "bytes": 2259,
+    "status": "verified"
+  },
+  {
+    "source": "rust-cfg-if",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-cfg-if/rust-cfg-if_1.0.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-cfg-if/rust-cfg-if_1.0.0.orig.tar.gz",
+    "sha256": "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd",
+    "bytes": 7934,
+    "status": "verified"
+  },
+  {
+    "source": "rust-cfg-if",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-cfg-if/rust-cfg-if_1.0.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-cfg-if/rust-cfg-if_1.0.0-1.debian.tar.xz",
+    "sha256": "73fefcd4a14f1e57975c7a0a702b587130a264b7c36f8095983c2a259d6435cb",
+    "bytes": 3640,
+    "status": "verified"
+  },
+  {
+    "source": "rust-chrono",
+    "version": "0.4.39-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-chrono/rust-chrono_0.4.39-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-chrono/rust-chrono_0.4.39-2.dsc",
+    "sha256": "986562fb01eb1fed86f1e29a30ad785da5a83bdf23545ad76ee9be5974fc65b2",
+    "bytes": 1958,
+    "status": "verified"
+  },
+  {
+    "source": "rust-chrono",
+    "version": "0.4.39-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-chrono/rust-chrono_0.4.39.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-chrono/rust-chrono_0.4.39.orig.tar.gz",
+    "sha256": "7e36cc9d416881d2e24f9a963be5fb1cd90966419ac844274161d10488b3e825",
+    "bytes": 222248,
+    "status": "verified"
+  },
+  {
+    "source": "rust-chrono",
+    "version": "0.4.39-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-chrono/rust-chrono_0.4.39-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-chrono/rust-chrono_0.4.39-2.debian.tar.xz",
+    "sha256": "b09085f451662c56ebe1ababb9f32ebe5181dca8a3de045094470d9fa91dfac9",
+    "bytes": 5900,
+    "status": "verified"
+  },
+  {
+    "source": "rust-clap",
+    "version": "4.5.23-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-clap/rust-clap_4.5.23-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-clap/rust-clap_4.5.23-1.dsc",
+    "sha256": "0e6ae09bdb82b280d058bfabdac5d4c163aa42c83322d4b3846bf7250a44293d",
+    "bytes": 2990,
+    "status": "verified"
+  },
+  {
+    "source": "rust-clap",
+    "version": "4.5.23-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-clap/rust-clap_4.5.23.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-clap/rust-clap_4.5.23.orig.tar.gz",
+    "sha256": "3135e7ec2ef7b10c6ed8950f0f792ed96ee093fa088608f1c76e569722700c84",
+    "bytes": 56460,
+    "status": "verified"
+  },
+  {
+    "source": "rust-clap",
+    "version": "4.5.23-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-clap/rust-clap_4.5.23-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-clap/rust-clap_4.5.23-1.debian.tar.xz",
+    "sha256": "939705bdea4d10cb2963e451a2fe42eddf21ee34bb5e290c11b8e6c6bf8590c9",
+    "bytes": 8764,
+    "status": "verified"
+  },
+  {
+    "source": "rust-clap-builder",
+    "version": "4.5.23-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-clap-builder/rust-clap-builder_4.5.23-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-clap-builder/rust-clap-builder_4.5.23-1.dsc",
+    "sha256": "baac3eec4bab01a72f875a7e46b44dd0a767157a6774e85943cb7523f461986f",
+    "bytes": 2682,
+    "status": "verified"
+  },
+  {
+    "source": "rust-clap-builder",
+    "version": "4.5.23-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-clap-builder/rust-clap-builder_4.5.23.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-clap-builder/rust-clap-builder_4.5.23.orig.tar.gz",
+    "sha256": "30582fc632330df2bd26877bde0c1f4470d57c582bbc070376afcd04d8cb4838",
+    "bytes": 164180,
+    "status": "verified"
+  },
+  {
+    "source": "rust-clap-builder",
+    "version": "4.5.23-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-clap-builder/rust-clap-builder_4.5.23-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-clap-builder/rust-clap-builder_4.5.23-1.debian.tar.xz",
+    "sha256": "140f2ebec407866e050ef28c33b106275b8be6d4d991a5f4148928d50c27101d",
+    "bytes": 4024,
+    "status": "verified"
+  },
+  {
+    "source": "rust-clap-lex",
+    "version": "0.7.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-clap-lex/rust-clap-lex_0.7.4-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-clap-lex/rust-clap-lex_0.7.4-1.dsc",
+    "sha256": "de53d2ba1aed0f5eb646184767c3bb64140d035e2fc96cb3743b0092df1b1158",
+    "bytes": 2244,
+    "status": "verified"
+  },
+  {
+    "source": "rust-clap-lex",
+    "version": "0.7.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-clap-lex/rust-clap-lex_0.7.4.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-clap-lex/rust-clap-lex_0.7.4.orig.tar.gz",
+    "sha256": "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6",
+    "bytes": 12858,
+    "status": "verified"
+  },
+  {
+    "source": "rust-clap-lex",
+    "version": "0.7.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-clap-lex/rust-clap-lex_0.7.4-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-clap-lex/rust-clap-lex_0.7.4-1.debian.tar.xz",
+    "sha256": "cd65a4da9b6f2d7c184341bdf043877ce81663b1e34a9b0b56f90ac3673b28d3",
+    "bytes": 2816,
+    "status": "verified"
+  },
+  {
+    "source": "rust-colorchoice",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-colorchoice/rust-colorchoice_1.0.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-colorchoice/rust-colorchoice_1.0.0-1.dsc",
+    "sha256": "6f44847d13b52965603de503e5122ee9cd56c19774c53acffeb372c5ec9b4712",
+    "bytes": 2164,
+    "status": "verified"
+  },
+  {
+    "source": "rust-colorchoice",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-colorchoice/rust-colorchoice_1.0.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-colorchoice/rust-colorchoice_1.0.0.orig.tar.gz",
+    "sha256": "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7",
+    "bytes": 6857,
+    "status": "verified"
+  },
+  {
+    "source": "rust-colorchoice",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-colorchoice/rust-colorchoice_1.0.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-colorchoice/rust-colorchoice_1.0.0-1.debian.tar.xz",
+    "sha256": "ebd800843cb117e8baceaef09eeab36b7724c579d4372377cb51c576246abcb6",
+    "bytes": 2524,
+    "status": "verified"
+  },
+  {
+    "source": "rust-cpufeatures",
+    "version": "0.2.16-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-cpufeatures/rust-cpufeatures_0.2.16-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-cpufeatures/rust-cpufeatures_0.2.16-1.dsc",
+    "sha256": "a2aff46fb0027535406cd97cf9a7eb9146a918efa353a803a9ca08e949547011",
+    "bytes": 2290,
+    "status": "verified"
+  },
+  {
+    "source": "rust-cpufeatures",
+    "version": "0.2.16-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-cpufeatures/rust-cpufeatures_0.2.16.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-cpufeatures/rust-cpufeatures_0.2.16.orig.tar.gz",
+    "sha256": "16b80225097f2e5ae4e7179dd2266824648f3e2f49d9134d584b76389d31c4c3",
+    "bytes": 13405,
+    "status": "verified"
+  },
+  {
+    "source": "rust-cpufeatures",
+    "version": "0.2.16-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-cpufeatures/rust-cpufeatures_0.2.16-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-cpufeatures/rust-cpufeatures_0.2.16-1.debian.tar.xz",
+    "sha256": "91d5113e826409b678d1a46c8f11bfe729229162860897637f3ef8b6fee87822",
+    "bytes": 3120,
+    "status": "verified"
+  },
+  {
+    "source": "rust-crypto-common",
+    "version": "0.1.6-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-crypto-common/rust-crypto-common_0.1.6-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-crypto-common/rust-crypto-common_0.1.6-1.dsc",
+    "sha256": "b4cbff7eb8be065f6fd0764a64cdfad06a74f6cc4899c46f19fa4488263f7401",
+    "bytes": 2408,
+    "status": "verified"
+  },
+  {
+    "source": "rust-crypto-common",
+    "version": "0.1.6-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-crypto-common/rust-crypto-common_0.1.6.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-crypto-common/rust-crypto-common_0.1.6.orig.tar.gz",
+    "sha256": "1bfb12502f3fc46cca1bb51ac28df9d618d813cdc3d2f25b9fe775a34af26bb3",
+    "bytes": 8760,
+    "status": "verified"
+  },
+  {
+    "source": "rust-crypto-common",
+    "version": "0.1.6-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-crypto-common/rust-crypto-common_0.1.6-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-crypto-common/rust-crypto-common_0.1.6-1.debian.tar.xz",
+    "sha256": "75996106ff2365e1db921d0d9b97dbb8ecc464faee0a57490f6e7e7efce74dac",
+    "bytes": 2816,
+    "status": "verified"
+  },
+  {
+    "source": "rust-digest",
+    "version": "0.10.7-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-digest/rust-digest_0.10.7-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-digest/rust-digest_0.10.7-2.dsc",
+    "sha256": "de6606d536131881a035dbab6e7343d9fc930b638bc9dd3a00a94388a69ec54c",
+    "bytes": 2215,
+    "status": "verified"
+  },
+  {
+    "source": "rust-digest",
+    "version": "0.10.7-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-digest/rust-digest_0.10.7.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-digest/rust-digest_0.10.7.orig.tar.gz",
+    "sha256": "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292",
+    "bytes": 19557,
+    "status": "verified"
+  },
+  {
+    "source": "rust-digest",
+    "version": "0.10.7-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-digest/rust-digest_0.10.7-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-digest/rust-digest_0.10.7-2.debian.tar.xz",
+    "sha256": "9586e225fec87efaf95ad11879e41a572e12592f583dbc71f31add9e91ec1548",
+    "bytes": 3272,
+    "status": "verified"
+  },
+  {
+    "source": "rust-dyn-clone",
+    "version": "1.0.16-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-dyn-clone/rust-dyn-clone_1.0.16-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-dyn-clone/rust-dyn-clone_1.0.16-1.dsc",
+    "sha256": "bc8bfbb3e33b18cb3ea6d71d52f5aa17e882f885a873208e12d35d10dbac075d",
+    "bytes": 2276,
+    "status": "verified"
+  },
+  {
+    "source": "rust-dyn-clone",
+    "version": "1.0.16-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-dyn-clone/rust-dyn-clone_1.0.16.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-dyn-clone/rust-dyn-clone_1.0.16.orig.tar.gz",
+    "sha256": "545b22097d44f8a9581187cdf93de7a71e4722bf51200cfaba810865b49a495d",
+    "bytes": 11766,
+    "status": "verified"
+  },
+  {
+    "source": "rust-dyn-clone",
+    "version": "1.0.16-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-dyn-clone/rust-dyn-clone_1.0.16-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-dyn-clone/rust-dyn-clone_1.0.16-1.debian.tar.xz",
+    "sha256": "422661ef2b46eaeabab85d594725219e3359d50221846d25dfef14243de42372",
+    "bytes": 2592,
+    "status": "verified"
+  },
+  {
+    "source": "rust-generic-array",
+    "version": "0.14.7-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-generic-array/rust-generic-array_0.14.7-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-generic-array/rust-generic-array_0.14.7-1.dsc",
+    "sha256": "f8d14ed8d7101327da9e1623a7b8868ea587e5000f52aeaf211fdd57d9840178",
+    "bytes": 2006,
+    "status": "verified"
+  },
+  {
+    "source": "rust-generic-array",
+    "version": "0.14.7-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-generic-array/rust-generic-array_0.14.7.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-generic-array/rust-generic-array_0.14.7.orig.tar.gz",
+    "sha256": "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a",
+    "bytes": 15950,
+    "status": "verified"
+  },
+  {
+    "source": "rust-generic-array",
+    "version": "0.14.7-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-generic-array/rust-generic-array_0.14.7-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-generic-array/rust-generic-array_0.14.7-1.debian.tar.xz",
+    "sha256": "2f2ef1c598c0895b02a21ec108496788cef4e56a3a3d45aaee4aab358934221f",
+    "bytes": 2892,
+    "status": "verified"
+  },
+  {
+    "source": "rust-getrandom",
+    "version": "0.2.15-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-getrandom/rust-getrandom_0.2.15-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-getrandom/rust-getrandom_0.2.15-1.dsc",
+    "sha256": "ca16c8fbb30859dd0b0f3889b1718faaf6c23e48e4b3dbdf54fef12c2d3ae10e",
+    "bytes": 2588,
+    "status": "verified"
+  },
+  {
+    "source": "rust-getrandom",
+    "version": "0.2.15-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-getrandom/rust-getrandom_0.2.15.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-getrandom/rust-getrandom_0.2.15.orig.tar.gz",
+    "sha256": "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7",
+    "bytes": 37163,
+    "status": "verified"
+  },
+  {
+    "source": "rust-getrandom",
+    "version": "0.2.15-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-getrandom/rust-getrandom_0.2.15-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-getrandom/rust-getrandom_0.2.15-1.debian.tar.xz",
+    "sha256": "fa89dfd27641747cce731997e2614fec6f2b62f0fd01211e38db467871c196e0",
+    "bytes": 4368,
+    "status": "verified"
+  },
+  {
+    "source": "rust-iana-time-zone",
+    "version": "0.1.63-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-iana-time-zone/rust-iana-time-zone_0.1.63-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-iana-time-zone/rust-iana-time-zone_0.1.63-1.dsc",
+    "sha256": "b7efa3441d289c93cba6bdfab3adcb6244840ef1532432c718ba528cee7d85f8",
+    "bytes": 1747,
+    "status": "verified"
+  },
+  {
+    "source": "rust-iana-time-zone",
+    "version": "0.1.63-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-iana-time-zone/rust-iana-time-zone_0.1.63.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-iana-time-zone/rust-iana-time-zone_0.1.63.orig.tar.gz",
+    "sha256": "b0c919e5debc312ad217002b8048a17b7d83f80703865bbfcfebb0458b0b27d8",
+    "bytes": 32919,
+    "status": "verified"
+  },
+  {
+    "source": "rust-iana-time-zone",
+    "version": "0.1.63-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-iana-time-zone/rust-iana-time-zone_0.1.63-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-iana-time-zone/rust-iana-time-zone_0.1.63-1.debian.tar.xz",
+    "sha256": "6a3f0547969707e5080a83672cacc1bcf5d3f227d498b193163c757250542fad",
+    "bytes": 3160,
+    "status": "verified"
+  },
+  {
+    "source": "rust-idna",
+    "version": "1.0.3-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-idna/rust-idna_1.0.3-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-idna/rust-idna_1.0.3-2.dsc",
+    "sha256": "a4d7dd9f34208b36377c9e914d20097d8ff2bd46e78c92464dbb6bdbaa0bd3ce",
+    "bytes": 2577,
+    "status": "verified"
+  },
+  {
+    "source": "rust-idna",
+    "version": "1.0.3-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-idna/rust-idna_1.0.3.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-idna/rust-idna_1.0.3.orig.tar.gz",
+    "sha256": "686f825264d630750a544639377bae737628043f20d38bbc029e8f29ea968a7e",
+    "bytes": 142515,
+    "status": "verified"
+  },
+  {
+    "source": "rust-idna",
+    "version": "1.0.3-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-idna/rust-idna_1.0.3-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-idna/rust-idna_1.0.3-2.debian.tar.xz",
+    "sha256": "204ea1ec73b198504c5bd2b49bb489225e31101c9aa12ea9f8129916a6c3e4d0",
+    "bytes": 3692,
+    "status": "verified"
+  },
+  {
+    "source": "rust-idna-adapter",
+    "version": "1.1.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-idna-adapter/rust-idna-adapter_1.1.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-idna-adapter/rust-idna-adapter_1.1.0-1.dsc",
+    "sha256": "aec8cf95547acc61635adcb0beca747560734c17db1e6283c6ec7e93b6f463be",
+    "bytes": 2466,
+    "status": "verified"
+  },
+  {
+    "source": "rust-idna-adapter",
+    "version": "1.1.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-idna-adapter/rust-idna-adapter_1.1.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-idna-adapter/rust-idna-adapter_1.1.0.orig.tar.gz",
+    "sha256": "279259b0ac81c89d11c290495fdcfa96ea3643b7df311c138b6fe8ca5237f0f8",
+    "bytes": 7941,
+    "status": "verified"
+  },
+  {
+    "source": "rust-idna-adapter",
+    "version": "1.1.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-idna-adapter/rust-idna-adapter_1.1.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-idna-adapter/rust-idna-adapter_1.1.0-1.debian.tar.xz",
+    "sha256": "fb0d6d8bdcc7e244680d2dc6d498ca3da0920421f7bb9bb23045d8997572fc80",
+    "bytes": 2624,
+    "status": "verified"
+  },
+  {
+    "source": "rust-idna-mapping",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-idna-mapping/rust-idna-mapping_1.0.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-idna-mapping/rust-idna-mapping_1.0.0-1.dsc",
+    "sha256": "ad704c0404c4cf88531ff2ea572f8dbe3ded8b8630b47dcc5870177b350a0ab7",
+    "bytes": 2375,
+    "status": "verified"
+  },
+  {
+    "source": "rust-idna-mapping",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-idna-mapping/rust-idna-mapping_1.0.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-idna-mapping/rust-idna-mapping_1.0.0.orig.tar.gz",
+    "sha256": "d5422cc5bc64289a77dbb45e970b86b5e9a04cb500abc7240505aedc1bf40f38",
+    "bytes": 158783,
+    "status": "verified"
+  },
+  {
+    "source": "rust-idna-mapping",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-idna-mapping/rust-idna-mapping_1.0.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-idna-mapping/rust-idna-mapping_1.0.0-1.debian.tar.xz",
+    "sha256": "e32c3e214ecfafd8fe7b731f9c69adc3f152a02e8fbc0d4b375099c5b844f57d",
+    "bytes": 3564,
+    "status": "verified"
+  },
+  {
+    "source": "rust-lalrpop-util",
+    "version": "0.20.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-lalrpop-util/rust-lalrpop-util_0.20.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-lalrpop-util/rust-lalrpop-util_0.20.0-1.dsc",
+    "sha256": "886f05884f9752676b34a72edb162f2f9bdc745eb0c8dc6a59c7d55cd2da7a95",
+    "bytes": 2203,
+    "status": "verified"
+  },
+  {
+    "source": "rust-lalrpop-util",
+    "version": "0.20.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-lalrpop-util/rust-lalrpop-util_0.20.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-lalrpop-util/rust-lalrpop-util_0.20.0.orig.tar.gz",
+    "sha256": "3f35c735096c0293d313e8f2a641627472b83d01b937177fe76e5e2708d31e0d",
+    "bytes": 10403,
+    "status": "verified"
+  },
+  {
+    "source": "rust-lalrpop-util",
+    "version": "0.20.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-lalrpop-util/rust-lalrpop-util_0.20.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-lalrpop-util/rust-lalrpop-util_0.20.0-1.debian.tar.xz",
+    "sha256": "4a6e7138f1eb222270f4a12db71bc7a91f511ab6ae8010cf99a3da9a1b804835",
+    "bytes": 3028,
+    "status": "verified"
+  },
+  {
+    "source": "rust-lazy-static",
+    "version": "1.5.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-lazy-static/rust-lazy-static_1.5.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-lazy-static/rust-lazy-static_1.5.0-1.dsc",
+    "sha256": "119afd10ec5eb4cb9d82890f4e9a26a24cde1ec4d8b21f5abd44ced79f74ce65",
+    "bytes": 2305,
+    "status": "verified"
+  },
+  {
+    "source": "rust-lazy-static",
+    "version": "1.5.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-lazy-static/rust-lazy-static_1.5.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-lazy-static/rust-lazy-static_1.5.0.orig.tar.gz",
+    "sha256": "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe",
+    "bytes": 14025,
+    "status": "verified"
+  },
+  {
+    "source": "rust-lazy-static",
+    "version": "1.5.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-lazy-static/rust-lazy-static_1.5.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-lazy-static/rust-lazy-static_1.5.0-1.debian.tar.xz",
+    "sha256": "2ff633c181d5ee373ee7e46cb089b5d6564e26558d91ffd26459f3b0a8bbc06b",
+    "bytes": 3360,
+    "status": "verified"
+  },
+  {
+    "source": "rust-libc",
+    "version": "0.2.169-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-libc/rust-libc_0.2.169-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-libc/rust-libc_0.2.169-1.dsc",
+    "sha256": "1f564d0213b8455557f241f8d2530b76e43f1654085adaa6118b958e7db29333",
+    "bytes": 2264,
+    "status": "verified"
+  },
+  {
+    "source": "rust-libc",
+    "version": "0.2.169-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-libc/rust-libc_0.2.169.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-libc/rust-libc_0.2.169.orig.tar.gz",
+    "sha256": "b5aba8db14291edd000dfcc4d620c7ebfb122c613afb886ca8803fa4e128a20a",
+    "bytes": 757901,
+    "status": "verified"
+  },
+  {
+    "source": "rust-libc",
+    "version": "0.2.169-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-libc/rust-libc_0.2.169-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-libc/rust-libc_0.2.169-1.debian.tar.xz",
+    "sha256": "adc6f54c3a72cc78de01a0e5dd9f881f45aad3f00d300dcbe0b9136356657968",
+    "bytes": 15564,
+    "status": "verified"
+  },
+  {
+    "source": "rust-linux-raw-sys",
+    "version": "0.4.14-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-linux-raw-sys/rust-linux-raw-sys_0.4.14-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-linux-raw-sys/rust-linux-raw-sys_0.4.14-1.dsc",
+    "sha256": "710291227e832380a4b786b469fdfee1f252aff8ed9cb62e4a44446ee80344d8",
+    "bytes": 1674,
+    "status": "verified"
+  },
+  {
+    "source": "rust-linux-raw-sys",
+    "version": "0.4.14-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-linux-raw-sys/rust-linux-raw-sys_0.4.14.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-linux-raw-sys/rust-linux-raw-sys_0.4.14.orig.tar.gz",
+    "sha256": "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89",
+    "bytes": 1826665,
+    "status": "verified"
+  },
+  {
+    "source": "rust-linux-raw-sys",
+    "version": "0.4.14-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-linux-raw-sys/rust-linux-raw-sys_0.4.14-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-linux-raw-sys/rust-linux-raw-sys_0.4.14-1.debian.tar.xz",
+    "sha256": "95eec6ef60bd322a6066eb9f7232381b126dfc37009bda9d443fdf09a6948b94",
+    "bytes": 4348,
+    "status": "verified"
+  },
+  {
+    "source": "rust-memchr",
+    "version": "2.7.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-memchr/rust-memchr_2.7.4-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-memchr/rust-memchr_2.7.4-1.dsc",
+    "sha256": "2db87d79e45dbbc7838e26b866979b10f743c11d937de16f8e123cea0ec31d5e",
+    "bytes": 2130,
+    "status": "verified"
+  },
+  {
+    "source": "rust-memchr",
+    "version": "2.7.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-memchr/rust-memchr_2.7.4.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-memchr/rust-memchr_2.7.4.orig.tar.gz",
+    "sha256": "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3",
+    "bytes": 96670,
+    "status": "verified"
+  },
+  {
+    "source": "rust-memchr",
+    "version": "2.7.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-memchr/rust-memchr_2.7.4-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-memchr/rust-memchr_2.7.4-1.debian.tar.xz",
+    "sha256": "d0d8d6b046793cbe90e82318ff5d506cba427fa44ab4132d46ad1217d0086211",
+    "bytes": 3740,
+    "status": "verified"
+  },
+  {
+    "source": "rust-memsec",
+    "version": "0.7.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-memsec/rust-memsec_0.7.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-memsec/rust-memsec_0.7.0-1.dsc",
+    "sha256": "f670ef3ef019a52622b9bef9b8ffeb7bc7b2c863830881c0a7b0f31da66f5b75",
+    "bytes": 2284,
+    "status": "verified"
+  },
+  {
+    "source": "rust-memsec",
+    "version": "0.7.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-memsec/rust-memsec_0.7.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-memsec/rust-memsec_0.7.0.orig.tar.gz",
+    "sha256": "c797b9d6bb23aab2fc369c65f871be49214f5c759af65bde26ffaaa2b646b492",
+    "bytes": 6532,
+    "status": "verified"
+  },
+  {
+    "source": "rust-memsec",
+    "version": "0.7.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-memsec/rust-memsec_0.7.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-memsec/rust-memsec_0.7.0-1.debian.tar.xz",
+    "sha256": "ad6bc3bbb4eb4947a1aca008bbe9d9dd46c6eaa6342ab56003d0eaf9d110efb1",
+    "bytes": 3380,
+    "status": "verified"
+  },
+  {
+    "source": "rust-nettle",
+    "version": "7.3.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-nettle/rust-nettle_7.3.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-nettle/rust-nettle_7.3.0-1.dsc",
+    "sha256": "a737b98e97a2572c11fd4e8d5abcd7b8a0272084cb88dbee596aed6e079bc866",
+    "bytes": 2378,
+    "status": "verified"
+  },
+  {
+    "source": "rust-nettle",
+    "version": "7.3.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-nettle/rust-nettle_7.3.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-nettle/rust-nettle_7.3.0.orig.tar.gz",
+    "sha256": "b9fdccf3eae7b161910d2daa2f0155ca35041322e8fe5c5f1f2c9d0b12356336",
+    "bytes": 580277,
+    "status": "verified"
+  },
+  {
+    "source": "rust-nettle",
+    "version": "7.3.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-nettle/rust-nettle_7.3.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-nettle/rust-nettle_7.3.0-1.debian.tar.xz",
+    "sha256": "a8327eb1cef117b9276f3ad644a82567dd2d93445da24a2a0ffb9b4c6b69f2a9",
+    "bytes": 2564,
+    "status": "verified"
+  },
+  {
+    "source": "rust-nettle-sys",
+    "version": "2.3.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-nettle-sys/rust-nettle-sys_2.3.1-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-nettle-sys/rust-nettle-sys_2.3.1-1.dsc",
+    "sha256": "c18bdfa50fb184563e1bc0fc5a90d8bd5129d4067bbf2ec8de3b93ba7cc18b09",
+    "bytes": 2528,
+    "status": "verified"
+  },
+  {
+    "source": "rust-nettle-sys",
+    "version": "2.3.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-nettle-sys/rust-nettle-sys_2.3.1.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-nettle-sys/rust-nettle-sys_2.3.1.orig.tar.gz",
+    "sha256": "61a3f5406064d310d59b1a219d3c5c9a49caf4047b6496032e3f930876488c34",
+    "bytes": 81980,
+    "status": "verified"
+  },
+  {
+    "source": "rust-nettle-sys",
+    "version": "2.3.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-nettle-sys/rust-nettle-sys_2.3.1-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-nettle-sys/rust-nettle-sys_2.3.1-1.debian.tar.xz",
+    "sha256": "cc9e694f1d34c121fc0c7a2ebbb65418c95addeebb45ca4bc2225e6fd09530bf",
+    "bytes": 3956,
+    "status": "verified"
+  },
+  {
+    "source": "rust-num-traits",
+    "version": "0.2.19-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-num-traits/rust-num-traits_0.2.19-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-num-traits/rust-num-traits_0.2.19-2.dsc",
+    "sha256": "e4d9c64eba88cf3d0040627724bc487f5475a1afc412a69f66faeee939c701d2",
+    "bytes": 1711,
+    "status": "verified"
+  },
+  {
+    "source": "rust-num-traits",
+    "version": "0.2.19-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-num-traits/rust-num-traits_0.2.19.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-num-traits/rust-num-traits_0.2.19.orig.tar.gz",
+    "sha256": "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841",
+    "bytes": 51631,
+    "status": "verified"
+  },
+  {
+    "source": "rust-num-traits",
+    "version": "0.2.19-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-num-traits/rust-num-traits_0.2.19-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-num-traits/rust-num-traits_0.2.19-2.debian.tar.xz",
+    "sha256": "33f3384db5d75038495909f6e6b447c8e3f7d38736032bcdb36acc75615d644d",
+    "bytes": 3740,
+    "status": "verified"
+  },
+  {
+    "source": "rust-password-hash",
+    "version": "0.5.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-password-hash/rust-password-hash_0.5.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-password-hash/rust-password-hash_0.5.0-1.dsc",
+    "sha256": "7b95378746170691fc5598430921e133ff4232e8ca816e68a529f8b2ccb3b691",
+    "bytes": 2316,
+    "status": "verified"
+  },
+  {
+    "source": "rust-password-hash",
+    "version": "0.5.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-password-hash/rust-password-hash_0.5.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-password-hash/rust-password-hash_0.5.0.orig.tar.gz",
+    "sha256": "346f04948ba92c43e8469c1ee6736c7563d71012b17d40745260fe106aac2166",
+    "bytes": 26884,
+    "status": "verified"
+  },
+  {
+    "source": "rust-password-hash",
+    "version": "0.5.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-password-hash/rust-password-hash_0.5.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-password-hash/rust-password-hash_0.5.0-1.debian.tar.xz",
+    "sha256": "b67e774d376acc22856a039c1389fbef8f9cad7e547d328a88b583f36b7e347b",
+    "bytes": 3024,
+    "status": "verified"
+  },
+  {
+    "source": "rust-rand-core",
+    "version": "0.6.4-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-rand-core/rust-rand-core_0.6.4-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-rand-core/rust-rand-core_0.6.4-2.dsc",
+    "sha256": "1f6938a4015b700fc497dd3c114a56abbcc7fddd12dee47442a88767ac9bb8e2",
+    "bytes": 2468,
+    "status": "verified"
+  },
+  {
+    "source": "rust-rand-core",
+    "version": "0.6.4-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-rand-core/rust-rand-core_0.6.4.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-rand-core/rust-rand-core_0.6.4.orig.tar.gz",
+    "sha256": "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c",
+    "bytes": 22666,
+    "status": "verified"
+  },
+  {
+    "source": "rust-rand-core",
+    "version": "0.6.4-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-rand-core/rust-rand-core_0.6.4-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-rand-core/rust-rand-core_0.6.4-2.debian.tar.xz",
+    "sha256": "837d4c4b51f94a2174475dbb0fc8cbfd2ed7beced4da5459dacb329fa2c868e1",
+    "bytes": 3692,
+    "status": "verified"
+  },
+  {
+    "source": "rust-regex",
+    "version": "1.11.1-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-regex/rust-regex_1.11.1-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-regex/rust-regex_1.11.1-2.dsc",
+    "sha256": "091cc8f5f2cff589a949d39f38b5c55c350e3eee5aa8d870d94058a37db34df7",
+    "bytes": 4070,
+    "status": "verified"
+  },
+  {
+    "source": "rust-regex",
+    "version": "1.11.1-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-regex/rust-regex_1.11.1.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-regex/rust-regex_1.11.1.orig.tar.gz",
+    "sha256": "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191",
+    "bytes": 254170,
+    "status": "verified"
+  },
+  {
+    "source": "rust-regex",
+    "version": "1.11.1-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-regex/rust-regex_1.11.1-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-regex/rust-regex_1.11.1-2.debian.tar.xz",
+    "sha256": "26f774f2a703482181b21b5aff7d2b9126e8cae8269a93f848cbba8991d2279c",
+    "bytes": 6512,
+    "status": "verified"
+  },
+  {
+    "source": "rust-regex-automata",
+    "version": "0.4.9-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-regex-automata/rust-regex-automata_0.4.9-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-regex-automata/rust-regex-automata_0.4.9-2.dsc",
+    "sha256": "fe6100d84deb445d6b774fb236a89eb2ad3f5c050d310ff2bf4e89aadb29b8c3",
+    "bytes": 2765,
+    "status": "verified"
+  },
+  {
+    "source": "rust-regex-automata",
+    "version": "0.4.9-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-regex-automata/rust-regex-automata_0.4.9.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-regex-automata/rust-regex-automata_0.4.9.orig.tar.gz",
+    "sha256": "809e8dc61f6de73b46c85f4c96486310fe304c434cfa43669d7b40f711150908",
+    "bytes": 618525,
+    "status": "verified"
+  },
+  {
+    "source": "rust-regex-automata",
+    "version": "0.4.9-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-regex-automata/rust-regex-automata_0.4.9-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-regex-automata/rust-regex-automata_0.4.9-2.debian.tar.xz",
+    "sha256": "11b98d19a71d0f8782d887135371c43c64f370e3d4751b8ca01f3b74c0bd85be",
+    "bytes": 9464,
+    "status": "verified"
+  },
+  {
+    "source": "rust-regex-syntax",
+    "version": "0.8.5-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-regex-syntax/rust-regex-syntax_0.8.5-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-regex-syntax/rust-regex-syntax_0.8.5-1.dsc",
+    "sha256": "8eb84d33a84041bb0b21b3de8afb24ba1310a8bebab2d8452afe43dba4269155",
+    "bytes": 2274,
+    "status": "verified"
+  },
+  {
+    "source": "rust-regex-syntax",
+    "version": "0.8.5-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-regex-syntax/rust-regex-syntax_0.8.5.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-regex-syntax/rust-regex-syntax_0.8.5.orig.tar.gz",
+    "sha256": "a2f15dee26d2376c65b5d90ba8289ac685df876df4b4ab0968f4d9287861d2f6",
+    "bytes": 357304,
+    "status": "verified"
+  },
+  {
+    "source": "rust-regex-syntax",
+    "version": "0.8.5-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-regex-syntax/rust-regex-syntax_0.8.5-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-regex-syntax/rust-regex-syntax_0.8.5-1.debian.tar.xz",
+    "sha256": "e91be4261db59d435539bbfc47911f69ddb6391a1700c78506a3b3bef266f7ef",
+    "bytes": 4656,
+    "status": "verified"
+  },
+  {
+    "source": "rust-rustix",
+    "version": "0.38.37-4",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-rustix/rust-rustix_0.38.37-4.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-rustix/rust-rustix_0.38.37-4.dsc",
+    "sha256": "8c94643d56893892f7c081f13e67211c3515f76024f0db2e9c2821f2ff903c33",
+    "bytes": 3163,
+    "status": "verified"
+  },
+  {
+    "source": "rust-rustix",
+    "version": "0.38.37-4",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-rustix/rust-rustix_0.38.37.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-rustix/rust-rustix_0.38.37.orig.tar.gz",
+    "sha256": "8acb788b847c24f28525660c4d7758620a7210875711f79e7f663cc152726811",
+    "bytes": 371243,
+    "status": "verified"
+  },
+  {
+    "source": "rust-rustix",
+    "version": "0.38.37-4",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-rustix/rust-rustix_0.38.37-4.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-rustix/rust-rustix_0.38.37-4.debian.tar.xz",
+    "sha256": "416f7a02bb0d23e39a2ff410939e08454baf019c6737cf7667d1df1bef5f1b43",
+    "bytes": 12216,
+    "status": "verified"
+  },
+  {
+    "source": "rust-sequoia-openpgp",
+    "version": "2.0.0-2+deb13u1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-sequoia-openpgp/rust-sequoia-openpgp_2.0.0-2+deb13u1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-sequoia-openpgp/rust-sequoia-openpgp_2.0.0-2+deb13u1.dsc",
+    "sha256": "b3ff010f9ae8faeb8e459f89b6fa6de66647556de239c8d46e3a410f047bc1fc",
+    "bytes": 3712,
+    "status": "verified"
+  },
+  {
+    "source": "rust-sequoia-openpgp",
+    "version": "2.0.0-2+deb13u1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-sequoia-openpgp/rust-sequoia-openpgp_2.0.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-sequoia-openpgp/rust-sequoia-openpgp_2.0.0.orig.tar.gz",
+    "sha256": "015e5fc3d023418b9db98ca9a7f3e90b305872eeafe5ca45c5c32b5eb335c1e8",
+    "bytes": 3049067,
+    "status": "verified"
+  },
+  {
+    "source": "rust-sequoia-openpgp",
+    "version": "2.0.0-2+deb13u1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-sequoia-openpgp/rust-sequoia-openpgp_2.0.0-2+deb13u1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-sequoia-openpgp/rust-sequoia-openpgp_2.0.0-2+deb13u1.debian.tar.xz",
+    "sha256": "817b79e4f22a69844a0a4e44e4154ba8d4f85ccd488f563dd67d08a8d350eb74",
+    "bytes": 9908,
+    "status": "verified"
+  },
+  {
+    "source": "rust-sequoia-policy-config",
+    "version": "0.8.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-sequoia-policy-config/rust-sequoia-policy-config_0.8.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-sequoia-policy-config/rust-sequoia-policy-config_0.8.0-1.dsc",
+    "sha256": "b2b5d077d8245969c0872bc30e015f8f72b4569d1bc6090efe1ffa5c7719da87",
+    "bytes": 2880,
+    "status": "verified"
+  },
+  {
+    "source": "rust-sequoia-policy-config",
+    "version": "0.8.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-sequoia-policy-config/rust-sequoia-policy-config_0.8.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-sequoia-policy-config/rust-sequoia-policy-config_0.8.0.orig.tar.gz",
+    "sha256": "8e016b708d64857b6a97e1a331d9471b73e30ed450d247628e1a0ce236b1e597",
+    "bytes": 102267,
+    "status": "verified"
+  },
+  {
+    "source": "rust-sequoia-policy-config",
+    "version": "0.8.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-sequoia-policy-config/rust-sequoia-policy-config_0.8.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-sequoia-policy-config/rust-sequoia-policy-config_0.8.0-1.debian.tar.xz",
+    "sha256": "9a00e0db1ee576be1ec7832be469e45c7afc537c73041299e7381c64c3c4bbeb",
+    "bytes": 2936,
+    "status": "verified"
+  },
+  {
+    "source": "rust-serde",
+    "version": "1.0.217-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-serde/rust-serde_1.0.217-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-serde/rust-serde_1.0.217-1.dsc",
+    "sha256": "84c33735002681681a10bc804d324a20d9ea7d77f69b303882719a9cefce724e",
+    "bytes": 1772,
+    "status": "verified"
+  },
+  {
+    "source": "rust-serde",
+    "version": "1.0.217-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-serde/rust-serde_1.0.217.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-serde/rust-serde_1.0.217.orig.tar.gz",
+    "sha256": "02fc4265df13d6fa1d00ecff087228cc0a2b5f3c0e87e258d8b94a156e984c70",
+    "bytes": 79019,
+    "status": "verified"
+  },
+  {
+    "source": "rust-serde",
+    "version": "1.0.217-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-serde/rust-serde_1.0.217-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-serde/rust-serde_1.0.217-1.debian.tar.xz",
+    "sha256": "d020bcfdef35bb2a94a28b85f84e3dc8610aeaa9e910c688af16e10dafed7dd7",
+    "bytes": 4136,
+    "status": "verified"
+  },
+  {
+    "source": "rust-sha1collisiondetection",
+    "version": "0.3.2-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-sha1collisiondetection/rust-sha1collisiondetection_0.3.2-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-sha1collisiondetection/rust-sha1collisiondetection_0.3.2-1.dsc",
+    "sha256": "96b9eef3ac0e24234f3c9918101d2e5b5b725cee459d6d982a3aa7d487015634",
+    "bytes": 2584,
+    "status": "verified"
+  },
+  {
+    "source": "rust-sha1collisiondetection",
+    "version": "0.3.2-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-sha1collisiondetection/rust-sha1collisiondetection_0.3.2.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-sha1collisiondetection/rust-sha1collisiondetection_0.3.2.orig.tar.gz",
+    "sha256": "31c0b86a052106b16741199985c9ec2bf501f619f70c48fa479b44b093ad9a68",
+    "bytes": 801440,
+    "status": "verified"
+  },
+  {
+    "source": "rust-sha1collisiondetection",
+    "version": "0.3.2-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-sha1collisiondetection/rust-sha1collisiondetection_0.3.2-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-sha1collisiondetection/rust-sha1collisiondetection_0.3.2-1.debian.tar.xz",
+    "sha256": "0a148b3bba99111ba0032d8c7ff37eb1a9277d96cc01e300bb34e2cc723582da",
+    "bytes": 4948,
+    "status": "verified"
+  },
+  {
+    "source": "rust-smallvec",
+    "version": "1.13.2-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-smallvec/rust-smallvec_1.13.2-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-smallvec/rust-smallvec_1.13.2-1.dsc",
+    "sha256": "31aee6988d6dc28f17b2956d0ad71e320857f3f2cbf4f00865d8b050da720dff",
+    "bytes": 2183,
+    "status": "verified"
+  },
+  {
+    "source": "rust-smallvec",
+    "version": "1.13.2-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-smallvec/rust-smallvec_1.13.2.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-smallvec/rust-smallvec_1.13.2.orig.tar.gz",
+    "sha256": "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67",
+    "bytes": 35216,
+    "status": "verified"
+  },
+  {
+    "source": "rust-smallvec",
+    "version": "1.13.2-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-smallvec/rust-smallvec_1.13.2-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-smallvec/rust-smallvec_1.13.2-1.debian.tar.xz",
+    "sha256": "e63475ae919a64a0937c60283c57c340afc262a921ee08a5fdb4811922a7d5e3",
+    "bytes": 4012,
+    "status": "verified"
+  },
+  {
+    "source": "rust-strsim-0.10",
+    "version": "0.10.0-4",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-strsim-0.10/rust-strsim-0.10_0.10.0-4.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-strsim-0.10/rust-strsim-0.10_0.10.0-4.dsc",
+    "sha256": "8fad57c67c078cb9e35633711521c2905760bc0d147703e48ee53fbcff8df5a0",
+    "bytes": 2266,
+    "status": "verified"
+  },
+  {
+    "source": "rust-strsim-0.10",
+    "version": "0.10.0-4",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-strsim-0.10/rust-strsim-0.10_0.10.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-strsim-0.10/rust-strsim-0.10_0.10.0.orig.tar.gz",
+    "sha256": "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623",
+    "bytes": 11355,
+    "status": "verified"
+  },
+  {
+    "source": "rust-strsim-0.10",
+    "version": "0.10.0-4",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-strsim-0.10/rust-strsim-0.10_0.10.0-4.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-strsim-0.10/rust-strsim-0.10_0.10.0-4.debian.tar.xz",
+    "sha256": "b4618954cdee560f90529fafa7215a3f9ce8cb371ecfa8894507d204da61ac62",
+    "bytes": 3132,
+    "status": "verified"
+  },
+  {
+    "source": "rust-subtle",
+    "version": "2.6.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-subtle/rust-subtle_2.6.1-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-subtle/rust-subtle_2.6.1-1.dsc",
+    "sha256": "efd8cbe5c09f1cc4122c8c7a2ff39ba5d8857ef63b2d9158b55e1154ee87714d",
+    "bytes": 2348,
+    "status": "verified"
+  },
+  {
+    "source": "rust-subtle",
+    "version": "2.6.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-subtle/rust-subtle_2.6.1.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-subtle/rust-subtle_2.6.1.orig.tar.gz",
+    "sha256": "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292",
+    "bytes": 14562,
+    "status": "verified"
+  },
+  {
+    "source": "rust-subtle",
+    "version": "2.6.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-subtle/rust-subtle_2.6.1-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-subtle/rust-subtle_2.6.1-1.debian.tar.xz",
+    "sha256": "6dd54ce7fd46849ab90a238d078a61d5a4815ed1f7c702d771b42a05a4aa85e9",
+    "bytes": 3348,
+    "status": "verified"
+  },
+  {
+    "source": "rust-terminal-size",
+    "version": "0.4.1-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-terminal-size/rust-terminal-size_0.4.1-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-terminal-size/rust-terminal-size_0.4.1-2.dsc",
+    "sha256": "df8f90d8f3ed1eacca51a6194a99771a1db54d927b722a9c96f9f4014e8e826e",
+    "bytes": 2388,
+    "status": "verified"
+  },
+  {
+    "source": "rust-terminal-size",
+    "version": "0.4.1-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-terminal-size/rust-terminal-size_0.4.1.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-terminal-size/rust-terminal-size_0.4.1.orig.tar.gz",
+    "sha256": "5352447f921fda68cf61b4101566c0bdb5104eff6804d0678e5227580ab6a4e9",
+    "bytes": 10037,
+    "status": "verified"
+  },
+  {
+    "source": "rust-terminal-size",
+    "version": "0.4.1-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-terminal-size/rust-terminal-size_0.4.1-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-terminal-size/rust-terminal-size_0.4.1-2.debian.tar.xz",
+    "sha256": "1f80ef16f34513ac12ca498b9b2e90a467a038645cf96ddb6528ca9efdb6e61b",
+    "bytes": 4628,
+    "status": "verified"
+  },
+  {
+    "source": "rust-thiserror",
+    "version": "2.0.11-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-thiserror/rust-thiserror_2.0.11-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-thiserror/rust-thiserror_2.0.11-1.dsc",
+    "sha256": "93136745124b5bca68133f5cbf99fc13661c2fdc1fccb85ee2dc7ecef61bb65a",
+    "bytes": 2499,
+    "status": "verified"
+  },
+  {
+    "source": "rust-thiserror",
+    "version": "2.0.11-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-thiserror/rust-thiserror_2.0.11.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-thiserror/rust-thiserror_2.0.11.orig.tar.gz",
+    "sha256": "d452f284b73e6d76dd36758a0c8684b1d5be31f92b89d07fd5822175732206fc",
+    "bytes": 28648,
+    "status": "verified"
+  },
+  {
+    "source": "rust-thiserror",
+    "version": "2.0.11-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-thiserror/rust-thiserror_2.0.11-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-thiserror/rust-thiserror_2.0.11-1.debian.tar.xz",
+    "sha256": "8d9d8a7574de1b4bd2081552cd5badfbd840e0b904fee57cf62473352a5b4efb",
+    "bytes": 3072,
+    "status": "verified"
+  },
+  {
+    "source": "rust-thiserror-1",
+    "version": "1.0.69-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-thiserror-1/rust-thiserror-1_1.0.69-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-thiserror-1/rust-thiserror-1_1.0.69-1.dsc",
+    "sha256": "44914a7eec4ebd7017bdfccd5c7bdc70f9649c41dce1c6df936111ea30ba2bfa",
+    "bytes": 1985,
+    "status": "verified"
+  },
+  {
+    "source": "rust-thiserror-1",
+    "version": "1.0.69-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-thiserror-1/rust-thiserror-1_1.0.69.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-thiserror-1/rust-thiserror-1_1.0.69.orig.tar.gz",
+    "sha256": "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52",
+    "bytes": 22198,
+    "status": "verified"
+  },
+  {
+    "source": "rust-thiserror-1",
+    "version": "1.0.69-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-thiserror-1/rust-thiserror-1_1.0.69-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-thiserror-1/rust-thiserror-1_1.0.69-1.debian.tar.xz",
+    "sha256": "aca5d823d6f0a205849eac54e74bc23cbc5b9810d0cb5ccdbb1c8b7e6a839fb6",
+    "bytes": 3140,
+    "status": "verified"
+  },
+  {
+    "source": "rust-tinyvec",
+    "version": "1.6.0-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-tinyvec/rust-tinyvec_1.6.0-2.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-tinyvec/rust-tinyvec_1.6.0-2.dsc",
+    "sha256": "4a636c770b3f47c212ae34975d4de0a15a1beabbb7d8d8c8f71da0106d7652fa",
+    "bytes": 2506,
+    "status": "verified"
+  },
+  {
+    "source": "rust-tinyvec",
+    "version": "1.6.0-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-tinyvec/rust-tinyvec_1.6.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-tinyvec/rust-tinyvec_1.6.0.orig.tar.gz",
+    "sha256": "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50",
+    "bytes": 45991,
+    "status": "verified"
+  },
+  {
+    "source": "rust-tinyvec",
+    "version": "1.6.0-2",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-tinyvec/rust-tinyvec_1.6.0-2.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-tinyvec/rust-tinyvec_1.6.0-2.debian.tar.xz",
+    "sha256": "eb5e3ef79c7a7bd5d5ce86f1acfd6f28c88de9f94b9ab1da35e3553b4a3c8a30",
+    "bytes": 3976,
+    "status": "verified"
+  },
+  {
+    "source": "rust-tinyvec-macros",
+    "version": "0.1.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-tinyvec-macros/rust-tinyvec-macros_0.1.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-tinyvec-macros/rust-tinyvec-macros_0.1.0-1.dsc",
+    "sha256": "b05d835aaf76a4f3f8a6aabf71c00c51b7524ddaa1e9f2e6e4c515e81884c0d3",
+    "bytes": 2210,
+    "status": "verified"
+  },
+  {
+    "source": "rust-tinyvec-macros",
+    "version": "0.1.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-tinyvec-macros/rust-tinyvec-macros_0.1.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-tinyvec-macros/rust-tinyvec-macros_0.1.0.orig.tar.gz",
+    "sha256": "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c",
+    "bytes": 1817,
+    "status": "verified"
+  },
+  {
+    "source": "rust-tinyvec-macros",
+    "version": "0.1.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-tinyvec-macros/rust-tinyvec-macros_0.1.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-tinyvec-macros/rust-tinyvec-macros_0.1.0-1.debian.tar.xz",
+    "sha256": "b65ff96734b066508731ae64ccf12cff7ccc9756641d7d827b623472d0e77ad8",
+    "bytes": 2884,
+    "status": "verified"
+  },
+  {
+    "source": "rust-toml-0.5",
+    "version": "0.5.11-4",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-toml-0.5/rust-toml-0.5_0.5.11-4.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-toml-0.5/rust-toml-0.5_0.5.11-4.dsc",
+    "sha256": "dc17bdb46d0173b59d8e8eba9940ee0557108d5bcae25daf0b659dc9157a9815",
+    "bytes": 2349,
+    "status": "verified"
+  },
+  {
+    "source": "rust-toml-0.5",
+    "version": "0.5.11-4",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-toml-0.5/rust-toml-0.5_0.5.11.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-toml-0.5/rust-toml-0.5_0.5.11.orig.tar.gz",
+    "sha256": "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234",
+    "bytes": 54910,
+    "status": "verified"
+  },
+  {
+    "source": "rust-toml-0.5",
+    "version": "0.5.11-4",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-toml-0.5/rust-toml-0.5_0.5.11-4.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-toml-0.5/rust-toml-0.5_0.5.11-4.debian.tar.xz",
+    "sha256": "1e722d8ac2c6ca7754f495217a26a976d1f163c412daeb35ef07d8984cde133d",
+    "bytes": 3512,
+    "status": "verified"
+  },
+  {
+    "source": "rust-typenum",
+    "version": "1.17.0-3",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-typenum/rust-typenum_1.17.0-3.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-typenum/rust-typenum_1.17.0-3.dsc",
+    "sha256": "7abe75ba67e55e987ea58e2e65024176f5bc16cbb4f1e0ff1507c1021bac07b2",
+    "bytes": 2314,
+    "status": "verified"
+  },
+  {
+    "source": "rust-typenum",
+    "version": "1.17.0-3",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-typenum/rust-typenum_1.17.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-typenum/rust-typenum_1.17.0.orig.tar.gz",
+    "sha256": "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825",
+    "bytes": 42849,
+    "status": "verified"
+  },
+  {
+    "source": "rust-typenum",
+    "version": "1.17.0-3",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-typenum/rust-typenum_1.17.0-3.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-typenum/rust-typenum_1.17.0-3.debian.tar.xz",
+    "sha256": "cc9a536f27325e5a3989ad7af509d495d1e737b8cb680d39b9fbc42f13f0e185",
+    "bytes": 4560,
+    "status": "verified"
+  },
+  {
+    "source": "rust-unicode-bidi",
+    "version": "0.3.17-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-unicode-bidi/rust-unicode-bidi_0.3.17-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-unicode-bidi/rust-unicode-bidi_0.3.17-1.dsc",
+    "sha256": "1d8db1deafc8185d69389b943985eb34c7e5d251ecf0878ff6bb119e2abbc631",
+    "bytes": 2346,
+    "status": "verified"
+  },
+  {
+    "source": "rust-unicode-bidi",
+    "version": "0.3.17-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-unicode-bidi/rust-unicode-bidi_0.3.17.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-unicode-bidi/rust-unicode-bidi_0.3.17.orig.tar.gz",
+    "sha256": "5ab17db44d7388991a428b2ee655ce0c212e862eff1768a455c58f9aad6e7893",
+    "bytes": 58120,
+    "status": "verified"
+  },
+  {
+    "source": "rust-unicode-bidi",
+    "version": "0.3.17-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-unicode-bidi/rust-unicode-bidi_0.3.17-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-unicode-bidi/rust-unicode-bidi_0.3.17-1.debian.tar.xz",
+    "sha256": "a7f688bb9eb70eef08afe64142fec7aacb8a6b0bda852debb5255b95693e26f1",
+    "bytes": 3568,
+    "status": "verified"
+  },
+  {
+    "source": "rust-unicode-joining-type",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-unicode-joining-type/rust-unicode-joining-type_1.0.0-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-unicode-joining-type/rust-unicode-joining-type_1.0.0-1.dsc",
+    "sha256": "49a7477979aeaf9ae6e6616e96efb388814e1b1b49a46adab21a35920597ba8a",
+    "bytes": 2364,
+    "status": "verified"
+  },
+  {
+    "source": "rust-unicode-joining-type",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-unicode-joining-type/rust-unicode-joining-type_1.0.0.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-unicode-joining-type/rust-unicode-joining-type_1.0.0.orig.tar.gz",
+    "sha256": "d8d00a78170970967fdb83f9d49b92f959ab2bb829186b113e4f4604ad98e180",
+    "bytes": 18167,
+    "status": "verified"
+  },
+  {
+    "source": "rust-unicode-joining-type",
+    "version": "1.0.0-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-unicode-joining-type/rust-unicode-joining-type_1.0.0-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-unicode-joining-type/rust-unicode-joining-type_1.0.0-1.debian.tar.xz",
+    "sha256": "57e87b39ab011debcf2cc4f44bc04abd606ecef74f29839d51090062549f980e",
+    "bytes": 1936,
+    "status": "verified"
+  },
+  {
+    "source": "rust-unicode-normalization",
+    "version": "0.1.24-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-unicode-normalization/rust-unicode-normalization_0.1.24-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-unicode-normalization/rust-unicode-normalization_0.1.24-1.dsc",
+    "sha256": "a609654c7be16c4203500e7a3d3e4bc8deb2a79007d928b50f4b301eb7ea79a9",
+    "bytes": 1893,
+    "status": "verified"
+  },
+  {
+    "source": "rust-unicode-normalization",
+    "version": "0.1.24-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-unicode-normalization/rust-unicode-normalization_0.1.24.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-unicode-normalization/rust-unicode-normalization_0.1.24.orig.tar.gz",
+    "sha256": "5033c97c4262335cded6d6fc3e5c18ab755e1a3dc96376350f3d8e9f009ad956",
+    "bytes": 126536,
+    "status": "verified"
+  },
+  {
+    "source": "rust-unicode-normalization",
+    "version": "0.1.24-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-unicode-normalization/rust-unicode-normalization_0.1.24-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-unicode-normalization/rust-unicode-normalization_0.1.24-1.debian.tar.xz",
+    "sha256": "f40802d74715eb7e2d93d018187d386b5cd04b60fa8e40b55f99253d62333d5c",
+    "bytes": 3728,
+    "status": "verified"
+  },
+  {
+    "source": "rust-utf8-iter",
+    "version": "1.0.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-utf8-iter/rust-utf8-iter_1.0.4-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-utf8-iter/rust-utf8-iter_1.0.4-1.dsc",
+    "sha256": "df5bc076eb6e02863f91e8edad54eae8e23884ad0ae96fcaa40501aab8cdc050",
+    "bytes": 2212,
+    "status": "verified"
+  },
+  {
+    "source": "rust-utf8-iter",
+    "version": "1.0.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-utf8-iter/rust-utf8-iter_1.0.4.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-utf8-iter/rust-utf8-iter_1.0.4.orig.tar.gz",
+    "sha256": "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be",
+    "bytes": 10437,
+    "status": "verified"
+  },
+  {
+    "source": "rust-utf8-iter",
+    "version": "1.0.4-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-utf8-iter/rust-utf8-iter_1.0.4-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-utf8-iter/rust-utf8-iter_1.0.4-1.debian.tar.xz",
+    "sha256": "4c436c892ea4a13d0386fcfa2600b93ba2950118c773507e0f63f146a225d86d",
+    "bytes": 2920,
+    "status": "verified"
+  },
+  {
+    "source": "rust-utf8parse",
+    "version": "0.2.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-utf8parse/rust-utf8parse_0.2.1-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-utf8parse/rust-utf8parse_0.2.1-1.dsc",
+    "sha256": "f73564c9054fec31a2a487f166c8806f508451bd005b2f15bd21032a401b4ddb",
+    "bytes": 2110,
+    "status": "verified"
+  },
+  {
+    "source": "rust-utf8parse",
+    "version": "0.2.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-utf8parse/rust-utf8parse_0.2.1.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-utf8parse/rust-utf8parse_0.2.1.orig.tar.gz",
+    "sha256": "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a",
+    "bytes": 13435,
+    "status": "verified"
+  },
+  {
+    "source": "rust-utf8parse",
+    "version": "0.2.1-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-utf8parse/rust-utf8parse_0.2.1-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-utf8parse/rust-utf8parse_0.2.1-1.debian.tar.xz",
+    "sha256": "08e7fc92ad8d7c8517c1102201c005e23875f1f9d5729f0eb6aa5645b78c2a4e",
+    "bytes": 2752,
+    "status": "verified"
+  },
+  {
+    "source": "rust-xxhash-rust",
+    "version": "0.8.15-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-xxhash-rust/rust-xxhash-rust_0.8.15-1.dsc",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-xxhash-rust/rust-xxhash-rust_0.8.15-1.dsc",
+    "sha256": "60d6d9cab099291556d89468b9e1f080a2ded90d052ee5a89952426be0f53d2f",
+    "bytes": 2304,
+    "status": "verified"
+  },
+  {
+    "source": "rust-xxhash-rust",
+    "version": "0.8.15-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-xxhash-rust/rust-xxhash-rust_0.8.15.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-xxhash-rust/rust-xxhash-rust_0.8.15.orig.tar.gz",
+    "sha256": "fdd20c5420375476fbd4394763288da7eb0cc0b8c11deed431a91562af7335d3",
+    "bytes": 21515,
+    "status": "verified"
+  },
+  {
+    "source": "rust-xxhash-rust",
+    "version": "0.8.15-1",
+    "index": "trixie-Sources.xz",
+    "file": "sources/rust-xxhash-rust/rust-xxhash-rust_0.8.15-1.debian.tar.xz",
+    "url": "https://deb.debian.org/debian/pool/main/r/rust-xxhash-rust/rust-xxhash-rust_0.8.15-1.debian.tar.xz",
+    "sha256": "d45170003eea56725ff54165ef6462aef47c7501faf062a1ea6ffa8903bf5a5e",
+    "bytes": 55832,
+    "status": "verified"
+  },
+  {
+    "source": "rustc",
+    "version": "1.85.0+dfsg3-1",
+    "index": "security-Sources.xz",
+    "file": "sources/rustc/rustc_1.85.0+dfsg3-1.dsc",
+    "url": "https://security.debian.org/debian-security/pool/updates/main/r/rustc/rustc_1.85.0+dfsg3-1.dsc",
+    "sha256": "d8221d3e2f3526b5911cb763a9afb2f2b3e6fc598b8279ca164c7db52022e56a",
+    "bytes": 4366,
+    "status": "verified"
+  },
+  {
+    "source": "rustc",
+    "version": "1.85.0+dfsg3-1",
+    "index": "security-Sources.xz",
+    "file": "sources/rustc/rustc_1.85.0+dfsg3.orig-extra.tar.xz",
+    "url": "https://security.debian.org/debian-security/pool/updates/main/r/rustc/rustc_1.85.0+dfsg3.orig-extra.tar.xz",
+    "sha256": "664df803dead620ebe459dc37fae7a5bc4aabe09d9bae0dd81762ea18225a36d",
+    "bytes": 230724,
+    "status": "verified"
+  },
+  {
+    "source": "rustc",
+    "version": "1.85.0+dfsg3-1",
+    "index": "security-Sources.xz",
+    "file": "sources/rustc/rustc_1.85.0+dfsg3.orig.tar.xz",
+    "url": "https://security.debian.org/debian-security/pool/updates/main/r/rustc/rustc_1.85.0+dfsg3.orig.tar.xz",
+    "sha256": "8cfaf52ab168a12c3082b5956bcc16c8969d8791b2fe54ed5192672b25518af2",
+    "bytes": 83014324,
+    "status": "verified"
+  },
+  {
+    "source": "rustc",
+    "version": "1.85.0+dfsg3-1",
+    "index": "security-Sources.xz",
+    "file": "sources/rustc/rustc_1.85.0+dfsg3-1.debian.tar.xz",
+    "url": "https://security.debian.org/debian-security/pool/updates/main/r/rustc/rustc_1.85.0+dfsg3-1.debian.tar.xz",
+    "sha256": "aa398a4a046d266eb2fd22df96b43c01ce190e1e09175929e44881faedd73aa4",
+    "bytes": 146724,
+    "status": "verified"
+  }
+]

@@ -36,8 +36,9 @@ def inventory():
         name: asdict(toolchain.status(name, binary))
         for name, binary in runner.ALLOWED_TOOLS.items()
     }
-    assert sum(s["source"] == "managed" for s in tools.values()) == 9
-    assert all(s["path"] for s in tools.values())
+    assert sum(s["source"] == "managed" for s in tools.values()) == 8
+    assert tools["nuclei"]["source"] == "missing" and tools["nuclei"]["path"] is None
+    assert all(s["path"] for name, s in tools.items() if name != "nuclei")
     assert "nmap" not in tools, "Nmap must not be an inventoried tool"
     assert nmap_absent() == {
         "binary": False,
@@ -122,38 +123,8 @@ def smoke(url):
             if line.startswith("{")
         ]
         assert any(r["status_code"] == 200 and r["url"].startswith(url) for r in rows)
-        nuclei = execute(
-            "nuclei",
-            [
-                "-u",
-                url,
-                "-t",
-                "/fixture/marker.yaml",
-                "-jsonl",
-                "-silent",
-                "-duc",
-                "-ni",
-                "-no-stdin",
-                "-timeout",
-                "3",
-                "-retries",
-                "0",
-                "-rl",
-                "2",
-                "-c",
-                "1",
-                "-bs",
-                "1",
-            ],
-        )
-        matches = [
-            json.loads(line)
-            for line in nuclei.stdout.splitlines()
-            if line.startswith("{")
-        ]
-        assert any(r["template-id"] == "vardrsec-local-marker" for r in matches), runs[
-            "nuclei"
-        ]
+        # This default toolkit deliberately omits optional operator-installed Nuclei.
+        assert toolchain.status("nuclei", "nuclei").source == "missing"
         ffuf = work / "ffuf.json"
         execute(
             "ffuf",
@@ -241,11 +212,11 @@ def smoke(url):
         return {
             "passed_modes": [
                 "httpx-http",
-                "nuclei-local-template",
                 "ffuf-local-wordlist",
                 "naabu-tcp-connect",
                 "katana-non-headless",
             ],
+            "unsupported_modes": {"nuclei-local-template": "optional tool not bundled; not tested"},
             "raw_sockets": raw_sockets,
             "nmap": "absent",
             "headless": "not_provisioned"
@@ -273,7 +244,7 @@ if __name__ == "__main__":
                 and marker.read_text(encoding="utf-8") == "retained"
             )
             assert (config.config_dir() / "katana" / "form-config.yaml").is_file()
-            assert (config.config_dir() / "nuclei").is_dir()
+            assert toolchain.status("nuclei", "nuclei").source == "missing"
         result["persistent_state"] = sys.argv[2]
     elif mode == "probe":
         try:

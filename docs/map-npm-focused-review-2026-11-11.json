@@ -1,0 +1,309 @@
+{
+  "bundle_sha256": "cdc8e2303cd5321b2eab6299540f91e3d69c2efbfa357f5ca53c8057fc805a19",
+  "image_evidence_run": 42988221940,
+  "libvips_native_versions": {
+    "aom": "3.15.1",
+    "archive": "3.8.9",
+    "cairo": "1.18.6",
+    "cgif": "0.5.4",
+    "exif": "0.6.26",
+    "expat": "2.8.5",
+    "ffi": "3.8.0",
+    "fontconfig": "2.18.3",
+    "freetype": "2.14.3",
+    "fribidi": "1.0.17",
+    "glib": "2.90.0",
+    "harfbuzz": "14.5.0",
+    "heif": "1.23.5",
+    "highway": "1.4.0",
+    "imagequant": "2.4.1",
+    "lcms": "2.19.1",
+    "mozjpeg": "0826579",
+    "pango": "1.58.2",
+    "pixman": "0.46.4",
+    "png": "1.6.58",
+    "proxy-libintl": "0.5",
+    "rsvg": "2.63.2",
+    "tiff": "4.7.2",
+    "uhdr": "2.0.2",
+    "vips": "8.18.7",
+    "webp": "1.6.0",
+    "xml2": "2.15.4",
+    "zlib-ng": "2.3.3"
+  },
+  "native_recipe_review": {
+    "commit": "ebb95f8add54eee8bed840e3fb587e4cbec857d7",
+    "gaps": [
+      "Source URLs expanded from pinned recipe but archive/patch downloads and hashes not verified.",
+      "Recipe fetches THIRD-PARTY-NOTICES.md from moving main.",
+      "libultrahdr patch uses mutable pull-request URL.",
+      "README includes libnsgif absent from versions.json; not proven linked.",
+      "No binary rebuild/equivalence proof."
+    ],
+    "recipe_archive_sha256": "95dffe5f8b8362cc7826b0d8ef95512f789706d16912624d27decbfda28496d6",
+    "recipe_version_count": 28,
+    "registry_gitHead_matches_tag": true,
+    "repository": "https://github.com/lovell/sharp-libvips",
+    "source_inputs": [
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 123,
+        "url": "https://github.com/frida/proxy-libintl/archive/0.5.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 130,
+        "url": "https://github.com/zlib-ng/zlib-ng/archive/2.3.3.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 138,
+        "url": "https://github.com/libffi/libffi/releases/download/v3.8.0/libffi-3.8.0.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 145,
+        "url": "https://download.gnome.org/sources/glib/2.90/glib-2.90.0.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "patch",
+        "recipe_line": 147,
+        "url": "https://gist.github.com/kleisauke/284d685efa00908da99ea6afbaaf39ae/raw/bdad5489a61c217850631571caf57f5db6ea8b2c/glib-without-gregex.patch"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 155,
+        "url": "https://download.gnome.org/sources/libxml2/2.15/libxml2-2.15.4.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 162,
+        "url": "https://github.com/libexif/libexif/releases/download/v0.6.26/libexif-0.6.26.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 170,
+        "url": "https://github.com/mm2/Little-CMS/releases/download/lcms2.19.1/lcms2-2.19.1.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 177,
+        "url": "https://storage.googleapis.com/aom-releases/libaom-3.15.1.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 190,
+        "url": "https://github.com/strukturag/libheif/releases/download/v1.23.5/libheif-1.23.5.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 198,
+        "url": "https://github.com/mozilla/mozjpeg/archive/0826579.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "patch",
+        "recipe_line": 201,
+        "url": "https://github.com/mozilla/mozjpeg/commit/f90668e0e4fb79c81e1f24a0ccc0e2090af761bf.patch"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 210,
+        "url": "https://github.com/pnggroup/libpng/archive/v1.6.58.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 217,
+        "url": "https://github.com/lovell/libimagequant/archive/v2.4.1.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 223,
+        "url": "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 230,
+        "url": "https://gitlab.com/libtiff/libtiff/-/archive/v4.7.2/libtiff-v4.7.2.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 241,
+        "url": "https://github.com/google/highway/archive/1.4.0.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 252,
+        "url": "https://github.com/freetype/freetype/archive/VER-2-14-3.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 261,
+        "url": "https://github.com/libexpat/libexpat/releases/download/R_2_8_5/expat-2.8.5.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 269,
+        "url": "https://github.com/libarchive/libarchive/releases/download/v3.8.9/libarchive-3.8.9.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 278,
+        "url": "https://gitlab.freedesktop.org/fontconfig/fontconfig/-/archive/2.18.3/fontconfig-2.18.3.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 291,
+        "url": "https://github.com/harfbuzz/harfbuzz/archive/14.5.0.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 302,
+        "url": "https://cairographics.org/releases/pixman-0.46.4.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 310,
+        "url": "https://cairographics.org/releases/cairo-1.18.6.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 318,
+        "url": "https://github.com/fribidi/fribidi/releases/download/v1.0.17/fribidi-1.0.17.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 325,
+        "url": "https://download.gnome.org/sources/pango/1.58/pango-1.58.2.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 334,
+        "url": "https://download.gnome.org/sources/librsvg/2.63/librsvg-2.63.2.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "patch",
+        "recipe_line": 345,
+        "url": "https://github.com/GNOME/librsvg/commit/9106011db93d701728ac2c9da50c9ab2c1bb5dc6.patch"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 354,
+        "url": "https://github.com/dloebl/cgif/archive/v0.5.4.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 361,
+        "url": "https://github.com/google/libultrahdr/archive/v2.0.2.tar.gz"
+      },
+      {
+        "download_verified": false,
+        "kind": "patch",
+        "recipe_line": 364,
+        "url": "https://patch-diff.githubusercontent.com/raw/google/libultrahdr/pull/383.patch"
+      },
+      {
+        "download_verified": false,
+        "kind": "source_archive",
+        "recipe_line": 373,
+        "url": "https://github.com/libvips/libvips/releases/download/v8.18.7/vips-8.18.7.tar.xz"
+      },
+      {
+        "download_verified": false,
+        "kind": "patch",
+        "recipe_line": 376,
+        "url": "https://gist.githubusercontent.com/lovell/313a6901e9db1bf285f2a1f1180499e4/raw/3988223c7dfa4d22745d9392034b0117abef1446/libvips-cpp-soversion.patch"
+      }
+    ],
+    "tag": "v1.3.4",
+    "version_fields_match_npm_versions": true
+  },
+  "packages": [
+    {
+      "integrity": "sha512-GJ//SSXbnwSDes02umB3nDJLFcQzw8a18V8fyhqr6tV515tOEMdImjjxj1AoafMRz56F3PHgftnj1QEKSU1zkw==",
+      "license": "LGPL-3.0-or-later",
+      "name": "@img/sharp-libvips-linux-x64",
+      "notices": [],
+      "sha256": "e371cb713fc8822c96a0d3fb60a3d092799d0aefab6d7f1fb3b72d8d75f1d109",
+      "url": "https://registry.npmjs.org/@img/sharp-libvips-linux-x64/-/sharp-libvips-linux-x64-1.3.4.tgz",
+      "version": "1.3.4"
+    },
+    {
+      "integrity": "sha512-uLTgu6ZIYuPuDnPpwkYhJsOjogqIhMnjjLREFpRAXjsMpCIQ2RmNX8Iz/5shDXfva1A2V0kC5j+KFVUSc4TVew==",
+      "license": "MPL-2.0",
+      "name": "@vercel/og",
+      "notices": [
+        "package/LICENSE"
+      ],
+      "sha256": "c7f0946ae4b90f4a38615f69ceacfb5990e865c847b96475752b100b93e4e27f",
+      "url": "https://registry.npmjs.org/@vercel/og/-/og-1.0.1.tgz",
+      "version": "1.0.1"
+    },
+    {
+      "integrity": "sha512-uDybUEyfgbyJJ93J1vikTylBX31AkdVYeVPeffMQpf8XN7hSfr0oZOn4VFOIMNvtU5+rHvC5Udg2TgtJKHm23Q==",
+      "license": "CC-BY-4.0",
+      "name": "caniuse-lite",
+      "notices": [
+        "package/LICENSE"
+      ],
+      "sha256": "13a77d8ee9818bd5cc19aafb1eca23724a3ed1afc41f39095c9f19b485a2e3a4",
+      "url": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001815.tgz",
+      "version": "1.0.30001815"
+    },
+    {
+      "integrity": "sha512-B/pSlYVHQ58kqISD/yDjuJ1yfzI34m1gF4lAod2bwSRhiN4K5Cl3H8Af7hqB2PmTL911tdEudnnXn5FnhRoz0w==",
+      "license": "(MPL-2.0 OR Apache-2.0)",
+      "name": "dompurify",
+      "notices": [
+        "package/LICENSE",
+        "package/src/license_header",
+        "package/LICENSE-MPL"
+      ],
+      "sha256": "056cbdae276897208b88c21d1d779adfa09ad7be488a2f510a28e900d3bbffe7",
+      "url": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.17.tgz",
+      "version": "3.4.17"
+    },
+    {
+      "integrity": "sha512-9aZLIrhRaD97sgVhtJOW6ckOEh6/GnvQtdVNfdZ6s67+3/XwLS9lBcQYzEEhYVeUowN7pRzMLsyGhK2i/xvWbw==",
+      "license": "MIT OR SEE LICENSE IN FEEL-FREE.md",
+      "name": "rgbcolor",
+      "notices": [
+        "package/LICENSE.md"
+      ],
+      "sha256": "51be5b477cbe2b12d89be8d72772c609d005bb4d6b271f6031796ecf18f7ca03",
+      "url": "https://registry.npmjs.org/rgbcolor/-/rgbcolor-1.0.1.tgz",
+      "version": "1.0.1"
+    }
+  ],
+  "release_clearance": false,
+  "scope": "five selected npm packages, not complete npm inventory"
+}

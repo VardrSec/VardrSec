@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import tarfile
+import tempfile
 
 
 REPOSITORIES = {
@@ -152,6 +153,26 @@ def verify_source_archive(repo, tree, name, archive):
     return len(observed)
 
 
+def deterministic_source_archive(repo, tree, name, output):
+    """Normalize Git's wall-clock tree archive timestamps without extraction."""
+    with tempfile.TemporaryFile() as raw:
+        git(repo, "archive", "--format=tar", "--prefix=" + name + "/", tree, output=raw)
+        raw.seek(0)
+        with tarfile.open(fileobj=raw, mode="r:") as source:
+            with tarfile.open(fileobj=output, mode="w|", format=tarfile.PAX_FORMAT) as target:
+                for member in source:
+                    member.mtime = member.uid = member.gid = 0
+                    member.uname = member.gname = ""
+                    member.pax_headers = {}
+                    member.mode = 0o777 if member.issym() else (0o755 if member.isdir() or member.mode & 0o111 else 0o644)
+                    contents = source.extractfile(member) if member.isfile() else None
+                    try:
+                        target.addfile(member, contents)
+                    finally:
+                        if contents is not None:
+                            contents.close()
+
+
 def assemble(root, destination, repositories, *, include_sources=False):
     root, destination = Path(root).resolve(), Path(destination).absolute()
     destination = destination.parent.resolve(strict=True) / destination.name
@@ -256,14 +277,7 @@ def assemble(root, destination, repositories, *, include_sources=False):
         for name, component in components.items():
             archive = destination / name / "source.tar"
             with archive.open("xb") as output:
-                git(
-                    locations[name],
-                    "archive",
-                    "--format=tar",
-                    "--prefix=" + name + "/",
-                    component["tree"],
-                    output=output,
-                )
+                deterministic_source_archive(locations[name], component["tree"], name, output)
             tracked_files = verify_source_archive(
                 locations[name], component["tree"], name, archive
             )
@@ -274,7 +288,7 @@ def assemble(root, destination, repositories, *, include_sources=False):
                     size += len(chunk)
             component["source_archive"] = {
                 "path": name + "/source.tar",
-                "format": "git_archive_tar_tree",
+                "format": "git_archive_tar_tree_normalized_v1",
                 "sha256": digest.hexdigest(),
                 "bytes": size,
                 "tracked_files": tracked_files,

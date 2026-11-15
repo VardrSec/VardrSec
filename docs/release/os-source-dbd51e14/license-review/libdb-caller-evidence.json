@@ -1,0 +1,288 @@
+{
+  "scope": "Package dependency metadata plus static source inspection, not exhaustive ELF/dlopen analysis",
+  "direct_callers": [
+    {
+      "image": "web",
+      "package": "libpam-modules",
+      "version": "1.7.0-5",
+      "source": "pam",
+      "source_version": "1.7.0-5",
+      "dependencies": " libaudit1 (>= 1:2.2.1), libc6 (>= 2.38), libcrypt1 (>= 1:4.3.0), libdb5.3t64, libpam0g (>= 1.4.1), libselinux1 (>= 3.1~), libsystemd0 (>= 254), debconf (>= 0.5) | debconf-2.0, libpam-modules-bin (= 1.7.0-5)"
+    },
+    {
+      "image": "api",
+      "package": "libpam-modules",
+      "version": "1.7.0-5",
+      "source": "pam",
+      "source_version": "1.7.0-5",
+      "dependencies": " libaudit1 (>= 1:2.2.1), libc6 (>= 2.38), libcrypt1 (>= 1:4.3.0), libdb5.3t64, libpam0g (>= 1.4.1), libselinux1 (>= 3.1~), libsystemd0 (>= 254), debconf (>= 0.5) | debconf-2.0, libpam-modules-bin (= 1.7.0-5)"
+    },
+    {
+      "image": "runner",
+      "package": "libpam-modules",
+      "version": "1.7.0-5",
+      "source": "pam",
+      "source_version": "1.7.0-5",
+      "dependencies": " libaudit1 (>= 1:2.2.1), libc6 (>= 2.38), libcrypt1 (>= 1:4.3.0), libdb5.3t64, libpam0g (>= 1.4.1), libselinux1 (>= 3.1~), libsystemd0 (>= 254), debconf (>= 0.5) | debconf-2.0, libpam-modules-bin (= 1.7.0-5)"
+    },
+    {
+      "image": "db",
+      "package": "libpam-modules",
+      "version": "1.7.0-5",
+      "source": "pam",
+      "source_version": "1.7.0-5",
+      "dependencies": " libaudit1 (>= 1:2.2.1), libc6 (>= 2.38), libcrypt1 (>= 1:4.3.0), libdb5.3t64, libpam0g (>= 1.4.1), libselinux1 (>= 3.1~), libsystemd0 (>= 254), debconf (>= 0.5) | debconf-2.0, libpam-modules-bin (= 1.7.0-5)"
+    },
+    {
+      "image": "db",
+      "package": "libperl5.40",
+      "version": "5.40.1-6+deb13u1",
+      "source": "perl",
+      "source_version": "5.40.1-6+deb13u1",
+      "dependencies": "libbz2-1.0, libc6 (>= 2.38), libcrypt1 (>= 1:4.1.0), libdb5.3t64, libgdbm-compat4t64 (>= 1.18-3), libgdbm6t64 (>= 1.21), zlib1g (>= 1:1.2.3.4), perl-modules-5.40 (>= 5.40.1-6+deb13u1) "
+    },
+    {
+      "image": "db",
+      "package": "libsasl2-modules-db",
+      "version": "2.1.28+dfsg1-9",
+      "source": "cyrus-sasl2",
+      "source_version": "2.1.28+dfsg1-9",
+      "dependencies": "libc6 (>= 2.14), libdb5.3t64 "
+    }
+  ],
+  "sources": [
+    {
+      "source": "util-linux",
+      "version": "2.41.5-0+deb13u1",
+      "files": [
+        {
+          "file": "sources/util-linux/util-linux_2.41.5.orig.tar.xz",
+          "sha256": "f586e35d320ff537aab3ffeca37e9ecd482ccbe013590db4429a414d8aa6a728",
+          "url": "https://security.debian.org/debian-security/pool/updates/main/u/util-linux/util-linux_2.41.5.orig.tar.xz",
+          "index": "security-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/util-linux/util-linux_2.41.5-0+deb13u1.dsc",
+          "sha256": "43e9b2cbebd10fdc598c4ad10217c8202c28de53af6eafc892c8e9b5cbf3a3a5",
+          "url": "https://security.debian.org/debian-security/pool/updates/main/u/util-linux/util-linux_2.41.5-0+deb13u1.dsc",
+          "index": "security-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/util-linux/util-linux_2.41.5-0+deb13u1.debian.tar.xz",
+          "sha256": "5b327ccd22f0f4ed28a389870aa51d04ecedb8693e52a1d122850f2b3188cbf6",
+          "url": "https://security.debian.org/debian-security/pool/updates/main/u/util-linux/util-linux_2.41.5-0+deb13u1.debian.tar.xz",
+          "index": "security-Sources.xz",
+          "public_lock_match": true
+        }
+      ]
+    },
+    {
+      "source": "db5.3",
+      "version": "5.3.28+dfsg2-9",
+      "files": [
+        {
+          "file": "sources/db5.3/db5.3_5.3.28+dfsg2-9.debian.tar.xz",
+          "sha256": "21fe6ee0491c83d0c34fe52e0e0e423946172eff68262584a0cc8ef880c36b74",
+          "url": "https://deb.debian.org/debian/pool/main/d/db5.3/db5.3_5.3.28+dfsg2-9.debian.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/db5.3/db5.3_5.3.28+dfsg2-9.dsc",
+          "sha256": "045f392c75dffc9d4f3bd44978b90ca8d45b935cf0ae4202bf79a760f2ce07b1",
+          "url": "https://deb.debian.org/debian/pool/main/d/db5.3/db5.3_5.3.28+dfsg2-9.dsc",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/db5.3/db5.3_5.3.28+dfsg2.orig.tar.xz",
+          "sha256": "ad41b507415dec8316e828b2230242af2251d2c86eefa3c7aa9ef47c5239ef33",
+          "url": "https://deb.debian.org/debian/pool/main/d/db5.3/db5.3_5.3.28+dfsg2.orig.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        }
+      ]
+    },
+    {
+      "source": "pam",
+      "version": "1.7.0-5",
+      "files": [
+        {
+          "file": "sources/pam/pam_1.7.0.orig.tar.xz",
+          "sha256": "57dcd7a6b966ecd5bbd95e1d11173734691e16b68692fa59661cdae9b13b1697",
+          "url": "https://deb.debian.org/debian/pool/main/p/pam/pam_1.7.0.orig.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/pam/pam_1.7.0.orig.tar.xz.asc",
+          "sha256": "7a8ea18ec7d9dd1f8cbf9055c32128cbca8241aa63e9fea44d56ce6f0e15e441",
+          "url": "https://deb.debian.org/debian/pool/main/p/pam/pam_1.7.0.orig.tar.xz.asc",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/pam/pam_1.7.0-5.dsc",
+          "sha256": "5c127aa18c7cb52ec9ee91fa2099453b3a851bcc0088e79045384a2a508b341c",
+          "url": "https://deb.debian.org/debian/pool/main/p/pam/pam_1.7.0-5.dsc",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/pam/pam_1.7.0-5.debian.tar.xz",
+          "sha256": "d776d7cb6fc8b08273f96b7f843299356ef13c6756e30468c594ab28faf1701c",
+          "url": "https://deb.debian.org/debian/pool/main/p/pam/pam_1.7.0-5.debian.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        }
+      ]
+    },
+    {
+      "source": "shadow",
+      "version": "1:4.17.4-2",
+      "files": [
+        {
+          "file": "sources/shadow/shadow_4.17.4-2.dsc",
+          "sha256": "920de0d3be5303f2c0511d5531c1815abc258b15af8f9c511c8aa6d8e1a91a86",
+          "url": "https://deb.debian.org/debian/pool/main/s/shadow/shadow_4.17.4-2.dsc",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/shadow/shadow_4.17.4.orig.tar.xz.asc",
+          "sha256": "82437d2b54790b3a6734c526b757e693cd0c734ec6afd69f9a9cf0eb1dad8dc4",
+          "url": "https://deb.debian.org/debian/pool/main/s/shadow/shadow_4.17.4.orig.tar.xz.asc",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/shadow/shadow_4.17.4.orig.tar.xz",
+          "sha256": "554801054694ff7d8a7abdf0d6ece34e2f16e111673cc01b8c9ee1278451181e",
+          "url": "https://deb.debian.org/debian/pool/main/s/shadow/shadow_4.17.4.orig.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/shadow/shadow_4.17.4-2.debian.tar.xz",
+          "sha256": "97eaf0b3682a8a1a1ae6e4c4fac00885a7433d2487e636bde7c1c406e66bdb23",
+          "url": "https://deb.debian.org/debian/pool/main/s/shadow/shadow_4.17.4-2.debian.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        }
+      ]
+    },
+    {
+      "source": "perl",
+      "version": "5.40.1-6+deb13u1",
+      "files": [
+        {
+          "file": "sources/perl/perl_5.40.1-6+deb13u1.debian.tar.xz",
+          "sha256": "5ee76db601d6f4638433ab9b0f5bd5cfb15b102a79d902ff282e762becb7e724",
+          "url": "https://deb.debian.org/debian/pool/main/p/perl/perl_5.40.1-6+deb13u1.debian.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/perl/perl_5.40.1-6+deb13u1.dsc",
+          "sha256": "92d1cfb32167d77fada7284f1c291de72f93eb896f5cfd58247d020182b403a8",
+          "url": "https://deb.debian.org/debian/pool/main/p/perl/perl_5.40.1-6+deb13u1.dsc",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/perl/perl_5.40.1.orig.tar.xz",
+          "sha256": "dfa20c2eef2b4af133525610bbb65dd13777ecf998c9c5b1ccf0d308e732ee3f",
+          "url": "https://deb.debian.org/debian/pool/main/p/perl/perl_5.40.1.orig.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/perl/perl_5.40.1.orig-regen-configure.tar.xz",
+          "sha256": "4ea023d08101443f6ed9dc3bdd9bb5f5e08087678dc9e443d195df22da36209a",
+          "url": "https://deb.debian.org/debian/pool/main/p/perl/perl_5.40.1.orig-regen-configure.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        }
+      ]
+    },
+    {
+      "source": "postgresql-18",
+      "version": "18.6-1.pgdg13+2",
+      "files": [
+        {
+          "file": "sources/postgresql-18/postgresql-18_18.6.orig.tar.bz2",
+          "sha256": "555610c24d53e4316da5b7d3fc25c279d96856d5e0e23ee308c328c5fa881d9f",
+          "url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-18/postgresql-18_18.6.orig.tar.bz2",
+          "index": "pgdg-Sources.bz2",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/postgresql-18/postgresql-18_18.6-1.pgdg13+2.dsc",
+          "sha256": "9eb326e5888e912ca3270f1481add03f8640e1c97464576b64ec0488000263fc",
+          "url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-18/postgresql-18_18.6-1.pgdg13+2.dsc",
+          "index": "pgdg-Sources.bz2",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/postgresql-18/postgresql-18_18.6-1.pgdg13+2.debian.tar.xz",
+          "sha256": "354c85b8dcc15c17b9f0721260469e8bd7a539507a15c9ef8958d952b466dfae",
+          "url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-18/postgresql-18_18.6-1.pgdg13+2.debian.tar.xz",
+          "index": "pgdg-Sources.bz2",
+          "public_lock_match": true
+        }
+      ]
+    },
+    {
+      "source": "cyrus-sasl2",
+      "version": "2.1.28+dfsg1-9",
+      "files": [
+        {
+          "file": "sources/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg1-9.dsc",
+          "sha256": "179cda376ee9f9a54098f902174299dd183ae78c703f72b86bd4c3297db4c153",
+          "url": "https://deb.debian.org/debian/pool/main/c/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg1-9.dsc",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg1-9.debian.tar.xz",
+          "sha256": "8215afa01ee2907da0a650bfa6b9cf0fae12f2611a098eedd853b5e71adf6623",
+          "url": "https://deb.debian.org/debian/pool/main/c/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg1-9.debian.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        },
+        {
+          "file": "sources/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg1.orig.tar.xz",
+          "sha256": "e796a5d85d1a85e1b433d43504e467f9075c7ebc0b45730a3996cf11b1deada4",
+          "url": "https://deb.debian.org/debian/pool/main/c/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg1.orig.tar.xz",
+          "index": "trixie-Sources.xz",
+          "public_lock_match": true
+        }
+      ]
+    }
+  ],
+  "source_members": [
+    {
+      "archive": "sources/pam/pam_1.7.0.orig.tar.xz",
+      "member": "Linux-PAM-1.7.0/modules/pam_userdb/pam_userdb.c",
+      "sha256": "ffa7ccd91bc32c9e6fa0b786b44c31f8c1ec0cf8fc260c5b41d2697d4fbf324c",
+      "db_header_present": true,
+      "db_create_present": false
+    },
+    {
+      "archive": "sources/perl/perl_5.40.1.orig.tar.xz",
+      "member": "perl-5.40.1/cpan/DB_File/DB_File.xs",
+      "sha256": "64593de4932ab1e5a7f6dd6d0f7a49480c59f171ca0c20bc5fb3aec5679a210b",
+      "db_header_present": true,
+      "db_create_present": true
+    },
+    {
+      "archive": "sources/cyrus-sasl2/cyrus-sasl2_2.1.28+dfsg1.orig.tar.xz",
+      "member": "cyrus-sasl-2.1.28/sasldb/db_berkeley.c",
+      "sha256": "379c8ddc8fdc6b322f151356abce13e1af14867aff88ef72b5861206eba477fc",
+      "db_header_present": true,
+      "db_create_present": true
+    }
+  ]
+}

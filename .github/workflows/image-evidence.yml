@@ -8,7 +8,7 @@ permissions:
 jobs:
   collect-evidence:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -34,19 +34,82 @@ jobs:
           PY
       - name: Collect all image SBOMs and unfiltered vulnerability reports
         run: python image_evidence.py collect
+      - name: Inspect legal notices and selected native identities without starting images
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_runtime_notice_evidence.py'
+          mkdir -p artifacts/runtime-notices
+          for service in api web db proxy runner; do
+            image=$(docker compose --profile tools config --format json | python -c 'import json,sys; print(json.load(sys.stdin)["services"][sys.argv[1]]["image"])' "$service")
+            digest=$(docker image inspect --format '{{.Id}}' "$image")
+            id=$(docker create "$digest")
+            trap 'docker rm "$id" >/dev/null' EXIT
+            # Bind retained backport sources to the very same stopped image
+            # scanned above, including the OS fixes shared by Full and Mapless.
+            if [ "$service" != proxy ]; then
+              for package in libsqlite3-0 ncurses-bin util-linux; do
+                destination="artifacts/native-source-delivery/$service-$package"
+                mkdir -p "$destination"
+                docker cp "$id:/usr/share/doc/$package/vardr-source/." "$destination/"
+                (cd "$destination" && sha256sum -c SHA256SUMS)
+              done
+            fi
+            if [ "$service" = db ]; then
+              mkdir -p artifacts/native-source-delivery
+              docker cp "$id:/usr/share/doc/libxml2/vardr-source" artifacts/native-source-delivery/libxml2
+              docker cp "$id:/usr/share/licenses/gosu/source" artifacts/native-source-delivery/gosu
+              docker cp "$id:/usr/share/doc/libkrb5-3/vardr-source" artifacts/native-source-delivery/krb5
+              (cd artifacts/native-source-delivery/libxml2 && sha256sum -c SHA256SUMS)
+              (cd artifacts/native-source-delivery/gosu && sha256sum -c SHA256SUMS)
+              (cd artifacts/native-source-delivery/krb5 && sha256sum -c SHA256SUMS)
+              docker cp "$id:/usr/share/doc/perl-modules-5.40/vardr-source" artifacts/native-source-delivery/db-archive-tar
+              (cd artifacts/native-source-delivery/db-archive-tar && sha256sum -c SHA256SUMS)
+            fi
+            if [ "$service" = runner ]; then
+              mkdir -p artifacts/native-source-delivery
+              docker cp "$id:/opt/vardrtools/provenance" artifacts/native-source-delivery/runner-provenance
+              docker cp "$id:/usr/share/doc/libpcap0.8t64/vardr-source" artifacts/native-source-delivery/runner-libpcap
+              (cd artifacts/native-source-delivery/runner-libpcap && sha256sum -c SHA256SUMS)
+            fi
+            if [ "$service" = proxy ]; then
+              mkdir -p artifacts/native-source-delivery
+              docker cp "$id:/usr/share/licenses/caddy/go-jose-v3" artifacts/native-source-delivery/proxy-go-jose-v3
+              docker cp "$id:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
+              python tests/proxy_source_custody.py --source artifacts/native-source-delivery/proxy-go-jose-v3 \
+                --binary "$RUNNER_TEMP/caddy" --image-id "$digest" --distribution-commit "$(git rev-parse HEAD)"
+            fi
+            docker export "$id" | python runtime_notice_evidence.py --image-id "$digest" --service "$service" --distribution-commit "$(git rev-parse HEAD)" --output "artifacts/runtime-notices/$service.tar"
+            docker rm "$id" >/dev/null
+            trap - EXIT
+          done
+      - name: Preserve exact-image runtime notice evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: runtime-notice-evidence
+          path: artifacts/runtime-notices/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve verified native corresponding-source delivery
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: native-source-delivery
+          path: artifacts/native-source-delivery/
+          if-no-files-found: error
+          retention-days: 30
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - name: Report live Go reachability in the rebuilt proxy
         shell: bash
         run: |
           set -euo pipefail
           GODEBUG=http2client=0 GOBIN="$RUNNER_TEMP/proxy-go-bin" go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
-          proxy=$(docker compose --profile tools config --format json | python -c 'import json,sys; print(json.load(sys.stdin)["services"]["proxy"]["image"])')
-          id=$(docker create "$proxy")
-          docker cp "$id:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
-          docker rm "$id" > /dev/null
+          go version -m "$RUNNER_TEMP/caddy" > artifacts/native-source-delivery/proxy-go-jose-v3/caddy-build-info.txt
+          sha256sum "$RUNNER_TEMP/caddy" | cut -d ' ' -f1 > artifacts/native-source-delivery/proxy-go-jose-v3/caddy.sha256
           set +e
           "$RUNNER_TEMP/proxy-go-bin/govulncheck" -mode=binary -show verbose "$RUNNER_TEMP/caddy" > artifacts/proxy-go-reachability.txt 2>&1
           status=$?
@@ -54,6 +117,32 @@ jobs:
           cat artifacts/proxy-go-reachability.txt
           # Finding exit code 3 is evidence, never an accepted risk. Other errors fail collection.
           if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then exit "$status"; fi
+      - name: Verify rebuilt gosu module and retain Go reachability
+        shell: bash
+        run: |
+          set -euo pipefail
+          db=$(docker compose --profile tools config --format json | python -c 'import json,sys; print(json.load(sys.stdin)["services"]["db"]["image"])')
+          id=$(docker create "$db")
+          docker cp "$id:/usr/local/bin/gosu" "$RUNNER_TEMP/gosu"
+          docker rm "$id" > /dev/null
+          go version -m "$RUNNER_TEMP/gosu" > artifacts/gosu-build-info.txt
+          grep -Eq 'golang.org/x/sys[[:space:]]+v0\.44\.0[[:space:]]' artifacts/gosu-build-info.txt
+          set +e
+          "$RUNNER_TEMP/proxy-go-bin/govulncheck" -mode=binary -show verbose "$RUNNER_TEMP/gosu" > artifacts/gosu-go-reachability.txt 2>&1
+          status=$?
+          set -e
+          cat artifacts/gosu-go-reachability.txt
+          if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then exit "$status"; fi
+      - name: Preserve gosu dependency and reachability evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: gosu-go-evidence
+          path: |
+            artifacts/gosu-build-info.txt
+            artifacts/gosu-go-reachability.txt
+          if-no-files-found: error
+          retention-days: 7
       - name: Verify the configured proxy JWK ingress boundary
         run: python tests/proxy_jwk_boundary.py --caddy "$RUNNER_TEMP/caddy"
       - name: Preserve proxy boundary evidence
@@ -64,6 +153,14 @@ jobs:
           path: artifacts/proxy-jwk-boundary/receipt.json
           if-no-files-found: ignore
           retention-days: 7
+      - name: Preserve exact proxy source and binary custody
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: proxy-source-custody
+          path: artifacts/native-source-delivery/proxy-go-jose-v3/
+          if-no-files-found: error
+          retention-days: 30
       - name: Preserve raw proxy reachability
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

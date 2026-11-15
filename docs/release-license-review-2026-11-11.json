@@ -1,0 +1,92 @@
+{
+  "artifact_id": 13840484215,
+  "artifact_sha256": "ccf2cb223490f5def91aa4dc611ea4fe72df73a5375f3564bfbfc3de9a27eb37",
+  "component_pins": {
+    "gate": {
+      "commit": "ecd180627c9e692a8df532122713577d0afcefa1",
+      "license_bytes": 11357,
+      "license_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "repository": "VardrSec/VardrGate",
+      "review": "https://github.com/VardrSec/VardrGate/pull/35"
+    },
+    "map": {
+      "commit": "8bde9ff0c919db83c8995f46eac7bd828163892d",
+      "license_bytes": 34523,
+      "license_sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+      "readiness_contract": 1,
+      "repository": "VardrSec/VardrMap",
+      "review": "https://github.com/VardrSec/VardrMap/pull/161"
+    },
+    "runner": {
+      "commit": "cc15dec86574d595c84f323aec813c241b4e56f8",
+      "license_bytes": 1069,
+      "license_sha256": "20e0b31b23b5504a0723b1e7376eccab5478a16c6e7be6311fc0989325c1b26e",
+      "readiness_contract": 1,
+      "repository": "VardrSec/VardrRunner",
+      "review": "https://github.com/VardrSec/VardrRunner/pull/130"
+    }
+  },
+  "dalfox_archive": {
+    "lockfile_packages": 336,
+    "scope": "Lockfile source superset, not upstream binary linkage proof",
+    "sha256": "f51df44eb354eaac6cc7b4b5b695843511471a6d762f885ca4fd8a74a09fc6b5",
+    "verified_checksum_entries": 217
+  },
+  "distribution_commit": "12c82d11b9145f3dd09ee6f1319bff7688f524c9",
+  "evidence_run": "https://github.com/VardrSec/VardrSec/actions/runs/42988221940",
+  "images": {
+    "api": {
+      "component_occurrences": 135,
+      "config_id": "sha256:a4ab726d29dd3522cfd0f6696d9219c119af3302a30bf797bf4abe50c713eeb1",
+      "missing_license_metadata": 5,
+      "sbom_sha256": "535192141740d7d61f5018d4e761716e223104f5fe9af6c15de1d4726db59350",
+      "vulnerability_gate": "blocked",
+      "with_license_metadata": 130
+    },
+    "db": {
+      "component_occurrences": 144,
+      "config_id": "sha256:877f9d7cac135ce2015338f9abb8a6cad20c4902e85ed8dd1dd3a8fb6e2c45fc",
+      "missing_license_metadata": 11,
+      "sbom_sha256": "5e1cd5ef42e22faa1385a31c25a5e0015f4fa9d27eae607a4beb62daf2a6e24b",
+      "vulnerability_gate": "blocked",
+      "with_license_metadata": 133
+    },
+    "proxy": {
+      "component_occurrences": 196,
+      "config_id": "sha256:9d04d34525050db1f367e03e5e60c821ed092a38e4ea5cea1b4eb4d2ded94f32",
+      "missing_license_metadata": 164,
+      "sbom_sha256": "c52a5906001c2ea75daf7dbdf0705162dbfde742611a8f6ddfea87dd7afcea12",
+      "vulnerability_gate": "blocked",
+      "with_license_metadata": 32
+    },
+    "runner": {
+      "component_occurrences": 1211,
+      "config_id": "sha256:d64279faedcf344ebd84f1402a45d2c853c8da33b3ca51fd570737653563e4f0",
+      "missing_license_metadata": 1077,
+      "sbom_sha256": "833b7a1486b4e34a3950b59857d1b8cf9b09a1618e9360075d77e02d71a4b751",
+      "vulnerability_gate": "blocked",
+      "with_license_metadata": 134
+    },
+    "web": {
+      "component_occurrences": 256,
+      "config_id": "sha256:a22eec56759aaf9fe2b1d2d5f38eeb4301eb152ab217a6878dbeadd9d3f17a03",
+      "missing_license_metadata": 5,
+      "sbom_sha256": "1a1144439dd65b64efbe71b1a8ade1a7569ba7abed8bef21a0b5f7c3e600a656",
+      "vulnerability_gate": "blocked",
+      "with_license_metadata": 251
+    }
+  },
+  "open_items": [
+    "Map npm/Python dependency notice and corresponding-source reconciliation against actual runtime contents",
+    "Go linked-module-to-delivered-notice reconciliation for Caddy, gosu, Gate and Runner tools; cache archives may contain unused revisions",
+    "OS package source/notice delivery for exact binary versions; modified libxml2/libpcap delivery is only a subset",
+    "Dalfox target/linkage review and unresolved Android-only grant text; archived lockfile includes unsupported targets",
+    "Nmap opt-in integration licensing determination; package exclusion is not a legal determination",
+    "Final artifact delivery verification and explicit publication approval"
+  ],
+  "receipt_sha256": "f912aa6117ef1c13a8e5a537effe2dfa9c1c4739d93c3ec36fad99e298ab3136",
+  "release_clearance": false,
+  "reviewed_on": "2026-11-11",
+  "schema": "vardr.license-review/1",
+  "status": "blocked_pending_transitive_and_artifact_delivery_review"
+}

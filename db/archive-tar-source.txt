@@ -1,0 +1,14 @@
+Archive::Tar allocation-bound security backport
+
+CVE-2026-9538. Existing Debian Perl 5.40 Archive::Tar 3.02_001 receives
+only the entry-size allocation bound and its documented MAX_FILE_SIZE
+setting from upstream commit:
+https://github.com/jib/archive-tar-new/commit/f9af01426038e29d9578825a0cd3626946ab08c7
+
+The default cap is 1 GiB per declared entry; zero explicitly disables it.
+No extraction/link-policy changes or Perl interpreter/ABI upgrade is made.
+The earlier module lacks EXTRACT_HARDLINK; the declaration is adapted only
+for that difference. Exact original and patched hashes are build guards.
+Original/modified module source, upstream-derived patch, license texts and
+checksums accompany this notice. The Debian version is not relabeled as an
+upstream fixed release; scanner disposition remains a separate release gate.

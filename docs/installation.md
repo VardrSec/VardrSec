@@ -5,6 +5,14 @@ PostgreSQL and a local HTTPS proxy. For the CLI-only alternative, follow the
 [Mapless walkthrough](mapless.md) instead. Do not run both installers in the same
 checkout. Neither mode is a published Community release.
 
+The database source build uses a disposable QEMU/TCG guest inside the Docker
+build stage to run the unchanged Debian Kerberos tests under ordinary guest
+kernel policy. No host VM configuration, devices or security-policy changes are
+needed. Allocate at least 4 GiB guest memory plus Docker/build overhead; the
+first uncached database build can take tens of minutes. The Full CLI builds
+the database first, then builds application images using its normal cached layer. See the
+[build evidence and boundaries](../qualification/kerberos-image/README.md).
+
 ## 1. Check prerequisites and clone
 
 Windows 11 Docker Desktop with Linux/amd64 containers is the primary Community
@@ -285,7 +293,9 @@ Runner is excluded from ordinary startup. The tool-enabled image includes Gate,
 libpcap (for naabu, the port-discovery tool; Nmap is not packaged) and Runner's checksum-verified managed tools. Managed tools live in
 read-only image storage, separate from persistent Runner state. Native/keychain
 operation remains available. Raw-packet scans, headless-browser tooling, operator
-wordlists and nuclei template provisioning are not certified by this baseline.
+wordlists and template provisioning are not certified by this baseline.
+Nuclei is no longer bundled; use the explicit [optional native Runner path](../README.md#optional-nuclei)
+if your assessment requires it. Full/Mapless installation guards are unchanged.
 No capability or privileged mode is enabled automatically. Diagnose the intended
 tools and host/VPN target reachability before explicitly invoking `jobs run`.
 The tool/network fixture documents selected modes,

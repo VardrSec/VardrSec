@@ -1,0 +1,262 @@
+{
+  "upstream_zip_sha256": "4e7e6b60541ab03bd402e573fc2c1264297e661726c5f53529ca14ae58625a27",
+  "upstream_commit": "be2f6548701d4ba561cd61c7d4a2f1289b66c273",
+  "security_commit": "a0111f82742fa92bceec9ede40845e73319e6230",
+  "files": {
+    "jwk.go": {
+      "before_sha256": "79f510a4b97fa2e34ec37932cab57e64dfdc9fa6c314654d1ccc2dd93898a532",
+      "after_sha256": "72252702447c2b76f55d98c3716469583472572eb45ae99c1afbd7277391cf4b",
+      "new_file": false,
+      "edits": [
+        {
+          "offset": 5778,
+          "old": "",
+          "new": "// Direct unmarshaling permits private keys and is not safe for untrusted input.\n"
+        },
+        {
+          "offset": 5824,
+          "old": "",
+          "new": ") error {\n\treturn k.unmarshalJSON(data, true)\n}\n\n// unmarshalJSON rejects private parameters before key construction when allowPrivate is false.\nfunc (k *JSONWebKey) unmarshalJSON(data []byte, allowPrivate bool"
+        },
+        {
+          "offset": 5926,
+          "old": "",
+          "new": "\n\t}\n\n\tif !allowPrivate && (raw.K != nil || raw.D != nil || raw.P != nil || raw.Q != nil || raw.Dp != nil || raw.Dq != nil || raw.Qi != nil) {\n\t\treturn errors.New(\"go-jose/go-jose: JWK contains private parameters\")"
+        },
+        {
+          "offset": 14700,
+          "old": "",
+          "new": "// MaxRSAModulusBits is the largest RSA modulus size, in bits, that will be\n// accepted when parsing a JWK. Applications that need larger keys can raise\n// this limit.\n//\n// If modifying MaxRSAModulusBits, do it before any parsing occurs.\nvar MaxRSAModulusBits = 4096\n\n"
+        },
+        {
+          "offset": 14887,
+          "old": "",
+          "new": "n := key.N.bigInt()\n\tif n.BitLen() > MaxRSAModulusBits {\n\t\treturn nil, fmt.Errorf(\"go-jose/go-jose: invalid RSA key, modulus too large\")\n\t}\n\n\t"
+        },
+        {
+          "offset": 14915,
+          "old": "key.N.bigI",
+          "new": ""
+        },
+        {
+          "offset": 14926,
+          "old": "t()",
+          "new": ""
+        },
+        {
+          "offset": 18446,
+          "old": "",
+          "new": "n := key.N.bigInt()\n\tif n.BitLen() > MaxRSAModulusBits {\n\t\treturn nil, fmt.Errorf(\"go-jose/go-jose: invalid RSA key, modulus too large\")\n\t}\n\n\tp, q := key.P.bigInt(), key.Q.bigInt()\n\tif p.BitLen()+q.BitLen() > n.BitLen()+1 || new(big.Int).Mul(p, q).Cmp(n) != 0 {\n\t\treturn nil, errors.New(\"go-jose/go-jose: invalid RSA private key, p * q != n\")\n\t}\n\n\t"
+        },
+        {
+          "offset": 18503,
+          "old": "key.N.bigI",
+          "new": ""
+        },
+        {
+          "offset": 18514,
+          "old": "t()",
+          "new": ""
+        },
+        {
+          "offset": 18549,
+          "old": "",
+          "new": "     "
+        },
+        {
+          "offset": 18587,
+          "old": "\n\t\t\tkey.P.bigInt()",
+          "new": "p"
+        },
+        {
+          "offset": 18606,
+          "old": "\n\t\t\tkey.Q.bigInt(),\n\t\t",
+          "new": " q"
+        }
+      ]
+    },
+    "shared.go": {
+      "before_sha256": "3802ca5b8f811f72d33eb662cbbdf53d3b7aa4bcbb6b6c6ddd7695a54e3a3d40",
+      "after_sha256": "e17e4bb9ec6e73b954e51f080679c49c1fe17e61362fe1d3028c8a31255cd079",
+      "new_file": false,
+      "edits": [
+        {
+          "offset": 10697,
+          "old": "",
+          "new": "// RFC 7518 Section 4.6.1.1: the \"epk\" header is the ephemeral public key\n\t// of the originator. Reject pri"
+        },
+        {
+          "offset": 10699,
+          "old": "",
+          "new": "te key mate"
+        },
+        {
+          "offset": 10700,
+          "old": "",
+          "new": "ial"
+        },
+        {
+          "offset": 10701,
+          "old": "",
+          "new": "before parsing it.\n\t"
+        },
+        {
+          "offset": 10705,
+          "old": "*",
+          "new": ":= new("
+        },
+        {
+          "offset": 10716,
+          "old": "",
+          "new": ")"
+        },
+        {
+          "offset": 10718,
+          "old": "",
+          "new": "if "
+        },
+        {
+          "offset": 10725,
+          "old": "json",
+          "new": "epk"
+        },
+        {
+          "offset": 10730,
+          "old": "U",
+          "new": "u"
+        },
+        {
+          "offset": 10739,
+          "old": "",
+          "new": "JSON"
+        },
+        {
+          "offset": 10744,
+          "old": "&",
+          "new": "fals"
+        },
+        {
+          "offset": 10746,
+          "old": "pk",
+          "new": ""
+        },
+        {
+          "offset": 10749,
+          "old": "\n\tif",
+          "new": ";"
+        },
+        {
+          "offset": 11400,
+          "old": "\n}\n\n// getJWK extracts parsed \"jwk\" from the raw JSON.\nfunc (parsed rawHeader) getJWK() (*JSONWebKey, error) {\n\tv := parsed[headerJWK]\n\tif v == nil {\n\t\treturn nil, nil\n\t}\n\tvar jwk *JSONWebKey\n\terr := json.Unmarshal(*v, &jwk)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn jwk, nil",
+          "new": ""
+        },
+        {
+          "offset": 12929,
+          "old": "",
+          "new": "// RFC 7515 Section 4.1.3 and RFC 7516 Section 4.1.5: the \"jwk\"\n\t\t\t// header is the public key that corresponds to the key used to\n\t\t\t// sign the JWS or encrypt the JWE. Reject pri"
+        },
+        {
+          "offset": 12931,
+          "old": "",
+          "new": "te key mate"
+        },
+        {
+          "offset": 12932,
+          "old": "",
+          "new": "ial\n\t\t\t//"
+        },
+        {
+          "offset": 12933,
+          "old": "",
+          "new": "before parsing it.\n\t\t\t"
+        },
+        {
+          "offset": 12937,
+          "old": "*",
+          "new": ":= new("
+        },
+        {
+          "offset": 12948,
+          "old": "",
+          "new": ")"
+        },
+        {
+          "offset": 12959,
+          "old": "son",
+          "new": "wk"
+        },
+        {
+          "offset": 12963,
+          "old": "U",
+          "new": "u"
+        },
+        {
+          "offset": 12972,
+          "old": "",
+          "new": "JSON"
+        },
+        {
+          "offset": 12977,
+          "old": "&jwk",
+          "new": "false"
+        },
+        {
+          "offset": 13050,
+          "old": "v: %#v",
+          "new": "w"
+        },
+        {
+          "offset": 13062,
+          "old": ", string(*v)",
+          "new": ""
+        }
+      ]
+    },
+    "jws.go": {
+      "before_sha256": "6cc24876cea42cf11503f87ac68456d9169d5e6fec757efaf9e4fd46bc74fb0b",
+      "after_sha256": "97fb3fda2ccbfd8f5f57a7437202d3cb8a4f61d4da129430c044ad7a157d29a6",
+      "new_file": false,
+      "edits": [
+        {
+          "offset": 7527,
+          "old": "",
+          "new": "obj.Signatures[i].header = sig.Header\n\n\t\t"
+        },
+        {
+          "offset": 8366,
+          "old": "\n\t\tobj.Signatures[i].header = sig.Header",
+          "new": ""
+        }
+      ]
+    },
+    "jwe.go": {
+      "before_sha256": "904beb59428b5bd472debed7bc9c799b7cffeb426fc4395ee78973b88597f8a8",
+      "after_sha256": "63bf71b42b40ce2cb01bedbc254a0efc4986a7b6c0908633dd83f419684cabe7",
+      "new_file": false,
+      "edits": [
+        {
+          "offset": 4573,
+          "old": "// Note: this must be called _after_ we parse the protected header,\n\t// otherwise fields from the protected header will not get picked up.\n\tvar err error\n\tmergedHeaders := obj.mergedHeaders(nil)\n\tobj.Header, err = mergedHeaders.sanitized()\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"go-jose/go-jose: cannot sanitize merged headers: %v (%v)\", err, mergedHeaders)\n\t}\n\n\t",
+          "new": ""
+        },
+        {
+          "offset": 5888,
+          "old": "",
+          "new": "\n\t}\n\n\t// Note: this must be called _after_ we parse the protected header,\n\t// otherwise fields from the protected header will not get picked up.\n\tvar err error\n\tmergedHeaders := obj.mergedHeaders(nil)\n\tobj.Header, err = mergedHeaders.sanitized()\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"go-jose/go-jose: cannot sanitize merged headers: %w\", err)"
+        }
+      ]
+    },
+    "rsa_security_backport_test.go": {
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "after_sha256": "788b68b2ca26060f8f4826e0bde6c0641e3cfc8d249d4aff65d93aa908a3bd66",
+      "new_file": true,
+      "edits": [
+        {
+          "offset": 0,
+          "old": "",
+          "new": "// Regression tests adapted from upstream v4.1.6 a0111f82742fa92bceec9ede40845e73319e6230.\npackage jose\n\nimport (\n\t\"crypto/rsa\"\n\t\"encoding/base64\"\n\t\"github.com/go-jose/go-jose/v3/json\"\n\t\"github.com/stretchr/testify/assert\"\n\t\"github.com/stretchr/testify/require\"\n\t\"math/big\"\n\t\"strings\"\n\t\"testing\"\n)\n\nfunc TestRsaKeyChecks(t *testing.T) {\n\tdefer func(old int) { MaxRSAModulusBits = old }(MaxRSAModulusBits)\n\n\t// oddOfBits returns an odd integer of exactly the given bit length.\n\toddOfBits := func(bits int) *byteBuffer {\n\t\tn := new(big.Int).Lsh(big.NewInt(1), uint(bits-1))\n\t\treturn newBuffer(n.SetBit(n, 0, 1).Bytes())\n\t}\n\n\ttestCases := []struct {\n\t\tname    string\n\t\tpublic  bool                 // parse as a public key (n and e only)\n\t\tlimit   int                  // override for MaxRSAModulusBits, 0 for default\n\t\tmutate  func(*rawJSONWebKey) // applied to a valid JWK of rsaTestKey\n\t\twantErr string               // substring of the expected error, empty for success\n\t}{\n\t\t{\n\t\t\tname:   \"public key, modulus one under limit\",\n\t\t\tpublic: true,\n\t\t\tmutate: func(jwk *rawJSONWebKey) { jwk.N = oddOfBits(MaxRSAModulusBits - 1) },\n\t\t},\n\t\t{\n\t\t\tname:   \"public key, modulus at limit\",\n\t\t\tpublic: true,\n\t\t\tmutate: func(jwk *rawJSONWebKey) { jwk.N = oddOfBits(MaxRSAModulusBits) },\n\t\t},\n\t\t{\n\t\t\tname:    \"public key, modulus over limit\",\n\t\t\tpublic:  true,\n\t\t\tmutate:  func(jwk *rawJSONWebKey) { jwk.N = oddOfBits(MaxRSAModulusBits + 1) },\n\t\t\twantErr: \"modulus too large\",\n\t\t},\n\t\t{\n\t\t\tname:    \"private key, modulus over limit\",\n\t\t\tmutate:  func(jwk *rawJSONWebKey) { jwk.N = oddOfBits(MaxRSAModulusBits + 1) },\n\t\t\twantErr: \"modulus too large\",\n\t\t},\n\t\t{\n\t\t\tname:    \"public key, limit lowered below key\",\n\t\t\tpublic:  true,\n\t\t\tlimit:   rsaTestKey.N.BitLen() - 1,\n\t\t\twantErr: \"modulus too large\",\n\t\t},\n\t\t{\n\t\t\tname:    \"private key, limit lowered below key\",\n\t\t\tlimit:   rsaTestKey.N.BitLen() - 1,\n\t\t\twantErr: \"modulus too large\",\n\t\t},\n\t\t{\n\t\t\tname:   \"public key, limit raised to key\",\n\t\t\tpublic: true,\n\t\t\tlimit:  rsaTestKey.N.BitLen(),\n\t\t},\n\t\t{\n\t\t\tname:  \"private key, limit raised to key\",\n\t\t\tlimit: rsaTestKey.N.BitLen(),\n\t\t},\n\t\t{\n\t\t\tname: \"p nudged\",\n\t\t\tmutate: func(jwk *rawJSONWebKey) {\n\t\t\t\tjwk.P = newBuffer(new(big.Int).Add(rsaTestKey.Primes[0], big.NewInt(2)).Bytes())\n\t\t\t},\n\t\t\twantErr: \"p * q != n\",\n\t\t},\n\t\t{\n\t\t\tname:    \"p = q\",\n\t\t\tmutate:  func(jwk *rawJSONWebKey) { jwk.Q = jwk.P },\n\t\t\twantErr: \"p * q != n\",\n\t\t},\n\t\t{\n\t\t\tname:    \"p = 1\",\n\t\t\tmutate:  func(jwk *rawJSONWebKey) { jwk.P = newBufferFromInt(1) },\n\t\t\twantErr: \"p * q != n\",\n\t\t},\n\t\t{\n\t\t\tname:    \"p = 0\",\n\t\t\tmutate:  func(jwk *rawJSONWebKey) { jwk.P = newBuffer([]byte{}) },\n\t\t\twantErr: \"p * q != n\",\n\t\t},\n\t\t{\n\t\t\tname:    \"enormous p\",\n\t\t\tmutate:  func(jwk *rawJSONWebKey) { jwk.P = oddOfBits(1 << 20) },\n\t\t\twantErr: \"p * q != n\",\n\t\t},\n\t}\n\n\tfor _, tc := range testCases {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\tMaxRSAModulusBits = 4096\n\t\t\tjwk, err := fromRsaPrivateKey(rsaTestKey)\n\t\t\trequire.NoError(t, err)\n\t\t\tif tc.mutate != nil {\n\t\t\t\ttc.mutate(jwk)\n\t\t\t}\n\t\t\tif tc.limit != 0 {\n\t\t\t\tMaxRSAModulusBits = tc.limit\n\t\t\t}\n\n\t\t\tif tc.public {\n\t\t\t\t_, err = rawJSONWebKey{N: jwk.N, E: jwk.E}.rsaPublicKey()\n\t\t\t} else {\n\t\t\t\t_, err = jwk.rsaPrivateKey()\n\t\t\t}\n\n\t\t\tif tc.wantErr == \"\" {\n\t\t\t\tassert.NoError(t, err)\n\t\t\t} else if err == nil || !strings.Contains(err.Error(), tc.wantErr) {\n\t\t\t\tt.Errorf(\"expected error containing %q, got %v\", tc.wantErr, err)\n\t\t\t}\n\t\t})\n\t}\n}\n\nfunc TestUnmarshalPrivateJWKAllowed(t *testing.T) {\n\traw, err := json.Marshal(JSONWebKey{Key: rsaTestKey})\n\trequire.NoError(t, err)\n\n\tvar jwk JSONWebKey\n\trequire.NoError(t, json.Unmarshal(raw, &jwk))\n\tif _, ok := jwk.Key.(*rsa.PrivateKey); !ok {\n\t\tt.Errorf(\"expected *rsa.PrivateKey, got %T\", jwk.Key)\n\t}\n\n\tvar jwks JSONWebKeySet\n\trequire.NoError(t, json.Unmarshal([]byte(`{\"keys\":[`+string(raw)+`]}`), &jwks))\n\tif len(jwks.Keys) != 1 {\n\t\tt.Fatalf(\"expected 1 key, got %d\", len(jwks.Keys))\n\t}\n\tif _, ok := jwks.Keys[0].Key.(*rsa.PrivateKey); !ok {\n\t\tt.Errorf(\"expected *rsa.PrivateKey, got %T\", jwks.Keys[0].Key)\n\t}\n}\n\nfunc TestEmbeddedPrivateJWKRejected(t *testing.T) {\n\tprivateJWK, err := fromRsaPrivateKey(rsaTestKey)\n\tif err != nil {\n\t\tt.Fatal(err)\n\t}\n\tpublicJWK := fromRsaPublicKey(&rsaTestKey.PublicKey)\n\tstrayJWK := fromRsaPublicKey(&rsaTestKey.PublicKey)\n\tstrayJWK.P, strayJWK.Q = privateJWK.P, privateJWK.Q\n\n\ttestCases := []struct {\n\t\tname        string\n\t\tjwk         *rawJSONWebKey\n\t\tunprotected bool // place the jwk in the unprotected header instead\n\t\twantErr     bool\n\t}{\n\t\t{name: \"public key\", jwk: publicJWK},\n\t\t{name: \"private key\", jwk: privateJWK, wantErr: true},\n\t\t{name: \"private key in unprotected header\", jwk: privateJWK, unprotected: true, wantErr: true},\n\t\t{name: \"symmetric key\", jwk: &rawJSONWebKey{Kty: \"oct\", K: newBuffer([]byte(\"111\"))}, wantErr: true},\n\t\t{name: \"public key with stray private members\", jwk: strayJWK, wantErr: true},\n\t}\n\n\tpayload := newBuffer([]byte(\"Lorem ipsum dolor sit amet\"))\n\tsignature := newBuffer([]byte(\"not a real signature\"))\n\n\tfor _, tc := range testCases {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\tmarshal := func(v interface{}) []byte {\n\t\t\t\tt.Helper()\n\t\t\t\tb, err := json.Marshal(v)\n\t\t\t\tif err != nil {\n\t\t\t\t\tt.Fatal(err)\n\t\t\t\t}\n\t\t\t\treturn b\n\t\t\t}\n\n\t\t\talg := json.RawMessage(`\"RS256\"`)\n\t\t\tjwk := json.RawMessage(marshal(tc.jwk))\n\t\t\tprotected := rawHeader{headerAlgorithm: &alg}\n\t\t\tvar unprotected *rawHeader\n\t\t\tif tc.unprotected {\n\t\t\t\tunprotected = &rawHeader{headerJWK: &jwk}\n\t\t\t} else {\n\t\t\t\tprotected[headerJWK] = &jwk\n\t\t\t}\n\t\t\tencProtected := newBuffer(marshal(protected))\n\n\t\t\tmessages := map[string]string{\n\t\t\t\t\"flattened\": string(marshal(rawJSONWebSignature{\n\t\t\t\t\tPayload:   payload,\n\t\t\t\t\tProtected: encProtected,\n\t\t\t\t\tHeader:    unprotected,\n\t\t\t\t\tSignature: signature,\n\t\t\t\t})),\n\t\t\t\t\"general\": string(marshal(rawJSONWebSignature{\n\t\t\t\t\tPayload: payload,\n\t\t\t\t\tSignatures: []rawSignatureInfo{{\n\t\t\t\t\t\tProtected: encProtected,\n\t\t\t\t\t\tHeader:    unprotected,\n\t\t\t\t\t\tSignature: signature,\n\t\t\t\t\t}},\n\t\t\t\t})),\n\t\t\t}\n\t\t\tif !tc.unprotected {\n\t\t\t\tmessages[\"compact\"] = encProtected.base64() + \".\" + payload.base64() + \".\" + signature.base64()\n\t\t\t}\n\n\t\t\tfor name, msg := range messages {\n\t\t\t\t_, err := ParseSigned(msg)\n\t\t\t\tif tc.wantErr {\n\t\t\t\t\tif err == nil || !strings.Contains(err.Error(), \"JWK contains private parameters\") {\n\t\t\t\t\t\tt.Errorf(\"%s: expected private parameters error, got %v\", name, err)\n\t\t\t\t\t}\n\t\t\t\t} else if err != nil {\n\t\t\t\t\tt.Errorf(\"%s: unexpected error: %v\", name, err)\n\t\t\t\t}\n\t\t\t}\n\t\t})\n\t}\n}\n\nfunc TestGeneralSerializationUnprotectedHeader(t *testing.T) {\n\t// The unprotected header of each signature must be reflected in the parsed\n\t// Header and Unprotected fields for both serializations.\n\tprotected := base64.RawURLEncoding.EncodeToString([]byte(`{\"alg\":\"RS256\"}`))\n\tpayload := base64.RawURLEncoding.EncodeToString([]byte(\"Lorem ipsum dolor sit amet\"))\n\tsignature := base64.RawURLEncoding.EncodeToString([]byte(\"not a real signature\"))\n\tunprotected := `\"header\":{\"kid\":\"from-unprotected\"}`\n\n\tmessages := map[string]string{\n\t\t\"flattened\": `{\"payload\":\"` + payload + `\",\"protected\":\"` + protected + `\",` + unprotected + `,\"signature\":\"` + signature + `\"}`,\n\t\t\"general\":   `{\"payload\":\"` + payload + `\",\"signatures\":[{\"protected\":\"` + protected + `\",` + unprotected + `,\"signature\":\"` + signature + `\"}]}`,\n\t}\n\tfor name, msg := range messages {\n\t\tt.Run(name, func(t *testing.T) {\n\t\t\tobj, err := ParseSigned(msg)\n\t\t\tif err != nil {\n\t\t\t\tt.Fatal(err)\n\t\t\t}\n\t\t\tsig := obj.Signatures[0]\n\t\t\tif sig.Header.KeyID != \"from-unprotected\" {\n\t\t\t\tt.Errorf(\"Header.KeyID = %q, want %q\", sig.Header.KeyID, \"from-unprotected\")\n\t\t\t}\n\t\t\tif sig.Unprotected.KeyID != \"from-unprotected\" {\n\t\t\t\tt.Errorf(\"Unprotected.KeyID = %q, want %q\", sig.Unprotected.KeyID, \"from-unprotected\")\n\t\t\t}\n\t\t})\n\t}\n}\n\nfunc TestPrivateEPKRejected(t *testing.T) {\n\tepk := json.RawMessage(`{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"AQAB\",\"y\":\"AQAB\",\"d\":\"AQAB\"}`)\n\theaders := rawHeader{headerEPK: &epk}\n\tif _, err := headers.getEPK(); err == nil || !strings.Contains(err.Error(), \"JWK contains private parameters\") {\n\t\tt.Errorf(\"expected private parameters error, got %v\", err)\n\t}\n}\n\n// Existing trusted-test helper, removed from production parsing.\nfunc (parsed rawHeader) getJWK() (*JSONWebKey, error) {\n\tv := parsed[headerJWK]\n\tif v == nil {\n\t\treturn nil, nil\n\t}\n\tvar jwk *JSONWebKey\n\terr := json.Unmarshal(*v, &jwk)\n\treturn jwk, err\n}\n"
+        }
+      ]
+    }
+  }
+}

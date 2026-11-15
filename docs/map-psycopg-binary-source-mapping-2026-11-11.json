@@ -1,0 +1,117 @@
+{
+  "bundle_gzip_bytes": 5956676,
+  "bundle_gzip_sha256": "8cd4865f302b60c059ad137a4a4e39d9b67234047fd25d2a197017d7fabd5afa",
+  "bundle_tar_sha256": "958c206c739e499bcb5e6d23c261538893cd20ea7e87a530b1cd57b4c4a65f36",
+  "gaps": [
+    "Exact final image installed wheel hash not available; this is the compatible CPython3.12 x86_64 manylinux registry artifact, not proven installed artifact.",
+    "Official PyPI psycopg-binary release has no sdist; upstream tag is retained but tag-to-wheel build attestation not verified.",
+    "Recipe Linux Kerberos and other distro libraries come from yum, not macOS krb5 source version; exact RPM source/build inputs remain.",
+    "No corresponding source coverage or full native notice delivery established for bundled libraries.",
+    "No replacement/relinking or reproducible wheel proof."
+  ],
+  "image_wheel_identity_verified": false,
+  "native_files": [
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libcom_err-2abe824b.so.2.1",
+      "sha256": "5426dcb54dd01c9eedda05e2179f0e47114e8b48a534ffe9e94916e79471b257"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libcrypt-bc2db45e.so.1",
+      "sha256": "e2a6f6ff300e287a60dfc0c6fdb76ee01e333068df7c60b4e87453d942ccda65"
+    },
+    {
+      "embedded_version_evidence": [
+        "OpenSSL 3.5.8 25 Aug 2026"
+      ],
+      "path": "psycopg_binary.libs/libcrypto-2d1629ee.so.3",
+      "sha256": "ac767da23afff24a34a1a86e6464f65ff45c8e3374850c117c1cffbfcd879da0"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libgssapi_krb5-497db0c6.so.2.2",
+      "sha256": "ef73998b86c24e54667a843be6d589442dd082e1b9fc605aa15bcc2293858806"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libk5crypto-b1f99d5c.so.3.1",
+      "sha256": "bf04d7ebe3937aba3855c15acbd991482286a484aeea38bb9ced85e772ea2fb0"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libkeyutils-dfe70bd6.so.1.5",
+      "sha256": "c29e41b03cf4b2dffbfb4960946e2b42f82c0ca5d53d231d3f0fc597ba274488"
+    },
+    {
+      "embedded_version_evidence": [
+        "KRB5_BRAND: krb5-1.15.1-final 1.15.1 20170302"
+      ],
+      "path": "psycopg_binary.libs/libkrb5-fcafa220.so.3.3",
+      "sha256": "94dc6413050486a6c8de4b6f3bfdd288390892b72bc68580c6c53929721fa07b"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libkrb5support-d0bcff84.so.0.1",
+      "sha256": "0eb5322b05ac46e4db7ddb779ee0269006dd01801aaa67b84f8e7f753bfdddf2"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/liblber-a44a5afb.so.2.0.200",
+      "sha256": "862a4715f500831283bebf04347491b17a3adb93e56a335d00a6e1b278258929"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libldap-7c3a4b12.so.2.0.200",
+      "sha256": "1408b751ee5e666470af890e13a508b38a57870b6a261697e27f9c6493b645fc"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libpcre-9513aab5.so.1.2.0",
+      "sha256": "02eda850e04931656d8af81f5171bff74d8bec1553d3d85c3d32d7fc5efe8864"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libpq-e9b5c9ac.so.5.18",
+      "sha256": "adee4abe45a36e8f147b15e08aceca893c255dfd4133a047884807931ca8046d"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libsasl2-84219a89.so.3.0.0",
+      "sha256": "e84be55110f16f7ca930af373e9f41fa7f4ec60733c013d933d1443ae5056a98"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libselinux-0922c95c.so.1",
+      "sha256": "99e60178aed625f6d2e2af58bccf605b13619b1544058e9f985a2772affb4a88"
+    },
+    {
+      "embedded_version_evidence": [],
+      "path": "psycopg_binary.libs/libssl-8bd944e8.so.3",
+      "sha256": "ef566b112dc7532a689c07de999c16efda3b4872df0c9d011bdcf00b94dd8a2e"
+    }
+  ],
+  "recipe_expected_versions": {
+    "krb5_macos_only": "1.22.2",
+    "libpq": "18.6",
+    "openldap": "2.6.14",
+    "openssl": "3.5.8"
+  },
+  "registry_sha256_verified": true,
+  "release_clearance": false,
+  "schema": "vardr.psycopg-binary-source-mapping/1",
+  "source_tar_sha256": "e075dff147ad77c1763bb8d819b3e18f26fcd90be79421097385a2c9d12d274a",
+  "upstream_commit": "a67654d1e7afbf9b3a619557838f62de1c790e7c",
+  "upstream_repository": "https://github.com/psycopg/psycopg",
+  "upstream_tag": "3.3.6",
+  "wheel_filename": "psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+  "wheel_legal_texts": [
+    {
+      "path": "psycopg_binary-3.3.6.dist-info/licenses/LICENSE.txt",
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+      "size": 7652
+    }
+  ],
+  "wheel_sha256": "1679a1cb93fbe5a6d1fd58d82cbddcc6fcb8c61446ba7cae6eb2a7b19bc585de",
+  "wheel_url": "https://files.pythonhosted.org/packages/0a/42/948bb3d2617795093512613fd96ba380e922992c7908fbc073858147d196/psycopg_binary-3.3.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+}

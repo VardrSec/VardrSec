@@ -1,0 +1,71 @@
+name: Debian Kerberos VM qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/kerberos-vm.yml'
+      - 'qualification/kerberos-vm/**'
+      - 'db/build-krb5.sh'
+      - 'db/krb5-*'
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Validate qualification harness
+        run: |
+          python -m unittest discover -s qualification/kerberos-vm -p 'test_*.py' -v
+          bash -n qualification/kerberos-vm/guest.sh
+      - name: Build isolated official Debian VM tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/kerberos-vm-host "$RUNNER_TEMP/kerberos-vm"
+          exec > >(tee -a artifacts/kerberos-vm-host/tool-install.log) 2>&1
+          uname -a > artifacts/kerberos-vm-host/kernel.txt
+          sha256sum qualification/kerberos-vm/{run.py,guest.sh,inputs.json} > artifacts/kerberos-vm-host/harness-SHA256SUMS
+          # Ubuntu mirrors are unavailable on the runner. Install tools only in
+          # this disposable Debian image, not on the host. Official signed apt
+          # repositories and Docker's default seccomp policy remain unchanged.
+          docker build --progress=plain -t vardr-kerberos-vm-tools - <<'DOCKERFILE'
+          FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392
+          RUN apt-get -o Acquire::Retries=2 -o APT::Update::Error-Mode=any update && apt-get install -y --no-install-recommends ca-certificates python3 git qemu-system-x86 qemu-utils cloud-image-utils xorriso e2fsprogs
+          WORKDIR /repo
+          DOCKERFILE
+          docker image inspect vardr-kerberos-vm-tools > artifacts/kerberos-vm-host/tool-image.json
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges vardr-kerberos-vm-tools dpkg-query -W > artifacts/kerberos-vm-host/tool-packages.txt
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges vardr-kerberos-vm-tools qemu-system-x86_64 --version > artifacts/kerberos-vm-host/qemu.txt
+      - name: Full unchanged package tests in offline default-policy Debian VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          # TCG needs no KVM device, privileged mode, added capability or host
+          # network. Only the dedicated output directory is writable.
+          docker run --rm --cap-drop ALL --security-opt no-new-privileges \
+            --cpus 2 --memory 6g --pids-limit 512 --user "$(id -u):$(id -g)" \
+            -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/kerberos-vm:/work" \
+            vardr-kerberos-vm-tools python3 qualification/kerberos-vm/run.py --work /work/qualification
+      - name: Preserve VM qualification evidence including failures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: kerberos-vm-qualification
+          path: |
+            artifacts/kerberos-vm-host/
+            ${{ runner.temp }}/kerberos-vm/qualification/*.log
+            ${{ runner.temp }}/kerberos-vm/qualification/*-command.json
+            ${{ runner.temp }}/kerberos-vm/qualification/qualification-inputs.json
+            ${{ runner.temp }}/kerberos-vm/qualification/official-SHA512SUMS
+            ${{ runner.temp }}/kerberos-vm/qualification/prepared-disk.sha256
+            ${{ runner.temp }}/kerberos-vm/qualification/verified.json
+            ${{ runner.temp }}/kerberos-vm/qualification/result-prepare/vm/
+            ${{ runner.temp }}/kerberos-vm/qualification/result-build/
+          if-no-files-found: error
+          retention-days: 14
