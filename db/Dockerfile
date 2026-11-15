@@ -183,6 +183,9 @@ RUN --network=none dpkg --install /tmp/acl-security/libacl1_*.deb \
     && dpkg --install /tmp/acl-security/coreutils_*.deb /tmp/acl-security/tar_*.deb \
     && apt-get check && rm -rf /tmp/acl-security
 COPY --from=acl-callers-build /out/source/ /usr/share/doc/libacl1/vardr-source/
+# Retained public sources must remain readable without DAC-bypass capabilities.
+RUN find /usr/share/doc/libacl1/vardr-source -type d -exec chmod 0755 {} + \
+    && find /usr/share/doc/libacl1/vardr-source -type f -exec chmod 0644 {} +
 COPY --from=sqlite-build /out/packages/ /tmp/sqlite-security/
 RUN --network=none dpkg --install /tmp/sqlite-security/*.deb \
     && apt-get check && rm -rf /tmp/sqlite-security

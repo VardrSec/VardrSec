@@ -31,6 +31,32 @@ docker run --rm --network none --entrypoint sh "$id" -eu -c '
     test "$(dpkg-query -W -f="\${Version}" "$package")" = "1.21.3-5+deb13u1+vardr1"
   done
 ' > artifacts/kerberos-image/installed-custody.txt
+# Prove ACL source custody and installed payloads under the same restricted
+# conditions as joint cohort qualification. Keep failed diagnostics as evidence.
+cat > artifacts/kerberos-image/acl-runtime-check.sh <<'ACL_RUNTIME_CHECK'
+set -eu
+source=/usr/share/doc/libacl1/vardr-source
+(cd "$source" && sha256sum -c SHA256SUMS)
+grep -Fx "cp-path-substitution: EXPECTED_VULNERABLE" "$source/evidence/negative-controls.log"
+grep -Fx "tar-path-substitution: EXPECTED_VULNERABLE" "$source/evidence/negative-controls.log"
+grep -Fx "cp-path-substitution: PASS" "$source/evidence/stripped-payload-regressions.log"
+grep -Fx "tar-path-substitution: PASS" "$source/evidence/stripped-payload-regressions.log"
+cd /
+grep -hE "  ./usr/(bin/(cp|tar)|lib/[^/]+/libacl[.]so[.][0-9.]+)$" "$source"/*.files-SHA256SUMS > /tmp/acl-runtime-hashes
+test "$(wc -l < /tmp/acl-runtime-hashes)" -eq 3
+sha256sum -c /tmp/acl-runtime-hashes
+ACL_RUNTIME_CHECK
+acl_status=0
+docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+  --entrypoint sh "$id" -ec "$(cat artifacts/kerberos-image/acl-runtime-check.sh)" \
+  > artifacts/kerberos-image/acl-installed-custody.txt \
+  2> artifacts/kerberos-image/acl-installed-custody.stderr.txt || acl_status=$?
+printf '%s\n' "$acl_status" > artifacts/kerberos-image/acl-installed-custody.exit-code.txt
+if [ "$acl_status" -ne 0 ]; then
+  printf '%s\n' 'FAIL: restricted ACL source/payload qualification; see retained diagnostics' > artifacts/kerberos-image/result.txt
+  cat artifacts/kerberos-image/result.txt >&2
+  exit "$acl_status"
+fi
 # Local-only disposable database, no ports or network, no persistent data.
 # Never print the generated password or save the container configuration.
 export POSTGRES_PASSWORD=$(python -c 'import secrets;print(secrets.token_hex(32))')
@@ -47,4 +73,4 @@ docker exec -u postgres "$container" psql -U postgres -v ON_ERROR_STOP=1 -Atc \
   'CREATE TABLE qualification (id integer PRIMARY KEY); INSERT INTO qualification VALUES (1); SELECT count(*) FROM qualification; DROP TABLE qualification;' \
   > artifacts/kerberos-image/postgres-smoke.txt
 grep -qx '1' artifacts/kerberos-image/postgres-smoke.txt
-printf '%s\n' 'PASS: qualified package payloads, corresponding source and PostgreSQL CRUD smoke; not release clearance' > artifacts/kerberos-image/result.txt
+printf '%s\n' 'PASS: qualified Kerberos and ACL package payloads, corresponding source and PostgreSQL CRUD smoke; not release clearance' > artifacts/kerberos-image/result.txt
