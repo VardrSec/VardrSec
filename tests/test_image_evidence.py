@@ -267,5 +267,78 @@ class ImageEvidenceTests(unittest.TestCase):
                 evidence.review(folder, now)
 
 
+class AdjudicationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.folder = Path(self.temp.name)
+        self.report, bom = inputs()
+        self.finding = {"VulnerabilityID": "CVE-fixture", "PkgName": "libc6", "Severity": "HIGH"}
+        self.report["Results"][0]["Vulnerabilities"] = [self.finding]
+        self.receipt = {"images": {"db": {"id": IMAGE, "config_id": IMAGE}}}
+        evidence.write(self.folder / "receipt.json", self.receipt)
+        evidence.write(self.folder / "db.vuln.json", self.report)
+        (self.folder / "proof.txt").write_text("reviewed proof")
+        self.entry = {"service": "db", "image_id": IMAGE, "config_id": IMAGE,
+                      "status": "fixed", "reviewer": "fixture reviewer", "rationale": "fixture only",
+                      "advisory": "https://example.test/advisory", "vulnerability_id": "CVE-fixture",
+                      "finding_sha256": evidence.finding_digest(self.report["Results"][0], self.finding),
+                      "evidence": {"proof.txt": evidence.sha256(self.folder / "proof.txt")}}
+        self.record = {"schema_version": 1, "receipt_sha256": evidence.sha256(self.folder / "receipt.json"),
+                       "adjudications": [self.entry]}
+        self.verdicts = {"db": evidence.analyze(self.report, bom, IMAGE)}
+
+    def apply(self):
+        path = self.folder / "review.json"
+        evidence.write(path, self.record)
+        evidence.adjudicate(self.folder, self.receipt, self.verdicts, path)
+        return self.verdicts["db"]
+
+    def test_fixed_and_not_affected_preserve_raw_counts(self):
+        for status in ("fixed", "not_affected"):
+            self.verdicts["db"]["vulnerability_gate"] = "blocked"
+            self.verdicts["db"].pop("remaining_findings", None)
+            self.entry["status"] = status
+            result = self.apply()
+            self.assertEqual(result["findings"]["HIGH"], 1)
+            self.assertEqual(result["remaining_findings"]["HIGH"], 0)
+            self.assertEqual(result["raw_vulnerability_gate"], "blocked")
+            self.assertEqual(result["vulnerability_gate"], "clear_after_review")
+
+    def test_unreviewed_findings_and_eol_still_block(self):
+        self.verdicts["db"]["findings"]["UNKNOWN"] = 1
+        self.assertEqual(self.apply()["vulnerability_gate"], "blocked")
+        self.verdicts["db"].pop("remaining_findings")
+        self.verdicts["db"]["findings"]["UNKNOWN"] = 0
+        self.verdicts["db"]["os_end_of_support"] = True
+        self.assertEqual(self.apply()["vulnerability_gate"], "blocked")
+
+    def test_invalid_or_incomplete_review_fails_closed(self):
+        original = copy.deepcopy(self.entry)
+        for field, value in (("status", "accepted_risk"), ("image_id", "sha256:" + "b" * 64),
+                             ("config_id", "sha256:" + "b" * 64), ("service", "missing"),
+                             ("finding_sha256", "0" * 64), ("vulnerability_id", "CVE-other"),
+                             ("reviewer", ""), ("rationale", ""), ("evidence", {}),
+                             ("evidence", {"../escape": "0" * 64}),
+                             ("evidence", {"proof.txt": "0" * 64})):
+            with self.subTest(field=field, value=value):
+                self.record["adjudications"] = [{**original, field: value}]
+                with self.assertRaises((ValueError, OSError)):
+                    self.apply()
+        self.record["adjudications"] = [original, original]
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            self.apply()
+
+    def test_receipt_tamper_and_ambiguous_finding_fail(self):
+        self.record["receipt_sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "receipt mismatch"):
+            self.apply()
+        self.record["receipt_sha256"] = evidence.sha256(self.folder / "receipt.json")
+        self.report["Results"][0]["Vulnerabilities"].append(self.finding)
+        evidence.write(self.folder / "db.vuln.json", self.report)
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            self.apply()
+
+
 if __name__ == "__main__":
     unittest.main()

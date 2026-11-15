@@ -185,7 +185,63 @@ def analyze(report, bom, image_id):
     }
 
 
-def review(folder, now=None):
+def finding_digest(result, finding):
+    payload = {"target": result.get("Target"), "class": result.get("Class"),
+               "type": result.get("Type"), "finding": finding}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def adjudicate(folder, receipt, verdicts, review_path):
+    """Apply an explicitly selected, trusted human review; hashes do not prove its rationale."""
+    from pathlib import PurePosixPath
+
+    record = read(review_path)
+    require(record.get("schema_version") == 1, "Unsupported adjudication record")
+    require(record.get("receipt_sha256") == sha256(folder / "receipt.json"), "Adjudication receipt mismatch")
+    entries = record.get("adjudications")
+    require(isinstance(entries, list) and entries, "Empty adjudication record")
+    seen = set()
+    for entry in entries:
+        service = entry["service"]
+        require(service in SERVICES, "Unknown adjudication service")
+        image = receipt["images"][service]
+        require(entry.get("image_id") == image["id"] and entry.get("config_id") == image["config_id"], "Adjudication image mismatch")
+        require(entry.get("status") in {"fixed", "not_affected"}, "Waivers are not supported")
+        for field in ("reviewer", "rationale", "advisory"):
+            require(isinstance(entry.get(field), str) and entry[field].strip(), "Missing adjudication " + field)
+        require(entry["advisory"].startswith("https://"), "Authoritative advisory URL required")
+        files = entry.get("evidence")
+        require(isinstance(files, dict) and files, "Missing adjudication evidence")
+        for name, digest in files.items():
+            relative = PurePosixPath(name)
+            require(not relative.is_absolute() and bool(relative.parts) and ".." not in relative.parts and "\\" not in name, "Unsafe adjudication evidence path")
+            path = review_path.parent
+            for part in relative.parts:
+                path = path / part
+                require(not path.is_symlink(), "Symlink adjudication evidence")
+            require(path.resolve().is_relative_to(review_path.parent.resolve()), "Escaped adjudication evidence")
+            require(re.fullmatch(r"[a-f0-9]{64}", digest) and sha256(path) == digest, "Adjudication evidence hash mismatch")
+        report = read(folder / f"{service}.vuln.json")
+        matches = [f for r in report["Results"] for f in r.get("Vulnerabilities", [])
+                   if finding_digest(r, f) == entry.get("finding_sha256")]
+        require(len(matches) == 1, "Adjudication must match exactly one finding")
+        finding = matches[0]
+        require(entry.get("vulnerability_id") == finding["VulnerabilityID"], "Adjudication advisory mismatch")
+        key = (service, entry["finding_sha256"])
+        require(key not in seen, "Duplicate adjudication")
+        seen.add(key)
+        verdict = verdicts[service]
+        verdict.setdefault("remaining_findings", dict(verdict["findings"]))[finding["Severity"]] -= 1
+        verdict.setdefault("adjudicated", []).append({"vulnerability_id": finding["VulnerabilityID"], "finding_sha256": key[1], "status": entry["status"]})
+    for verdict in verdicts.values():
+        remaining = verdict.setdefault("remaining_findings", dict(verdict["findings"]))
+        verdict["raw_vulnerability_gate"] = verdict["vulnerability_gate"]
+        verdict["adjudication_sha256"] = sha256(review_path)
+        verdict["vulnerability_gate"] = ("blocked" if verdict["os_end_of_support"] or any(remaining[s] for s in ("HIGH", "CRITICAL", "UNKNOWN"))
+                                         else "clear_after_review" if verdict.get("adjudicated") else "clear_at_scan_time")
+
+
+def review(folder, now=None, adjudications=None):
     """Recompute the narrow vulnerability gate; never trust the receipt's verdict."""
     now = now or datetime.now(timezone.utc)
     receipt = read(folder / "receipt.json")
@@ -227,6 +283,8 @@ def review(folder, now=None):
             read(folder / f"{service}.cdx.json"),
             image["config_id"],
         )
+    if adjudications is not None:
+        adjudicate(folder, receipt, verdicts, adjudications)
     return verdicts
 
 
@@ -470,12 +528,13 @@ def main():
     commands.add_parser("collect")
     check = commands.add_parser("check")
     check.add_argument("folder", type=Path)
+    check.add_argument("--adjudications", type=Path, help="Explicit trusted human-review record; never loaded automatically")
     args = parser.parse_args()
     try:
         if args.action == "collect":
             collect()
             return 0
-        verdicts = review(args.folder)
+        verdicts = review(args.folder, adjudications=args.adjudications)
         blocked = False
         for service, verdict in verdicts.items():
             print(
@@ -483,7 +542,7 @@ def main():
                 + ": "
                 + verdict["vulnerability_gate"]
                 + " "
-                + json.dumps(verdict["findings"])
+                + json.dumps(verdict)
             )
             blocked |= verdict["vulnerability_gate"] == "blocked"
         return 1 if blocked else 0
