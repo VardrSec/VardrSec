@@ -259,6 +259,29 @@ def capture():
     (public / "provenance.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
 
+def collect_runtime_evidence(public, ids):
+    require(set(ids) == set(IMAGE_REPOSITORIES), "All four runtime images are required")
+    images = {}
+    for service, image in ids.items():
+        # This fixed read-only command exposes only public source/payload checks.
+        # Preserve both streams and the exit status even on failure, then inspect
+        # the other runtime images independently. Never relax the gate itself.
+        result = subprocess.run(["docker", "run", "--rm", "--network", "none", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--entrypoint", "sh", image, "-ec", RUNTIME_CHECK], check=False, capture_output=True)
+        (public / (service + "-acl.log")).write_bytes(result.stdout)
+        (public / (service + "-acl.stderr.log")).write_bytes(result.stderr)
+        evidence = {"image_id": image, "returncode": result.returncode, "evidence_sha256": digest(result.stdout), "stderr_sha256": digest(result.stderr)}
+        (public / (service + "-acl.result.json")).write_text(json.dumps(evidence, indent=2) + "\n")
+        images[service] = evidence
+    return images
+
+
+def finish_runtime_verdict(public, receipt, images, accepted):
+    passed = set(images) == set(IMAGE_REPOSITORIES) and all(row["returncode"] == 0 for row in images.values())
+    receipt.update(status="PASS" if passed else "FAIL", images=images, joint_acceptance_sha256=digest(accepted))
+    (public / "provenance.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    require(passed, "ACL runtime qualification failed; retained per-service stdout, stderr and exit status")
+
+
 def verify():
     workspace, public = boundaries()
     fixture = workspace / "distribution"
@@ -283,12 +306,9 @@ def verify():
         if service != "runner":
             used = run(sys.executable, "-c", "from pathlib import Path; import recovery; print(recovery.container(Path.cwd(), " + repr(service) + ", 'vardrsec-compose-review')['Image'])", cwd=fixture, capture_output=True, text=True).stdout.strip()
             require(used == image, "Runtime image differs from exercised stack")
-        result = run("docker", "run", "--rm", "--network", "none", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--entrypoint", "sh", image, "-ec", RUNTIME_CHECK, capture_output=True)
-        (public / (service + "-acl.log")).write_bytes(result.stdout)
-        images[service] = {"image_id": image, "evidence_sha256": digest(result.stdout)}
+    images = collect_runtime_evidence(public, ids)
     accepted = (fixture / "artifacts/installed-gate/accepted.json").read_bytes()
-    receipt.update(status="PASS", images=images, joint_acceptance_sha256=digest(accepted))
-    (public / "provenance.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    finish_runtime_verdict(public, receipt, images, accepted)
     print("PASS: joint workflow and all four ACL runtime payloads qualified")
 
 

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 import hashlib
 import unittest
+import tempfile
 
 import acl_cohort_acceptance as cohort
 
@@ -126,6 +127,44 @@ class CohortGuards(unittest.TestCase):
         del changed["services"]["runner"]
         with self.assertRaises(ValueError):
             cohort.selected_images(changed, built)
+
+    def test_failed_runtime_evidence_retained_and_all_images_checked(self):
+        ids = {name: "sha256:" + str(i) * 64 for i, name in enumerate(cohort.IMAGE_REPOSITORIES)}
+        results = [SimpleNamespace(stdout=b"source: FAILED open or read\n", stderr=b"sha256sum: Permission denied\n", returncode=1)] + [SimpleNamespace(stdout=b"payload: OK\n", stderr=b"", returncode=0) for _ in range(3)]
+        with tempfile.TemporaryDirectory() as folder:
+            public = Path(folder)
+            with patch.object(cohort.subprocess, "run", side_effect=results) as mocked:
+                images = cohort.collect_runtime_evidence(public, ids)
+            self.assertEqual(mocked.call_count, 4)
+            for (name, image), result, call in zip(ids.items(), results, mocked.call_args_list):
+                self.assertEqual((public / (name + "-acl.log")).read_bytes(), result.stdout)
+                self.assertEqual((public / (name + "-acl.stderr.log")).read_bytes(), result.stderr)
+                saved = json.loads((public / (name + "-acl.result.json")).read_text())
+                self.assertEqual(saved["returncode"], result.returncode)
+                self.assertEqual(saved["image_id"], image)
+                self.assertEqual(saved["stderr_sha256"], cohort.digest(result.stderr))
+                self.assertFalse(call.kwargs["check"])
+                self.assertIn("--cap-drop", call.args[0])
+                self.assertIn("ALL", call.args[0])
+                self.assertEqual(call.args[0][-1], cohort.RUNTIME_CHECK)
+            receipt = {"status": "built-not-qualified"}
+            with self.assertRaises(ValueError):
+                cohort.finish_runtime_verdict(public, receipt, images, b"joint smoke passed")
+            self.assertEqual(receipt["status"], "FAIL")
+            self.assertEqual(json.loads((public / "provenance.json").read_text())["status"], "FAIL")
+
+    def test_runtime_verdict_requires_all_four_successes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            public = Path(folder)
+            images = {name: {"returncode": 0} for name in cohort.IMAGE_REPOSITORIES}
+            receipt = {}
+            cohort.finish_runtime_verdict(public, receipt, images, b"joint smoke passed")
+            self.assertEqual(receipt["status"], "PASS")
+            for name in cohort.IMAGE_REPOSITORIES:
+                incomplete = {key: value for key, value in images.items() if key != name}
+                with self.subTest(missing=name), self.assertRaises(ValueError):
+                    cohort.finish_runtime_verdict(public, receipt, incomplete, b"joint smoke passed")
+                self.assertEqual(receipt["status"], "FAIL")
 
     def test_constant_scope(self):
         self.assertEqual(len(cohort.COHORT["map"]["paths"]), 18)
