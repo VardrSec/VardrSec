@@ -31,7 +31,14 @@ def check(cp, tar, preload, vulnerable):
         (root / 'source-link').symlink_to(source, target_is_directory=True)
         (root / 'parent-link').symlink_to(root, target_is_directory=True)
         run(str(cp), '-aL', str(root / 'source-link'), str(root / 'parent-link/link-copy'))
-        assert run('getfacl', '-cp', str(root / 'link-copy')) == expected
+        dereference_preserved = run('getfacl', '-cp', str(root / 'link-copy')) == expected
+        if vulnerable:
+            # Stock is a race-negative comparator, not the fixed functionality
+            # contract. Report its pre-existing dereference behavior separately;
+            # it must still reach and demonstrate both attack witnesses below.
+            print(f'stock-source-link-acl-preservation: {dereference_preserved}', flush=True)
+        else:
+            assert dereference_preserved, 'fixed cp must preserve explicitly dereferenced ACLs'
         # A FIFO must retain access ACLs without opening it or blocking.
         fifo, fifo_copy = root / 'fifo', root / 'fifo-copy'
         os.mkfifo(fifo)
