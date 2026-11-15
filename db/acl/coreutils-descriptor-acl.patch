@@ -105,7 +105,7 @@ Forwarded: not-needed
    else
 --- a/src/copy.c
 +++ b/src/copy.c
-@@ -77,6 +77,79 @@
+@@ -77,6 +77,71 @@
  # include <linux/falloc.h>
  #endif
  
@@ -147,15 +147,7 @@ Forwarded: not-needed
 +      int to = acl_destination_fd (parent, relative);
 +      if (to >= 0)
 +        {
-+          /* Debian's USE_XATTR path uses attr_copy_file. O_PATH cannot be
-+             passed to fgetxattr, so give it pinned procfs object aliases. */
-+          char from_name[64], to_name[64];
-+          snprintf (from_name, sizeof from_name, "/proc/self/fd/%d", from);
-+          snprintf (to_name, sizeof to_name, "/proc/self/fd/%d", to);
-+          result = qcopy_acl (from_name, -1, to_name, -1, mode);
-+          if (result != 0)
-+            error (0, errno, _("preserving permissions for %s"),
-+                   quoteaf (result == -2 ? src : dst));
++          result = xcopy_acl (src, from, dst, to, mode);
 +          int saved = errno;
 +          close (to);
 +          errno = saved;
@@ -185,7 +177,7 @@ Forwarded: not-needed
  /* See HAVE_FALLOCATE workaround when including this file.  */
  #ifdef HAVE_LINUX_FS_H
  # include <linux/fs.h>
-@@ -3261,13 +3334,13 @@
+@@ -3261,13 +3326,13 @@
  
    if (x->preserve_mode || x->move_mode)
      {
@@ -201,7 +193,7 @@ Forwarded: not-needed
          return false;
      }
    else if (x->explicit_no_preserve_mode && new_dst)
-@@ -3277,7 +3350,7 @@
+@@ -3277,7 +3342,7 @@
        dst_mode = dst_sb.st_mode;
        if (S_ISDIR (src_mode))  /* Keep set-group-ID for directories.  */
          default_permissions |= (dst_mode & S_ISGID);
@@ -233,3 +225,116 @@ Forwarded: not-needed
  void dest_info_init (struct cp_options *) _GL_ATTRIBUTE_NONNULL ();
  void dest_info_free (struct cp_options *) _GL_ATTRIBUTE_NONNULL ();
  void src_info_init (struct cp_options *) _GL_ATTRIBUTE_NONNULL ();
+--- a/lib/qcopy-acl.c
++++ b/lib/qcopy-acl.c
+@@ -27,6 +27,10 @@
+ 
+ # include <attr/libattr.h>
+ # include <dirent.h>
++# include <fcntl.h>
++# include <linux/limits.h>
++# include <stdio.h>
++# include <sys/xattr.h>
+ # include <string.h>
+ 
+ # if HAVE_LINUX_XATTR_H
+@@ -56,6 +60,61 @@
+          || attr_copy_action (name, ctx) == ATTR_ACTION_PERMISSIONS;
+ }
+ 
++
++/* O_PATH pins objects without opening devices or FIFOs, but cannot be used
++   with f*xattr. Follow only these descriptor aliases, never caller pathnames.
++   Linux bounds xattr lists and values to XATTR_LIST_MAX/XATTR_SIZE_MAX bytes; using that
++   bound avoids a size-query race without unbounded allocation or retries. */
++static int
++copy_acl_opath (char const *src, char const *dst)
++{
++  char *names = malloc (XATTR_LIST_MAX);
++  char *value = malloc (XATTR_SIZE_MAX);
++  int ret = -2;
++  if (!names || !value)
++    {
++      errno = ENOMEM;
++      goto done;
++    }
++  ssize_t size = listxattr (src, names, XATTR_LIST_MAX);
++  if (size < 0)
++    {
++      if (errno == ENOSYS || errno == ENOTSUP)
++        ret = 0;
++      goto done;
++    }
++  for (char *name = names; name < names + size; )
++    {
++      char *end = memchr (name, 0, names + size - name);
++      if (!end)
++        {
++          errno = EIO;
++          goto done;
++        }
++      if (*name && is_attr_permissions (name, NULL))
++        {
++          ssize_t length = getxattr (src, name, value, XATTR_SIZE_MAX);
++          if (length < 0)
++            goto done;
++          if (setxattr (dst, name, value, length, 0) < 0)
++            {
++              ret = -1;
++              goto done;
++            }
++        }
++      name = end + 1;
++    }
++  ret = 0;
++ done:
++  {
++    int saved = errno;
++    free (value);
++    free (names);
++    errno = saved;
++  }
++  return ret;
++}
++
+ #endif  /* USE_XATTR */
+ 
+ /* Copy access control lists from one file to another. If SOURCE_DESC is
+@@ -77,6 +136,16 @@
+   int ret;
+ 
+ #ifdef USE_XATTR
++  int source_flags = source_desc < 0 ? -1 : fcntl (source_desc, F_GETFL);
++  int dest_flags = dest_desc < 0 ? -1 : fcntl (dest_desc, F_GETFL);
++  bool pinned = (source_flags >= 0 && dest_flags >= 0
++                 && (source_flags & O_PATH) && (dest_flags & O_PATH));
++  char source_alias[64], dest_alias[64];
++  if (pinned)
++    {
++      snprintf (source_alias, sizeof source_alias, "/proc/self/fd/%d", source_desc);
++      snprintf (dest_alias, sizeof dest_alias, "/proc/self/fd/%d", dest_desc);
++    }
+   /* in case no ACLs present and also to set higher mode bits
+      we chmod before setting ACLs as doing it after could overwrite them
+      (especially true for NFSv4, posix ACL has that ugly "mask" hack that
+@@ -89,7 +158,8 @@
+      to copy */
+   if (ret == 0)
+     {
+-      ret = source_desc <= 0 || dest_desc <= 0
++      ret = pinned ? copy_acl_opath (source_alias, dest_alias)
++        : source_desc <= 0 || dest_desc <= 0
+         ? attr_copy_file (src_name, dst_name, is_attr_permissions, NULL)
+         : attr_copy_fd (src_name, source_desc, dst_name, dest_desc,
+                         is_attr_permissions, NULL);
+@@ -105,7 +175,9 @@
+           int flags = S_ISDIR (mode) ? DT_DIR : _GL_DT_NOTDIR | DT_UNKNOWN;
+ 
+           struct aclinfo ai;
+-          if (!fdfile_has_aclinfo (source_desc, src_name, &ai, flags))
++          if (!fdfile_has_aclinfo (pinned ? -1 : source_desc,
++                                 pinned ? source_alias : src_name, &ai,
++                                 flags | (pinned ? ACL_SYMLINK_FOLLOW : 0)))
+             ret = 0;
+           aclinfo_free (&ai);
+           errno = EOPNOTSUPP;

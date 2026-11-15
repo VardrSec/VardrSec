@@ -32,6 +32,12 @@ def check(cp, tar, preload, vulnerable):
         (root / 'parent-link').symlink_to(root, target_is_directory=True)
         run(str(cp), '-aL', str(root / 'source-link'), str(root / 'parent-link/link-copy'))
         assert run('getfacl', '-cp', str(root / 'link-copy')) == expected
+        # A FIFO must retain access ACLs without opening it or blocking.
+        fifo, fifo_copy = root / 'fifo', root / 'fifo-copy'
+        os.mkfifo(fifo)
+        run('setfacl', '-m', 'u:10001:r--', str(fifo))
+        run(str(cp), '-a', str(fifo), str(fifo_copy))
+        assert run('getfacl', '-cp', str(fifo_copy)) == run('getfacl', '-cp', str(fifo))
         marker = root / 'copy-swap'
         env = dict(os.environ, LD_PRELOAD=str(preload), VARDR_ACL_SWAP_MODE='read',
                    VARDR_ACL_SWAP_SRC=str(source), VARDR_ACL_SWAP_DST=str(dest),

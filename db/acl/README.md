@@ -18,9 +18,10 @@ The coreutils patch keeps directory/special-file ACL destinations anchored to
 cp's resolved parent descriptor, refuses replacement symlinks, checks source
 identity, and uses the descriptor for both access and default ACL operations.
 Explicit source dereferencing remains supported. O_PATH avoids opening devices
-or blocking on FIFOs. Debian's USE_XATTR copying path receives pinned procfs
-aliases, preserving its existing POSIX/NFSv4 metadata handling without passing
-O_PATH descriptors to fgetxattr. The chmod path also uses the pinned alias
+or blocking on FIFOs. Debian's USE_XATTR copying path follows pinned procfs aliases using bounded
+xattr operations and its existing permission-attribute filter, preserving
+POSIX/NFSv4 metadata without passing O_PATH descriptors to fgetxattr or
+using libattr's non-following file operations on procfs symlinks. The chmod path also uses the pinned alias
 when fchmod cannot operate on O_PATH. Procfs is required, as it is for
 upstream libacl's compatibility implementation.
 

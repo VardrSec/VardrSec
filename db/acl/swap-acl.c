@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 #include <sys/acl.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 #include <attr/libattr.h>
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -78,4 +79,16 @@ int attr_copy_file(const char *src, const char *dst,
     if (stat(src, &st) == 0 && S_ISDIR(st.st_mode))
         swap_paths("read", ACL_TYPE_DEFAULT);
     return next(src, dst, check, ctx);
+}
+
+/* The fixed O_PATH path follows descriptor aliases, not the original names. */
+ssize_t listxattr(const char *path, char *list, size_t size)
+{
+    ssize_t (*next)(const char *, char *, size_t) = dlsym(RTLD_NEXT, "listxattr");
+    struct stat st;
+    if (strncmp(path, "/proc/self/fd/", 14) == 0
+        && path[14] && strspn(path + 14, "0123456789") == strlen(path + 14)
+        && stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+        swap_paths("read", ACL_TYPE_DEFAULT);
+    return next(path, list, size);
 }
