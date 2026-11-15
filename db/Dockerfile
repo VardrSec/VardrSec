@@ -1,6 +1,6 @@
 # Coordinated ACL/caller build; no runtime suite or glibc migration.
 FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS acl-callers-build
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential debhelper dh-exec gettext libattr1-dev libacl1-dev libselinux1-dev libgmp-dev libssl-dev libsystemd-dev gperf bison autoconf automake autopoint texinfo fakeroot acl attr python3 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential debhelper dh-exec gettext libattr1-dev libacl1-dev libselinux1-dev libgmp3-dev libssl-dev libsystemd-dev gperf bison autoconf automake autopoint texinfo fakeroot acl attr python3 ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /build/inputs
 ADD --checksum=sha256:b987ebbeb3d498794bad29cd65301b77384978493d8765c94dba8bad8fa325b6 https://deb.debian.org/debian/pool/main/a/acl/acl_2.4.0-1.dsc acl_2.4.0-1.dsc
 ADD --checksum=sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3 https://deb.debian.org/debian/pool/main/a/acl/acl_2.4.0.orig.tar.xz acl_2.4.0.orig.tar.xz
