@@ -338,3 +338,25 @@ Forwarded: not-needed
              ret = 0;
            aclinfo_free (&ai);
            errno = EOPNOTSUPP;
+--- a/gnulib-tests/gnulib.mk
++++ b/gnulib-tests/gnulib.mk
+@@ -99,7 +99,7 @@
+ TESTS_ENVIRONMENT += USE_ACL=$(USE_ACL)
+ check_PROGRAMS += test-set-mode-acl test-copy-acl test-sameacls
+ test_set_mode_acl_LDADD = $(LDADD) $(LIB_ACL) $(LIBUNISTRING) @LIBINTL@ $(MBRTOWC_LIB) $(LIBC32CONV)
+-test_copy_acl_LDADD = $(LDADD) $(LIB_ACL) $(QCOPY_ACL_LIB) $(LIBUNISTRING) @LIBINTL@ $(MBRTOWC_LIB) $(LIBC32CONV)
++test_copy_acl_LDADD = $(LDADD) $(LIB_ACL) $(QCOPY_ACL_LIB) $(LIB_SELINUX) $(LIBUNISTRING) @LIBINTL@ $(MBRTOWC_LIB) $(LIBC32CONV)
+ test_sameacls_LDADD = $(LDADD) $(LIB_ACL) @LIBINTL@ $(MBRTOWC_LIB)
+ EXTRA_DIST += test-set-mode-acl.sh test-set-mode-acl-1.sh test-set-mode-acl-2.sh test-copy-acl.sh test-copy-acl-1.sh test-copy-acl-2.sh test-set-mode-acl.c test-copy-acl.c test-sameacls.c macros.h
+ 
+--- a/gnulib-tests/Makefile.in
++++ b/gnulib-tests/Makefile.in
+@@ -6649,7 +6649,7 @@
+ IGNORE_SKIPPED_LOGS = 1
+ test_accept_LDADD = $(LDADD) @LIBSOCKET@
+ test_set_mode_acl_LDADD = $(LDADD) $(LIB_ACL) $(LIBUNISTRING) @LIBINTL@ $(MBRTOWC_LIB) $(LIBC32CONV)
+-test_copy_acl_LDADD = $(LDADD) $(LIB_ACL) $(QCOPY_ACL_LIB) $(LIBUNISTRING) @LIBINTL@ $(MBRTOWC_LIB) $(LIBC32CONV)
++test_copy_acl_LDADD = $(LDADD) $(LIB_ACL) $(QCOPY_ACL_LIB) $(LIB_SELINUX) $(LIBUNISTRING) @LIBINTL@ $(MBRTOWC_LIB) $(LIBC32CONV)
+ test_sameacls_LDADD = $(LDADD) $(LIB_ACL) @LIBINTL@ $(MBRTOWC_LIB)
+ test_areadlinkat_LDADD = $(LDADD) @LIBINTL@
+ test_areadlinkat_with_size_LDADD = $(LDADD) @LIBINTL@
