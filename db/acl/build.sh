@@ -35,6 +35,10 @@ build_package() {
         make check-am TESTS='tests/cp/acl.sh tests/mv/acl.sh tests/ls/acl.sh tests/ls/slink-acl.sh tests/mkdir/p-acl.sh' RUN_EXPENSIVE_TESTS=yes > /out/source/coreutils/evidence/upstream-acl-tests.log 2>&1 || {
             tail -n 80 /out/source/coreutils/evidence/upstream-acl-tests.log; exit 1;
         }
+        # Native gnulib ACL targets use their own relative paths and assertions.
+        make -C gnulib-tests check-am TESTS='test-copy-acl.sh test-copy-acl-1.sh test-copy-acl-2.sh test-set-mode-acl.sh test-set-mode-acl-1.sh test-set-mode-acl-2.sh' > /out/source/coreutils/evidence/gnulib-acl-tests.log 2>&1 || {
+            tail -n 80 /out/source/coreutils/evidence/gnulib-acl-tests.log; exit 1;
+        }
     fi
     cp /build/"$package"_*.deb /out/packages/
     if [ "$package" = acl ]; then
