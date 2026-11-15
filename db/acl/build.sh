@@ -33,6 +33,9 @@ build_package() {
     fi
     find . -type f \( -name '*.c' -o -name '*.h' \) -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > "/out/source/$package/evidence/patched-source-SHA256SUMS"
     dpkg-query -W -f='${binary:Package} ${Version} ${Architecture}\n' > "/out/source/$package/evidence/build-environment.txt"
+    # Archive exact patched inputs before builds regenerate manuals or caches.
+    # Do not ignore post-build source diffs or turn generated output into source.
+    dpkg-source --build . > "/out/source/$package/evidence/source-build.log" 2>&1
     dpkg-buildpackage -us -uc -B -rfakeroot > "/out/source/$package/evidence/package-build.log" 2>&1 || {
         tail -n 80 "/out/source/$package/evidence/package-build.log"; exit 1;
     }
@@ -53,7 +56,6 @@ build_package() {
         cp /build/libacl1_*.deb /build/libacl1-dev_*.deb /out/packages/
     fi
     debian/rules clean >> "/out/source/$package/evidence/package-build.log" 2>&1
-    dpkg-source --build . >> "/out/source/$package/evidence/package-build.log" 2>&1
     cp /build/inputs/"$package"_* "/out/source/$package/"
     cp /build/"$package"_*+vardr1.dsc /build/"$package"_*+vardr1.debian.tar.xz "/out/source/$package/"
     cp /build/"$package"_*.buildinfo /build/"$package"_*.changes "/out/source/$package/"
