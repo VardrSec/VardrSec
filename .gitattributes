@@ -14,6 +14,8 @@ db/canonical_module_archive.sh text eol=lf
 proxy/canonical_module_archive.sh text eol=lf
 db/*.sh text eol=lf
 db/acl/** text eol=lf
+# Unified-diff context preserves upstream whitespace, not added source whitespace.
+db/acl/*.patch whitespace=-blank-at-eol,-space-before-tab
 db/kerberos-vm/*.sh text eol=lf
 qualification/kerberos-vm/*.sh text eol=lf
 qualification/kerberos-image/*.sh text eol=lf
