@@ -55,6 +55,38 @@ hours old and no more than five minutes in the future. No stored summary can
 override the actual report findings. Counts represent package/path occurrences,
 so one advisory may appear several times.
 
+### Explicit evidence-backed adjudication
+
+The default check and collector remain raw-only. An authorized reviewer can
+explicitly select a separate trusted review record with
+`check REPORTS --adjudications REVIEW.json`. Never accept a review record merely
+because it was supplied alongside scan artifacts. Hashes establish identity and
+integrity, not the truth of a reviewer's conclusion or authenticated provenance.
+Keep internal review records private.
+
+The record has `schema_version: 1`, `receipt_sha256` (the exact receipt file hash),
+and a nonempty `adjudications` list. Each entry requires `service`, Docker
+`image_id`, scanner `config_id`, `vulnerability_id`, `finding_sha256`, `status`
+(`fixed` or `not_affected` only), `reviewer`, `rationale`, an HTTPS `advisory`, and
+an `evidence` object mapping relative file paths to SHA-256 hashes. Evidence paths
+are relative to the review record and cannot escape it or traverse symlinks.
+`finding_digest(result, finding)` computes the finding hash from canonical JSON
+of the entire finding plus its result's target, class and type. Every entry must
+match exactly one occurrence; duplicates, stale identities, missing evidence,
+changed hashes and unsupported statuses fail closed.
+
+A reviewer must establish the complete advisory fix or absence of the affected
+code using exact source, package and runtime evidence. A bounded regression alone
+does not prove full CVE coverage. Do not use acceptance of risk, package-family
+exclusions, absence of an available fix, or filename absence alone as adjudication.
+The checker verifies bindings; it cannot independently judge a rationale.
+
+Output retains raw counts and `raw_vulnerability_gate`, and adds remaining
+counts, individual adjudications and the review-record hash. Exit 1 still means
+unreviewed blocking findings or an end-of-support OS remain. `clear_after_review`
+is distinct from raw `clear_at_scan_time`. Raw reports are never rewritten,
+database freshness and other checks still apply, and no review authorizes release.
+
 The command does not establish exploitability or absence of vulnerabilities.
 Review source advisories and component exposure before remediation. A clear
 vulnerability check covers only these frozen images at scan time; functional,

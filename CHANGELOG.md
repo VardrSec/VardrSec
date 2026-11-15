@@ -1,5 +1,8 @@
 # Changelog
 
+- Allow explicitly selected, exact-image and evidence-bound human adjudications
+  in the existing image checker, preserving raw findings and default blocking.
+
 ## Unreleased
 
 - Refuse image evidence when the final database libxml2 differs from the exact
