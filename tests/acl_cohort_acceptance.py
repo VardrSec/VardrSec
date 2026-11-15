@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-QUALIFIED_DB = "0ea1d326c61183dda3dab81c49945c7f94205809"
+QUALIFIED_DB = "bb0d3268e1832836b366e86dc1b455e1dd25b5de"
 PRODUCTION_MANIFEST_SHA256 = "4ba8bb97a8dd1638f65eabc7af66938e051321ad52960f99058a017d5f8e28b6"
 RECIPE = ("README.md", "build.sh", "coreutils-descriptor-acl.patch", "regression.py", "swap-acl.c", "tar-descriptor-acl.patch")
 COHORT = {
