@@ -31,7 +31,8 @@ build_package() {
     if [ "$package" = coreutils ]; then
         # Debian disables this suite in its packaging rules. Exercise the existing
         # upstream ACL cases explicitly, without changing their assertions.
-        make check TESTS='tests/cp/acl.sh tests/mv/acl.sh tests/ls/acl.sh tests/ls/slink-acl.sh tests/mkdir/p-acl.sh' RUN_EXPENSIVE_TESTS=yes > /out/source/coreutils/evidence/upstream-acl-tests.log 2>&1 || {
+        # check-am keeps these top-level test paths out of recursive gnulib suites.
+        make check-am TESTS='tests/cp/acl.sh tests/mv/acl.sh tests/ls/acl.sh tests/ls/slink-acl.sh tests/mkdir/p-acl.sh' RUN_EXPENSIVE_TESTS=yes > /out/source/coreutils/evidence/upstream-acl-tests.log 2>&1 || {
             tail -n 80 /out/source/coreutils/evidence/upstream-acl-tests.log; exit 1;
         }
     fi
