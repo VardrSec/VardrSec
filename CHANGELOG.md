@@ -1,5 +1,8 @@
 # Changelog
 
+- Prepare the database image's coordinated ACL 2.4.0 and descriptor-bound
+  coreutils/tar backport, retaining sources and bounded regression evidence.
+
 - Allow explicitly selected, exact-image and evidence-bound human adjudications
   in the existing image checker, preserving raw findings and default blocking.
 
