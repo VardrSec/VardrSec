@@ -1,4 +1,4 @@
-"""One immutable ACL-only cohort on a fresh hosted VM, never a production override."""
+"""One immutable newer-base ACL cohort on a fresh hosted VM, never a production override."""
 import hashlib
 import json
 import os
@@ -18,6 +18,8 @@ COHORT = {
         "pin": "4a5211c2bcef5b89ba3d8a12244c3acffb55f188",
         "base": "a73a988dbbbab7d07e90dc8cf67212200162e1d5",
         "head": "90595da2b5e1eeff4112dde1802ee637b9b972bb",
+        "history_sha256": "4af216e3660bdaf8b292d92f20f349d0858290d03d8c448b60f5154041ad80db",
+        "history_paths": [".gitignore", "CHANGELOG.md", "backend/requirements.txt", "frontend/package-lock.json", "frontend/package.json"],
         "patch_sha256": "6872b71fe1dcc77959d71dc91cd0395228a9a56e7dd3f2d4e4d7d448fea74834",
         "paths": sorted([".gitattributes", ".github/workflows/containers.yml"] + [f"{context}/{name}" for context in ("backend", "frontend") for name in (".dockerignore", "Dockerfile")] + [f"{context}/acl/{name}" for context in ("backend", "frontend") for name in RECIPE]),
     },
@@ -26,6 +28,8 @@ COHORT = {
         "pin": "f57ea3a95dd01837043eaf61a54cb2f73d9ab265",
         "base": "f57ea3a95dd01837043eaf61a54cb2f73d9ab265",
         "head": "6d24206734ee6efa39bee2494428d4ebce857c3a",
+        "history_sha256": hashlib.sha256(b"").hexdigest(),
+        "history_paths": [],
         "patch_sha256": "a0507baf32a34034b6d79f968f96e3941e49d9de6eff3c146734fc763bbc073f",
         "paths": sorted([".dockerignore", ".gitattributes", ".github/workflows/container.yml", "Dockerfile"] + [f"container/acl/{name}" for name in RECIPE]),
     },
@@ -125,19 +129,27 @@ def apply_cohort(path, spec):
     fetch_source(path, spec["repository"], spec["pin"])
     for sha in (spec["base"], spec["head"]):
         git(path, "fetch", "--depth=1", "https://github.com/" + spec["repository"] + ".git", sha)
+    history = git(path, "diff", "--binary", "--full-index", "--no-ext-diff", spec["pin"], spec["base"], "--")
+    history_paths = text(path, "diff", "--name-only", spec["pin"], spec["base"]).splitlines()
+    verify_patch(history, history_paths, {"patch_sha256": spec["history_sha256"], "paths": spec["history_paths"]})
+    git(path, "checkout", "--detach", spec["base"])
     patch = git(path, "diff", "--binary", "--full-index", "--no-ext-diff", spec["base"], spec["head"], "--")
     paths = text(path, "diff", "--name-only", spec["base"], spec["head"]).splitlines()
     verify_patch(patch, paths, spec)
     git(path, "apply", "--check", "--index", "-", input=patch)
     git(path, "apply", "--index", "-", input=patch)
-    require(text(path, "diff", "--cached", "--name-only", spec["pin"]).splitlines() == spec["paths"], "Applied paths differ from reviewed ACL delta")
+    require(text(path, "diff", "--cached", "--name-only", spec["base"]).splitlines() == spec["paths"], "Applied paths differ from reviewed ACL delta")
     for file in paths:
         require(text(path, "ls-files", "--stage", "--", file).split()[0] == "100644", "Nonregular fixture input refused")
         require(git(path, "show", ":" + file) == git(path, "show", spec["head"] + ":" + file), "Result does not match reviewed ACL file")
-    verify_trees(tree_entries(path, spec["pin"]), tree_entries(path, spec["head"]), tree_entries(path, text(path, "write-tree")), paths)
-    sha, tree = commit_fixture(path, spec["pin"], "Test-only pinned base plus reviewed ACL delta " + spec["head"])
+    verify_trees(tree_entries(path, spec["base"]), tree_entries(path, spec["head"]), tree_entries(path, text(path, "write-tree")), paths)
+    tree = text(path, "write-tree")
+    require(tree == text(path, "rev-parse", spec["head"] + "^{tree}"), "Complete candidate tree differs from reviewed head")
+    git(path, "checkout", "--detach", spec["head"])
+    clean(path)
+    require(text(path, "rev-parse", "HEAD") == spec["head"], "Selected candidate identity mismatch")
     require(not text(path, "status", "--porcelain", "--untracked-files=all", "--ignored"), "Ignored source inputs refused")
-    return {**{k: v for k, v in spec.items() if k != "paths"}, "paths": paths, "fixture_commit": sha, "fixture_tree": tree}
+    return {**{k: v for k, v in spec.items() if k != "paths"}, "paths": paths, "selected_commit": spec["head"], "selected_tree": tree}
 
 
 def boundaries():
@@ -172,19 +184,19 @@ def prepare():
     for name, spec in COHORT.items():
         require(manifest["components"][name]["commit"] == spec["pin"], "Unexpected production component pin")
         provenance[name] = apply_cohort(sources / name, spec)
-        manifest["components"][name]["commit"] = provenance[name]["fixture_commit"]
+        manifest["components"][name]["commit"] = provenance[name]["selected_commit"]
     require(manifest["components"]["gate"]["commit"] == GATE_PIN, "Gate pin changed")
     fetch_source(sources / "gate", "VardrSec/VardrGate", GATE_PIN)
     tested = (json.dumps(manifest, indent=2) + "\n").encode()
     (fixture / "versions.json").write_bytes(tested)
     git(fixture, "add", "--", "versions.json")
     fixture_sha, fixture_tree = commit_fixture(fixture, sha, "Test-only exact ACL cohort manifest; not release pins")
-    # Run production guards unchanged, against clean exact synthetic commits.
+    # Run production guards unchanged, against clean exact companion commits.
     run(sys.executable, "vardrsec.py", "sources", cwd=fixture)
     require((ROOT / "versions.json").read_bytes() == original, "Original production manifest mutated")
-    receipt = {"schema": "vardr.acl-test-cohort/1", "status": "prepared-not-qualified", "distribution_head": sha, "qualified_database": QUALIFIED_DB, "production_manifest_sha256": digest(original), "fixture_distribution_commit": fixture_sha, "fixture_distribution_tree": fixture_tree, "tested_manifest_sha256": digest(tested), "tested_manifest": manifest, "components": provenance, "gate_pin": GATE_PIN}
+    receipt = {"schema": "vardr.acl-test-cohort/2", "status": "prepared-not-qualified", "distribution_head": sha, "qualified_database": QUALIFIED_DB, "production_manifest_sha256": digest(original), "fixture_distribution_commit": fixture_sha, "fixture_distribution_tree": fixture_tree, "tested_manifest_sha256": digest(tested), "tested_manifest": manifest, "components": provenance, "gate_pin": GATE_PIN}
     (public / "provenance.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    print("Prepared immutable ACL-only fixture; production manifest unchanged")
+    print("Prepared immutable newer-base candidate fixture; production manifest unchanged")
 
 
 RUNTIME_CHECK = r'''set -eu
@@ -293,7 +305,7 @@ def verify():
     require(digest((fixture / "versions.json").read_bytes()) == receipt["tested_manifest_sha256"], "Tested manifest changed")
     clean(fixture)
     run(sys.executable, "vardrsec.py", "sources", cwd=fixture)
-    run(sys.executable, "-c", "import vardrsec; assert vardrsec.map_source_revision() == " + repr(receipt["components"]["map"]["fixture_commit"]), cwd=fixture)
+    run(sys.executable, "-c", "import vardrsec; assert vardrsec.map_source_revision() == " + repr(receipt["components"]["map"]["selected_commit"]), cwd=fixture)
     require((fixture / "artifacts/installed-gate/accepted.json").is_file(), "Joint acceptance receipt missing")
     images = {}
     ids, tags = image_ids(fixture)

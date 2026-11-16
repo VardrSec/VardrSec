@@ -16,8 +16,9 @@ The companion revisions selected by the cohort are:
 
 Map's companion base is `a73a988dbbbab7d07e90dc8cf67212200162e1d5`, not the
 distribution pin. Runner's companion base equals its distribution pin. The
-fixture applies only the reviewed ACL deltas to the distribution pins; it does
-not silently advance Map to its newer base. Gate remains at
+fixture selects the exact reviewed companion heads, including the separately
+reviewed Map history between its distribution pin and companion base. The
+production manifest is not advanced. Gate remains at
 `2474296597b6ccd082e2e405662fd1f2cada69f4`.
 
 The triggering distribution head, reviewed database identity, component delta
@@ -35,13 +36,15 @@ It refuses source, Compose, Docker and Git configuration overrides, dirty source
 checkouts, external Git metadata, existing installation state, pre-existing
 fixture/evidence directories and changed production pins.
 
-Preparation verifies exact delta hashes and path allowlists, applies each delta
-to its pinned base, and checks resulting file modes, types and blobs against the
-reviewed companion revision. It records synthetic fixture commits and trees.
-Only the isolated fixture's manifest selects those synthetic commits. The
-original distribution manifest is checked unchanged, and existing source guards
-run without bypasses. These fixture commits are test identities, not proposed
-permanent release pins.
+Preparation verifies separate exact hashes and path allowlists for the reviewed
+pin-to-base history and ACL delta. It applies the ACL delta to the companion base,
+checks file modes/types/blobs and the complete resulting tree against the reviewed
+head, then checks out that actual head. Map history is limited to `.gitignore`,
+`CHANGELOG.md`, backend requirements and frontend package manifests; Runner has
+no intervening history. The version-2 receipt records selected commits and trees.
+Only the isolated distribution fixture gets a synthetic manifest commit selecting
+these exact companion heads. The original manifest remains unchanged and existing
+source guards run without bypasses. No synthetic component commits are selected.
 
 The job then uses the existing installation and joint acceptance paths. Before
 smoke it records built images and frozen image selection. Verification checks
@@ -99,18 +102,11 @@ This PR-only job is not an enduring main-branch or release qualification gate.
 
 ## From a test cohort to a shipping candidate
 
-To avoid including the eight unrelated Map commits between the distribution pin
-and the companion base, a minimal candidate is a dedicated stabilization branch
-from `4a5211c2bcef5b89ba3d8a12244c3acffb55f188` plus exactly the reviewed PR #167
-ACL delta. Review the resulting tree, preserve all safeguards, run the existing
-component checks, and qualify the exact proposed cross-component installation.
-Do not use a synthetic CI fixture commit as a permanent pin.
-
-That route requires maintaining a separate older-base branch, including future
-security fixes and possible reconciliation with main. Alternatively, approving a
-newer-main Map candidate avoids that branch but requires reviewing the additional
-changes and qualifying the actual newer-main cohort. The ACL-only fixture does
-not provide that approval or evidence.
+The current test candidate includes the reviewed newer Map base, retaining its
+dependency/security updates rather than maintaining an older-base ACL backport.
+The previous pinned-base-only result at distribution `18695ecb` does not qualify
+this newer cohort. Qualification requires a new run and its version-2 receipt.
+The exact selected companion commits are test inputs, not approved permanent pins.
 
 After selecting the route, component merge approvals and permanent distribution
 pin/merge approvals remain separate. Retest the exact resulting shipping cohort;

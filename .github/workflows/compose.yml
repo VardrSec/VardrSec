@@ -71,7 +71,7 @@ jobs:
           mkdir -p "$GOBIN"
           go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
           echo "$GOBIN" >> "$GITHUB_PATH"
-      - name: Prepare pinned-base ACL-only fixture with unchanged source guards
+      - name: Prepare exact newer-base candidate with unchanged source guards
         run: python tests/acl_cohort_acceptance.py prepare
       - name: Install the isolated cohort through the existing production path
         run: |

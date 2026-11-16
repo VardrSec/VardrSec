@@ -166,11 +166,76 @@ class CohortGuards(unittest.TestCase):
                     cohort.finish_runtime_verdict(public, receipt, incomplete, b"joint smoke passed")
                 self.assertEqual(receipt["status"], "FAIL")
 
+    def candidate_selection(self, mutation=None, empty_history=False):
+        # Exercise real Git trees offline; only the network transport is replaced.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            real_git = cohort.git
+            real_git(source, "init")
+            (source / "Dockerfile").write_text("FROM stock\n")
+            real_git(source, "add", ".")
+            tree = cohort.text(source, "write-tree")
+            env = {**cohort.os.environ, "GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "test@example.invalid", "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "test@example.invalid"}
+            pin = cohort.run("git", "-C", str(source), "commit-tree", tree, input=b"pin\n", env=env, capture_output=True).stdout.decode().strip()
+            real_git(source, "checkout", "--detach", pin)
+            base = pin
+            if not empty_history:
+                (source / "requirements.txt").write_text("dependency==2\n")
+                real_git(source, "add", ".")
+                base, _ = cohort.commit_fixture(source, pin, "reviewed history")
+            (source / "Dockerfile").write_text("FROM fixed\n")
+            real_git(source, "add", ".")
+            head, expected_tree = cohort.commit_fixture(source, base, "ACL delta")
+            diff = lambda a, b: real_git(source, "diff", "--binary", "--full-index", "--no-ext-diff", a, b, "--")
+            spec = {"repository": "example/offline", "pin": pin, "base": base, "head": head,
+                    "patch_sha256": cohort.digest(diff(base, head)), "paths": ["Dockerfile"],
+                    "history_sha256": cohort.digest(diff(pin, base)), "history_paths": [] if empty_history else ["requirements.txt"]}
+            if mutation:
+                spec.update(mutation)
+            def offline_fetch(path, repository, sha):
+                cohort.run("git", "clone", "--no-hardlinks", str(source), str(path), capture_output=True)
+                real_git(path, "checkout", "--detach", sha)
+            def offline_git(path, *args, **kwargs):
+                if args[0] == "fetch":
+                    return b""
+                return real_git(path, *args, **kwargs)
+            selected = root / "selected"
+            with patch.object(cohort, "fetch_source", side_effect=offline_fetch), patch.object(cohort, "git", side_effect=offline_git):
+                result = cohort.apply_cohort(selected, spec)
+            self.assertEqual(result["selected_commit"], head)
+            self.assertEqual(result["selected_tree"], expected_tree)
+            self.assertEqual(cohort.text(selected, "rev-parse", "HEAD"), head)
+            self.assertNotIn("fixture_commit", result)
+            if not empty_history:
+                self.assertEqual((selected / "requirements.txt").read_text(), "dependency==2\n")
+
+    def test_exact_newer_head_is_selected(self):
+        self.candidate_selection()
+
+    def test_exact_head_with_empty_history_is_selected(self):
+        self.candidate_selection(empty_history=True)
+
+    def test_unreviewed_history_hash_refused(self):
+        with self.assertRaisesRegex(ValueError, "hash mismatch"):
+            self.candidate_selection({"history_sha256": "0" * 64})
+
+    def test_unreviewed_history_path_refused(self):
+        with self.assertRaisesRegex(ValueError, "Unreviewed delta path"):
+            self.candidate_selection({"history_paths": ["unexpected"]})
+
+    def test_unreviewed_acl_hash_refused_after_history(self):
+        with self.assertRaisesRegex(ValueError, "hash mismatch"):
+            self.candidate_selection({"patch_sha256": "0" * 64})
+
     def test_constant_scope(self):
         self.assertEqual(len(cohort.COHORT["map"]["paths"]), 18)
         self.assertEqual(len(cohort.COHORT["runner"]["paths"]), 10)
         for spec in cohort.COHORT.values():
             self.assertEqual(len(spec["patch_sha256"]), 64)
+            self.assertEqual(len(spec["history_sha256"]), 64)
+            self.assertEqual(spec["history_paths"], sorted(spec["history_paths"]))
             for key in ("head", "base", "pin"):
                 self.assertRegex(spec[key], r"^[0-9a-f]{40}$")
             self.assertNotIn("versions.json", spec["paths"])
