@@ -31,7 +31,7 @@ RUN apt-get -o Acquire::Retries=2 -o APT::Update::Error-Mode=any update \
     && mkdir -p /work /out && chown 65534:65534 /work /out
 WORKDIR /repo
 COPY kerberos-vm/ /repo/qualification/kerberos-vm/
-COPY build-krb5.sh krb5-CVE-2026-119079.patch krb5-keyring-test-diagnostic.patch krb5-sequence-regression.c Dockerfile /repo/db/
+COPY build-krb5.sh krb5-CVE-2026-119079.patch krb5-CVE-2026-71199.patch krb5-keyring-test-diagnostic.patch krb5-sequence-regression.c Dockerfile /repo/db/
 # No host mounts, devices, KVM, published ports, added capabilities or policy changes.
 USER 65534:65534
 RUN python3 qualification/kerberos-vm/run.py --source-only --work /work/qualification \

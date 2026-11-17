@@ -10,7 +10,7 @@ import urllib.request
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-BUILD_FILES = ('build-krb5.sh', 'krb5-CVE-2026-119079.patch',
+BUILD_FILES = ('build-krb5.sh', 'krb5-CVE-2026-119079.patch', 'krb5-CVE-2026-71199.patch',
                'krb5-keyring-test-diagnostic.patch', 'krb5-sequence-regression.c', 'Dockerfile')
 
 
