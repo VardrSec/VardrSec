@@ -58,7 +58,7 @@ not the older local `480d4e0` candidate. Its manifest remains `development`,
 
 | Requirement | Missing evidence / least disruptive next action | Owner |
 |---|---|---|
-| ACL delivery in API, web, Runner | Both historical run 43863874269 and completed candidate run 43999768066 retain only DB ACL sources. The candidate DB bundle passes all 55 checksums and six source-descriptor checks; it cannot substitute for three actual-image exports. API/web/Runner remain unverified at their respective image IDs. The corrected export step remains queued for the next independently required qualification. No ACL-only rebuild or rerun was triggered. | Coordinated qualification owner; Codex 2 verifies |
+| ACL delivery in API, web, Runner | Historical run 43863874269 and completed candidate run 43999768066 retain only DB ACL sources. The candidate DB bundle passes all 55 checksums and six source-descriptor checks; it cannot substitute for three actual-image exports. RC #116 head dc8ea493 now includes the correction; image run 44092136016 is building and has uploaded no artifacts. API/web/Runner source checksums and new image-ID bindings remain pending. No ACL-only rebuild or rerun was triggered. | Coordinated qualification owner; Codex 2 verifies |
 | Recipient source and notices | Supply a recipient-accessible, image-bound index/bundle covering the retained OS/static/custom sources and applicable application dependencies, full notices, patches and build/install inputs. Local captures and expiring CI artifacts are not a completed delivery channel. Current custom source versions outside the historical OS lock are enumerated in the local check evidence; many are already retained in current native exports. Do not recapture those. | Vigil / release owner |
 | Final dependency review | Reconcile actual npm/Python/native contents and retained texts; settle applicable per-file terms, alternatives and exceptions. Finish psycopg native mapping/replacement materials and applicable libvips/librsvg linkage review. The historical focused captures and source-lock inventory do not clear all final dependencies. Confirm Alpine package notice delivery: the proxy collector retains only six Caddy/distribution notice files, not proof of complete base-package notices. | Licensing reviewer with Codex 2 evidence |
 | Library modification provisions | Complete applicable LGPL replacement/relinking documentation/materials, particularly static sqv and bundled native libraries; confirm terms permit the required modifications/debugging. Preserve GCC exceptions and the existing Berkeley DB caller/source analysis. No blanket demand for object files or byte-identical image rebuilds. | Release owner / licensing reviewer |
@@ -98,10 +98,10 @@ as the next combined database-acceptance and image-evidence qualification. Its
 current head is `320b93eb634aa6998fe0f08bf87d24b1093b2f5d`. The RC owner must
 integrate the reviewed PR #118 libxml2 fix and correct the Kerberos
 installed-version assertion; the workflow-only ACL export patch from `01f557c`
-is to be included in that same required qualification update. Codex 1 recorded
+was requested for that same required qualification update. Codex 1 recorded
 this in the [RC owner handoff](https://github.com/VardrSec/VardrSec/pull/116#issuecomment-6949225553)
-and the shared acknowledgment. The patch remains queued, not asserted as
-integrated. No additional build, rerun or PR push was requested solely to
+and the shared acknowledgment. The integration status is updated below.
+No additional build, rerun or PR push was requested solely to
 collect ACL sources. Standalone PR #118 run `43999768066` used the original
 workflow and does not close the three missing exports.
 
@@ -112,10 +112,22 @@ bind the service export to the same stopped-container/image identity used for
 that run's runtime evidence and receipt. Record the new full configuration ID,
 artifact and source-manifest hashes with each result. Reject missing exports or
 identity mismatches, and preserve historical run `43863874269` as unverified.
-The combined revision, next run ID, new image IDs and export verification results are **pending**;
+The new image IDs and export verification results are **pending**;
 no queued work is reported as acceptance. Local `acl-next-qualification-codex1.md`
 retains Codex 1's acknowledgment and `acl-next-qualification.json` records the
 handoff state.
+
+**RC integration checked November 17 at 7:22 a.m. CST:** PR #116 now has head
+`dc8ea493a07d7650961b78d22d3b68690bf62089` and PR merge revision
+`ee1c06ccc01c20217b8267bccab4f99a4ffbbfa4`. The head's workflow blob
+`b0297431ab2bf6efd7c2710c0666f08dc9d0c703` contains the reviewed correction:
+export and checksum `/usr/share/doc/libacl1/vardr-source` for every non-proxy
+service into `$service-acl-callers`.
+[Image run 44092136016](https://github.com/VardrSec/VardrSec/actions/runs/44092136016),
+job `134069709160`, is in the image-build step; its artifact list is empty.
+The companion database run is `44092136138`. No ACL export or paired new
+image receipt is available yet, so no checksum/image-ID acceptance is asserted.
+This status check did not trigger any workflow or rebuild.
 
 ### Completed qualification checked November 17 at 7:16 a.m. CST
 
@@ -152,8 +164,8 @@ has an ACL installed-custody exit code of zero, including cp/tar/libacl checks.
 That separate image is not substituted for the scanned DB image or the three
 missing source exports. Local `qualification-43999768066/acl-source-verification.json`
 records the bounded verification; its adjacent artifact inventory and job
-excerpts retain provenance. The API/web/Runner gap remains open for the next
-independently required qualification with the corrected export step. Successful
+excerpts retain provenance. The API/web/Runner gap remains open pending exports
+from corrected RC run `44092136016`. Successful
 CI collection is not release or vulnerability clearance.
 
 ## Checksum and identity anchors
