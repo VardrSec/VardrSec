@@ -9,3 +9,6 @@ VardrMap, VardrRunner and VardrGate, and every third-party tool, dependency, bas
 and package that this distribution pins, downloads or builds, are separate works under their
 own licenses and notices, which this file does not replace. See
 docs/release-license-inventory.md.
+
+Upstream-derived source patches retain their own notices and terms in
+NOTICE.source-patches.txt; the repository's Apache-2.0 license does not replace them.
