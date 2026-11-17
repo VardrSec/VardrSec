@@ -1,4 +1,4 @@
-# Final source/licensing acceptance â€” Community Edition v0.1.0 Alpha
+# Final source/licensing acceptance — Community Edition v0.1.0 Alpha
 
 **Source/licensing technical acceptance: PASS for the notice-corrected source
 payload identified below.** Notice correction `d4504c9` is adopted in prepared
@@ -51,7 +51,7 @@ is retained as parent evidence and must not be described as notice-corrected.
 
 **Source-patch copyright/license notices must accompany the conveyed patch
 material.** The parent source payload omitted, for example, the 2015 MIT and 2016
-Red Hat CAMMAC-file notices and the Daniel Veillard 2003â€“2012 dictionary grant.
+Red Hat CAMMAC-file notices and the Daniel Veillard 2003–2012 dictionary grant.
 Patch author names and upstream URLs do not supply those required notices.
 The same review identified affected GNU, ncurses, util-linux, Perl and Go patch
 material; this is a source-distribution obligation even without prebuilt images.
@@ -70,10 +70,8 @@ and verified archive as the recipient source payload, or identify an alternative
 official adoption revision so its source identity can be rebound. The correction,
 archive checksum and inclusion evidence were sent to Vigil in the existing
 coordination chat. No official tag, artifact publication, baseline advance or
-RC #116 branch update was made independently. A proposed external issue #117
-handoff was blocked by automatic approval review and was not posted; any such
-post awaits explicit approval. This communication restriction is not an
-additional source-license obligation.
+RC #116 branch update was made independently. The official candidate record
+must distinguish the original RC from this verified notice-corrected payload.
 
 For this exact corrected archive, the source-notice delivery defect is resolved.
 Recipients must receive that archive or an equivalently verified source payload
