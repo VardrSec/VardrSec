@@ -1,203 +1,81 @@
-# Community Edition v0.1.0 Alpha: supply-chain qualification
+# Final source/licensing acceptance — Community Edition v0.1.0 Alpha
 
-**HOLD — November 16, 2026.** Engineering checks establish the evidence below;
-distribution obligations are not yet closed. No artifacts were published or
-central pins changed. This report concerns distribution
-`25040b000e3a99c7c0218f58cb08ec73bc189373` and
-[qualification run 43863874269](https://github.com/VardrSec/VardrSec/actions/runs/43863874269),
-not the older local `480d4e0` candidate. Its manifest remains `development`,
-`distribution_release: null`, `runnable: false`, with no release image pins.
-The November 17 combined-run follow-up below closes the bounded ACL export gap
-for RC run `44092136016`; overall release obligations remain open.
+**Decision: HOLD for one source-notice delivery correction.** The correction is
+prepared in commit `d4504c9` on `codex/alpha-source-evidence-qualification`.
+Vigil must include it with the source release; it is not present in the current
+candidate or its retained source snapshot. No other specific source-only
+licensing defect was identified in the reviewed payload. Overall security and
+release approval remain with their owners.
 
-## Satisfied checks
+## Exact scope and candidate
 
-- **Combined RC ACL exports:** API, web, Runner and DB each pass 55 source-manifest
-  checksums, six source descriptors and 14 descriptor input references. Their
-  installed ACL/coreutils/tar source versions match, and retained recipe files
-  match their exact pinned Git commits. All five runtime image identities match
-  the combined scan receipt. This closes the missing-export check for that run.
-- The existing exact-revision image checker validates all five receipt/SBOM/report
-  pairs. All 820 retained notice files match their recorded sizes and SHA-256s:
-  API 142, web 373, DB 138, Runner 161, proxy 6. Runtime manifests match the
-  receipt's image configuration IDs. Image archive hashes are recorded; the
-  original image archives were not available for independent rehashing.
-- Map's AGPL-3.0, Runner's MIT, Gate's Apache-2.0 and the distribution's
-  Apache-2.0 license bytes are retained. Selected actual-image component license
-  bytes match the exact source snapshot. These licenses do not license every
-  third-party dependency.
-- Reused and rehashed the existing 710-file OS/static-source capture, 317-file
-  historical native-delivery inventory, and 46 Python sdists with 93 embedded
-  notices. No unchanged sources were reacquired. Historical identities were
-  preserved; these checks do not promote old image evidence to the new candidate.
-- All 18 current native `SHA256SUMS` manifests pass (258 entries). Checked the
-  input hashes/sizes in 36 Debian source descriptors. One original Kerberos
-  descriptor references an upstream `.asc` absent from its native export; the
-  already captured, checksum-matching 833-byte signature is retained separately
-  as a supplement. Its cryptographic signature was not reverified.
-- The current scanner inventory has 856 Go package occurrences across ten
-  binaries. 839 match exact module/version prefixes in actual-image dependency
-  notice archives. The other 17 are ten Go standard-library entries and seven
-  development/local-replacement entries; retained Go licenses, project licenses,
-  patched go-github and go-jose provenance provide their separate review inputs.
-  Prefix matching alone does not establish semantic license compliance. The
-  historical Nuclei/Censys finding does not apply automatically: this Runner
-  inventory has no Nuclei binary entry.
+[Issue #117](https://github.com/VardrSec/VardrSec/issues/117) identifies RC #116
+head `dc8ea493a07d7650961b78d22d3b68690bf62089`: source-built Full and Mapless,
+Ubuntu 24.04/amd64, **no prebuilt distribution**. Tested merge
+`ee1c06ccc01c20217b8267bccab4f99a4ffbbfa4` has the same complete Git tree.
+Pins: Map `76dcbb9d1b17bb06005da86f3f3194e22521bb32`, Runner
+`00812c13b4b2986b594fc91712abe7cc96eafea7`, Gate
+`2474296597b6ccd082e2e405662fd1f2cada69f4`. Baseline `25040b0` is historical;
+its evidence is reused only where the actual inputs remain unchanged.
 
-## Bounded corrections
+## Verified source and notice evidence
 
-1. Created the missing exact-revision source snapshot using `source_release.py`.
-   Two builds match; both pass its existing verifier against the full revision
-   and expected SHA-256. This covers the four tracked Git trees and their
-   collected notices, excluding transitive/generated external build inputs.
-2. Corrected the existing workflow to export and checksum
-   `/usr/share/doc/libacl1/vardr-source` from API, web and Runner as well as DB.
-   Preserved the existing DB destination and all build inputs. The edited shell
-   step passes `bash -n`; `git diff --check` passes. No image rebuild was run.
-3. Classified all 14 unresolved runtime entries: API/web have two systemd/udev
-   alias paths each; DB has those two, four Kerberos aliases and one libxml2
-   alias; Runner has systemd/udev and libpcap aliases. These are non-regular native
-   library paths, not missing notices/source archives. Exact link types/targets
-   were not retained. Keep the collector's incomplete-coverage flag; do not
-   count these entries as 14 legal blockers or as proof of missing libraries.
-
-## Exact remaining requirements and owners
-
-| Requirement | Missing evidence / least disruptive next action | Owner |
-|---|---|---|
-| Recipient source and notices | Supply a recipient-accessible, image-bound index/bundle covering the retained OS/static/custom sources and applicable application dependencies, full notices, patches and build/install inputs. Local captures and expiring CI artifacts are not a completed delivery channel. Current custom source versions outside the historical OS lock are enumerated in the local check evidence; many are already retained in current native exports. Do not recapture those. | Vigil / release owner |
-| Final dependency review | Reconcile actual npm/Python/native contents and retained texts; settle applicable per-file terms, alternatives and exceptions. Finish psycopg native mapping/replacement materials and applicable libvips/librsvg linkage review. The historical focused captures and source-lock inventory do not clear all final dependencies. Confirm Alpine package notice delivery: the proxy collector retains only six Caddy/distribution notice files, not proof of complete base-package notices. | Licensing reviewer with Codex 2 evidence |
-| Library modification provisions | Complete applicable LGPL replacement/relinking documentation/materials, particularly static sqv and bundled native libraries; confirm terms permit the required modifications/debugging. Preserve GCC exceptions and the existing Berkeley DB caller/source analysis. No blanket demand for object files or byte-identical image rebuilds. | Release owner / licensing reviewer |
-| Freeze and integrity handoff | Identify the actual release payloads and trusted checksum channel. Current configuration IDs identify development images, not registry release digests or signatures. If images are shipped, bind the delivered identities to the reviewed source/notice evidence. If the release is source-only, explicitly record that boundary. | Vigil; no independent pin/publication changes |
-
-The source-delivery and modification requirements follow the applicable license
-terms, including [AGPL sections 6 and 13](https://www.gnu.org/licenses/agpl-3.0.en.html)
-and [LGPL section 4](https://www.gnu.org/licenses/lgpl-3.0.en.html); their application
-to particular combined works still requires review. Missing scanner metadata is
-not itself a licensing failure. Signatures, a generalized SBOM service and
-byte-identical container builds are not added acceptance requirements.
-
-## ACL export recovery follow-up — November 16
-
-Codex 2 asked Codex 1 to locate existing images, exports or remote retention,
-without rebuilding unchanged images. Both local Docker contexts were searched:
-207 unique image IDs including intermediate images, and 12 containers per
-context; no matching API, web or Runner identity was found. These contexts may
-refer to the same underlying engine and are not claimed as independent hosts.
-The original job logs identify a GitHub-hosted Ubuntu runner and show only the
-DB ACL export before job cleanup. The original artifact listing contains no
-complete image archive or build-cache artifact. This establishes that the
-checked resources do not supply the missing exports, not that no other copy
-could exist. Exact source-bundle checksums for the three images remain
-unverified. Local `acl-export-recovery.json`, `acl-export-local-search.json`
-and `acl-export-job-excerpts.log` retain the search and DB checksum evidence.
-Codex 1's `acl-export-codex1.md` confirms no source exports were recovered on
-its active daemon and no retained remote archive is evidenced. The receipt's
-registry digest lists are empty. PR #118's separate database remediation does
-not establish ACL source delivery for these historical images.
-No prior source archives, notices or image scans were regenerated.
-
-### Combined RC ACL export verification — November 17, 8:15 a.m. CST
-
-**Bounded ACL export requirement satisfied for this run.**
-[RC #116 image run 44092136016](https://github.com/VardrSec/VardrSec/actions/runs/44092136016),
-attempt 1, job `134069709160`, completed successfully. Head
-`dc8ea493a07d7650961b78d22d3b68690bf62089` was tested at merge revision
-`ee1c06ccc01c20217b8267bccab4f99a4ffbbfa4`. That exact workflow contains the
-reviewed export/checksum correction and uses the same stopped service container
-for source export and runtime evidence. The exact-revision image checker passes
-receipt/report integrity checks, and all five runtime image IDs and revisions
-match the paired scan receipt.
-
-| Service | Combined-run image configuration ID | Source manifest entries |
-|---|---|---:|
-| API | `sha256:0d4fb9d116119920eba18c28f56700ff5fcb048e78f5910e0260f72af2abfe3e` | 55 / 55 pass |
-| Web | `sha256:b75346bcff09ca86ef8256230800320ecf361dcd1b4be06c64d677ffbe3e15e7` | 55 / 55 pass |
-| Runner | `sha256:1ca793024758a51fd6d3a812d4ab0df182cd01b3aa710549570685fd4eba81ad` | 55 / 55 pass |
-| DB | `sha256:8b6b4e55addb57fde0034d4c75920c92dcc1d728f84518d3069bb3d1fa465dfb` | 55 / 55 pass |
-
-Across the four bundles, all 220 manifest entries, 24 Debian source descriptors
-and 56 descriptor input references pass hashes/sizes. No delivered files are
-outside each manifest except the manifest itself. Each service's patched ACL,
-coreutils and tar source versions match its installed-package inventory; all six
-retained recipe/patch/fixture files match the exact component Git pin. Runner's
-different regression fixture is expected and matches its own pin.
-
-API/web/DB source-manifest SHA-256:
-`c20d3ad1b4edbc6ab7941e5db63ac1bb6c4aa4b8dfe7f499d6fe150f21a3f222`.
-Runner source-manifest SHA-256:
-`17955454191a8cabb851121c4d08da71c7d46aca49a3fa3b913219d2043d0315`.
-Scan-receipt SHA-256:
-`02c9bb3b6e4eadd494cb71c3a3fd6143f44d9bf86ea520c1d4a00b4de560c07a`.
-GitHub artifacts: native sources `14335846825`, runtime evidence `14335318253`,
-image evidence `14335014007`. The native ZIP's recorded GitHub SHA-256 is
-`43a31b5e36446d83a8d7b01449678fbb0a1521848945f6c218a1925043bc455d`;
-existing extracted files were reused, without independently redownloading and
-rehashing that ZIP. Local `combined-rc116-44092136016/acl-source-verification.json`,
-artifact inventory and job excerpts retain the complete scoped evidence.
-
-No verification build, rerun, scan or source recapture was triggered. Historical
-run `43863874269` and standalone #118 run `43999768066` retain their original
-missing-export scope. The separate DB smoke image is not substituted for any
-scanned image. Recipient delivery, final dependency review, applicable library
-modification provisions, release freeze and security acceptance remain separate.
-
-### Completed qualification checked November 17 at 7:16 a.m. CST
-
-[Image run 43999768066](https://github.com/VardrSec/VardrSec/actions/runs/43999768066)
-completed successfully for PR #118 head
-`7a34cb2f1fbef227393dbf46f4ab513fc07d0644`, tested at merge revision
-`d66e3517cdabe47c6f3561d768462e1d7eecf45f`. Its seven retained artifacts include
-native sources, runtime evidence and the paired image receipt. Reused the
-already extracted artifacts; no rebuild, scan or source recapture was performed.
-The exact tested workflow still exports ACL sources only from DB. No API, web
-or Runner ACL export directory exists in its retained native-source artifact.
-
-| Service | New image configuration ID | ACL source export result |
-|---|---|---|
-| API | `sha256:32581c3b4167053deb8156435eb39fa03063433b097ba2e88a6bf6792dff4482` | Missing; source checksums cannot be verified |
-| Web | `sha256:e4aa72208477a1f5233021759ceac8439e3a01c2265a597d5e04c7f8b74e8a8e` | Missing; source checksums cannot be verified |
-| Runner | `sha256:c56f60c143b5e38a5bf58533af69b6aabad611f2572d15afe36afb4ed09789d7` | Missing; source checksums cannot be verified |
-| DB | `sha256:24f4538dd19f79213d5ad3835a48b8e960c6535bcbdb0ae35bd3dabf97a5faff` | All 55 manifest entries match; six `.dsc` descriptors and 14 declared input references match sizes/hashes |
-
-All four runtime image IDs and distribution revisions match the paired receipt;
-the exact-revision image checker passes its receipt/report integrity checks.
-The DB source export and runtime evidence come from the same stopped container
-in the successful workflow. DB source-manifest SHA-256:
-`07b4787b249af2295b1cf77e0c31daec9cbf7ec64cecb66dcdb6c8363555aece`.
-Candidate image-receipt SHA-256:
-`47218c416662b70c19e62d1f85de26953cad0674300a570a6a81305d97d36ee0`.
-The native-source artifact is `14293334998`; GitHub records ZIP SHA-256
-`1478a52cdb68b7b94d6e077f0b0337db1b089ae721025b404611539b6ce1acd1`.
-That ZIP digest was recorded, not independently rehashed from a fresh download.
-
-Separate database acceptance run `43999767850` also completed successfully.
-Its smoke image `sha256:fd1df4cfd2b30858b0db5da606677d09d7011222a5ffe12cadd903ad0ce7b1c6`
-has an ACL installed-custody exit code of zero, including cp/tar/libacl checks.
-That separate image is not substituted for the scanned DB image or the three
-missing source exports. Local `qualification-43999768066/acl-source-verification.json`
-records the bounded verification; its adjacent artifact inventory and job
-excerpts retain provenance. This standalone run's API/web/Runner exports remain
-missing; the combined run above satisfies the check only for its own image IDs. Successful
-CI collection is not release or vulnerability clearance.
-
-## Checksum and identity anchors
-
-| Evidence | SHA-256 |
+| Conveyed material | Evidence and result |
 |---|---|
-| Exact image receipt | `f4ca5baec9326b68859b2ead06a41913f03996d650a4d5579a538d94b4434b0d` |
-| `vardrsec-25040b0-source-a.tar.gz` and `-b.tar.gz` | `08ef8e493ca7eb7e8fc1d8d3293914eb1f2c0d76493791c52d21f97984359b3b` |
-| Retained OS/static lock | `c5d5da03380e1484ad0c74cd1036cc703f13bbf3534392b5f0ec740d24da33e9` |
-| Supplemental Kerberos upstream signature | `85047c935fe949ef2e275885451b168557b923dd13a5aab0ef8fe6acd27b94d7` |
+| Four complete tracked source trees | Existing source run `44092136381`, artifact `14331838436`, retained all four exact trees. Its existing verifier passes against the expected checksum and tested revision. Reused CI's two-build comparison; no snapshot was rebuilt. |
+| Component licenses | Distribution Apache-2.0 plus NOTICE; Map AGPL-3.0, including backend/frontend copies; Runner MIT plus managed-tool notices; Gate Apache-2.0. These remain in the source trees, without blanket relicensing of third parties. |
+| Embedded Go sources | The distribution and Runner carry identical source archives with 17 module/version records. All 65 checksum entries and manifest sizes/hashes match; original source ZIPs retain their license/copyright files. Source is delivered for the covered MPL/copyleft material actually included. No compiled dependency is substituted for source. |
+| Embedded Dalfox notices/source | Reused the existing integrity review for the unchanged Runner archive, SHA-256 `f51df44eb354eaac6cc7b4b5b695843511471a6d762f885ca4fd8a74a09fc6b5`. It retains legal texts, attribution and four unmodified MPL source crates. The 336-package lock inventory is not 336 conveyed source packages. The Android-only missing grant and Nuclei/Censys notice question do not establish defects in absent source/binary payloads. |
+| Four-image ACL source evidence | Complete and reused unchanged: combined run `44092136016`, 220 checksum entries, 24 descriptors, 56 input references, exact image identities. This task is closed; no historical image recovery or rebuild was repeated. |
+| Security-source reconciliation | Candidate contains the reviewed Kerberos and libxml2 patches. Compared source artifacts and recipes at the exact candidate; Codex 1 identified no later security-source revision in #117 and reviewed the notice-only correction. No remediation or patch bytes changed. |
 
-Source snapshot pins: Map `76dcbb9d1b17bb06005da86f3f3194e22521bb32`,
-Runner `00812c13b4b2986b594fc91712abe7cc96eafea7`,
-Gate `2474296597b6ccd082e2e405662fd1f2cada69f4`.
-The snapshot reproducibility receipt applies to these source archives only.
-It does not require or establish reproducible containers/executables.
+Source artifact ZIP SHA-256:
+`430bc0a4da99255f150c62a2cfdd6ec0b861f74b9cabe189ea70bdf89c52aea2`.
+Inner `source-a.tar.gz` SHA-256:
+`ecec33a08e6409705b98df171b1767075e1f82ebd1c1450cf6f3bae41e367192`.
+Both were verified locally from the existing
+[source artifact](https://github.com/VardrSec/VardrSec/actions/runs/44092136381/artifacts/14331838436).
+This artifact proves source identity, but still lacks the correction below.
 
-Local `supply-chain-checks.json` and `supply-chain-followup.json` beside the
-qualification evidence retain full image IDs, runtime archive hashes, package
-version differences, source/license hashes and non-regular-entry classifications.
-Codex 1's independent security hold remains in force. No release clearance is
-asserted, and optional improvements should stop once the requirements above close.
+## Precise remaining requirement and smallest correction
+
+**Source-patch copyright/license notices must accompany the conveyed patch
+material.** The current source payload omits, for example, the 2015 MIT and 2016
+Red Hat CAMMAC-file notices and the Daniel Veillard 2003–2012 dictionary grant.
+Patch author names and upstream URLs do not supply those required notices.
+The same review identified affected GNU, ncurses, util-linux, Perl and Go patch
+material; this is a source-distribution obligation even without prebuilt images.
+
+Completed correction `d4504c9` adds `NOTICE.source-patches.txt`, mapping all 54
+conveyed patch paths across distribution/Map/Runner to 45 affected upstream-file
+notice records and eight full referenced license texts. It preserves file-level
+exceptions, permissions, disclaimers, attribution and downstream-modification
+status. Text came from the retained exact upstream sources; only text encoding,
+line endings and trailing whitespace were normalized. Root `NOTICE` points to
+it. The existing notice collector recognizes its filename. Patch/build files
+are unchanged; `git diff --check` passes. No new tests or packaging system.
+
+**Vigil's required action:** adopt that two-file notice correction into the
+source release and ensure recipients receive it alongside all affected patch
+files, including the nested Map/Runner trees. If using the existing source
+snapshot, package the changed source payload with `source_release.py` and retain
+its new revision/checksum. Reuse unchanged component and qualification evidence.
+This is source packaging after changed notice input, not an image-rebuild request.
+The source-license hold closes when the corrected delivered payload is identified
+and its notice inclusion is verified. Do not publish the uncorrected snapshot as
+if it already contains the notice. No permission to publish is implied.
+
+## Boundaries and handoff
+
+Base-image notices, complete OS/wheel binary source delivery, binary relinking
+materials and registry image pins are not automatic blockers for this explicitly
+source-only release. They require reassessment if prebuilt distribution is added.
+Missing scanner metadata, development manifest flags, non-regular library aliases
+and absent historical images are not additional licensing requirements here.
+No general source-offer service, signatures or byte-identical image rebuilds are
+required by this report. Security adjudication stays with Codex 1/Vigil; public
+release-note/archive hygiene stays with its assigned documentation owner.
+
+Detailed local evidence: `final-source-rc116/source-only-review.json`,
+`verified-manifest.json` and `notice-correction-provenance.json`; existing ACL
+acceptance remains in `combined-rc116-44092136016/acl-source-verification.json`.
