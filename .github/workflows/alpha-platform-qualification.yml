@@ -1,0 +1,97 @@
+name: Alpha Ubuntu 24.04 missing qualification
+on:
+  push:
+    branches: [codex/alpha-ubuntu-qualification]
+    paths:
+      - .github/workflows/alpha-platform-qualification.yml
+      - .github/qualification/mapless_lifecycle.py
+permissions:
+  contents: read
+env:
+  QUALIFICATION_BASELINE: 25040b000e3a99c7c0218f58cb08ec73bc189373
+jobs:
+  full-controlled-update:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 25040b000e3a99c7c0218f58cb08ec73bc189373
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Require exact baseline and clean disposable Ubuntu 24.04
+        run: |
+          test "$(git rev-parse HEAD)" = "$QUALIFICATION_BASELINE"
+          test -z "$(git status --porcelain)"
+          python tests/ubuntu_installation.py preflight
+      - name: Install baseline Full using existing CLI
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
+        run: python vardrsec.py install --full
+      - name: Run unchanged controlled-update and recovery drill
+        run: |
+          python tests/update_acceptance.py
+          python - <<'PY'
+          import json, os, platform
+          from pathlib import Path
+          Path('artifacts/full-update-result.json').write_text(json.dumps({
+              'baseline': os.environ['QUALIFICATION_BASELINE'],
+              'ubuntu': platform.freedesktop_os_release()['VERSION_ID'],
+              'architecture': platform.machine(),
+              'existing_update_acceptance_passed': True,
+          }, indent=2) + '\n')
+          PY
+      - name: Retain fixed public result only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: alpha-full-update-ubuntu2404
+          path: artifacts/full-update-result.json
+          if-no-files-found: warn
+          retention-days: 30
+      # The GitHub-hosted VM is disposable. No private backup/state/CA is uploaded.
+  mapless-lifecycle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          path: harness
+          sparse-checkout: .github/qualification
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 25040b000e3a99c7c0218f58cb08ec73bc189373
+          persist-credentials: false
+          path: candidate
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Build existing pinned official encryption tools
+        env:
+          GOBIN: ${{ runner.temp }}/age-bin
+          GOTOOLCHAIN: local
+          GODEBUG: http2client=0
+        run: |
+          mkdir -p "$GOBIN"
+          go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
+          echo "$GOBIN" >> "$GITHUB_PATH"
+      - name: Run baseline Gate fixture then existing CLI lifecycle
+        working-directory: candidate
+        run: python ../harness/.github/qualification/mapless_lifecycle.py
+      - name: Retain fixed public receipts only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: alpha-mapless-lifecycle-ubuntu2404
+          path: |
+            candidate/artifacts/installed-gate/mapless.json
+            candidate/artifacts/mapless-lifecycle-result.json
+          if-no-files-found: warn
+          retention-days: 30
