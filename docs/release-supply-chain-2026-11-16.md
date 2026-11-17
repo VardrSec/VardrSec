@@ -1,8 +1,9 @@
 # Final source/licensing acceptance — Community Edition v0.1.0 Alpha
 
 **Source/licensing technical acceptance: PASS for the notice-corrected source
-payload identified below.** Notice correction `d4504c9` is adopted in prepared
-source candidate `4f3e813218baf9f14e8238fbaf8875392d6db1ab`, exactly the prior
+payload identified below.** Notice correction `d4504c9`, with attribution-encoding correction `afd5127`,
+is adopted in prepared
+source candidate `76a9b37f222ffc610d5c817d17c99c5790d0bf1f`, exactly the prior
 RC plus two notice files. The resulting archive passes the existing verifier
 and explicit notice-inclusion checks. Vigil's official RC/source-payload
 selection remains pending; PR #116 still records `dc8ea493`. No unresolved
@@ -26,21 +27,24 @@ its evidence is reused only where the actual inputs remain unchanged.
 
 | Conveyed material | Evidence and result |
 |---|---|
-| Four complete tracked source trees | Existing source run `44092136381`, artifact `14331838436`, proves the parent source trees. Packaged the changed notice input once with existing `source_release.py`; its verifier passes for `4f3e813`. All three component archive hashes remain identical to that verified parent artifact. |
+| Four complete tracked source trees | Existing source run `44092136381`, artifact `14331838436`, proves the parent source trees. Packaged the changed notice input with existing `source_release.py`; its verifier passes for `76a9b37`. All three component archive hashes remain identical to that verified parent artifact. |
 | Component licenses | Distribution Apache-2.0 plus NOTICE; Map AGPL-3.0, including backend/frontend copies; Runner MIT plus managed-tool notices; Gate Apache-2.0. These remain in the source trees, without blanket relicensing of third parties. |
 | Embedded Go sources | The distribution and Runner carry identical source archives with 17 module/version records. All 65 checksum entries and manifest sizes/hashes match; original source ZIPs retain their license/copyright files. Source is delivered for the covered MPL/copyleft material actually included. No compiled dependency is substituted for source. |
 | Embedded Dalfox notices/source | Reused the existing integrity review for the unchanged Runner archive, SHA-256 `f51df44eb354eaac6cc7b4b5b695843511471a6d762f885ca4fd8a74a09fc6b5`. It retains legal texts, attribution and four unmodified MPL source crates. The 336-package lock inventory is not 336 conveyed source packages. The Android-only missing grant and Nuclei/Censys notice question do not establish defects in absent source/binary payloads. |
 | Four-image ACL source evidence | Complete and reused unchanged: combined run `44092136016`, 220 checksum entries, 24 descriptors, 56 input references, exact image identities. This task is closed; no historical image recovery or rebuild was repeated. |
 | Security-source reconciliation | Candidate contains the reviewed Kerberos and libxml2 patches. Compared source artifacts and recipes at the exact candidate; Codex 1 identified no later security-source revision in #117 and reviewed the notice-only correction. No remediation or patch bytes changed. |
 
-**Corrected source archive:** `notice-adoption-delivery/source-a.tar.gz`,
-source commit `4f3e813218baf9f14e8238fbaf8875392d6db1ab`, SHA-256
-`4322d2744b3f1007a852974bd6d975360505b52e4bd25287f4ead3b65555a252`.
+**Corrected source archive:** `notice-adoption-delivery/source-final.tar.gz`,
+source commit `76a9b37f222ffc610d5c817d17c99c5790d0bf1f`, SHA-256
+`8f6e91dc81b743a59be8e6e99199b14a1026d9e80e707c0e0a9bf97950687e14`.
 The notice SHA-256
-`7350e11e82f53c17f0a935eae4a6c56563fcae946bb079125bcf82ae9ffda607`
+`bd8fcbc39e4ea2cf2593f207678877637b66adcf3728ecfb5c4698688075e93c`
 matches the committed correction, the outer collected notice and the copy in
 `distribution/source.tar`; root `NOTICE` references it. The three component pins
-and source archive hashes are unchanged. Only the source archive was packaged;
+and source archive hashes are unchanged. A final attribution check repaired a Windows code-page encoding error in four
+upstream author-name lines. The final UTF-8 notice preserves the original
+spellings; intermediate `source-a.tar.gz` is superseded and must not be released.
+Only the source archive was repackaged after that changed notice input;
 no images were rebuilt and no qualification was rerun.
 
 The previous CI source archive, SHA-256
