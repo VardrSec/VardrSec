@@ -58,7 +58,7 @@ not the older local `480d4e0` candidate. Its manifest remains `development`,
 
 | Requirement | Missing evidence / least disruptive next action | Owner |
 |---|---|---|
-| ACL delivery in API, web, Runner | Their exact pinned build scripts and two source patches equal the retained DB recipe, and their Dockerfiles copy the source directory. Only DB was actually exported. Obtain that directory and verify `SHA256SUMS` from each exact image; recipe equality is insufficient. The exact API image is unavailable locally. If rebuilt, bind the new export to its new image ID. | Coordinated qualification owner; Codex 2 verifies |
+| ACL delivery in API, web, Runner | Recovery check: none of the three exact images or containers is present in either local Docker context. The original hosted job exported only DB ACL sources; its seven retained artifacts include no full image/cache archive. All 55 DB reference checksums pass, but cannot substitute for three actual-image exports. Keep those checks open; recover an existing exact-image export if available. No unchanged-image rebuild was requested or performed. | Coordinated qualification owner; Codex 2 verifies |
 | Recipient source and notices | Supply a recipient-accessible, image-bound index/bundle covering the retained OS/static/custom sources and applicable application dependencies, full notices, patches and build/install inputs. Local captures and expiring CI artifacts are not a completed delivery channel. Current custom source versions outside the historical OS lock are enumerated in the local check evidence; many are already retained in current native exports. Do not recapture those. | Vigil / release owner |
 | Final dependency review | Reconcile actual npm/Python/native contents and retained texts; settle applicable per-file terms, alternatives and exceptions. Finish psycopg native mapping/replacement materials and applicable libvips/librsvg linkage review. The historical focused captures and source-lock inventory do not clear all final dependencies. Confirm Alpine package notice delivery: the proxy collector retains only six Caddy/distribution notice files, not proof of complete base-package notices. | Licensing reviewer with Codex 2 evidence |
 | Library modification provisions | Complete applicable LGPL replacement/relinking documentation/materials, particularly static sqv and bundled native libraries; confirm terms permit the required modifications/debugging. Preserve GCC exceptions and the existing Berkeley DB caller/source analysis. No blanket demand for object files or byte-identical image rebuilds. | Release owner / licensing reviewer |
@@ -70,6 +70,26 @@ and [LGPL section 4](https://www.gnu.org/licenses/lgpl-3.0.en.html); their appli
 to particular combined works still requires review. Missing scanner metadata is
 not itself a licensing failure. Signatures, a generalized SBOM service and
 byte-identical container builds are not added acceptance requirements.
+
+## ACL export recovery follow-up — November 16
+
+Codex 2 asked Codex 1 to locate existing images, exports or remote retention,
+without rebuilding unchanged images. Both local Docker contexts were searched:
+207 unique image IDs including intermediate images, and 12 containers per
+context; no matching API, web or Runner identity was found. These contexts may
+refer to the same underlying engine and are not claimed as independent hosts.
+The original job logs identify a GitHub-hosted Ubuntu runner and show only the
+DB ACL export before job cleanup. The original artifact listing contains no
+complete image archive or build-cache artifact. This establishes that the
+checked resources do not supply the missing exports, not that no other copy
+could exist. Exact source-bundle checksums for the three images remain
+unverified. Local `acl-export-recovery.json`, `acl-export-local-search.json`
+and `acl-export-job-excerpts.log` retain the search and DB checksum evidence.
+Codex 1's `acl-export-codex1.md` confirms no source exports were recovered on
+its active daemon and no retained remote archive is evidenced. The receipt's
+registry digest lists are empty. PR #118's separate database remediation does
+not establish ACL source delivery for these historical images.
+No prior source archives, notices or image scans were regenerated.
 
 ## Checksum and identity anchors
 
