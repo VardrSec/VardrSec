@@ -135,7 +135,7 @@ def lifecycle(root, project):
 
     print('Checking Mapless interrupted apply and snapshot recovery', flush=True)
     # Interrupt the real updater only after its durable original-mutation phase.
-    next_image = fixture_image(base, 'interrupted', 'LABEL qualification.fixture=interrupted')
+    next_image = fixture_image(base, 'interrupted-image', 'LABEL qualification.fixture=interrupted')
     args = [sys.executable, str(root / 'vardrsec.py'), 'update', '--candidate', str(candidate('interrupted', next_image)),
             '--backup', str(PRIVATE / 'interrupted-backup'), '--destination', str(PRIVATE / 'interrupted'),
             '--project', 'vardrsec-restore-alpha-interrupted']
