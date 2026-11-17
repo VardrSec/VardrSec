@@ -30,7 +30,7 @@ Existing qualification receipts retain their original image identities.
 
 | Conveyed material / obligation | Result and evidence |
 |---|---|
-| Exact corresponding source | Existing `source_release.py verify` passes against the final revision and expected archive checksum. All four complete tracked source-tree archive hashes equal the independently reviewed payload. Reused the owner's two-byte-identical-source-build result; no verification rebuild. |
+| Exact corresponding source | Existing `source_release.py verify` passes against the final revision and expected archive checksum. All four complete tracked source-tree archive hashes equal the independently reviewed payload. Reused the owner's matching checksums from two source builds; no verification rebuild. |
 | Component licenses | Distribution Apache-2.0 and NOTICE; Map AGPL-3.0, including backend/frontend copies; Runner MIT and managed-tool notices; Gate Apache-2.0 remain delivered. Third-party material retains its own terms. |
 | Actual embedded Go sources | Two identical source archives retain 17 module/version records. Prior bounded review verified all 65 checksum entries and manifest sizes/hashes; original legal files remain inside each unmodified source ZIP. Full source is conveyed for the MPL/copyleft material actually present. This evidence is reused unchanged. |
 | Actual embedded crate sources | Unchanged Dalfox legal/source archive retains legal texts, attribution and four unmodified MPL source crates. Existing 217-entry archive integrity evidence is reused. The 336-package lock inventory does not mean 336 source packages are conveyed. Absent Android/Censys code or binaries are not invented redistribution blockers. |
