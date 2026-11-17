@@ -113,6 +113,13 @@ no queued work is reported as acceptance. Local `acl-next-qualification-codex1.m
 retains Codex 1's acknowledgment and `acl-next-qualification.json` records the
 handoff state.
 
+**Status checked November 16 at 8:32 p.m. CST:** PR #118 still has head
+`7a34cb2f1fbef227393dbf46f4ab513fc07d0644`. Image run `43999768066` is still
+in its image-build step and its artifact list is empty. The required database
+qualification is also in progress. No subsequent corrected-export run is
+identified for this candidate. API/web/Runner bundle checksums and new image-ID
+bindings therefore remain unverified; no build or rerun was triggered.
+
 ## Checksum and identity anchors
 
 | Evidence | SHA-256 |
