@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Align platform support wording with the v0.1.0 Alpha owner decision: Ubuntu
+  24.04/amd64 only; retain but mark Windows/macOS paths deferred or unqualified.
+
 - Clarify the browser and terminal sequence in the Full first-assessment walkthrough.
 
 - Clarify local CA trust scope, Full versus native Runner setup, and the existing

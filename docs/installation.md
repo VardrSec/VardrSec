@@ -7,9 +7,11 @@ checkout. Neither mode is a published Community release.
 
 ## 1. Check prerequisites and clone
 
-Windows 11 Docker Desktop with Linux/amd64 containers is the primary Community
-target; Ubuntu 24.04/amd64 is also documented. macOS Docker Desktop remains
-experimental. See [platforms](platforms.md) and [support limits](limitations.md).
+Ubuntu 24.04/amd64 is the only officially supported v0.1.0 Alpha configuration.
+The Windows 11 Docker Desktop installation path remains documented but is
+unqualified for this Alpha; macOS Docker Desktop is also deferred and
+unqualified. See
+[platforms](platforms.md) and [support limits](limitations.md).
 
 Install Git, Python 3.10+ and Docker with Compose 2.17+ first. Docker must be
 running and accessible to your account. Use a private local directory outside
@@ -410,10 +412,10 @@ Use the [backup and restore commands](recovery.md) to create a portable snapshot
 and verify it in a separate installation before any controlled upgrade. Restored
 applications remain stopped until credential review and explicit startup.
 
-Windows 11 with Docker Desktop is the primary Community
-target; Linux compatibility remains required. Older Ubuntu-first checkpoints
-are historical. Certificate lifetime coverage, broader tool/network modes and
-real VPN retain their documented [support limits](limitations.md).
+Ubuntu 24.04/amd64 is the only officially supported v0.1.0 Alpha configuration.
+The Windows 11 Docker Desktop installation path remains available but is
+unqualified for this Alpha. Certificate lifetime coverage, broader tool/network
+modes and real VPN retain their documented [support limits](limitations.md).
 No image or release is published here.
 
 ## Installation safeguards

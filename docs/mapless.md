@@ -12,9 +12,11 @@ after that path. Read the [support limits](limitations.md) first.
 
 ## 1. Install and create a workspace
 
-Use Windows 11 Docker Desktop with Linux/amd64 containers or Ubuntu 24.04/amd64.
-Install Python 3.10+, Git, Docker and Compose 2.17+ first, then check that Docker
-is running and accessible. Use a private directory outside synchronized folders.
+Ubuntu 24.04/amd64 is the only officially supported v0.1.0 Alpha configuration.
+The Windows 11 Docker Desktop installation path remains documented but is
+unqualified for this Alpha. Install Python 3.10+, Git, Docker and Compose 2.17+
+first, then check that Docker is running and accessible. Use a private directory
+outside synchronized folders.
 See [platforms](platforms.md) for experimental and unsupported environments.
 
 Create a separate clean checkout:
