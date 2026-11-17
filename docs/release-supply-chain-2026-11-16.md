@@ -93,13 +93,17 @@ No prior source archives, notices or image scans were regenerated.
 
 ### Next required qualification: coordinated, verification pending
 
-Codex 1 confirmed the workflow correction is queued for the next independently
-required security qualification. The workflow-only patch from `01f557c` applies
-cleanly to candidate `7a34cb2f1fbef227393dbf46f4ab513fc07d0644`; it was checked
-without changing that checkout. PR #118's image run `43999768066` was already
-building under the original workflow and is not a corrected-export run. No
-additional build, rerun or PR push was requested solely to collect ACL sources.
-If that candidate passes, export verification waits for the next required build.
+Codex 1 identified [RC PR #116](https://github.com/VardrSec/VardrSec/pull/116)
+as the next combined database-acceptance and image-evidence qualification. Its
+current head is `320b93eb634aa6998fe0f08bf87d24b1093b2f5d`. The RC owner must
+integrate the reviewed PR #118 libxml2 fix and correct the Kerberos
+installed-version assertion; the workflow-only ACL export patch from `01f557c`
+is to be included in that same required qualification update. Codex 1 recorded
+this in the [RC owner handoff](https://github.com/VardrSec/VardrSec/pull/116#issuecomment-6949225553)
+and the shared acknowledgment. The patch remains queued, not asserted as
+integrated. No additional build, rerun or PR push was requested solely to
+collect ACL sources. Standalone PR #118 run `43999768066` used the original
+workflow and does not close the three missing exports.
 
 The next handoff must retain the corrected workflow revision, qualification run
 and attempt, `native-source-delivery` artifact and paired image receipt. For API,
@@ -108,7 +112,7 @@ bind the service export to the same stopped-container/image identity used for
 that run's runtime evidence and receipt. Record the new full configuration ID,
 artifact and source-manifest hashes with each result. Reject missing exports or
 identity mismatches, and preserve historical run `43863874269` as unverified.
-The next run ID, new image IDs and export verification results are **pending**;
+The combined revision, next run ID, new image IDs and export verification results are **pending**;
 no queued work is reported as acceptance. Local `acl-next-qualification-codex1.md`
 retains Codex 1's acknowledgment and `acl-next-qualification.json` records the
 handoff state.
