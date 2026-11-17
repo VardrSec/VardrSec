@@ -73,7 +73,7 @@ are unchanged; `git diff --check` passes. No new tests or packaging system.
 and verified archive as the recipient source payload, or identify an alternative
 official adoption revision so its source identity can be rebound. The correction,
 archive checksum and inclusion evidence were sent to Vigil in the existing
-coordination chat. No official tag, artifact publication, baseline advance or
+coordination chat and the approved [issue #117 handoff](https://github.com/VardrSec/VardrSec/issues/117#issuecomment-6960114323). No official tag, artifact publication, baseline advance or
 RC #116 branch update was made independently. The official candidate record
 must distinguish the original RC from this verified notice-corrected payload.
 
