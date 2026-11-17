@@ -91,6 +91,28 @@ registry digest lists are empty. PR #118's separate database remediation does
 not establish ACL source delivery for these historical images.
 No prior source archives, notices or image scans were regenerated.
 
+### Next required qualification: coordinated, verification pending
+
+Codex 1 confirmed the workflow correction is queued for the next independently
+required security qualification. The workflow-only patch from `01f557c` applies
+cleanly to candidate `7a34cb2f1fbef227393dbf46f4ab513fc07d0644`; it was checked
+without changing that checkout. PR #118's image run `43999768066` was already
+building under the original workflow and is not a corrected-export run. No
+additional build, rerun or PR push was requested solely to collect ACL sources.
+If that candidate passes, export verification waits for the next required build.
+
+The next handoff must retain the corrected workflow revision, qualification run
+and attempt, `native-source-delivery` artifact and paired image receipt. For API,
+web and Runner, verify every source `SHA256SUMS` entry and each `.dsc` input set;
+bind the service export to the same stopped-container/image identity used for
+that run's runtime evidence and receipt. Record the new full configuration ID,
+artifact and source-manifest hashes with each result. Reject missing exports or
+identity mismatches, and preserve historical run `43863874269` as unverified.
+The next run ID, new image IDs and export verification results are **pending**;
+no queued work is reported as acceptance. Local `acl-next-qualification-codex1.md`
+retains Codex 1's acknowledgment and `acl-next-qualification.json` records the
+handoff state.
+
 ## Checksum and identity anchors
 
 | Evidence | SHA-256 |
