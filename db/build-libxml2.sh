@@ -12,7 +12,10 @@ for patch in CVE-2026-86140.patch CVE-2026-74860.patch CVE-2026-86138.patch CVE-
     cp "../libxml2-$patch" "debian/patches/vardr-$patch"
     printf 'vardr-%s\n' "$patch" >> debian/patches/series
 done
-{ printf 'libxml2 (2.12.7+dfsg+really2.9.14-2.1+deb13u3+vardr2) trixie; urgency=high\n\n  * Apply the maintained Ubuntu entity, dictionary, validation, XPointer, I/O and XInclude fixes.\n\n -- VardrSec local build <local@invalid>  Wed, 11 Nov 2026 00:00:00 +0000\n\n'; cat debian/changelog; } > /tmp/changelog
+printf '%s\n' 'e0d86e3a080087a9790947964a4c11cb461dc93feb4ab4973c0230d61dc588bb  ../libxml2-CVE-2026-86138-caller.patch' | sha256sum -c -
+cp ../libxml2-CVE-2026-86138-caller.patch debian/patches/vardr-CVE-2026-86138-caller.patch
+printf 'vardr-CVE-2026-86138-caller.patch\n' >> debian/patches/series
+{ printf 'libxml2 (2.12.7+dfsg+really2.9.14-2.1+deb13u3+vardr3) trixie; urgency=high\n\n  * Apply the maintained Ubuntu entity, dictionary, validation, XPointer, I/O and XInclude fixes and bound QName lengths before narrowing.\n\n -- VardrSec local build <local@invalid>  Wed, 11 Nov 2026 00:00:00 +0000\n\n'; cat debian/changelog; } > /tmp/changelog
 mv /tmp/changelog debian/changelog
 export DEB_BUILD_PROFILES=nopython DEB_BUILD_OPTIONS=parallel=2
 mkdir -p /out/packages /out/source/evidence
@@ -59,7 +62,7 @@ cp /build/libxml2-entity-regression.c /out/source/evidence/
 debian/rules clean >> /tmp/package-build.log 2>&1
 dpkg-source --build . >> /tmp/package-build.log 2>&1
 cp ../libxml2_*_*.deb /out/packages/
-cp ../libxml2_*+vardr2.dsc ../libxml2_*+vardr2.debian.tar.xz ../libxml2_*.buildinfo ../libxml2_*.changes /out/source/
+cp ../libxml2_*+vardr3.dsc ../libxml2_*+vardr3.debian.tar.xz ../libxml2_*.buildinfo ../libxml2_*.changes /out/source/
 cp ../libxml2_2.12.7+dfsg+really2.9.14.orig.tar.xz ../libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3.dsc ../libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3.debian.tar.xz /out/source/
 cp ../CVE-2026-6653.patch ../libxml2-CVE-*.patch /build/build-libxml2.sh /build/Dockerfile /build/libxml2-source.txt /out/source/
 cp /tmp/package-build.log /out/source/evidence/package-build.log
