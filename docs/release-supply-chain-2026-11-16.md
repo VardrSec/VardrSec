@@ -58,7 +58,7 @@ not the older local `480d4e0` candidate. Its manifest remains `development`,
 
 | Requirement | Missing evidence / least disruptive next action | Owner |
 |---|---|---|
-| ACL delivery in API, web, Runner | Recovery check: none of the three exact images or containers is present in either local Docker context. The original hosted job exported only DB ACL sources; its seven retained artifacts include no full image/cache archive. All 55 DB reference checksums pass, but cannot substitute for three actual-image exports. Keep those checks open; recover an existing exact-image export if available. No unchanged-image rebuild was requested or performed. | Coordinated qualification owner; Codex 2 verifies |
+| ACL delivery in API, web, Runner | Both historical run 43863874269 and completed candidate run 43999768066 retain only DB ACL sources. The candidate DB bundle passes all 55 checksums and six source-descriptor checks; it cannot substitute for three actual-image exports. API/web/Runner remain unverified at their respective image IDs. The corrected export step remains queued for the next independently required qualification. No ACL-only rebuild or rerun was triggered. | Coordinated qualification owner; Codex 2 verifies |
 | Recipient source and notices | Supply a recipient-accessible, image-bound index/bundle covering the retained OS/static/custom sources and applicable application dependencies, full notices, patches and build/install inputs. Local captures and expiring CI artifacts are not a completed delivery channel. Current custom source versions outside the historical OS lock are enumerated in the local check evidence; many are already retained in current native exports. Do not recapture those. | Vigil / release owner |
 | Final dependency review | Reconcile actual npm/Python/native contents and retained texts; settle applicable per-file terms, alternatives and exceptions. Finish psycopg native mapping/replacement materials and applicable libvips/librsvg linkage review. The historical focused captures and source-lock inventory do not clear all final dependencies. Confirm Alpine package notice delivery: the proxy collector retains only six Caddy/distribution notice files, not proof of complete base-package notices. | Licensing reviewer with Codex 2 evidence |
 | Library modification provisions | Complete applicable LGPL replacement/relinking documentation/materials, particularly static sqv and bundled native libraries; confirm terms permit the required modifications/debugging. Preserve GCC exceptions and the existing Berkeley DB caller/source analysis. No blanket demand for object files or byte-identical image rebuilds. | Release owner / licensing reviewer |
@@ -113,12 +113,44 @@ no queued work is reported as acceptance. Local `acl-next-qualification-codex1.m
 retains Codex 1's acknowledgment and `acl-next-qualification.json` records the
 handoff state.
 
-**Status checked November 16 at 8:32 p.m. CST:** PR #118 still has head
-`7a34cb2f1fbef227393dbf46f4ab513fc07d0644`. Image run `43999768066` is still
-in its image-build step and its artifact list is empty. The required database
-qualification is also in progress. No subsequent corrected-export run is
-identified for this candidate. API/web/Runner bundle checksums and new image-ID
-bindings therefore remain unverified; no build or rerun was triggered.
+### Completed qualification checked November 17 at 7:16 a.m. CST
+
+[Image run 43999768066](https://github.com/VardrSec/VardrSec/actions/runs/43999768066)
+completed successfully for PR #118 head
+`7a34cb2f1fbef227393dbf46f4ab513fc07d0644`, tested at merge revision
+`d66e3517cdabe47c6f3561d768462e1d7eecf45f`. Its seven retained artifacts include
+native sources, runtime evidence and the paired image receipt. Reused the
+already extracted artifacts; no rebuild, scan or source recapture was performed.
+The exact tested workflow still exports ACL sources only from DB. No API, web
+or Runner ACL export directory exists in its retained native-source artifact.
+
+| Service | New image configuration ID | ACL source export result |
+|---|---|---|
+| API | `sha256:32581c3b4167053deb8156435eb39fa03063433b097ba2e88a6bf6792dff4482` | Missing; source checksums cannot be verified |
+| Web | `sha256:e4aa72208477a1f5233021759ceac8439e3a01c2265a597d5e04c7f8b74e8a8e` | Missing; source checksums cannot be verified |
+| Runner | `sha256:c56f60c143b5e38a5bf58533af69b6aabad611f2572d15afe36afb4ed09789d7` | Missing; source checksums cannot be verified |
+| DB | `sha256:24f4538dd19f79213d5ad3835a48b8e960c6535bcbdb0ae35bd3dabf97a5faff` | All 55 manifest entries match; six `.dsc` descriptors and 14 declared input references match sizes/hashes |
+
+All four runtime image IDs and distribution revisions match the paired receipt;
+the exact-revision image checker passes its receipt/report integrity checks.
+The DB source export and runtime evidence come from the same stopped container
+in the successful workflow. DB source-manifest SHA-256:
+`07b4787b249af2295b1cf77e0c31daec9cbf7ec64cecb66dcdb6c8363555aece`.
+Candidate image-receipt SHA-256:
+`47218c416662b70c19e62d1f85de26953cad0674300a570a6a81305d97d36ee0`.
+The native-source artifact is `14293334998`; GitHub records ZIP SHA-256
+`1478a52cdb68b7b94d6e077f0b0337db1b089ae721025b404611539b6ce1acd1`.
+That ZIP digest was recorded, not independently rehashed from a fresh download.
+
+Separate database acceptance run `43999767850` also completed successfully.
+Its smoke image `sha256:fd1df4cfd2b30858b0db5da606677d09d7011222a5ffe12cadd903ad0ce7b1c6`
+has an ACL installed-custody exit code of zero, including cp/tar/libacl checks.
+That separate image is not substituted for the scanned DB image or the three
+missing source exports. Local `qualification-43999768066/acl-source-verification.json`
+records the bounded verification; its adjacent artifact inventory and job
+excerpts retain provenance. The API/web/Runner gap remains open for the next
+independently required qualification with the corrected export step. Successful
+CI collection is not release or vulnerability clearance.
 
 ## Checksum and identity anchors
 
