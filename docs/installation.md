@@ -310,8 +310,9 @@ them. Never use `down --volumes` on a retained installation. Core start/stop com
 
 ## First assessment walkthrough
 
-Use only a target you own or are explicitly authorized to test. Everything below
-except the last step happens in the browser at `https://localhost:8443`.
+Use only a target you own or are explicitly authorized to test. Steps 1–5 and 7
+happen in the browser at `https://localhost:8443`. Step 6 switches to a private
+terminal for explicit execution, then returns to the browser for review.
 
 1. **Engagement.** Create an engagement. For a pentest or internal assessment,
    choose a client when creating it, or add one later in step 2.

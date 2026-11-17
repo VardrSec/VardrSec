@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Clarify the browser and terminal sequence in the Full first-assessment walkthrough.
+
 - Clarify local CA trust scope, Full versus native Runner setup, and the existing
   expiring credential-reference prerequisite in the first-assessment guide.
 
