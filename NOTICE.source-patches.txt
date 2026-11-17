@@ -126,7 +126,7 @@ Upstream file: lib/get-permissions.c
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-   Written by Paul Eggert, Andreas GrÃƒÆ’Ã‚Â¼nbacher, and Bruno Haible.  */
+   Written by Paul Eggert, Andreas Grünbacher, and Bruno Haible.  */
 
 
 Upstream file: lib/qcopy-acl.c
@@ -147,7 +147,7 @@ Upstream file: lib/qcopy-acl.c
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-   Written by Paul Eggert, Andreas GrÃƒÆ’Ã‚Â¼nbacher, and Bruno Haible.  */
+   Written by Paul Eggert, Andreas Grünbacher, and Bruno Haible.  */
 
 
 Upstream file: lib/set-permissions.c
@@ -168,7 +168,7 @@ Upstream file: lib/set-permissions.c
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-   Written by Paul Eggert, Andreas GrÃƒÆ’Ã‚Â¼nbacher, and Bruno Haible.  */
+   Written by Paul Eggert, Andreas Grünbacher, and Bruno Haible.  */
 
 
 Upstream file: src/copy.c
@@ -249,7 +249,7 @@ Upstream file: src/cp.c
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-   Written by TorbjÃƒÆ’Ã‚Â¶rn Granlund, David MacKenzie, and Jim Meyering. */
+   Written by Torbjörn Granlund, David MacKenzie, and Jim Meyering. */
 
 /* Ensure that parents of CONST_DST_NAME have correct protections, for
    the --parents option.  This is done after all copying has been
