@@ -191,6 +191,9 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      # Manual qualification, main pushes and the release candidate use a fresh builder.
+      ROUTINE_CACHE: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref != 'codex/community-alpha-candidate' && github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -198,7 +201,39 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.12'
+      - name: Select a dedicated Runner builder
+        if: env.ROUTINE_CACHE == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          name: mapless-ci
+          driver-opts: default-load=true
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Select cache inputs
+        if: env.ROUTINE_CACHE == 'true'
+        id: inputs
+        run: |
+          jq -er '"pins=" + .components.runner.commit + "-" + .components.gate.commit' versions.json >> "$GITHUB_OUTPUT"
+          echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+      - name: Restore Runner build layers
+        if: env.ROUTINE_CACHE == 'true'
+        id: layers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ${{ runner.temp }}/mapless-build-layers
+          key: mapless-layers-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.inputs.outputs.week }}-${{ steps.inputs.outputs.pins }}-${{ hashFiles('compose.mapless.json') }}
+      - name: Import layers into the installer's builder
+        if: steps.layers.outputs.cache-hit == 'true'
+        run: |
+          python vardrsec.py sources --mapless
+          docker buildx bake --builder mapless-ci -f compose.mapless.json runner \
+            --set "runner.cache-from=type=local,src=$RUNNER_TEMP/mapless-build-layers" \
+            --set runner.output=type=cacheonly
       - name: Verify pinned Mapless authorization, native execution and portable evidence
+        env:
+          BUILDX_BUILDER: ${{ env.ROUTINE_CACHE == 'true' && 'mapless-ci' || '' }}
+          BUILDKIT_PROGRESS: plain
         run: |
           python - <<'PY'
           import sys
@@ -206,6 +241,20 @@ jobs:
           from gate_acceptance import run_mapless_workflow
           run_mapless_workflow()
           PY
+      - name: Record the installer build duration and cached package stages
+        if: env.ROUTINE_CACHE == 'true'
+        run: |
+          docker buildx history ls --builder mapless-ci --format json | jq -c 'map({ID, Name, Duration})'
+          docker buildx history logs --builder mapless-ci --progress plain 2>&1 |
+            awk '/^#[0-9]+ .*RUN .*dpkg-buildpackage/ {step[$1]=$0} /^#[0-9]+ (DONE|CACHED)/ && $1 in step {print step[$1]; print $0}'
+      - name: Export Runner build layers after acceptance
+        if: env.ROUTINE_CACHE == 'true' && steps.layers.outputs.cache-hit != 'true'
+        run: |
+          # Replay only the two verified source contexts on the builder used by install.
+          python vardrsec.py sources --mapless
+          docker buildx bake --builder mapless-ci -f compose.mapless.json runner \
+            --set "runner.cache-to=type=local,dest=$RUNNER_TEMP/mapless-build-layers,mode=min" \
+            --set runner.output=type=cacheonly
       - name: Preserve the sanitized Mapless workflow receipt
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
