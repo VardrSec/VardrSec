@@ -49,7 +49,31 @@ jobs:
             # Bind retained backport sources to the very same stopped image
             # scanned above, including the OS fixes shared by Full and Mapless.
             if [ "$service" != proxy ]; then
-              for package in libsqlite3-0 ncurses-bin util-linux; do
+              receipt=(artifacts/image-evidence/run-*/reports/receipt.json)
+              test "${#receipt[@]}" -eq 1
+              test "$digest" = "$(jq -er --arg svc "$service" '.images[$svc].id' "${receipt[0]}")"
+              evidence="artifacts/native-source-delivery/$service-runtime-packages"
+              mkdir -p "$evidence"
+              printf '%s\n' "$digest" > "$evidence/image-id.txt"
+              sha256sum "${receipt[0]}" > "$evidence/scan-receipt.sha256"
+              packages=(libc6 libc-bin libmount1 libblkid1 libsmartcols1 libuuid1 liblastlog2-2 mount util-linux)
+              if [ "$service" = db ]; then packages+=(libc-l10n locales); fi
+              docker run --rm --network none --read-only --entrypoint dpkg-query "$digest" \
+                -W '-f=${Package} ${db:Status-Abbrev} ${Version}\n' "${packages[@]}" > "$evidence/versions.txt"
+              for pkg in "${packages[@]}"; do
+                case "$pkg" in
+                  libc6|libc-bin|libc-l10n|locales) version='2.41-12+deb13u4+vardr1' ;;
+                  *) version='2.41.5-0+deb13u1+vardr2' ;;
+                esac
+                awk -v p="$pkg" -v v="$version" '$1 == p && $2 == "ii" && $3 == v { found=1 } END { exit !found }' "$evidence/versions.txt"
+              done
+              payload=$(mktemp -d)
+              while read -r sum path; do
+                mkdir -p "$payload/$(dirname "$path")"
+                docker cp -L "$id:/$path" "$payload/$path"
+              done < qualification/native-runtime-SHA256SUMS
+              (cd "$payload" && sha256sum -c "$GITHUB_WORKSPACE/qualification/native-runtime-SHA256SUMS") | tee "$evidence/comparison.txt"
+              for package in libsqlite3-0 ncurses-bin util-linux libc6; do
                 destination="artifacts/native-source-delivery/$service-$package"
                 mkdir -p "$destination"
                 docker cp "$id:/usr/share/doc/$package/vardr-source/." "$destination/"
