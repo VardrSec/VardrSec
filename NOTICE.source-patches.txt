@@ -10,6 +10,21 @@ commit attribution and existing build recipes identify changes and exact inputs.
 No executable or prebuilt image is delivered by this notice. The original
 file-level exceptions and license alternatives are preserved.
 
+OpenSSL 3.5.7 (Debian 3.5.7-1~deb13u3+vardr1)
+
+The Debian source overlay in distribution/db/openssl, map/backend/openssl,
+map/frontend/openssl and runner/container/openssl adds three OpenSSL 3.5
+maintenance commits to Debian's patch series. The changes and upstream
+attributions are recorded in debian/patches and debian/changelog.
+
+  CVE-2026-107493  c8f6d04f8e6d40b1bf83334e4a2ec9daf5943a3d
+  CVE-2026-124709  f3acb0a3328046741479482c51cec815839e1b05
+  CVE-2026-35190   9491b0d9cc7950af1f3dc89499bd5433b9cd4f43
+
+OpenSSL is licensed under Apache-2.0. The upstream source archive contains
+LICENSE.txt and the original file notices. The four affected images retain the
+complete patched Debian source under /usr/share/doc/libssl3t64/vardr-source
+and the installed Debian package copyright notices.
 
 ========================================================================
 coreutils

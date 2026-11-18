@@ -3,3 +3,5 @@
 1978a6e230ea4e749d0ce9f82fd2f344f473586b6633354e561b8ba59a58a303  usr/bin/nsenter
 f88671ad5f54481ad1099d50395f6b18316e52a0ed5e7ef79775e583baf5d280  usr/bin/mount
 e2faf8be58cd93041011e1bd8fb2187e4febc1174e3c155211deeda36b0ef548  usr/lib/x86_64-linux-gnu/libmount.so.1.1.0
+efb3dd9789113b9f04582327fd42bd3d91d15c65b928cd5be15d77ef255b0292  usr/lib/x86_64-linux-gnu/libssl.so.3
+7b5aa22ccbfe23596bb8e4f7e9aafbbf2ff5d379563c0befa8a89854ebfb5927  usr/lib/x86_64-linux-gnu/libcrypto.so.3
