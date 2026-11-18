@@ -339,10 +339,14 @@ terminal for explicit execution, then returns to the browser for review.
    `"value_env": "OWNER_TOKEN"`); never paste a token into a case.
 5. **Queue.** On the Dashboard choose the `vardrgate` tool, select your saved case and
    queue the job. Queuing runs nothing.
-6. **Run it explicitly.** In a private terminal, supply the Runner key and the
-   identity tokens. Approve each credential reference for this engagement and
-   every target origin it contacts, including principal preflights. The example
-   uses the existing expiring-grant mode: replace `ENGAGEMENT_ID` with the
+6. **Run it explicitly.** In a private terminal, supply the Runner key for Map
+   and the local credentials referenced by the saved case. In this example,
+   `OWNER_TOKEN` and `PEER_TOKEN` are the case's `value_env` names. For this
+   engagement, create a grant for each case credential reference, including
+   any separate verification identity, at each origin the case contacts.
+   Count the main request, setup, principal preflights, write verification and
+   reset. Repeat the approval command for every reference and origin pair.
+   The example uses expiring grants. Replace `ENGAGEMENT_ID` with the
    engagement UUID, `TARGET_ORIGIN` with `scheme://host[:port]`, and `MAP_BASE_URL`
    with the exact backend URL printed by `doctor`, including its deployment path
    (normally `https://vardrsec.localhost:8443/backend` for Full).
@@ -356,12 +360,12 @@ python3 vardrsec.py runner -- credentials approve --engagement ENGAGEMENT_ID \
 python3 vardrsec.py runner --env OWNER_TOKEN --env PEER_TOKEN -- jobs run --expiring-grants
 ```
 
-   These grants release reference names only for the selected engagement,
-   origin and issuer for 30 minutes; they do not authorize an assessment or
-   replace a managed job's separate approval. `--expiring-grants` is required to
-   use them and refuses legacy fallback. Existing legacy commands retain their
-   separate approval namespace. Review and answer the terminal's execution
-   confirmation; a queued job alone does not execute. See Runner's pinned
+   Each grant records a reference name and permits Runner to resolve its local
+   credential for the selected engagement, origin and issuer for 30 minutes.
+   Use `--expiring-grants` to require valid grants from this separate namespace.
+   After Runner checks the grants, review the targets and answer the separate
+   terminal execution prompt. Managed jobs require their own signed approval.
+   See Runner's pinned
    [expiring-grant instructions](https://github.com/VardrSec/VardrRunner/blob/00812c13b4b2986b594fc91712abe7cc96eafea7/docs/cli.md#expiring-gate-reference-grants).
 
    `--env NAME` passes one variable from your shell by name; its value never appears
