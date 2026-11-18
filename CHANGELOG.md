@@ -8,6 +8,14 @@
 
 ## Unreleased
 
+- Align platform support wording with the v0.1.0 Alpha owner decision: Ubuntu
+  24.04/amd64 only; retain but mark Windows/macOS paths deferred or unqualified.
+
+- Clarify the browser and terminal sequence in the Full first-assessment walkthrough.
+
+- Clarify local CA trust scope, Full versus native Runner setup, and the existing
+  expiring credential-reference prerequisite in the first-assessment guide.
+
 - Refuse image evidence when the final database libxml2 differs from the exact
   backport payload exercised by the bounded entity regression; retain an
   image/source-bound receipt without changing vulnerability or publication gates.
