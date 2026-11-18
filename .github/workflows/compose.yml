@@ -221,7 +221,7 @@ jobs:
         id: layers
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
-          path: ${{ runner.temp }}/mapless-build-layers
+          path: .ci-mapless-build-layers
           key: mapless-layers-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.inputs.outputs.week }}-${{ steps.inputs.outputs.pins }}-${{ hashFiles('compose.mapless.json') }}
       - name: Resolve the pinned Runner build for cache transfer
         if: env.ROUTINE_CACHE == 'true'
@@ -234,7 +234,7 @@ jobs:
         if: steps.layers.outputs.cache-hit == 'true'
         run: |
           docker buildx bake --builder mapless-ci -f "$RUNNER_TEMP/mapless-bake.json" runner \
-            --set "runner.cache-from=type=local,src=$RUNNER_TEMP/mapless-build-layers" \
+            --set "runner.cache-from=type=local,src=$GITHUB_WORKSPACE/.ci-mapless-build-layers" \
             --set runner.output=type=cacheonly
       - name: Verify pinned Mapless authorization, native execution and portable evidence
         env:
@@ -258,7 +258,7 @@ jobs:
         run: |
           # Replay only the two verified source contexts on the builder used by install.
           docker buildx bake --builder mapless-ci -f "$RUNNER_TEMP/mapless-bake.json" runner \
-            --set "runner.cache-to=type=local,dest=$RUNNER_TEMP/mapless-build-layers,mode=min" \
+            --set "runner.cache-to=type=local,dest=$GITHUB_WORKSPACE/.ci-mapless-build-layers,mode=min" \
             --set runner.output=type=cacheonly
       - name: Preserve the sanitized Mapless workflow receipt
         if: always()
