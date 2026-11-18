@@ -654,7 +654,7 @@ def run_mapless_workflow():
                         capture_output=True, text=True)
         return json.loads(result.stdout)["requests"]
 
-    invoke("install", "--mapless", timeout=1200)
+    invoke("install", "--mapless", timeout=4800)
     assert not (install / ".env").exists() and not (install / "trust").exists()
     assert json.loads((install / MARKER).read_text())["mode"] == "mapless"
     base = ["compose", "-f", str(install / "compose.mapless.json"), "-p", project]

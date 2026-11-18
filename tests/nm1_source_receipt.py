@@ -20,7 +20,7 @@ def git(directory, *args):
 # Explicitly reviewed release-gate candidate manifest; do not derive this expected
 # value from the checkout being checked. An intentional pin update must review it.
 REVIEWED_DISTRIBUTION_MANIFEST_SHA256 = (
-    "80540f47c1fe3e767a921a6f30f8b3f17c9a0ada03981569421d73022254e204"
+    "75a7221919fcb5b1cd43b3810b4179350da6f636744cbbfedd6b818213f3ac74"
 )
 
 
