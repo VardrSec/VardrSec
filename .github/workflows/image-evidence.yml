@@ -63,8 +63,8 @@ jobs:
                 -W '-f=${Package} ${db:Status-Abbrev} ${Version}\n' "${packages[@]}" > "$evidence/versions.txt"
               for pkg in "${packages[@]}"; do
                 case "$pkg" in
-                  libc6|libc-bin|libc-l10n|locales) version='2.41-12+deb13u4+vardr1' ;;
-                  openssl|libssl3t64|openssl-provider-legacy) version='3.5.7-1~deb13u3+vardr1' ;;
+                  libc6|libc-bin|libc-l10n|locales) version='2.41-12+deb13u4+vardr2' ;;
+                  openssl|libssl3t64|openssl-provider-legacy) version='3.5.7-1~deb13u3+vardr2' ;;
                   *) version='2.41.5-0+deb13u1+vardr2' ;;
                 esac
                 awk -v p="$pkg" -v v="$version" '$1 == p && $2 == "ii" && $3 == v { found=1 } END { exit !found }' "$evidence/versions.txt"

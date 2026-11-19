@@ -1,19 +1,19 @@
-OpenSSL package qualification, Debian Trixie amd64, 2026-11-18
+OpenSSL package qualification, Debian Trixie amd64, 2026-11-19 UTC
 
 Base source: openssl 3.5.7-1~deb13u3
 Original Debian .dsc SHA-256: 9cdb0d9daf0773ca5c0f3f5ea1fc59b1106a99e005a5c048948b826e8d3b47e1
-Patched .dsc SHA-256: 5f8ff9ca6f90b1f3b19d7cacb07a1a904a38068b3ec4b82fec5edbc6e4de5342
-Local binary version: 3.5.7-1~deb13u3+vardr1
+Patched .dsc SHA-256: 4f069d916c8d0ba5ad594880b52edbf082332b9c93326bbbf12949bee5893010
+Local binary version: 3.5.7-1~deb13u3+vardr2
 
-The Debian series was retained. Three complete upstream commits were appended
-in the order recorded in NOTICE.source-patches.txt, including the PEM test.
-The other two commits contain production changes only.
+The source retains the Debian series and the three security fixes in +vardr1.
+The DTLS backport includes the full proposed change from OpenSSL PR #33729
+and the upstream test initialization prerequisite in NOTICE.source-patches.txt.
 
 dpkg-buildpackage -us -uc -B -j4 ran as builduser with checks enabled.
-The package build log records test_PEM_X509_INFO_read_bio_append, the QUIC
-multistream test and tls13groupselection_test passing. Debian's full harness
-reported 345 files, 4,911 tests, and "Result: PASS".
-Build log SHA-256: bbc70a9b6401b86610378c0b7c13413010afe6cf6577b4b10060bbcb4cdadc47
+All 11 new DTLS regression groups ran and passed. The QUIC API tests passed
+with the default and FIPS providers. Debian's full harness reported 345 files,
+4,911 tests, and "Result: PASS".
+Build log SHA-256: fe371b95df6382ee3aa3eaba6401459f92f3c4d0ff2109cf7d8a11ee28cbf6e2
 
 With all three resulting .debs installed, debian/tests/run-25-test-verify
 passed all 127 checks against /usr/bin/openssl.
