@@ -56,13 +56,15 @@ jobs:
               mkdir -p "$evidence"
               printf '%s\n' "$digest" > "$evidence/image-id.txt"
               sha256sum "${receipt[0]}" > "$evidence/scan-receipt.sha256"
-              packages=(libc6 libc-bin libmount1 libblkid1 libsmartcols1 libuuid1 liblastlog2-2 mount util-linux)
+              packages=(libc6 libc-bin libmount1 libblkid1 libsmartcols1 libuuid1 liblastlog2-2 mount util-linux libssl3t64 openssl-provider-legacy)
+              if [ "$service" != web ]; then packages+=(openssl); fi
               if [ "$service" = db ]; then packages+=(libc-l10n locales); fi
               docker run --rm --network none --read-only --entrypoint dpkg-query "$digest" \
                 -W '-f=${Package} ${db:Status-Abbrev} ${Version}\n' "${packages[@]}" > "$evidence/versions.txt"
               for pkg in "${packages[@]}"; do
                 case "$pkg" in
                   libc6|libc-bin|libc-l10n|locales) version='2.41-12+deb13u4+vardr1' ;;
+                  openssl|libssl3t64|openssl-provider-legacy) version='3.5.7-1~deb13u3+vardr1' ;;
                   *) version='2.41.5-0+deb13u1+vardr2' ;;
                 esac
                 awk -v p="$pkg" -v v="$version" '$1 == p && $2 == "ii" && $3 == v { found=1 } END { exit !found }' "$evidence/versions.txt"
@@ -73,7 +75,16 @@ jobs:
                 docker cp -L "$id:/$path" "$payload/$path"
               done < qualification/native-runtime-SHA256SUMS
               (cd "$payload" && sha256sum -c "$GITHUB_WORKSPACE/qualification/native-runtime-SHA256SUMS") | tee "$evidence/comparison.txt"
-              for package in libsqlite3-0 ncurses-bin util-linux libc6; do
+              # Record independent TLS implementations separately from the Debian library comparisons.
+              case "$service" in
+                api|runner)
+                  docker run --rm --network none --read-only --entrypoint python "$digest" -c \
+                    'import cryptography; from cryptography.hazmat.backends.openssl.backend import backend; print("cryptography", cryptography.__version__, backend.openssl_version_text())' > "$evidence/bundled-openssl.txt" ;;
+                web)
+                  docker run --rm --network none --read-only --entrypoint node "$digest" \
+                    -p '"Node " + process.version + ", OpenSSL " + process.versions.openssl + ", shared=" + process.config.variables.node_shared_openssl' > "$evidence/bundled-openssl.txt" ;;
+              esac
+              for package in libsqlite3-0 ncurses-bin util-linux libc6 libssl3t64; do
                 destination="artifacts/native-source-delivery/$service-$package"
                 mkdir -p "$destination"
                 docker cp "$id:/usr/share/doc/$package/vardr-source/." "$destination/"

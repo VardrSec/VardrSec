@@ -37,6 +37,24 @@ USER 65534:65534
 RUN python3 qualification/kerberos-vm/run.py --source-only --work /work/qualification \
     && python3 qualification/kerberos-vm/finalize.py /work/qualification /out
 
+FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS openssl-build
+WORKDIR /work
+ADD --checksum=sha256:a8c0d28a529ca480f9f36cf5792e2cd21984552a3c8e4aa11a24aa31aeac98e8 https://deb.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.5.7.orig.tar.gz ./
+ADD --checksum=sha256:d3d082bee3f658c31db53af625eceecf29d777c7010394bed5787ebcc98abdf2 https://deb.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.5.7.orig.tar.gz.asc ./
+COPY openssl/ ./
+RUN echo '5f8ff9ca6f90b1f3b19d7cacb07a1a904a38068b3ec4b82fec5edbc6e4de5342  openssl_3.5.7-1~deb13u3+vardr1.dsc' | sha256sum -c - \
+    && apt-get update && apt-get install -y --no-install-recommends build-essential dpkg-dev fakeroot debhelper libzstd-dev zlib1g-dev ca-certificates \
+    && dpkg-source -x openssl_3.5.7-1~deb13u3+vardr1.dsc src \
+    && useradd -m builduser && chown -R builduser:builduser /work
+WORKDIR /work/src
+RUN --network=none { runuser -u builduser -- dpkg-buildpackage -us -uc -B -j4 > /tmp/openssl-build.log 2>&1 || { tail -100 /tmp/openssl-build.log; exit 1; }; } \
+    && mkdir -p /out/packages /out/source \
+    && cp ../libssl3t64_*.deb ../openssl-provider-legacy_*.deb ../openssl_*.deb /out/packages/ \
+    && cd /out/packages && sha256sum -c /work/qualified-packages.sha256 \
+    && cp /work/openssl_*.dsc /work/openssl_*.tar.* /work/openssl_*.buildinfo /work/openssl_*.changes /out/source/ \
+    && cp /work/qualified-packages.sha256 /out/source/ && chmod 0644 /out/source/* \
+    && cd /out/source && sha256sum ./* > SHA256SUMS
+
 FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS glibc-build
 WORKDIR /work
 ADD --checksum=sha256:f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998 https://deb.debian.org/debian/pool/main/g/glibc/glibc_2.41.orig.tar.xz ./
@@ -223,6 +241,9 @@ RUN --network=none dpkg --install /tmp/util-linux-security/lib*.deb \
     && dpkg --install /tmp/util-linux-security/mount_*.deb /tmp/util-linux-security/util-linux_*.deb \
     && apt-get check && rm -rf /tmp/util-linux-security
 COPY --from=util-linux-build /out/source/ /usr/share/doc/util-linux/vardr-source/
+COPY --from=openssl-build /out/packages/ /tmp/openssl-security/
+RUN --network=none dpkg --install /tmp/openssl-security/*.deb && apt-get check && rm -rf /tmp/openssl-security
+COPY --from=openssl-build /out/source/ /usr/share/doc/libssl3t64/vardr-source/
 RUN echo 'b46ebbba5898fa4d050d610aaf79e6a90e90b4f8d44689c3d9e361145d14a704  /usr/share/perl/5.40/Archive/Tar.pm' | sha256sum -c -
 COPY --from=libxml2-backport /out/archive-tar-source/Tar.pm /usr/share/perl/5.40/Archive/Tar.pm
 COPY --from=libxml2-backport /out/archive-tar-source/ /usr/share/doc/perl-modules-5.40/vardr-source/

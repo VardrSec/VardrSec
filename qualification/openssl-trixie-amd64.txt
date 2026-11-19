@@ -1,0 +1,25 @@
+OpenSSL package qualification, Debian Trixie amd64, 2026-11-18
+
+Base source: openssl 3.5.7-1~deb13u3
+Original Debian .dsc SHA-256: 9cdb0d9daf0773ca5c0f3f5ea1fc59b1106a99e005a5c048948b826e8d3b47e1
+Patched .dsc SHA-256: 5f8ff9ca6f90b1f3b19d7cacb07a1a904a38068b3ec4b82fec5edbc6e4de5342
+Local binary version: 3.5.7-1~deb13u3+vardr1
+
+The Debian series was retained. Three complete upstream commits were appended
+in the order recorded in NOTICE.source-patches.txt, including the PEM test.
+The other two commits contain production changes only.
+
+dpkg-buildpackage -us -uc -B -j4 ran as builduser with checks enabled.
+The package build log records test_PEM_X509_INFO_read_bio_append, the QUIC
+multistream test and tls13groupselection_test passing. Debian's full harness
+reported 345 files, 4,911 tests, and "Result: PASS".
+Build log SHA-256: bbc70a9b6401b86610378c0b7c13413010afe6cf6577b4b10060bbcb4cdadc47
+
+With all three resulting .debs installed, debian/tests/run-25-test-verify
+passed all 127 checks against /usr/bin/openssl.
+Installed-package test log SHA-256: 5d6da516a27fd148972f3efa9a736f80abd563e70801d103fbf09af00988bf2f
+
+db/openssl/qualified-packages.sha256 records the three qualified archives.
+The libssl.so.3 and libcrypto.so.3 values in native-runtime-SHA256SUMS were
+computed from the extracted libssl3t64 archive. Image evidence verifies these
+payloads against the stopped containers associated with the scanner receipt.
