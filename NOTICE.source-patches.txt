@@ -30,15 +30,19 @@ LICENSE.txt and the original file notices. The four affected images retain the
 complete patched Debian source under /usr/share/doc/libssl3t64/vardr-source
 and the installed Debian package copyright notices.
 
-GNU C Library 2.41 (Debian 2.41-12+deb13u4+vardr2)
+GNU C Library 2.41 (Debian 2.41-12+deb13u4+vardr3)
 
 The Debian source overlay in distribution/db/glibc, map/backend/glibc,
 map/frontend/glibc and runner/container/glibc includes the ISO-2022-CN-EXT
 converter correction and its regression test from GNU C Library commit
 170ee485fa89b95c3bb7d5606c9812c6c100c9be for CVE-2026-121758.
-Both upstream files carry the GNU Lesser General Public License, version 2.1
-or later. The patched Debian source and file-level notices accompany the
-library under /usr/share/doc/libc6/vardr-source.
+VardrSec also changes the CP949 decoder in iconvdata/uhc.c for CVE-2026-121757.
+The IBM1390 and IBM1399 change in iconvdata/ibm1364.c for CVE-2026-124024
+adapts Andreas Schwab's glibc bug 34914 proposal with Florian Weimer's
+requested adjustment (libc-alpha, November 2026, messages 182107 and 182116).
+The affected upstream files carry the GNU Lesser General Public License,
+version 2.1 or later. The patched Debian source and file-level notices
+accompany the library under /usr/share/doc/libc6/vardr-source.
 
 ========================================================================
 coreutils
