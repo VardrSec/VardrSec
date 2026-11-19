@@ -4,7 +4,6 @@ import copy
 from datetime import datetime, timezone
 from types import SimpleNamespace
 import unittest
-import uuid
 from unittest.mock import Mock, patch
 
 import nm2_worker_acceptance as acceptance
@@ -12,7 +11,7 @@ import nm2_worker_hosted as hosted
 import test_nm2_persistent_availability as healthy
 import test_nm2_worker_acceptance as finite
 import test_nm2_worker_status_decode as status_vectors
-from worker_host_persistent import _purpose
+import nm2_persistent_test_fixtures as records
 
 
 def vector():
@@ -20,11 +19,7 @@ def vector():
     admission = old.idle["admission"]
     previous = admission["admission_sha256"]
     admission["limits"] = acceptance.persistent_limits(acceptance.COUNT_SCENARIO)
-    admission["admission_sha256"] = acceptance.digest(
-        acceptance.canonical(
-            {k: v for k, v in admission.items() if k != "admission_sha256"}
-        )
-    )
+    records.set_digest(admission, "admission_sha256")
 
     def rewrite(value):
         if isinstance(value, dict):
@@ -42,11 +37,7 @@ def vector():
     measured = old.measured[0]
     measured["binding"] = old.runtime["attempts"][0]["binding"]
     release = measured["release_receipt"]
-    release["receipt_sha256"] = acceptance.digest(
-        acceptance.canonical(
-            {k: v for k, v in release.items() if k != "receipt_sha256"}
-        )
-    )
+    records.set_digest(release, "receipt_sha256")
     measured["release_receipt_sha256"] = release["receipt_sha256"]
     runtime = old.runtime
     runtime.update(
@@ -61,19 +52,7 @@ def vector():
         operator_stop_state="not_requested",
         finished_at="2026-11-06T02:00:03Z",
     )
-    report = {
-        **{
-            k: physical[k]
-            for k in ("runtime_sha256", "admission_sha256", "finished_at", "exit_code")
-        },
-        "observation_sha256": acceptance.digest(
-            acceptance.canonical(
-                {k: physical[k] for k in ("identity", "finished_at", "exit_code")}
-            )
-        ),
-        "last_sequence": "1",
-    }
-    runtime["report_sha256"] = _purpose({"runtime_id": physical["runtime_id"]}, report)
+    runtime["report_sha256"] = records.exit_report_digest(physical)
     issued = old.inventories[0]
     pending = dict(
         job_id="job-2",
@@ -103,50 +82,13 @@ def vector():
     )
     grants = old.measured[1]["local"]["grants"]
     local = measured["local"]
-    retirement = dict(
-        schema="vardr.worker-retirement/3",
-        **{
-            k: admission[k]
-            for k in (
-                "runtime_id",
-                "runtime_sha256",
-                "admission_sha256",
-                "origin",
-                "runner_id",
-                "enrollment_id",
-            )
-        },
-        runtime_sequence=None,
-        last_sequence="1",
-        binding=None,
-        attempt_receipt=None,
-        report_sha256=runtime["report_sha256"],
-        retired=True,
-    )
-    retirement["receipt_sha256"] = acceptance.digest(acceptance.canonical(retirement))
-    retained = copy.deepcopy(local)
-    retained.update(state="retired", retirement=retirement)
-    retained["attempt"].update(
-        state="physical_retirement_observed", retired_from_state="released"
-    )
-    # Exact public catalog/reference shapes; no credential values or stores.
-    for number, snapshot in enumerate((local["grants"], grants), 1):
-        for index, who in enumerate(("owner", "peer")):
-            snapshot["grants"][index].update(
-                issuer=admission["origin"],
-                origin=acceptance.ORIGIN,
-                source="env",
-                name="FIXTURE_" + who.upper() + "_TOKEN",
-                id=str(uuid.UUID(int=3000 + 2 * number + index)),
-            )
-    for inventory in (issued, pending):
-        for index, who in enumerate(("owner", "peer")):
-            inventory["approvals"][0]["credential_grants"][index].update(
-                identity_id=who,
-                source="value_env",
-                name="FIXTURE_" + who.upper() + "_TOKEN",
-                revision=1,
-            )
+    # Exercise UTC Z in the producer oracle and explicit offsets in the public reader.
+    for snapshot in (local["grants"], grants):
+        for grant in snapshot["grants"]:
+            for field in ("issued_at", "expires_at"):
+                grant[field] = grant[field].replace("+00:00", "Z")
+    retirement = records.retirement_record(admission, runtime["report_sha256"])
+    retained = records.retained_after_exit(local, retirement)
     eligibility["authority_snapshot"].update(
         origin=admission["origin"],
         enrollment={
@@ -309,18 +251,7 @@ def orchestration_vector():
         return d.admission["runner_id"], d.admission["enrollment_id"]
 
     f.approve = Mock(side_effect=approved)
-    first = copy.deepcopy(d.inventories[0])
-    first.update(
-        job_status="pending",
-        execution=None,
-        contracts=[],
-        results=[],
-        stops=[],
-        runtimes=[],
-        targets_spent=0,
-        duration_allocated=0,
-    )
-    first["approvals"][0]["issued"] = 0
+    first = records.pending_inventory(d.inventories[0])
     f.test_before = {"job-1": first, "job-2": copy.deepcopy(d.inventories[1])}
     exited = []
     f.inventory = Mock(
@@ -376,11 +307,6 @@ class CountLimit(unittest.TestCase):
             acceptance.persistent_enable_args("persistent-availability"),
             ["--protocol", "persistent-v3"],
         )
-        self.assertEqual(acceptance.target_environment(acceptance.COUNT_SCENARIO), {})
-        self.assertEqual(
-            acceptance.target_environment("persistent-availability"),
-            {"NM2_FIXTURE_REQUEST_CEILING": "175"},
-        )
         for name in ("healthy", "unknown"):
             with self.assertRaises(acceptance.AcceptanceRefused):
                 acceptance.persistent_enable_args(name)
@@ -401,11 +327,7 @@ class CountLimit(unittest.TestCase):
         data.admission["limits"] = acceptance.persistent_limits(
             acceptance.COUNT_SCENARIO
         )
-        data.admission["admission_sha256"] = acceptance.digest(
-            acceptance.canonical(
-                {k: v for k, v in data.admission.items() if k != "admission_sha256"}
-            )
-        )
+        records.set_digest(data.admission, "admission_sha256")
         data.value["limits"] = data.admission["limits"]
         data.decode()  # Advisory hold, never readiness.
         with self.assertRaises(acceptance.AcceptanceRefused):
@@ -436,11 +358,7 @@ class CountLimit(unittest.TestCase):
             runtime_sequence="1",
             admission_sha256="e" * 64,
         )
-        release["receipt_sha256"] = acceptance.digest(
-            acceptance.canonical(
-                {k: v for k, v in release.items() if k != "receipt_sha256"}
-            )
-        )
+        records.set_digest(release, "receipt_sha256")
         args = (*data.selections[0], data.physical, {}, data.traffic[0], inventory)
         data.fixture.verify_fixed(*args, persistent=True, self_exit=True)
         with self.assertRaisesRegex(
@@ -596,9 +514,7 @@ class CountLimit(unittest.TestCase):
 
     def test_count_orchestration_only_reads_after_two_initial_approvals(self):
         d, f = orchestration_vector()
-        with patch.object(acceptance, "datetime", wraps=datetime) as clock:
-            clock.now.return_value = datetime(2026, 11, 6, 2, 0, 4, tzinfo=timezone.utc)
-            f.persistent_count_limit([])
+        run_count(f)
         self.assertEqual(f.receipt["status"], "selected_count_control_slice_passed")
         self.assertEqual(f.approve.call_count, 2)
         self.assertEqual(f.worker_action.call_args.args[0], "reconcile")

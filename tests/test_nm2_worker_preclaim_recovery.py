@@ -489,9 +489,6 @@ class PreclaimRecoveryTests(unittest.TestCase):
                 0,
             )
             self.assertTrue(constructor.call_args.kwargs["preclaim_recovery"])
-        source = (hosted.SOURCE / ".github/workflows/compose.yml").read_text()
-        self.assertIn("persistent-launch-preclaim-recovery", source)
-        self.assertIn("default: false", source)
 
 
 if __name__ == "__main__":

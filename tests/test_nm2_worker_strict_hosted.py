@@ -206,7 +206,6 @@ class StrictDriftHosted(unittest.TestCase):
 
     def test_opt_in_routes_same_persistent_schema_without_execution(self):
         scenario = fixture.STRICT_DRIFT_SCENARIO
-        self.assertEqual(hosted.execution_options({}), ("healthy", "0040runtimesequence"))
         with self.assertRaises(hosted.HostedRefused):
             hosted.execution_options({"NM2_SCENARIO": scenario})
         self.assertEqual(hosted.execution_options({

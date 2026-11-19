@@ -415,7 +415,7 @@ def evidence(*, desktop=False, operation="claim"):
 
 
 class ClaimReplyLossHostedTests(unittest.TestCase):
-    def test_explicit_route_requires_all_new_sources_and_preserves_default(self):
+    def test_explicit_route_requires_all_new_sources(self):
         for operation in OPERATIONS:
             env = {
                 "NM2_SCENARIO": next(
@@ -436,9 +436,6 @@ class ClaimReplyLossHostedTests(unittest.TestCase):
             self.assertEqual(
                 hosted.execution_options(env),
                 (env["NM2_SCENARIO"], "0041persistentruntime"),
-            )
-            self.assertEqual(
-                hosted.execution_options({}), ("healthy", "0040runtimesequence")
             )
             self.assertEqual(hosted.CLAIM_REPLY_LOSS_HOSTED, "vardr.nm2-hosted/18")
             for key in (

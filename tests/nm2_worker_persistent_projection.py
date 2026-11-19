@@ -515,24 +515,8 @@ def grants(value, inventory, admission, bound, released):
     return approval["id"], ids
 
 
-def _project(raw, selection, *, desktop=False):
-    require(
-        type(raw) is dict
-        and type(selection) is dict
-        and len(host.canonical(raw)) <= 4 * 1024 * 1024
-    )
-    require(
-        raw["schema"] == "vardr.nm2-worker-persistent-acceptance/1"
-        and raw["status"] == "selected_availability_slice_passed"
-        and raw["stage"] == "selected_availability_complete"
-    )
-    require(
-        raw["scenario"] == "persistent-availability"
-        and raw["acceptance_scope"] == "persistent_availability_only"
-        and raw["nm2_exit_status"] == "incomplete"
-        and raw["platform"] == ("win32" if desktop else "linux")
-        and raw["retained"] is True
-    )
+def verified_case_set(raw, selection, expected_cases, *, desktop):
+    """Verify cohort identity and the default-disabled control shared by these receipts."""
     fields(selection["sources"], fixture.SOURCE_NAMES)
     for row in selection["sources"].values():
         fields(row, {"path", "commit"})
@@ -565,7 +549,7 @@ def _project(raw, selection, *, desktop=False):
     )
     for key in ("before_sha256", "after_sha256", "public_ca_der_sha256"):
         host._hash(raw[key])
-    cases = fields(raw["cases"], CASES)
+    cases = fields(raw["cases"], expected_cases)
     disabled = fields(
         cases["default_disabled"],
         {
@@ -588,6 +572,28 @@ def _project(raw, selection, *, desktop=False):
         ("unauthenticated_read_status", 401),
     ):
         integer(disabled[key], expected)
+    return cases
+
+
+def _project(raw, selection, *, desktop=False):
+    require(
+        type(raw) is dict
+        and type(selection) is dict
+        and len(host.canonical(raw)) <= 4 * 1024 * 1024
+    )
+    require(
+        raw["schema"] == "vardr.nm2-worker-persistent-acceptance/1"
+        and raw["status"] == "selected_availability_slice_passed"
+        and raw["stage"] == "selected_availability_complete"
+    )
+    require(
+        raw["scenario"] == "persistent-availability"
+        and raw["acceptance_scope"] == "persistent_availability_only"
+        and raw["nm2_exit_status"] == "incomplete"
+        and raw["platform"] == ("win32" if desktop else "linux")
+        and raw["retained"] is True
+    )
+    cases = verified_case_set(raw, selection, CASES, desktop=desktop)
     denied = fields(
         cases["strict_out_of_scope"],
         {"status", "approval_http_status", "inventory", "traffic_delta"},

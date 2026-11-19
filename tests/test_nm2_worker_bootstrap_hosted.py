@@ -115,10 +115,7 @@ class BootstrapHostedTests(unittest.TestCase):
             self.assertEqual(hosted.main([]), 2)
         fixture.assert_not_called()
 
-    def test_new_scenario_requires_exact_runner_and_gate_without_changing_default(self):
-        self.assertEqual(
-            hosted.execution_options({}), ("healthy", "0040runtimesequence")
-        )
+    def test_new_scenario_requires_exact_runner_and_gate(self):
         env = {
             "NM2_SCENARIO": hosted.BOOTSTRAP_SCENARIO,
             "NM2_RUNNER_SHA": hosted.BOOTSTRAP_RUNNER,

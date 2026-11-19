@@ -35,7 +35,6 @@ LAUNCH_SCENARIO = "persistent-launch-empty"
 LAUNCH_PRECLAIM_SCENARIO = "persistent-launch-preclaim-recovery"
 PRECLAIM_HOSTED = "vardr.nm2-hosted/17"
 LAUNCH_REPEAT_SCENARIO = "persistent-launch-repeat-managed-claim"
-REPEAT_LEGACY_HOSTED = "vardr.nm2-hosted/19"
 REPEAT_HOSTED = "vardr.nm2-hosted/25"
 LAUNCH_STOPPED_PREDECESSOR_SCENARIO = "persistent-launch-stopped-predecessor"
 STOPPED_PREDECESSOR_HOSTED = "vardr.nm2-hosted/11"
@@ -1724,39 +1723,6 @@ def _repeat_projection(raw, selection, first):
     require(terminal["schema"] == "vardr.managed-stop-receipt/1" and terminal["cause"] == "observed_exit"
             and digest(canonical(terminal)) == raw["repeat_retirement"]["terminal_sha256"])
     return result
-
-
-def repeated_claim_component_projection(raw, selection, *, inventory):
-    """Qualify only the recorded repetition; its later parent recovery stays held."""
-    from nm2_worker_launch_acceptance import MAP_DISCONNECT_SOURCES
-    require(raw["schema"] == LAUNCH_SCHEMA and raw["scenario"] == LAUNCH_REPEAT_SCENARIO
-            and raw["acceptance_scope"] == LAUNCH_SCOPES[LAUNCH_REPEAT_SCENARIO]
-            and raw["status"] == "held" and raw["stage"] == "launch_repeat_original_held"
-            and raw["reason"] == "launch_repeat_original_not_held"
-            and raw["sources"] == selection["sources"] and raw["images"] == selection["images"]
-            and raw["project"] == selection["project"] and raw["platform"] == "win32"
-            and selection["docker_context"] == "desktop-linux"
-            and all(selection["sources"][name]["commit"] == commit for name,commit in MAP_DISCONNECT_SOURCES.items())
-            and "terminal_receipt" not in raw["repeated_managed_claim"] and "repeat_retirement" not in raw)
-    require(type(inventory) is dict and _digest(inventory) == raw["after_sha256"])
-    workers = [row for row in inventory["containers"].values()
-               if row.get("labels",{}).get("com.docker.compose.project") == selection["project"]
-               and row["labels"].get("com.docker.compose.service") == "managed-worker"]
-    require(len(workers) == 1)
-    worker = workers[0]
-    require(worker["image"] == selection["images"]["worker"] and type(worker["state"]["exit_code"]) is int
-            and worker["state"]["exit_code"] == 125
-            and all(worker["state"][key] is False for key in ("running","paused","restarting","dead")))
-    first = {"runtime_id":raw["repeated_managed_claim"]["runtime_id"],"container_id":worker["id"],
-             "started_at":worker["state"]["started_at"]}
-    try:
-        proof = _repeat_claim_core(raw, selection, first)
-    except (ValueError, TypeError, KeyError, IndexError):
-        raise HostedRefused("nm2_hosted_repeat_component_refused") from None
-    return {"schema":"vardr.nm2-repeat-component-public/1","scope":"installed_repetition_component_only",
-            "parent_status":"held","parent_stage":raw["stage"],"parent_reason":raw["reason"],
-            "repeated_managed_claim":proof,"physical_worker_count":1,"physical_exit_code":125,
-            "retirement_in_this_parent":False,"successor_in_this_parent":False,"nm2_exit_status":"incomplete"}
 
 
 def _preclaim_projection(raw, selection, first, second, inventories, *, desktop):

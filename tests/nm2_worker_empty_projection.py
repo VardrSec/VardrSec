@@ -5,8 +5,7 @@ host proofs remain required; there is no original RunRecord to reconcile.
 """
 
 from datetime import datetime
-from pathlib import PurePosixPath, PureWindowsPath
-import re
+from pathlib import PurePosixPath
 
 import nm2_worker_acceptance as fixture
 import nm2_worker_count_projection as fixed
@@ -31,37 +30,7 @@ def envelope(raw, selection, desktop):
         and raw["nm2_exit_status"] == "incomplete"
         and raw["platform"] == ("win32" if desktop else "linux")
         and raw["retained"] is True)
-    common.fields(selection["sources"], fixture.SOURCE_NAMES)
-    for row in selection["sources"].values():
-        common.fields(row, {"path", "commit"})
-        common.require(type(row["path"]) is str and type(row["commit"]) is str
-            and re.fullmatch(r"[a-f0-9]{40}", row["commit"]))
-        if desktop:
-            path = PureWindowsPath(row["path"])
-            common.require(path.is_absolute() and ".." not in path.parts)
-        else:
-            common.require(row["path"].startswith("/"))
-    common.fields(selection["images"], fixture.IMAGE_NAMES)
-    for image in selection["images"].values():
-        common.require(type(image) is str and re.fullmatch(r"sha256:[a-f0-9]{64}", image))
-    common.require(type(selection["project"]) is str
-        and re.fullmatch(r"vardrsec-nm2-[a-z0-9]{8,24}", selection["project"])
-        and type(selection["https_port"]) is int and 1 <= selection["https_port"] <= 65535)
-    for key in ("sources", "images", "project"):
-        common.same(raw[key], selection[key])
-    common.require(raw["readiness_volume"] == selection["project"] + "_worker-ready"
-        and raw["expected_database_revision"] == "0041persistentruntime"
-        and (desktop or raw["admitted_inventory_diffs"] == []))
-    for key in ("before_sha256", "after_sha256", "public_ca_der_sha256"):
-        host._hash(raw[key])
-    cases = common.fields(raw["cases"], CASES)
-    disabled = common.fields(cases["default_disabled"], {"status", "services",
-        "managed_pending_status", "csrf_write_status", "unauthenticated_read_status"})
-    common.require(disabled["status"] == "passed" and type(disabled["services"]) is list
-        and sorted(disabled["services"]) == ["api", "db", "proxy", "web"])
-    for key, code in (("managed_pending_status", 404), ("csrf_write_status", 403),
-                      ("unauthenticated_read_status", 401)):
-        common.integer(disabled[key], code)
+    cases = common.verified_case_set(raw, selection, CASES, desktop=desktop)
     for name in fixture.INITIAL_CASES[1:]:
         common.same(cases[name], {"status": "not_run"})
     return cases[CASE]

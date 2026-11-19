@@ -4,8 +4,6 @@ The producer checked evidence bodies; only their measured digests leave this rea
 """
 
 import math
-from pathlib import PureWindowsPath
-import re
 
 import nm2_worker_acceptance as fixture
 import nm2_worker_count_projection as fixed
@@ -41,57 +39,8 @@ def envelope(raw, selection, desktop):
         and raw["nm2_exit_status"] == "incomplete"
         and raw["platform"] == ("win32" if desktop else "linux")
         and raw["retained"] is True)
-    common.fields(selection["sources"], fixture.SOURCE_NAMES)
-    for row in selection["sources"].values():
-        common.fields(row, {"path", "commit"})
-        common.require(type(row["path"]) is str and type(row["commit"]) is str
-            and re.fullmatch(r"[a-f0-9]{40}", row["commit"]))
-        if desktop:
-            path = PureWindowsPath(row["path"])
-            common.require(path.is_absolute() and ".." not in path.parts)
-        else:
-            common.require(row["path"].startswith("/"))
-    common.fields(selection["images"], fixture.IMAGE_NAMES)
-    for image in selection["images"].values():
-        common.require(type(image) is str and re.fullmatch(r"sha256:[a-f0-9]{64}", image))
-    common.require(type(selection["project"]) is str
-        and re.fullmatch(r"vardrsec-nm2-[a-z0-9]{8,24}", selection["project"])
-        and type(selection["https_port"]) is int and 1 <= selection["https_port"] <= 65535)
-    for key in ("sources", "images", "project"):
-        common.same(raw[key], selection[key])
-    common.require(raw["readiness_volume"] == selection["project"] + "_worker-ready"
-        and raw["expected_database_revision"] == "0041persistentruntime"
-        and (desktop or raw["admitted_inventory_diffs"] == []))
-    for key in ("before_sha256", "after_sha256", "public_ca_der_sha256"):
-        host._hash(raw[key])
-    cases = common.fields(raw["cases"], CASES)
-    disabled = common.fields(cases["default_disabled"], {
-        "status", "services", "managed_pending_status", "csrf_write_status",
-        "unauthenticated_read_status"})
-    common.require(disabled["status"] == "passed" and type(disabled["services"]) is list
-        and sorted(disabled["services"]) == ["api", "db", "proxy", "web"])
-    for key, code in (("managed_pending_status", 404), ("csrf_write_status", 403),
-                      ("unauthenticated_read_status", 401)):
-        common.integer(disabled[key], code)
-    denied = common.fields(cases["strict_out_of_scope"], {
-        "status", "approval_http_status", "inventory", "traffic_delta"})
-    common.require(denied["status"] == "passed")
-    common.integer(denied["approval_http_status"], 409)
-    common.integer(denied["traffic_delta"], 0)
-    inv = common.fields(denied["inventory"], common.INVENTORY | {
-        "runtimes", "approval_context_sha256"})
-    common.require(inv["schema"] == "vardr.nm2-fixture-inventory/4"
-        and inv["schema_revision"] == "0041persistentruntime"
-        and inv["database_user"] == "vardrmap_app"
-        and inv["job_status"] == "pending" and inv["execution"] is None)
-    common.integer(inv["runtime_attempt_bound"], 35)
-    for key in ("engagement_id", "job_id"):
-        host._identifier(inv[key])
-    for key in ("approvals", "contracts", "results", "stops", "runtimes"):
-        common.same(inv[key], [])
-    common.same(inv["approval_context_sha256"], {})
-    for key in ("targets_spent", "duration_allocated"):
-        common.integer(inv[key], 0)
+    cases = common.verified_case_set(raw, selection, CASES, desktop=desktop)
+    fixed.verify_denied_job(cases["strict_out_of_scope"])
     for name in fixture.INITIAL_CASES[2:]:
         common.same(cases[name], {"status": "not_run"})
     return cases[CASE]

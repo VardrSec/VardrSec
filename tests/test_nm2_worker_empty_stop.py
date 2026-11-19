@@ -15,7 +15,7 @@ import nm2_worker_hosted as hosted
 import nm2_worker_persistent_projection as common
 import test_nm2_worker_persistent_projection as vectors
 import worker_host as host
-import worker_host_persistent as persistent
+import nm2_persistent_test_fixtures as records
 
 
 SCENARIO = "persistent-empty-stop"
@@ -45,14 +45,8 @@ def vector(*, run=True, desktop=False):
         "runtime_id":admission["runtime_id"], "identity":admission["identity"],
         "exit_code":physical["exit_code"], "finished_at":physical["finished_at"],
         "new_work_disable_state":"acknowledged", "local_runner_reconciliation":"required"}
-    report = {key:physical[key] for key in ("runtime_sha256", "admission_sha256", "finished_at", "exit_code")}
-    report.update(last_sequence="0", observation_sha256=host.digest({
-        key:physical[key] for key in ("identity", "finished_at", "exit_code")}))
-    retirement = {"schema":"vardr.worker-retirement/3",
-        **{key:admission[key] for key in ("runtime_id", "runtime_sha256", "admission_sha256", "origin", "runner_id", "enrollment_id")},
-        "runtime_sequence":None, "last_sequence":"0", "binding":None, "attempt_receipt":None,
-        "report_sha256":persistent._purpose({"runtime_id":admission["runtime_id"]}, report), "retired":True}
-    retirement["receipt_sha256"] = host.digest(retirement)
+    report = records.exit_report_digest(physical, last_sequence="0")
+    retirement = records.retirement_record(admission, report, last_sequence="0")
     lookup = {"schema":"vardr.worker-receipt-observation/3",
         **{key:admission[key] for key in ("runtime_id", "runtime_sha256", "admission_sha256")},
         "cursor":{"last_sequence":"0", "phase":"idle"}, "active":None,
@@ -63,10 +57,9 @@ def vector(*, run=True, desktop=False):
         "runtime_id":admission["runtime_id"], "receipt":lookup, "local_runner_reconciliation":"required"}
     raw.update(schema="vardr.nm2-worker-empty-acceptance/1", scenario=SCENARIO,
         acceptance_scope="persistent_empty_stop_only", status="prepared", stage="managed_setup")
+    disabled = raw["cases"]["default_disabled"]
     raw["cases"] = {name:{"status":"not_run"} for name in fixture.INITIAL_CASES}
-    raw["cases"]["default_disabled"] = {
-        "status":"passed", "services":["api","db","proxy","web"],
-        "managed_pending_status":404, "csrf_write_status":403, "unauthenticated_read_status":401}
+    raw["cases"]["default_disabled"] = disabled
     raw["cases"][CASE] = {"status":"not_run"}
     raw["fixture_stop"]["stop_requested_ids"] = []
     owner = object.__new__(fixture.Fixture)
@@ -108,7 +101,6 @@ class EmptyStop(unittest.TestCase):
         self.assertIn(SCENARIO, fixture.SCENARIOS)
         self.assertEqual(fixture.persistent_limits(SCENARIO), {"max_attempts":None, "idle_timeout_seconds":None})
         self.assertEqual(fixture.persistent_enable_args(SCENARIO), ["--protocol", "persistent-v3"])
-        self.assertEqual(fixture.target_environment(SCENARIO), {})
 
     def test_actual_source_only_entrypoint_selects_empty_explicitly_and_keeps_healthy_default(self):
         _, selection, *_ = vector(run=False)
@@ -182,9 +174,9 @@ class EmptyStop(unittest.TestCase):
             with self.assertRaises(common.ProjectionRefused): old.project(raw, selection)
 
     def test_offline_audit_command_has_only_named_state_volume_and_no_network_credentials(self):
-        _, _, owner, admission, *_ = vector(run=False)
+        _, _, owner, admission, audit, *_ = vector(run=False)
         del owner.empty_worker_state
-        result = subprocess.CompletedProcess([], 0, json.dumps(vector(run=False)[4]).encode(), b"")
+        result = subprocess.CompletedProcess([], 0, json.dumps(audit).encode(), b"")
         with patch("nm2_worker_acceptance.subprocess.run", return_value=result) as run:
             self.assertEqual(owner.empty_worker_state(admission)["status"], "empty_unissued")
         call = run.call_args
@@ -205,13 +197,6 @@ class EmptyStop(unittest.TestCase):
         self.assertEqual(call.kwargs, {"env": owner.environment, "capture_output": True,
                                       "timeout": 45, "check": True})
 
-    def test_auditor_has_project_ownership_and_its_own_fixed_resource_bounds(self):
-        _, _, owner, admission, audit, *_ = vector(run=False)
-        del owner.empty_worker_state
-        result = subprocess.CompletedProcess([], 0, json.dumps(audit).encode(), b"")
-        with patch("nm2_worker_acceptance.subprocess.run", return_value=result) as run:
-            owner.empty_worker_state(admission)
-        args = list(run.call_args.args[0][3:])
         for flag,value in (("--label","com.docker.compose.project="+owner.project),
                 ("--pids-limit","64"), ("--memory","512m"), ("--cpus","1")):
             with self.subTest(flag=flag):

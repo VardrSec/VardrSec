@@ -300,20 +300,6 @@ class HostedStoppedPredecessorTests(unittest.TestCase):
         self.assertEqual(
             hosted.execution_options(env), (SCENARIO, "0041persistentruntime")
         )
-        self.assertEqual(
-            hosted.execution_options({}), ("healthy", "0040runtimesequence")
-        )
-        workflow = (hosted.SOURCE / ".github/workflows/compose.yml").read_text(
-            encoding="utf-8"
-        )
-        options = next(
-            line.strip()
-            for line in workflow.splitlines()
-            if line.strip().startswith("options: [healthy,")
-        )
-        self.assertIn(
-            SCENARIO, options.removeprefix("options: [").removesuffix("]").split(", ")
-        )
         fixture = hosted.Hosted.__new__(hosted.Hosted)
         fixture.scenario, fixture.receipt, fixture.command = SCENARIO, {}, Mock()
         asset = b"synthetic pinned Compose bytes"

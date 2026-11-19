@@ -3,89 +3,25 @@
 These are scheduling/correlation models, never physical exit or platform evidence.
 """
 
-import contextlib
-import copy
-from datetime import datetime, timezone
-import io
+from datetime import datetime
 import json
 from pathlib import Path
 import subprocess
-import threading
-from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import nm2_worker_acceptance as fixture
 import nm2_worker_hosted as hosted
 import nm2_worker_idle_projection as reader
+from test_nm2_idle_product_branches import NOW, produce
 import test_nm2_worker_idle_limit as vectors
-import worker_cli
 import worker_host as host
-import worker_host_persistent as persistent
-import worker_runtime as runtime
 
-
-NOW = datetime(2026, 11, 6, 2, 0, 6, tzinfo=timezone.utc)
 NULL_MAP_FIELDS = ("cursor", "availability", "new_work_disabled", "reporting_revoked")
 
 
 def product_status(*, unavailable=False):
-    """Run the actual product producer and CLI serializer with mocked I/O only."""
-    _, _, _, admission, ready, _ = vectors.vector(run=False)
-    record = {
-        "runtime_id": admission["runtime_id"],
-        "registration": {key: copy.deepcopy(admission[key]) for key in persistent.REGISTRATION},
-        "registration_state": "acknowledged",
-        "disable_state": "none",
-        "stop_state": "none",
-        "revocation_state": "none",
-        "receipt": None,
-    }
-    records = SimpleNamespace(
-        locked=contextlib.nullcontext,
-        read=Mock(return_value=record),
-        secret=Mock(return_value="synthetic-unused-status-custody"),
-        write=Mock(side_effect=AssertionError("status_write_forbidden")),
-    )
-    observer = SimpleNamespace(
-        _observation_lock=threading.Lock(),
-        _deadline=None,
-        _bound=Mock(return_value={"state": {"Status": "running", "Running": True}}),
-    )
-    current = {
-        "schema": "vardr.worker-receipt-observation/3",
-        **{key: admission[key] for key in ("runtime_id", "runtime_sha256", "admission_sha256")},
-        "cursor": copy.deepcopy(ready["cursor"]),
-        "active": None,
-        "retirement": None,
-        "new_work_disabled": False,
-        "reporting_revoked": False,
-        "availability": copy.deepcopy(ready["availability"]),
-    }
-    client = Mock()
-    client.receipt = Mock(
-        side_effect=host.HostRefused("synthetic-status-lookup-refused") if unavailable else None,
-        return_value=current,
-    )
-    with (
-        patch.object(host, "_observer"),
-        patch.object(host, "_client"),
-        patch.object(persistent, "_reports", return_value=[]),
-        patch.object(persistent, "datetime", wraps=datetime) as clock,
-    ):
-        clock.now.return_value = NOW
-        value = persistent.status(records, admission["runtime_id"], observer,
-            runtime.RuntimeIdentity(**admission["identity"]), client=client)
-    records.write.assert_not_called()
-    client.receipt.assert_called_once()
-    assert observer._bound.call_count == (1 if unavailable else 2)
-    assert observer._deadline is None
-    output = io.StringIO()
-    with patch.object(worker_cli, "dispatch", return_value=value), contextlib.redirect_stdout(output):
-        code = worker_cli.main(["status", "--runtime-id", admission["runtime_id"],
-            "--private-root", str(Path(__file__).parent / "unused-custody")],
-            installation=Path(__file__).resolve().parents[1])
-    return json.loads(output.getvalue()), code, admission
+    return produce("lookup-error" if unavailable else "ready", minimal_record=True)
 
 
 class IdleStatusProducer(unittest.TestCase):

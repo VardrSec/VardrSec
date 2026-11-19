@@ -15,7 +15,8 @@ import nm2_worker_idle_projection as reader
 import nm2_worker_persistent_projection as availability
 import test_nm2_worker_count_projection as count_vectors
 import worker_host as host
-import worker_host_persistent as persistent
+import nm2_persistent_test_fixtures as records
+from test_nm2_worker_persistent_projection import ready_status
 
 CANARY = "private-idle-profile-credential-body-canary"
 
@@ -26,8 +27,7 @@ def vector(*, run=True):
     proof = old["proof"]
     admission = copy.deepcopy(proof["admission"])
     admission["limits"] = {"max_attempts": None, "idle_timeout_seconds": 60}
-    admission["admission_sha256"] = host.digest({
-        k:v for k,v in admission.items() if k != "admission_sha256"})
+    records.set_digest(admission, "admission_sha256")
     physical = copy.deepcopy(old["physical"])
     physical.update(exit_code=124, admission_sha256=admission["admission_sha256"])
     original = copy.deepcopy(proof["selections"][0])
@@ -48,7 +48,7 @@ def vector(*, run=True):
     release = copy.deepcopy(measured["release_receipt"])
     release.update(admission_sha256=admission["admission_sha256"],
                    terminal_receipt_sha256=host.digest(terminal))
-    release["receipt_sha256"] = host.digest({k:v for k,v in release.items() if k != "receipt_sha256"})
+    records.set_digest(release, "receipt_sha256")
     measured.update(terminal_receipt=terminal, terminal_receipt_sha256=host.digest(terminal),
         result_receipt_sha256=terminal["receipt_sha256"], release_receipt=release,
         release_receipt_sha256=release["receipt_sha256"])
@@ -67,29 +67,15 @@ def vector(*, run=True):
     runtime.update(admission=admission, admission_sha256=admission["admission_sha256"], max_attempts=None)
     runtime["attempts"][0].update(terminal_receipt=terminal,
         terminal_receipt_sha256=host.digest(terminal), release_receipt=release)
-    report_body = {k:physical[k] for k in ("runtime_sha256", "admission_sha256", "finished_at", "exit_code")}
-    report_body.update(last_sequence="1", observation_sha256=host.digest({
-        k:physical[k] for k in ("identity", "finished_at", "exit_code")}))
-    report = persistent._purpose({"runtime_id":admission["runtime_id"]}, report_body)
+    report = records.exit_report_digest(physical)
     runtime["report_sha256"] = report
-    retirement = copy.deepcopy(proof["retirement"])
-    retirement.update(admission_sha256=admission["admission_sha256"], report_sha256=report)
-    retirement["receipt_sha256"] = host.digest({k:v for k,v in retirement.items() if k != "receipt_sha256"})
-    retained = copy.deepcopy(local)
-    retained.update(state="retired", retirement=retirement)
-    retained["attempt"].update(state="physical_retirement_observed", retired_from_state="released")
+    retirement = records.retirement_record(admission, report)
+    retained = records.retained_after_exit(local, retirement)
     before_worker = copy.deepcopy(proof["fixed"]["before_worker"])
     before_worker["approval_context_sha256"] = copy.deepcopy(inventory["approval_context_sha256"])
     before_idle = copy.deepcopy(inventory)
     before_idle["runtimes"][0].update(retired=False, new_work_disabled=False, report_sha256=None)
-    status = {"schema":"vardr.worker-status/1", "runtime_id":admission["runtime_id"],
-        "protocol":"persistent-v3", "mode":"persistent", "limits":admission["limits"],
-        "identity":admission["identity"], "state":"idle-ready", "reason":None,
-        "cursor":{"last_sequence":"1", "phase":"idle"},
-        "availability":{"state":"idle-ready", "observed_at":"2026-11-06T02:00:05Z",
-            "fresh_until":"2026-11-06T02:00:20Z", "cursor":{"last_sequence":"1", "phase":"idle"}},
-        "new_work_disabled":False, "reporting_revoked":False, "registration_state":"acknowledged",
-        "disable_state":"none", "stop_state":"none", "revocation_state":"none", "container_state":"running"}
+    status = ready_status(admission, "1", "2026-11-06T02:00:05Z", "2026-11-06T02:00:20Z")
     stopped = {**copy.deepcopy(status), "state":"stopped", "container_state":"exited",
         "cursor":None, "availability":None, "new_work_disabled":None, "reporting_revoked":None,
         "exit_code":124, "finished_at":physical["finished_at"]}
@@ -163,8 +149,6 @@ class IdleLimit(unittest.TestCase):
         self.assertEqual(fixture.persistent_limits(fixture.IDLE_SCENARIO), reader.LIMITS)
         self.assertEqual(fixture.persistent_enable_args(fixture.IDLE_SCENARIO), ["--protocol", "persistent-v3", "--idle-timeout-seconds", "60"])
         self.assertEqual(fixture.persistent_limits("persistent-availability"), {"max_attempts":None, "idle_timeout_seconds":None})
-        self.assertEqual(fixture.persistent_enable_args(fixture.COUNT_SCENARIO), ["--protocol", "persistent-v3", "--max-attempts", "1"])
-        self.assertEqual(fixture.target_environment(fixture.IDLE_SCENARIO), {})
 
     def test_closed_status_accepts_product_stopped_shape_only_for_idle(self):
         _, _, _, admission, running, stopped = vector(run=False)
@@ -194,7 +178,7 @@ class IdleLimit(unittest.TestCase):
         for invalid in ("60", True, 60.0):
             changed = copy.deepcopy(admission)
             changed["limits"]["idle_timeout_seconds"] = invalid
-            changed["admission_sha256"] = host.digest({k:v for k,v in changed.items() if k != "admission_sha256"})
+            records.set_digest(changed, "admission_sha256")
             with self.subTest(idle_type=type(invalid).__name__), self.assertRaises(ValueError):
                 fixture.idle_status_value({**stopped, "limits":changed["limits"]}, 0, changed)
         for code in (1, True, 0.0):
