@@ -29,9 +29,11 @@ Choose **one** guide and follow it from prerequisites through the first result:
 - **[Full: install → trust → account → assessment](docs/installation.md).** Use this for the Map web workspace and connected Runner.
 - **[Mapless: install → workspace → authorize → execute → export](docs/mapless.md).** Use this for standalone CLI work with no Map connection.
 
-Both guides use the shipped Windows/Ubuntu installers and the exact component
-pins. Normal startup does not execute assessments. Managed workers are a separate
-opt-in after Full setup, not another installation mode.
+Ubuntu 24.04/amd64 is the only officially supported v0.1.0 Alpha configuration
+for both modes. The shipped Windows installer paths remain available in the
+guides, but Windows is unqualified for this Alpha. Both guides use the exact
+component pins. Normal startup does not execute assessments. Managed workers are
+a separate opt-in after Full setup, not another installation mode.
 
 ### Optional Nuclei
 

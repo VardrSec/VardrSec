@@ -28,12 +28,14 @@ are not execution credentials and must remain outside the worker.
 
 ## Platforms and networking
 
-The documented source-built paths cover Windows 11 Docker Desktop with
-Linux/amd64 containers and Ubuntu 24.04/amd64 within their stated limits. This
-is not operating-system provisioning, universal VPN certification or macOS Docker
-support. Split DNS, VPN routes, reconnect behavior and native fallback must be
-qualified for the actual environment. Do not add a Docker socket, privileged
-container or disabled TLS verification as a workaround.
+Ubuntu 24.04/amd64 is the only officially supported v0.1.0 Alpha configuration
+for the documented source-built Compose paths. Windows 11 Docker Desktop
+installation instructions are preserved, but that path is unqualified for this
+Alpha; macOS is deferred and unqualified. This is not operating-system
+provisioning or universal VPN certification. Split DNS, VPN routes, reconnect
+behavior and native fallback must be qualified for the actual environment. Do
+not add a Docker socket, privileged container or disabled TLS verification as a
+workaround.
 
 Standalone controlled Recon is limited to its documented finite DNS-A and
 original-host HTTPS/443 GET-root profile. This is not support for every scanner
