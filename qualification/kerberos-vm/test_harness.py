@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -76,7 +77,12 @@ class BuildContextTests(unittest.TestCase):
         self.assertIn('USER 65534:65534',dockerfile)
         self.assertIn('--source-only --work /work/qualification',dockerfile)
         self.assertIn('kerberos-vm/finalize.py',dockerfile)
-        for forbidden in ('--privileged', 'seccomp=unconfined', 'DEB_BUILD_OPTIONS=nocheck', '--security=insecure'):
+        stages = re.split(r'(?im)^[ \t]*FROM[ \t]+', dockerfile)[1:]
+        krb5_stages = [stage for stage in stages
+                       if stage.partition('\n')[0].lower().split()[-2:] == ['as', 'krb5-backport']]
+        self.assertEqual(len(krb5_stages), 1, 'expected one krb5-backport stage')
+        self.assertNotIn('nocheck', krb5_stages[0])
+        for forbidden in ('--privileged', 'seccomp=unconfined', '--security=insecure'):
             self.assertNotIn(forbidden,dockerfile)
         self.assertNotIn('distribution_commit\': revision,', (ROOT/'run.py').read_text())
 

@@ -1,8 +1,9 @@
 # Platforms and deployment methods
 
-Windows 11 with Docker Desktop is the primary Community target. Ubuntu
-24.04/amd64 remains supported for the documented source-built Compose path.
-These are source-built installations, not a published Community release.
+Ubuntu 24.04/amd64 is the only officially supported v0.1.0 Alpha configuration
+for the source-built Compose path. The Windows installation path is preserved in
+the operator guides but is unqualified for this Alpha. These are source-built
+installations, not a published Community release.
 
 ## Containerized distribution
 
@@ -13,10 +14,10 @@ Docker Desktop's WSL2 backend. Other backends are not independently qualified.
 
 | Environment | Support boundary |
 | --- | --- |
-| Windows 11 Docker Desktop, Linux/amd64 | Documented Full/Mapless installation, workflow, recovery and update paths |
-| Ubuntu 24.04/amd64 Compose | Documented Full/Mapless installation, workflow, recovery and update paths |
+| Ubuntu 24.04/amd64 Compose | Only officially supported v0.1.0 Alpha configuration for Full and Mapless |
+| Windows 11 Docker Desktop, Linux/amd64 | Existing Full/Mapless installation paths are preserved; unqualified for this Alpha |
 | Ubuntu 22.04, other Linux distributions, arm64 | Integrated installation support is not established |
-| macOS Docker Desktop | Experimental; fresh-host installation and recovery are not qualified |
+| macOS Docker Desktop | Deferred and unqualified for this Alpha; fresh-host installation and recovery are not qualified |
 
 ## Native components
 

@@ -43,7 +43,7 @@ def prepare(archive, repo, output):
     packages = list((output/'packages').glob('*.deb'))
     assert len(packages) == 4
     # Prevent stale artifacts being used with a different patch/build input.
-    for name in ('build-krb5.sh', 'krb5-CVE-2026-119079.patch',
+    for name in ('build-krb5.sh', 'krb5-CVE-2026-119079.patch', 'krb5-CVE-2026-71199.patch',
                  'krb5-keyring-test-diagnostic.patch', 'krb5-sequence-regression.c', 'Dockerfile'):
         assert (repo/'db'/name).read_bytes() == (output/'source'/name).read_bytes(), name
     original = (repo/'db/Dockerfile').read_text()

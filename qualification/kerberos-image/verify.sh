@@ -28,7 +28,7 @@ docker run --rm --network none --entrypoint sh "$id" -eu -c '
     fi
   done < /usr/share/doc/libkrb5-3/vardr-source/evidence/package-files-SHA256SUMS
   for package in libgssapi-krb5-2 libk5crypto3 libkrb5-3 libkrb5support0; do
-    test "$(dpkg-query -W -f="\${Version}" "$package")" = "1.21.3-5+deb13u1+vardr1"
+    test "$(dpkg-query -W -f="\${Version}" "$package")" = "1.21.3-5+deb13u1+vardr2"
   done
 ' > artifacts/kerberos-image/installed-custody.txt
 # Prove ACL source custody and installed payloads under the same restricted

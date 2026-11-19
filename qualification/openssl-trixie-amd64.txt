@@ -1,0 +1,25 @@
+OpenSSL package qualification, Debian Trixie amd64, 2026-11-19 UTC
+
+Base source: openssl 3.5.7-1~deb13u3
+Original Debian .dsc SHA-256: 9cdb0d9daf0773ca5c0f3f5ea1fc59b1106a99e005a5c048948b826e8d3b47e1
+Patched .dsc SHA-256: 4f069d916c8d0ba5ad594880b52edbf082332b9c93326bbbf12949bee5893010
+Local binary version: 3.5.7-1~deb13u3+vardr2
+
+The source retains the Debian series and the three security fixes in +vardr1.
+The DTLS backport includes the full proposed change from OpenSSL PR #33729
+and the upstream test initialization prerequisite in NOTICE.source-patches.txt.
+
+dpkg-buildpackage -us -uc -B -j4 ran as builduser with checks enabled.
+All 11 new DTLS regression groups ran and passed. The QUIC API tests passed
+with the default and FIPS providers. Debian's full harness reported 345 files,
+4,911 tests, and "Result: PASS".
+Build log SHA-256: fe371b95df6382ee3aa3eaba6401459f92f3c4d0ff2109cf7d8a11ee28cbf6e2
+
+With all three resulting .debs installed, debian/tests/run-25-test-verify
+passed all 127 checks against /usr/bin/openssl.
+Installed-package test log SHA-256: 5d6da516a27fd148972f3efa9a736f80abd563e70801d103fbf09af00988bf2f
+
+db/openssl/qualified-packages.sha256 records the three qualified archives.
+The libssl.so.3 and libcrypto.so.3 values in native-runtime-SHA256SUMS were
+computed from the extracted libssl3t64 archive. Image evidence verifies these
+payloads against the stopped containers associated with the scanner receipt.
