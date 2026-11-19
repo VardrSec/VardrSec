@@ -11,7 +11,7 @@ security approval, and no official artifact publication was performed.
 [Issue #117](https://github.com/VardrSec/VardrSec/issues/117) defines source-built
 Full and Mapless on Ubuntu 24.04/amd64, with no prebuilt distribution.
 [RC #116](https://github.com/VardrSec/VardrSec/pull/116) now has the accepted
-source revision above; the [superseding Vigil handoff](https://github.com/VardrSec/VardrSec/issues/117#issuecomment-6960213611)
+source revision above; the [superseding release handoff](https://github.com/VardrSec/VardrSec/issues/117#issuecomment-6960213611)
 records the same revision and archive identity.
 
 - Archive: `notice-corrected-rc116/source-final.tar.gz`.
@@ -40,7 +40,7 @@ Existing qualification receipts retain their original image identities.
 
 The source-patch correction preserves, among others, MIT's 2015 and Red Hat's
 2016 CAMMAC file notices, Daniel Veillard's dictionary grant, GNU and util-linux
-terms, ncurses attribution, Perl alternatives and Go-source notices. Codex 1
+terms, ncurses attribution, Perl alternatives and Go-source notices. The security reviewer
 reviewed the notice-only scope; no owned remediation was changed.
 
 ## Acceptance boundary and delivery instruction
@@ -52,15 +52,14 @@ archives are superseded and must not be labeled as this accepted payload.
 The current corrected source archive satisfies the source-notice condition.
 
 No remaining source/licensing owner decision is required for this exact payload.
-Vigil retains overall release approval and official publication. Security
-adjudication remains with Codex 1/Vigil. Prebuilt-image redistribution, binary
+The release coordinator retains overall release approval and official publication. Security
+adjudication remains with the security reviewer and release coordinator. Prebuilt-image redistribution, binary
 relinking material and additional OS/wheel source obligations must be reassessed
 if that separate distribution scope is introduced; they are not blockers for the
 source-only payload reviewed here. Expected collector limitations and manifest
 flags add no acceptance requirement.
 
 No images were rebuilt, workflows rerun, generalized system added or new test
-suite written. Detailed final proof is retained in
-`notice-corrected-rc116/codex2-final-source-acceptance.json` and its paired
-`verified-final-manifest.json` / `SHA256SUMS`. Original source review remains in
+suite written. The final source-acceptance receipt, `verified-final-manifest.json`, and
+`SHA256SUMS` are retained together in `notice-corrected-rc116/`. Original source review remains in
 `final-source-rc116/source-only-review.json` and notice provenance beside it.
