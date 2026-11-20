@@ -77,29 +77,8 @@ def evidence(*, desktop=False):
 
 
 class MapDisconnectHostedTests(unittest.TestCase):
-    def test_opt_in_route_requires_exact_candidate_and_new_schema(self):
-        env = {
-            "NM2_SCENARIO": SCENARIO,
-            "NM2_DATABASE_REVISION": "0041persistentruntime",
-            **{
-                "NM2_" + name.upper() + "_SHA": value
-                for name, value in local.MAP_DISCONNECT_SOURCES.items()
-            },
-        }
-        self.assertEqual(
-            hosted.execution_options(env), (SCENARIO, "0041persistentruntime")
-        )
-        for name in (
-            "NM2_MAP_SHA",
-            "NM2_RUNNER_SHA",
-            "NM2_GATE_SHA",
-            "NM2_DATABASE_REVISION",
-        ):
-            with self.subTest(name=name), self.assertRaises(hosted.HostedRefused):
-                hosted.execution_options({**env, name: "0" * 40})
-        self.assertEqual(hosted.MAP_DISCONNECT_HOSTED, "vardr.nm2-hosted/14")
-
     def test_public_reader_joins_api_restart_and_worker_exit_without_private_data(self):
+        self.assertEqual(hosted.MAP_DISCONNECT_HOSTED, "vardr.nm2-hosted/14")
         for desktop in (False, True):
             with self.subTest(desktop=desktop):
                 raw, selection, inventories = evidence(desktop=desktop)

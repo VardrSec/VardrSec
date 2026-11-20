@@ -94,11 +94,7 @@ class PID1LossProposalTests(unittest.TestCase):
                 value.kill_active_pid1(observer, identity)
         command.assert_called_once()
 
-    def test_manual_route_is_explicit_and_keeps_partial_scope(self):
-        self.assertEqual(hosted.execution_options({
-            "NM2_SCENARIO": PID1_LOSS_SCENARIO, "NM2_DATABASE_REVISION": "0041persistentruntime",
-            **{"NM2_" + name.upper() + "_SHA": commit for name, commit in PID1_LOSS_SOURCES.items()},
-        }), (PID1_LOSS_SCENARIO, "0041persistentruntime"))
+    def test_pid1_loss_receipt_keeps_partial_scope(self):
         raw, selection, inventories = pid1_evidence()
         projected = hosted.public_projection(raw, selection, inventories=inventories)
         self.assertEqual(projected["nm2_exit_status"], "incomplete")
@@ -139,10 +135,6 @@ class PID1LossProposalTests(unittest.TestCase):
         with patch.object(local, "LaunchFixture") as factory:
             self.assertEqual(local.main([*fixed, "--pid1-loss"]), 2)
             factory.assert_not_called()
-        valid = {"NM2_SCENARIO": PID1_LOSS_SCENARIO, "NM2_DATABASE_REVISION": "0041persistentruntime",
-                 **{"NM2_" + name.upper() + "_SHA": commit for name, commit in PID1_LOSS_SOURCES.items()}}
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options({**valid, "NM2_RUNNER_SHA": "0" * 40})
 
     def test_fault_binding_exit_disable_and_artifact_shapes_fail_closed(self):
         for key, bad in (

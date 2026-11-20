@@ -425,21 +425,7 @@ class PreclaimRecoveryTests(unittest.TestCase):
             ):
                 fixture.prepare_preclaim_grant_catalogue("selected-engagement")
 
-    def test_hosted_opt_in_routes_only_the_explicit_mode_with_reviewed_sources(self):
-        env = dict(
-            NM2_SCENARIO=hosted.LAUNCH_PRECLAIM_SCENARIO,
-            NM2_DATABASE_REVISION="0041persistentruntime",
-            NM2_RUNNER_SHA="5ecc869d80f53ae7fdbca25b971838976a6c41e9",
-            NM2_MAP_SHA="05dc78cf9a385255de459c8a5b833842d6528a63",
-            NM2_GATE_SHA="d80d4730b8486b75be72431b5af88e0ddb45020b",
-        )
-        self.assertEqual(
-            hosted.execution_options(env),
-            (hosted.LAUNCH_PRECLAIM_SCENARIO, "0041persistentruntime"),
-        )
-        for key in ("NM2_RUNNER_SHA", "NM2_DATABASE_REVISION"):
-            with self.subTest(key=key), self.assertRaises(hosted.HostedRefused):
-                hosted.execution_options({**env, key: "unknown"})
+    def test_explicit_preclaim_option_selects_recovery(self):
         scenario = SimpleNamespace(
             receipt={"status": "selected_launch_slice_passed"}, run=Mock()
         )

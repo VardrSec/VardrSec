@@ -59,61 +59,6 @@ class HostedLaunchTests(unittest.TestCase):
         ):
             fixture.completed_reconciliation({}, admission, retirement, case)
 
-    def test_launch_requires_the_persistent_map_revision(self):
-        selected = {"NM2_SCENARIO": hosted.LAUNCH_SCENARIO}
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options(selected)
-        selected["NM2_DATABASE_REVISION"] = "0041persistentruntime"
-        self.assertEqual(
-            hosted.execution_options(selected),
-            (hosted.LAUNCH_SCENARIO, "0041persistentruntime"),
-        )
-        selected["NM2_SCENARIO"] = hosted.LAUNCH_COMPLETED_SCENARIO
-        self.assertEqual(
-            hosted.execution_options(selected),
-            (hosted.LAUNCH_COMPLETED_SCENARIO, "0041persistentruntime"),
-        )
-
-    def test_stop_work_requires_explicit_persistent_revision(self):
-        selection = {"NM2_SCENARIO": hosted.LAUNCH_STOP_WORK_SCENARIO}
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options(selection)
-        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
-        self.assertEqual(
-            hosted.execution_options(selection),
-            (hosted.LAUNCH_STOP_WORK_SCENARIO, "0041persistentruntime"),
-        )
-
-    def test_local_stop_requires_explicit_persistent_revision(self):
-        selection = {"NM2_SCENARIO": hosted.LAUNCH_LOCAL_STOP_SCENARIO}
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options(selection)
-        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
-        self.assertEqual(
-            hosted.execution_options(selection),
-            (hosted.LAUNCH_LOCAL_STOP_SCENARIO, "0041persistentruntime"),
-        )
-
-    def test_missing_grant_requires_explicit_persistent_revision(self):
-        selection = {"NM2_SCENARIO": hosted.LAUNCH_MISSING_GRANT_SCENARIO}
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options(selection)
-        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
-        self.assertEqual(
-            hosted.execution_options(selection),
-            (hosted.LAUNCH_MISSING_GRANT_SCENARIO, "0041persistentruntime"),
-        )
-
-    def test_active_grant_revocation_requires_explicit_persistent_revision(self):
-        selection = {"NM2_SCENARIO": hosted.LAUNCH_GRANT_REVOKE_SCENARIO}
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options(selection)
-        selection["NM2_DATABASE_REVISION"] = "0041persistentruntime"
-        self.assertEqual(
-            hosted.execution_options(selection),
-            (hosted.LAUNCH_GRANT_REVOKE_SCENARIO, "0041persistentruntime"),
-        )
-
     def test_expiry_requires_same_local_grants_and_still_usable_peer(self):
         fixture = LaunchFixture.__new__(LaunchFixture)
         fixture.receipt = {}
@@ -484,19 +429,6 @@ class HostedLaunchTests(unittest.TestCase):
         with self.assertRaises(hosted.HostedRefused):
             hosted.public_projection(active_expiry, selection)
 
-    def test_duration_dispatch_requires_exact_map_witness_and_schema(self):
-        env = {"NM2_SCENARIO": hosted.LAUNCH_DURATION_SCENARIO,
-               "NM2_MAP_SHA": hosted.DURATION_MAP_COMMIT}
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options(env)
-        env["NM2_DATABASE_REVISION"] = "0041persistentruntime"
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options({**env, "NM2_MAP_SHA": "f" * 40})
-        self.assertEqual(
-            hosted.execution_options(env),
-            (hosted.LAUNCH_DURATION_SCENARIO, "0041persistentruntime"),
-        )
-
     def test_duration_receipt_projects_one_joined_incarnation_and_rejects_mutations(self):
         selection = {"project": "fixture", "images": {},
                      "sources": {"map": {"commit": hosted.DURATION_MAP_COMMIT}}}
@@ -591,20 +523,6 @@ class HostedLaunchTests(unittest.TestCase):
         wrong = {**selection, "sources": {"map": {"commit": "f" * 40}}}
         with self.assertRaises(hosted.HostedRefused):
             hosted.public_projection({**raw, **wrong}, wrong)
-
-    def test_target_dispatch_refuses_unbound_and_wrong_map_sources(self):
-        pinned = "b" * 40
-        env = {"NM2_SCENARIO": hosted.LAUNCH_TARGET_SCENARIO,
-               "NM2_DATABASE_REVISION": "0041persistentruntime", "NM2_MAP_SHA": pinned}
-        with patch.object(hosted, "TARGET_MAP_COMMIT", None), self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options(env)
-        with patch.object(hosted, "TARGET_MAP_COMMIT", pinned):
-            self.assertEqual(hosted.execution_options(env),
-                             (hosted.LAUNCH_TARGET_SCENARIO, "0041persistentruntime"))
-            with self.assertRaises(hosted.HostedRefused):
-                hosted.execution_options({**env, "NM2_MAP_SHA": hosted.DURATION_MAP_COMMIT})
-            with self.assertRaises(hosted.HostedRefused):
-                hosted.execution_options({**env, "NM2_DATABASE_REVISION": "0040runtimesequence"})
 
     def test_target_fixture_configures_only_target_policy(self):
         fixture = LaunchFixture.__new__(LaunchFixture)

@@ -18,7 +18,7 @@ Any mismatch fails closed; there is no stale-artifact fallback.
 The image retains corresponding source plus the VM builder scripts, input pins,
 prepared dependency inventory, keyring prerequisite and source-only build
 receipt. Source-only receipts contain an input hash, not a fabricated Git commit.
-The Docker-context and standalone harness copies are checked byte-for-byte.
+The image build and standalone VM qualification both use `db/kerberos-vm/`.
 
 The normal Full installation/build commands use this Dockerfile automatically.
 Mapless does not build a database. A cold database build needs around 4 GiB guest

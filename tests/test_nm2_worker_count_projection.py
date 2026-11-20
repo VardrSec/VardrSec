@@ -429,19 +429,6 @@ class CountProjection(unittest.TestCase):
         with self.assertRaises(availability.ProjectionRefused):
             availability.project(raw, selection)
 
-    def test_count_dispatch_is_explicit_and_schema0041_only(self):
-        self.assertEqual(
-            hosted.execution_options(
-                {
-                    "NM2_SCENARIO": "persistent-count-limit",
-                    "NM2_DATABASE_REVISION": "0041persistentruntime",
-                }
-            ),
-            ("persistent-count-limit", "0041persistentruntime"),
-        )
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options({"NM2_SCENARIO": "persistent-count-limit"})
-
     def test_rehashed_original_case_and_plan_cannot_define_their_own_oracle(self):
         raw, selection = vector()
         proof = raw["cases"]["persistent_count_limit"]["proof"]

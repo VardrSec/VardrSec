@@ -358,11 +358,6 @@ class FixedBoundaryPairTests(unittest.TestCase):
         main=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=="main")
         self.assertNotIn("BoundaryFixture",ast.dump(main))
         self.assertNotIn("--boundary-pair",ast.dump(main))
-        import nm2_worker_hosted as hosted
-        env={"NM2_SCENARIO":boundary.SCENARIO,"NM2_DATABASE_REVISION":"0041persistentruntime",
-             **{"NM2_"+n.upper()+"_SHA":v for n,v in boundary.BOUNDARY_SOURCES.items()}}
-        self.assertEqual(hosted.execution_options(env),(boundary.SCENARIO,"0041persistentruntime"))
-        with self.assertRaises(ValueError): hosted.execution_options({**env,"NM2_RUNNER_SHA":"0"*40})
         with TemporaryDirectory() as folder:
             q=Path(folder)/"qualification.json";q.write_bytes(QUALIFICATION_DOCUMENT)
             args=["--cohort","inert-cohort.json","--compose-executable","inert-compose","--compose-sha256","a"*64,

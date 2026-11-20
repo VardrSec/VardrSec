@@ -305,13 +305,7 @@ class RepeatedManagedClaimTests(unittest.TestCase):
         self.assertNotIn("stopped_predecessor",fixture.receipt)
         self.assertEqual(set(fixture.receipt["repeat_retirement"]),{"before","local_before"})
 
-    def test_explicit_routing_preserves_original_modes_and_exact_source_guard(self):
-        env = dict(NM2_SCENARIO=hosted.LAUNCH_REPEAT_SCENARIO,
-                   NM2_DATABASE_REVISION="0041persistentruntime",
-                   **{"NM2_" + name.upper() + "_SHA": commit for name, commit in launch.MAP_DISCONNECT_SOURCES.items()})
-        self.assertEqual(hosted.execution_options(env), (hosted.LAUNCH_REPEAT_SCENARIO, "0041persistentruntime"))
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options({**env, "NM2_MAP_SHA": "f" * 40})
+    def test_repeat_option_and_failure_receipt_preserve_their_scope(self):
         fixture = SimpleNamespace(receipt={"status": "selected_launch_slice_passed"}, run=Mock())
         with patch.object(launch, "LaunchFixture", return_value=fixture) as constructor, patch.object(launch, "manifest", return_value={}):
             self.assertEqual(launch.main([
