@@ -206,11 +206,6 @@ class StrictDriftHosted(unittest.TestCase):
 
     def test_opt_in_routes_same_persistent_schema_without_execution(self):
         scenario = fixture.STRICT_DRIFT_SCENARIO
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options({"NM2_SCENARIO": scenario})
-        self.assertEqual(hosted.execution_options({
-            "NM2_SCENARIO": scenario, "NM2_DATABASE_REVISION": "0041persistentruntime",
-        }), (scenario, "0041persistentruntime"))
         _, selection, *_ = vector()
         output = io.StringIO()
         with (patch.object(fixture, "manifest", return_value=selection),
@@ -345,13 +340,7 @@ class StrictReviewHosted(unittest.TestCase):
                 with self.assertRaises(hosted.HostedRefused):
                     hosted.public_projection(raw, selection, inventories=(before, after))
 
-    def test_review_scenario_requires_exact_map_and_persistent_schema(self):
-        env = {"NM2_SCENARIO": fixture.STRICT_REVIEW_SCENARIO,
-               "NM2_DATABASE_REVISION": "0041persistentruntime", "NM2_MAP_SHA": fixture.STRICT_REVIEW_MAP}
-        self.assertEqual(hosted.execution_options(env), (fixture.STRICT_REVIEW_SCENARIO, "0041persistentruntime"))
-        for wrong in ({"NM2_MAP_SHA": "0" * 40}, {"NM2_DATABASE_REVISION": "0040runtimesequence"}):
-            with self.assertRaises(hosted.HostedRefused):
-                hosted.execution_options({**env, **wrong})
+    def test_review_scenario_validates_without_docker(self):
         _, selection, *_ = review_vector()
         output = io.StringIO()
         with (patch.object(fixture, "manifest", return_value=selection),

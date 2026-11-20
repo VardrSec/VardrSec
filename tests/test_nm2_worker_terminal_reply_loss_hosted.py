@@ -260,14 +260,8 @@ class TerminalReplyLossTests(TestCase):
                 with self.subTest(operation=operation, key=key), self.assertRaises(hosted.HostedRefused):
                     hosted.public_projection(raw, selected, inventories=inventories)
 
-    def test_explicit_routing_requires_new_exact_sources_and_stays_inert_by_default(self):
+    def test_terminal_reply_loss_options_stay_inert_by_default(self):
         for operation in ("result", "finish"):
-            scenario = local.TERMINAL_REPLY_LOSS[operation]["scenario"]
-            env = {"NM2_SCENARIO": scenario, "NM2_DATABASE_REVISION": "0041persistentruntime",
-                   **{"NM2_" + name.upper() + "_SHA": value for name, value in local.POST_CLAIM_REPLY_LOSS_SOURCES.items()}}
-            self.assertEqual(hosted.execution_options(env), (scenario, "0041persistentruntime"))
-            with self.assertRaises(hosted.HostedRefused):
-                hosted.execution_options({**env, "NM2_RUNNER_SHA": local.CLAIM_REPLY_LOSS_SOURCES["runner"]})
             with patch.object(local, "LaunchFixture") as fixture:
                 self.assertEqual(local.main(["--cohort", "unused", "--compose-executable", "unused",
                                              "--compose-sha256", "0" * 64, "--docker-config", "unused",

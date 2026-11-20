@@ -5,6 +5,9 @@ on:
       - '.github/workflows/kerberos-vm.yml'
       - 'qualification/kerberos-vm/**'
       - 'db/build-krb5.sh'
+      - 'db/kerberos-vm/run.py'
+      - 'db/kerberos-vm/guest.sh'
+      - 'db/kerberos-vm/inputs.json'
       - 'db/krb5-*'
 permissions:
   contents: read
@@ -22,7 +25,7 @@ jobs:
       - name: Validate qualification harness
         run: |
           python -m unittest discover -s qualification/kerberos-vm -p 'test_*.py' -v
-          bash -n qualification/kerberos-vm/guest.sh
+          bash -n db/kerberos-vm/guest.sh
       - name: Build isolated official Debian VM tooling
         shell: bash
         run: |
@@ -30,7 +33,7 @@ jobs:
           mkdir -p artifacts/kerberos-vm-host "$RUNNER_TEMP/kerberos-vm"
           exec > >(tee -a artifacts/kerberos-vm-host/tool-install.log) 2>&1
           uname -a > artifacts/kerberos-vm-host/kernel.txt
-          sha256sum qualification/kerberos-vm/{run.py,guest.sh,inputs.json} > artifacts/kerberos-vm-host/harness-SHA256SUMS
+          sha256sum db/kerberos-vm/{run.py,guest.sh,inputs.json} > artifacts/kerberos-vm-host/harness-SHA256SUMS
           # Ubuntu mirrors are unavailable on the runner. Install tools only in
           # this disposable Debian image, not on the host. Official signed apt
           # repositories and Docker's default seccomp policy remain unchanged.
@@ -51,7 +54,7 @@ jobs:
           docker run --rm --cap-drop ALL --security-opt no-new-privileges \
             --cpus 2 --memory 6g --pids-limit 512 --user "$(id -u):$(id -g)" \
             -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/kerberos-vm:/work" \
-            vardr-kerberos-vm-tools python3 qualification/kerberos-vm/run.py --work /work/qualification
+            vardr-kerberos-vm-tools python3 db/kerberos-vm/run.py --work /work/qualification
       - name: Preserve VM qualification evidence including failures
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

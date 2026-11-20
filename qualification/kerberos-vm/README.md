@@ -1,8 +1,9 @@
 # Isolated Debian Kerberos package qualification
 
-This is a separate evidence workflow, not a release. The normal database
-Dockerfile also uses the same harness from its Docker context; tests keep the
-three shared harness files byte-identical. Docker's default seccomp policy blocks kernel keyrings. The reviewed
+The standalone workflow runs the VM scripts in `db/kerberos-vm/` and records the
+checked-out distribution commit. The database Dockerfile runs the same scripts
+in source-only mode and records the input hash. Docker's default seccomp policy
+blocks kernel keyrings. The reviewed
 Debian test suite deliberately rejects the resulting EPERM. This workflow does
 not relax that policy or change the test to pass.
 
@@ -27,7 +28,8 @@ Debian tool image digest, installed package versions and preparation logs are
 retained. Guest test requirements and the second boot's no-NIC check remain
 unchanged.
 
-The image is pinned to the official 20261103-2651 QCOW2 SHA512 in `inputs.json`.
+The image is pinned to the official 20261103-2651 QCOW2 SHA512 in
+`db/kerberos-vm/inputs.json`.
 The official HTTPS checksum manifest is preserved and checked against that
 reviewed pin. A detached signature was not available at the reviewed image
 location; do not describe this as GPG-authenticated image verification.
@@ -49,5 +51,5 @@ Local harness checks do not boot a VM:
 
 ```sh
 python -m unittest discover -s qualification/kerberos-vm -p 'test_*.py' -v
-bash -n qualification/kerberos-vm/guest.sh
+bash -n db/kerberos-vm/guest.sh
 ```

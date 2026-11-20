@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/workflows/kerberos-image.yml'
       - 'qualification/kerberos-image/**'
+      - 'qualification/kerberos-vm/test_*.py'
       - 'db/**'
 permissions:
   contents: read

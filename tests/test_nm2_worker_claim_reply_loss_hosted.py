@@ -415,37 +415,9 @@ def evidence(*, desktop=False, operation="claim"):
 
 
 class ClaimReplyLossHostedTests(unittest.TestCase):
-    def test_explicit_route_requires_all_new_sources(self):
+    def test_reply_loss_requires_execute_and_uses_claim_capacity_inventory(self):
         for operation in OPERATIONS:
-            env = {
-                "NM2_SCENARIO": next(
-                    name
-                    for name, value in hosted.REPLY_LOSS_OPERATIONS.items()
-                    if value == operation
-                ),
-                "NM2_DATABASE_REVISION": "0041persistentruntime",
-                **{
-                    "NM2_" + name.upper() + "_SHA": sha
-                    for name, sha in (
-                        local.CLAIM_REPLY_LOSS_SOURCES
-                        if operation == "claim"
-                        else local.POST_CLAIM_REPLY_LOSS_SOURCES
-                    ).items()
-                },
-            }
-            self.assertEqual(
-                hosted.execution_options(env),
-                (env["NM2_SCENARIO"], "0041persistentruntime"),
-            )
             self.assertEqual(hosted.CLAIM_REPLY_LOSS_HOSTED, "vardr.nm2-hosted/18")
-            for key in (
-                "NM2_MAP_SHA",
-                "NM2_RUNNER_SHA",
-                "NM2_GATE_SHA",
-                "NM2_DATABASE_REVISION",
-            ):
-                with self.subTest(key=key), self.assertRaises(hosted.HostedRefused):
-                    hosted.execution_options({**env, key: "0" * 40})
             with patch.object(local, "LaunchFixture") as fixture:
                 self.assertEqual(
                     local.main(

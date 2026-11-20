@@ -288,15 +288,6 @@ class DesktopStoppedPredecessorTests(unittest.TestCase):
 
 
 class HostedStoppedPredecessorTests(unittest.TestCase):
-    def test_explicit_route_uses_existing_pinned_harness_and_revision(self):
-        env = {"NM2_SCENARIO": SCENARIO}
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options(env)
-        env["NM2_DATABASE_REVISION"] = "0041persistentruntime"
-        self.assertEqual(
-            hosted.execution_options(env), (SCENARIO, "0041persistentruntime")
-        )
-
     def test_joins_exact_refused_successor_and_projects_no_private_identifiers(self):
         raw, selection, inventories = evidence()
         result = hosted.public_projection(raw, selection, inventories=inventories)

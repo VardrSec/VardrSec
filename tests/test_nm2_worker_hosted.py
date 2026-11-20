@@ -324,31 +324,6 @@ class HostedGuards(unittest.TestCase):
         self.assertNotIn("private", json.dumps(result))
         return result
 
-    def test_scenario_selection_validates_mode_and_schema(self):
-        self.assertEqual(
-            hosted.execution_options({}), ("healthy", "0040runtimesequence")
-        )
-        self.assertEqual(
-            hosted.execution_options(
-                {
-                    "NM2_SCENARIO": "persistent-availability",
-                    "NM2_DATABASE_REVISION": "0041persistentruntime",
-                }
-            ),
-            ("persistent-availability", "0041persistentruntime"),
-        )
-        bad = (
-            {"NM2_SCENARIO": "persistent-availability"},
-            {"NM2_SCENARIO": "private-scenario-canary"},
-            {"NM2_SCENARIO": True},
-            {"NM2_SCENARIO": []},
-            {"NM2_DATABASE_REVISION": "unexpected-head"},
-            {"NM2_DATABASE_REVISION": None},
-        )
-        for options in bad:
-            with self.subTest(options=options), self.assertRaises(hosted.HostedRefused):
-                hosted.execution_options(options)
-
     def test_receipt_decoder_rejects_duplicate_keys_nonfinite_and_unbounded_input(self):
         self.assertEqual(
             hosted.decode_receipt(b'{"value":{"count":35}}'), {"value": {"count": 35}}

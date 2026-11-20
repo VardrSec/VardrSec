@@ -7,8 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class KerberosBackportRecipeTests(unittest.TestCase):
     def test_guest_and_build_scripts_keep_posix_line_endings(self):
-        for name in ('db/kerberos-vm/guest.sh', 'db/build-krb5.sh',
-                     'qualification/kerberos-vm/guest.sh'):
+        for name in ('db/kerberos-vm/guest.sh', 'db/build-krb5.sh'):
             with self.subTest(script=name):
                 self.assertNotIn(b'\r', (ROOT / name).read_bytes())
 

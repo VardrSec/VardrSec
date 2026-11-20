@@ -26,15 +26,7 @@ def retained_inventory():
 
 
 class ConcurrencyWitnessTests(unittest.TestCase):
-    def test_source_and_fixed_marker_are_distinct(self):
-        scenario = hosted.LAUNCH_CONCURRENCY_SCENARIO
-        env = {"NM2_SCENARIO": scenario, "NM2_DATABASE_REVISION": "0041persistentruntime",
-               "NM2_MAP_SHA": hosted.CONCURRENCY_MAP_COMMIT}
-        self.assertEqual(hosted.execution_options(env), (scenario, "0041persistentruntime"))
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options({**env, "NM2_MAP_SHA": hosted.TARGET_MAP_COMMIT})
-        with self.assertRaises(hosted.HostedRefused):
-            hosted.execution_options({**env, "NM2_DATABASE_REVISION": "0040runtimesequence"})
+    def test_only_exact_concurrency_markers_count(self):
         prefix = b"2026-11-07 11:27:07,387 WARNING managed_http managed_claim_"
         marker = prefix + b"concurrency_exhausted"
         self.assertEqual(budget_witness_count(b"\r\n".join([

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2] / 'db/kerberos-vm'
 spec = importlib.util.spec_from_file_location('krb_vm', ROOT / 'run.py')
 vm = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vm)
@@ -68,12 +68,8 @@ class HarnessTests(unittest.TestCase):
 
 
 class BuildContextTests(unittest.TestCase):
-    def test_docker_context_harness_is_exact_copy(self):
-        for name in ('run.py', 'guest.sh', 'inputs.json'):
-            self.assertEqual((ROOT/name).read_bytes(), (ROOT.parents[1]/'db/kerberos-vm'/name).read_bytes())
-
     def test_source_build_uses_guest_without_security_bypass(self):
-        dockerfile=(ROOT.parents[1]/'db/Dockerfile').read_text()
+        dockerfile = (ROOT.parent / 'Dockerfile').read_text()
         self.assertIn('USER 65534:65534',dockerfile)
         self.assertIn('--source-only --work /work/qualification',dockerfile)
         self.assertIn('kerberos-vm/finalize.py',dockerfile)

@@ -1,4 +1,4 @@
-"""Reviewed bootstrap source selection and isolated image inventory checks."""
+"""Isolated image inventory checks for the bootstrap fixture."""
 
 import json
 from pathlib import Path
@@ -8,24 +8,12 @@ from unittest.mock import Mock, patch
 
 import nm2_worker_acceptance as shared
 import nm2_worker_bootstrap as bootstrap
-import nm2_worker_hosted as hosted
 
 IMAGE = "sha256:" + "a" * 64
 OWNER = "b" * 64
 
 
 class BootstrapHostedTests(unittest.TestCase):
-    def test_new_scenario_requires_exact_runner_and_gate(self):
-        env = {
-            "NM2_SCENARIO": hosted.BOOTSTRAP_SCENARIO,
-            "NM2_RUNNER_SHA": hosted.BOOTSTRAP_RUNNER,
-            "NM2_GATE_SHA": hosted.BOOTSTRAP_GATE,
-        }
-        self.assertEqual(hosted.execution_options(env)[0], hosted.BOOTSTRAP_SCENARIO)
-        for name in ("NM2_RUNNER_SHA", "NM2_GATE_SHA"):
-            with self.subTest(name=name), self.assertRaises(hosted.HostedRefused):
-                hosted.execution_options({**env, name: "0" * 40})
-
     def test_real_measurement_matches_source_and_reuses_restricted_helper(self):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary)

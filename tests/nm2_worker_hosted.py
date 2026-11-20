@@ -13,9 +13,6 @@ import uuid
 SOURCE = Path(__file__).resolve().parents[1]
 # Isolated receipt readers also import helpers from the distribution root.
 sys.path.insert(0, str(SOURCE))
-BOOTSTRAP_SCENARIO = "bootstrap-configurations"
-BOOTSTRAP_RUNNER = "5ecc869d80f53ae7fdbca25b971838976a6c41e9"
-BOOTSTRAP_GATE = "d80d4730b8486b75be72431b5af88e0ddb45020b"
 LAUNCH_SCENARIO = "persistent-launch-empty"
 LAUNCH_PRECLAIM_SCENARIO = "persistent-launch-preclaim-recovery"
 LAUNCH_REPEAT_SCENARIO = "persistent-launch-repeat-managed-claim"
@@ -93,15 +90,8 @@ STRICT_DRIFT_SCENARIO = "strict-authority-drift"
 STRICT_DRIFT_SCHEMA = "vardr.nm2-worker-strict-drift-acceptance/1"
 STRICT_REVIEW_SCENARIO = "strict-review-authority"
 STRICT_REVIEW_SCHEMA = "vardr.nm2-worker-strict-review-acceptance/1"
-STRICT_REVIEW_MAP = "05dc78cf9a385255de459c8a5b833842d6528a63"
 STALE_CLAIM_SCENARIO = "strict-stale-registered-claim"
 STALE_CLAIM_SCHEMA = "vardr.nm2-worker-strict-stale-claim-acceptance/1"
-STALE_CLAIM_MAP = "ebb1bc8dd6cc0c3215ad468a2dd1c848d812842a"
-PERSISTENT_SCENARIOS = {
-    "persistent-availability", "persistent-count-limit", "persistent-idle-limit",
-    "persistent-empty-stop", STRICT_DRIFT_SCENARIO, STRICT_REVIEW_SCENARIO,
-    STALE_CLAIM_SCENARIO, *LAUNCH_SCENARIOS,
-}
 CASES = {
     "default_disabled",
     "strict_out_of_scope",
@@ -605,47 +595,6 @@ def _require_budget_source(budget, commit):
         "concurrency": CONCURRENCY_MAP_COMMIT,
     }[budget]
     require(expected is not None and commit == expected)
-
-
-def execution_options(env):
-    scenario = env.get("NM2_SCENARIO", "healthy")
-    revision = env.get("NM2_DATABASE_REVISION", "0040runtimesequence")
-    require(type(scenario) is str and scenario in {"healthy", BOOTSTRAP_SCENARIO, *PERSISTENT_SCENARIOS})
-    require(
-        type(revision) is str
-        and revision in {"0040runtimesequence", "0041persistentruntime"}
-    )
-    require(scenario not in PERSISTENT_SCENARIOS or revision == "0041persistentruntime")
-    if scenario in LAUNCH_BUDGETS:
-        _require_budget_source(LAUNCH_BUDGETS[scenario], env.get("NM2_MAP_SHA"))
-    if scenario in {LAUNCH_PRECLAIM_SCENARIO, LAUNCH_REPEAT_SCENARIO}:
-        require(env.get("NM2_RUNNER_SHA") == "5ecc869d80f53ae7fdbca25b971838976a6c41e9"
-                and env.get("NM2_MAP_SHA") == "05dc78cf9a385255de459c8a5b833842d6528a63"
-                and env.get("NM2_GATE_SHA") == "d80d4730b8486b75be72431b5af88e0ddb45020b")
-    if scenario == STRICT_REVIEW_SCENARIO:
-        require(env.get("NM2_MAP_SHA") == STRICT_REVIEW_MAP)
-    if scenario == STALE_CLAIM_SCENARIO:
-        require(STALE_CLAIM_MAP is not None and env.get("NM2_MAP_SHA") == STALE_CLAIM_MAP)
-    if scenario == LAUNCH_MAP_DISCONNECT_SCENARIO:
-        from nm2_worker_launch_acceptance import MAP_DISCONNECT_SOURCES
-
-        require(all(env.get("NM2_" + name.upper() + "_SHA") == commit
-                    for name, commit in MAP_DISCONNECT_SOURCES.items()))
-    if scenario in {BOUNDARY_SCENARIO,RUNNER_LOSS_SCENARIO,CLOCK_SUSPEND_SCENARIO}:
-        from nm2_worker_boundary_pair import BOUNDARY_SOURCES
-        require(all(env.get("NM2_"+n.upper()+"_SHA") == v for n,v in BOUNDARY_SOURCES.items()))
-    if scenario == BOOTSTRAP_SCENARIO:
-        require(env.get("NM2_RUNNER_SHA") == BOOTSTRAP_RUNNER
-                and env.get("NM2_GATE_SHA") == BOOTSTRAP_GATE)
-    if scenario in REPLY_LOSS_OPERATIONS:
-        from nm2_worker_launch_acceptance import CLAIM_REPLY_LOSS_SOURCES, POST_CLAIM_REPLY_LOSS_SOURCES
-        sources = CLAIM_REPLY_LOSS_SOURCES if REPLY_LOSS_OPERATIONS[scenario] == "claim" else POST_CLAIM_REPLY_LOSS_SOURCES
-        require(all(env.get("NM2_" + n.upper() + "_SHA") == v for n, v in sources.items()))
-    if scenario == LAUNCH_PID1_LOSS_SCENARIO:
-        from nm2_worker_launch_acceptance import PID1_LOSS_SOURCES
-        require(all(env.get("NM2_" + name.upper() + "_SHA") == commit
-                    for name, commit in PID1_LOSS_SOURCES.items()))
-    return scenario, revision
 
 
 def decode_receipt(data):
