@@ -380,6 +380,8 @@ def main():
         parser.error("unrecognized arguments: " + " ".join(extra))
     if args.generate_password and args.action != "bootstrap":
         parser.error("--generate-password is only valid with bootstrap")
+    if args.recipient is not None and args.action not in ("backup", "seal-backup"):
+        parser.error("--recipient is only valid with backup or seal-backup")
     if args.action != "runner" and (args.input_directory or args.output_directory or args.controlled or args.authority_volume):
         parser.error("Input, output, authority-volume and controlled options require runner")
     selected = read_mode(ROOT)
@@ -936,7 +938,7 @@ def dispatch(args, parser):
         if args.destination is None:
             parser.error("--destination is required")
         if args.action == "backup":
-            if args.recipient:
+            if args.recipient is not None:
                 import backup_crypto
 
                 backup_crypto.encrypted_backup(ROOT, args.destination, args.recipient)
