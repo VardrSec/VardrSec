@@ -142,16 +142,3 @@ file digests are verified. The new reader still accepts versions 1–4; it does 
 rewrite older bundles or supply files
 missing from them. Use the matching supported recovery checkout for old bundles.
 Older readers reject versions 5/6 rather than silently ignoring the mode helper.
-
-An isolated-interpreter unit test generates a bundle through `backup`, imports only
-its bundled application modules, and exercises `restore` through the existing
-role-helper call with Docker boundaries mocked. This is dependency/packaging evidence,
-not installed database-role, upgrade, or no-loss acceptance.
-
-The next hosted check should repeat the reviewed synthetic backup/restore journey
-on a fresh GitHub-hosted VM, but launch restoration from the generated bundle in
-an isolated Python process instead of importing the original checkout. Retain all
-synthetic volumes, backups and CA material, publish only fixed boolean receipts,
-and keep the existing source/daemon isolation guards. It requires a newly reviewed
-workflow bound to this corrected installer source; the earlier `8fcc4aa` source
-guard must not be bypassed. No hosted run is prepared or triggered by this change.
