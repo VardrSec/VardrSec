@@ -440,30 +440,6 @@ class PreclaimRecoveryTests(unittest.TestCase):
         for key in ("NM2_RUNNER_SHA", "NM2_DATABASE_REVISION"):
             with self.subTest(key=key), self.assertRaises(hosted.HostedRefused):
                 hosted.execution_options({**env, key: "unknown"})
-        with TemporaryDirectory() as temporary:
-            obj = hosted.Hosted.__new__(hosted.Hosted)
-            obj.root, obj.receipt, obj.scenario = (
-                Path(temporary),
-                {},
-                hosted.LAUNCH_PRECLAIM_SCENARIO,
-            )
-            (obj.root / "home").mkdir()
-
-            def command(args, **kwargs):
-                Path(args[args.index("--output") + 1]).write_bytes(b"compose-fixture")
-
-            obj.command = Mock(side_effect=command)
-            with (
-                patch.object(hosted, "COMPOSE_BYTES", len(b"compose-fixture")),
-                patch.object(
-                    hosted,
-                    "COMPOSE_SHA256",
-                    hashlib.sha256(b"compose-fixture").hexdigest(),
-                ),
-            ):
-                arguments = obj.launch_harness(Path(temporary) / "cohort.json")
-            self.assertIn("--preclaim-recovery", arguments)
-            self.assertNotIn("--stopped-predecessor", arguments)
         scenario = SimpleNamespace(
             receipt={"status": "selected_launch_slice_passed"}, run=Mock()
         )

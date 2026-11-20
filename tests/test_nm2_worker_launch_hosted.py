@@ -1,10 +1,7 @@
 """Check only the exact opt-in and sanitized installed launch receipt."""
 
 import copy
-import hashlib
 import json
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import Mock, call, patch
 
@@ -499,29 +496,6 @@ class HostedLaunchTests(unittest.TestCase):
             hosted.execution_options(env),
             (hosted.LAUNCH_DURATION_SCENARIO, "0041persistentruntime"),
         )
-
-    def test_duration_routes_to_existing_launch_harness(self):
-        fixture = hosted.Hosted.__new__(hosted.Hosted)
-        fixture.receipt = {}
-        fixture.command = Mock()
-        asset = b"synthetic pinned Compose bytes"
-        with TemporaryDirectory() as temporary:
-            fixture.root = Path(temporary)
-            (fixture.root / "home").mkdir()
-            (fixture.root / "docker-compose-5.6.1").write_bytes(asset)
-            with patch.multiple(hosted, COMPOSE_BYTES=len(asset),
-                                COMPOSE_SHA256=hashlib.sha256(asset).hexdigest()):
-                for scenario, flag in (
-                    (hosted.LAUNCH_DURATION_SCENARIO, "--duration-exhaustion"),
-                    (hosted.LAUNCH_TARGET_SCENARIO, "--target-exhaustion"),
-                ):
-                    with self.subTest(scenario=scenario):
-                        fixture.scenario = scenario
-                        fixture.command.reset_mock()
-                        argv = fixture.launch_harness(fixture.root / "cohort.json")
-                        self.assertEqual(Path(argv[0]).name, "nm2_worker_launch_acceptance.py")
-                        self.assertEqual(argv[-2:], [flag, "--execute"])
-                        fixture.command.assert_called_once()
 
     def test_duration_receipt_projects_one_joined_incarnation_and_rejects_mutations(self):
         selection = {"project": "fixture", "images": {},

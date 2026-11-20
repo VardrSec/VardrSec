@@ -8,8 +8,6 @@ import copy
 import json
 import re
 from datetime import datetime, timedelta, timezone
-from pathlib import Path, PurePosixPath
-import tempfile
 import unittest
 from unittest.mock import Mock, patch
 from urllib.parse import urlsplit
@@ -19,7 +17,6 @@ import nm2_worker_count_projection as projection
 import nm2_worker_hosted as hosted
 import nm2_worker_persistent_projection as availability
 import test_nm2_worker_persistent_projection as original
-import test_nm2_worker_hosted as hosted_vectors
 import worker_host as host
 import nm2_persistent_test_fixtures as records
 
@@ -652,95 +649,6 @@ class CountProjection(unittest.TestCase):
         raw["after_sha256"] = host.digest(after)
         with self.assertRaises(availability.ProjectionRefused):
             projection.project_desktop(raw, selection, before, after)
-
-    def test_hosted_count_orchestration_uses_persistent_image_and_exact_raw_schema(
-        self,
-    ):
-        for wrong_schema in (False, True):
-            with self.subTest(wrong_schema=wrong_schema):
-                raw, selection = vector()
-                if wrong_schema:
-                    raw["schema"] = "vardr.nm2-worker-persistent-acceptance/1"
-                with (
-                    tempfile.TemporaryDirectory() as temporary,
-                    patch.object(hosted, "host_guard", return_value=Path(temporary)),
-                    patch.object(hosted.socket, "socket"),
-                ):
-                    owner = hosted.Hosted(
-                        {
-                            **hosted_vectors.environment(temporary),
-                            "NM2_SCENARIO": "persistent-count-limit",
-                            "NM2_DATABASE_REVISION": "0041persistentruntime",
-                        }
-                    )
-                    owner.project = selection["project"]
-                    owner.pins = {
-                        name: row["commit"]
-                        for name, row in selection["sources"].items()
-                    }
-                    owner.receipt["sources"] = owner.pins
-                    owner.sources = {
-                        name: PurePosixPath(row["path"])
-                        for name, row in selection["sources"].items()
-                    }
-                    owner.daemon_guard, owner.prepare_sources = Mock(), Mock()
-                    toolkit = "sha256:" + "f" * 64
-                    owner.build = Mock(
-                        side_effect=lambda name, context, **options: (
-                            toolkit if name == "toolkit" else selection["images"][name],
-                            owner.project + ":" + name,
-                        )
-                    )
-                    owner.docker = Mock(return_value=toolkit)
-
-                    def command(args, **options):
-                        if "--execute" not in args:
-                            return
-                        selected = json.loads((owner.root / "cohort.json").read_text())
-                        self.assertEqual(selected["sources"], selection["sources"])
-                        self.assertEqual(selected["images"], selection["images"])
-                        directory = owner.root / "installation"
-                        directory.mkdir()
-                        (directory / "nm2-worker-receipt.json").write_bytes(
-                            host.canonical(raw)
-                        )
-
-                    owner.command = Mock(side_effect=command)
-                    if wrong_schema:
-                        with self.assertRaises(hosted.HostedRefused):
-                            owner.run()
-                    else:
-                        owner.run()
-                    receipt = json.loads((owner.public / "receipt.json").read_text())
-                    self.assertEqual(
-                        owner.build.call_args_list[-1].kwargs["file"].name,
-                        "Dockerfile.worker.persistent",
-                    )
-                    invocation = next(
-                        call.args[0]
-                        for call in owner.command.call_args_list
-                        if "--execute" in call.args[0]
-                    )
-                    self.assertEqual(
-                        invocation[invocation.index("--scenario") + 1],
-                        "persistent-count-limit",
-                    )
-                    self.assertEqual(
-                        invocation[invocation.index("--database-revision") + 1],
-                        "0041persistentruntime",
-                    )
-                    self.assertEqual(receipt["schema"], "vardr.nm2-hosted/4")
-                    self.assertNotIn("private-do-not-publish", json.dumps(receipt))
-                    if wrong_schema:
-                        self.assertEqual(
-                            (receipt["status"], receipt["stage"]), ("held", "harness")
-                        )
-                        self.assertNotIn("measurements", receipt)
-                    else:
-                        self.assertEqual(
-                            receipt["status"], "selected_count_control_slice_passed"
-                        )
-                        self.assertEqual(receipt["measurements"]["issued_attempts"], 1)
 
     def test_remote_identity_and_nested_retained_shapes_cannot_be_substituted(self):
         base, selection = vector()

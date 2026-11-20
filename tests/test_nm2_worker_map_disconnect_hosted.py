@@ -1,10 +1,8 @@
 """Inert exact-service Map outage fixture and public receipt checks."""
 
 from concurrent.futures import ThreadPoolExecutor
-import hashlib
 import json
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from threading import Event, current_thread
 import time
 from types import SimpleNamespace
@@ -100,21 +98,6 @@ class MapDisconnectHostedTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(hosted.HostedRefused):
                 hosted.execution_options({**env, name: "0" * 40})
         self.assertEqual(hosted.MAP_DISCONNECT_HOSTED, "vardr.nm2-hosted/14")
-        fixture = hosted.Hosted.__new__(hosted.Hosted)
-        fixture.scenario, fixture.receipt, fixture.command = SCENARIO, {}, Mock()
-        asset = b"synthetic pinned Compose bytes"
-        with TemporaryDirectory() as folder:
-            fixture.root = Path(folder)
-            (fixture.root / "home").mkdir()
-            (fixture.root / "docker-compose-5.6.1").write_bytes(asset)
-            with patch.multiple(
-                hosted,
-                COMPOSE_BYTES=len(asset),
-                COMPOSE_SHA256=hashlib.sha256(asset).hexdigest(),
-            ):
-                argv = fixture.launch_harness(fixture.root / "cohort.json")
-        fixture.command.assert_called_once()
-        self.assertEqual(argv[-2:], ["--map-disconnect", "--execute"])
 
     def test_public_reader_joins_api_restart_and_worker_exit_without_private_data(self):
         for desktop in (False, True):

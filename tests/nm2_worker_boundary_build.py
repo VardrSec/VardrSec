@@ -85,7 +85,7 @@ def _platform(h, image):
     return value
 
 def qualify_boundary_image(h, *, operand='boundary'):
-    """Existing Hosted.build owns effects; qualification starts no product/native code."""
+    """Build the boundary fixture using the caller's image builder."""
     _, template_sha = operand_template(operand)
     require(sys.platform == 'linux' and all(h.pins[k] == v for k,v in SOURCES.items()))
     base, base_tag = h.receipt['images']['worker'], h.project+':worker'

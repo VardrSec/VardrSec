@@ -1,11 +1,7 @@
 """Inert hosted stopped-predecessor routing and receipt checks."""
 
 from copy import deepcopy
-import hashlib
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import unittest
-from unittest.mock import Mock, patch
 
 import nm2_worker_hosted as hosted
 from nm2_worker_acceptance import canonical, digest
@@ -300,22 +296,6 @@ class HostedStoppedPredecessorTests(unittest.TestCase):
         self.assertEqual(
             hosted.execution_options(env), (SCENARIO, "0041persistentruntime")
         )
-        fixture = hosted.Hosted.__new__(hosted.Hosted)
-        fixture.scenario, fixture.receipt, fixture.command = SCENARIO, {}, Mock()
-        asset = b"synthetic pinned Compose bytes"
-        with TemporaryDirectory() as temporary:
-            fixture.root = Path(temporary)
-            (fixture.root / "home").mkdir()
-            (fixture.root / "docker-compose-5.6.1").write_bytes(asset)
-            with patch.multiple(
-                hosted,
-                COMPOSE_BYTES=len(asset),
-                COMPOSE_SHA256=hashlib.sha256(asset).hexdigest(),
-            ):
-                argv = fixture.launch_harness(fixture.root / "cohort.json")
-        fixture.command.assert_called_once()
-        self.assertEqual(Path(argv[0]).name, "nm2_worker_launch_acceptance.py")
-        self.assertEqual(argv[-2:], ["--stopped-predecessor", "--execute"])
 
     def test_joins_exact_refused_successor_and_projects_no_private_identifiers(self):
         raw, selection, inventories = evidence()

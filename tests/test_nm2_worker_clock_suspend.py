@@ -88,9 +88,9 @@ class ClockSuspendTests(unittest.TestCase):
             self.assertEqual(result["guest_sample_widths_ns"],[1000,1000])
             self.assertEqual((result["host_sleep_ns"],result["guest_s_state"]),(20*clock.NS,"unattributed"))
 
-    def test_clock_types_bridges_cap_crossing_exit_and_unknown_guest_sleep_refuse(self):
+    def test_clock_types_bridges_exit_and_unknown_guest_sleep_refuse(self):
         for windows in (False,True):
-            for change in ("bool","bridge_before","bridge_after","boot","guest_sleep","stagnant_boot","bad_uncertainty","utc_boot","host_sleep","late_exit","early_exit","ceiling","traffic","before_cap","after_cap","anchor_after_begin","extra"):
+            for change in ("bool","bridge_before","bridge_after","boot","guest_sleep","stagnant_boot","bad_uncertainty","utc_boot","host_sleep","late_exit","early_exit","ceiling","traffic","anchor_after_begin","extra"):
                 raw,_,_,_,_=vector();s=raw["clock_suspend"];c=windows_clocks(s) if windows else deepcopy(s["clocks"])
                 if change=="bool":c["guest_before"]["sample"]["boottime_ns"]=True
                 elif change=="bridge_before":c["guest_before"]["operator_before_ns"]=c["guest_before"]["sample"]["utc_before_ns"]+1
@@ -109,12 +109,24 @@ class ClockSuspendTests(unittest.TestCase):
                 elif change=="early_exit":s["physical"]["finished_at"]="2026-01-01T00:00:19Z"
                 elif change=="ceiling":s["original"]["records"][0]["utc_ns"]-=20*clock.NS
                 elif change=="traffic":s["traffic"][-1]["received_utc_ns"]+=30*clock.NS
-                elif change in {"before_cap","after_cap"}:
-                    s["original"]["claim"]["utc_anchor"]="2025-12-31T23:59:40Z" if change=="before_cap" else "2026-01-01T00:01:00Z"
                 elif change=="anchor_after_begin":s["original"]["claim"]["utc_anchor"]="2026-01-01T00:00:02Z"
                 else:c["private-canary"]="private-canary"
                 with self.subTest(windows=windows,change=change),self.assertRaises((AcceptanceRefused,ValueError)):
                     clock.clock_joins(c,s["original"],s["review"],s["physical"],s["traffic"],desktop=windows)
+
+    def test_authorization_deadline_must_fall_strictly_inside_host_sleep(self):
+        for windows in (False, True):
+            state = vector()[0]["clock_suspend"]
+            clocks = windows_clocks(state) if windows else state["clocks"]
+            # Let the authorization deadline determine the cap at either host sample.
+            state["review"]["input"]["plan"]["execution"]["timeout_seconds"] = 30
+            for deadline in ("2026-01-01T00:00:05.000001Z", "2026-01-01T00:00:25Z"):
+                state["review"]["context"]["testing_end"] = deadline
+                with self.subTest(windows=windows, deadline=deadline), self.assertRaisesRegex(
+                    AcceptanceRefused, "^clock_suspend_order_or_exit_refused$"
+                ):
+                    clock.clock_joins(clocks, state["original"], state["review"], state["physical"],
+                                      state["traffic"], desktop=windows)
 
     def test_accounting_retention_done_and_untrusted_qualification_refuse(self):
         for change in ("charge","slot","done","release","promote","records","qualification","unknown_qualification"):

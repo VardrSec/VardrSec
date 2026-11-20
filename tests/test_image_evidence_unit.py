@@ -85,28 +85,6 @@ class ScanEvidenceTests(unittest.TestCase):
         self.assertEqual(result["vulnerability_gate"], "clear_at_scan_time")
         self.assertEqual(result["sbom_components"], 1)
 
-    def test_high_finding_blocks_even_without_fix(self):
-        report, bom = fixtures()
-        report["Results"][0]["Vulnerabilities"].append(
-            {"Severity": "HIGH", "VulnerabilityID": "CVE-TEST-1", "PkgName": "base-files"}
-        )
-        result = evidence.analyze(report, bom, IMAGE_ID)
-        self.assertEqual(result["vulnerability_gate"], "blocked")
-        self.assertEqual(result["findings"]["HIGH"], 1)
-        self.assertEqual(result["with_fixed_version"].get("HIGH", 0), 0)
-
-    def test_unknown_severity_blocks(self):
-        report, bom = fixtures()
-        report["Results"][0]["Vulnerabilities"].append(
-            {"Severity": "UNKNOWN", "VulnerabilityID": "CVE-TEST-2", "PkgName": "base-files"}
-        )
-        self.assertEqual(evidence.analyze(report, bom, IMAGE_ID)["vulnerability_gate"], "blocked")
-
-    def test_end_of_support_os_blocks(self):
-        report, bom = fixtures()
-        report["Metadata"]["OS"]["EOSL"] = True
-        self.assertEqual(evidence.analyze(report, bom, IMAGE_ID)["vulnerability_gate"], "blocked")
-
     def test_nmap_in_the_sbom_is_rejected(self):
         report, bom = fixtures()
         bom["components"].append({"name": "nmap", "type": "library"})

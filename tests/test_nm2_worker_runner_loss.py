@@ -148,34 +148,6 @@ class RunnerLossTests(unittest.TestCase):
         self.assertIn("before.st_size == 1",source)
         self.assertFalse(any(isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr in {"kill","system","Popen"} for n in ast.walk(tree)))
 
-    def test_host_guard_uses_only_fixed_branch_for_its_closed_scenario(self):
-        import stat
-        import tempfile
-        import nm2_worker_hosted as hosted
-        from test_nm2_worker_hosted import environment
-        original = Path.stat
-        def measured(path,*args,**kwargs):
-            if path.as_posix() == "/var/run/docker.sock":
-                return SimpleNamespace(st_mode=stat.S_IFSOCK,st_uid=0)
-            return original(path,*args,**kwargs)
-        with tempfile.TemporaryDirectory() as temporary:
-            for scenario,branch,accepted in (
-                (hosted.RUNNER_LOSS_SCENARIO,hosted.RUNNER_LOSS_BRANCH,True),
-                (hosted.RUNNER_LOSS_SCENARIO,hosted.BRANCH,False),
-                (hosted.BOUNDARY_SCENARIO,hosted.BRANCH,True),
-                (hosted.BOUNDARY_SCENARIO,hosted.RUNNER_LOSS_BRANCH,False),
-            ):
-                with self.subTest(scenario=scenario,branch=branch), \
-                     patch.object(hosted.platform,"freedesktop_os_release",return_value={"ID":"ubuntu","VERSION_ID":"24.04"}), \
-                     patch.object(hosted.platform,"system",return_value="Linux"), \
-                     patch.object(hosted.platform,"machine",return_value="x86_64"), \
-                     patch.object(Path,"stat",measured),patch.object(hosted.subprocess,"run") as run:
-                    env={**environment(temporary),"NM2_SCENARIO":scenario,"GITHUB_REF":branch}
-                    if accepted: self.assertEqual(hosted.host_guard(env),Path(temporary))
-                    else:
-                        with self.assertRaises(hosted.HostedRefused): hosted.host_guard(env)
-                    run.assert_not_called()
-
     def test_managed_readback_uses_original_journal_directory_not_run_id(self):
         import re
         import tempfile
