@@ -3,11 +3,11 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from nm1_source_receipt import verify_distribution_manifest, REVIEWED_DISTRIBUTION_MANIFEST_SHA256
+from reviewed_manifest import verify_distribution_manifest, REVIEWED_DISTRIBUTION_MANIFEST_SHA256
 
 ROOT = Path(__file__).resolve().parents[1]
 
-class SourceReceiptTests(unittest.TestCase):
+class ReviewedManifestTests(unittest.TestCase):
     def test_current_reviewed_manifest(self):
         self.assertEqual(verify_distribution_manifest(ROOT), REVIEWED_DISTRIBUTION_MANIFEST_SHA256)
 

@@ -1,4 +1,4 @@
-"""Inert Hosted-shaped mocks; no engine, SDK, fixture or operand invocation."""
+"""Exercise boundary image qualification with a mock builder."""
 from copy import deepcopy
 import json
 from pathlib import Path

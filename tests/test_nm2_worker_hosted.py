@@ -1,47 +1,13 @@
-"""Hosted authorization/refusal and sanitized-receipt checks; no Docker/network."""
+"""NM-2 worker receipt validation, privacy and retired launcher checks."""
 
-from contextlib import redirect_stdout
 import copy
 import hashlib
-import io
 import json
-from pathlib import Path
-import stat
 import subprocess
-import tempfile
-from types import SimpleNamespace
+import sys
 import unittest
-from unittest.mock import Mock, patch
 
 import nm2_worker_hosted as hosted
-
-
-def environment(temporary):
-    return {
-        "GITHUB_ACTIONS": "true",
-        "RUNNER_ENVIRONMENT": "github-hosted",
-        "GITHUB_REPOSITORY": "VardrSec/VardrSec",
-        "GITHUB_REF": hosted.BRANCH,
-        "GITHUB_EVENT_NAME": "workflow_dispatch",
-        "NM2_COUPLED": "true",
-        "GITHUB_WORKSPACE": str(hosted.SOURCE),
-        "RUNNER_TEMP": str(temporary),
-        "GITHUB_SHA": "a" * 40,
-        "GITHUB_RUN_ID": "123456789",
-        "GITHUB_RUN_ATTEMPT": "1",
-        **{
-            "NM2_" + name.upper() + "_SHA": value * 40
-            for name, value in (
-                ("distribution", "a"),
-                ("map", "b"),
-                ("runner", "c"),
-                ("gate", "d"),
-            )
-        },
-        "GITHUB_TOKEN": "private-do-not-publish",
-        "PATH": "fixture-path",
-        "HOME": str(temporary),
-    }
 
 
 def raw_receipt(selection):
@@ -333,89 +299,32 @@ class HostedGuards(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(hosted.HostedRefused):
                 hosted._physical_time(value)
 
-    def failed_harness(
-        self, *, mutate=None, raw_content=None, publish=True, options=None
-    ):
-        """Exercise the real failure/read/projection/finally path with inert commands."""
-        with (
-            tempfile.TemporaryDirectory() as temporary,
-            patch.object(hosted, "host_guard", return_value=Path(temporary)),
-            patch.object(hosted.socket, "socket"),
-        ):
-            obj = hosted.Hosted({**environment(temporary), **(options or {})})
-            obj.sources.update({name: obj.root / name for name in hosted.REPOSITORIES})
-            obj.daemon_guard, obj.prepare_sources = Mock(), Mock()
-            obj.build = Mock(
-                return_value=("sha256:" + "a" * 64, obj.project + ":toolkit")
+    def project_failure(self, mutate, *, persistent=False):
+        selection = {
+            "sources": {"distribution": "a" * 40},
+            "images": {"worker": "sha256:" + "b" * 64},
+            "project": "fixture",
+        }
+        raw = {
+            **copy.deepcopy(selection),
+            "platform": "linux",
+            "status": "held",
+            "stage": "happy_setup",
+            "reason": "fixture_http_status",
+            "schema": "vardr.nm2-worker-acceptance/2",
+        }
+        if persistent:
+            raw.update(
+                schema="vardr.nm2-worker-persistent-acceptance/1",
+                scenario="persistent-availability",
+                expected_database_revision="0041persistentruntime",
             )
-            obj.docker = Mock(return_value="sha256:" + "a" * 64)
+        mutate(raw)
+        result = hosted.failure_projection(raw, selection)
+        self.assertNotIn("private", json.dumps(result))
+        return result
 
-            def command(args, **kwargs):
-                if "--execute" not in args:
-                    return
-                selection = json.loads((obj.root / "cohort.json").read_text())
-                raw = raw_receipt(selection)
-                if obj.scenario == "persistent-availability":
-                    raw.update(
-                        schema="vardr.nm2-worker-persistent-acceptance/1",
-                        scenario=obj.scenario,
-                        expected_database_revision=obj.database_revision,
-                    )
-                raw.update(
-                    status="held", stage="happy_setup", reason="fixture_http_status"
-                )
-                if mutate is not None:
-                    mutate(raw)
-                if publish:
-                    directory = obj.root / "installation"
-                    directory.mkdir()
-                    (directory / "nm2-worker-receipt.json").write_bytes(
-                        raw_content
-                        if raw_content is not None
-                        else json.dumps(raw).encode()
-                    )
-                raise subprocess.CalledProcessError(
-                    1,
-                    ["private-command-canary"],
-                    output=b"private-output-canary",
-                    stderr=b"private-stderr-canary",
-                )
-
-            obj.command = Mock(side_effect=command)
-            output = io.StringIO()
-            with (
-                self.assertRaises(subprocess.CalledProcessError),
-                redirect_stdout(output),
-            ):
-                obj.run()
-            self.assertEqual(output.getvalue(), "")
-            public = json.loads((obj.public / "receipt.json").read_text())
-            self.assertEqual((public["stage"], public["status"]), ("harness", "held"))
-            self.assertNotIn("measurements", public)
-            self.assertNotIn("cases", public)
-            self.assertNotIn("image_sources", public)
-            self.assertNotIn("private", json.dumps(public))
-            self.assertEqual(
-                obj.build.call_args_list[-1].kwargs["file"].name,
-                "Dockerfile.worker.persistent"
-                if obj.scenario == "persistent-availability"
-                else "Dockerfile.worker",
-            )
-            invocation = next(
-                call.args[0]
-                for call in obj.command.call_args_list
-                if "--execute" in call.args[0]
-            )
-            self.assertEqual(
-                invocation[invocation.index("--scenario") + 1], obj.scenario
-            )
-            self.assertEqual(
-                invocation[invocation.index("--database-revision") + 1],
-                obj.database_revision,
-            )
-            return public
-
-    def test_hosted_mode_and_schema_selection_refuse_before_host_or_commands(self):
+    def test_scenario_selection_validates_mode_and_schema(self):
         self.assertEqual(
             hosted.execution_options({}), ("healthy", "0040runtimesequence")
         )
@@ -436,17 +345,9 @@ class HostedGuards(unittest.TestCase):
             {"NM2_DATABASE_REVISION": "unexpected-head"},
             {"NM2_DATABASE_REVISION": None},
         )
-        with tempfile.TemporaryDirectory() as temporary:
-            for options in bad:
-                with (
-                    self.subTest(options=options),
-                    patch.object(hosted, "host_guard") as guard,
-                    patch.object(hosted.subprocess, "run") as run,
-                ):
-                    with self.assertRaises(hosted.HostedRefused):
-                        hosted.Hosted({**environment(temporary), **options})
-                guard.assert_not_called()
-                run.assert_not_called()
+        for options in bad:
+            with self.subTest(options=options), self.assertRaises(hosted.HostedRefused):
+                hosted.execution_options(options)
 
     def test_receipt_decoder_rejects_duplicate_keys_nonfinite_and_unbounded_input(self):
         self.assertEqual(
@@ -469,12 +370,8 @@ class HostedGuards(unittest.TestCase):
     def test_persistent_failure_keeps_fixed_checkpoint_without_claiming_measurements(
         self,
     ):
-        options = {
-            "NM2_SCENARIO": "persistent-availability",
-            "NM2_DATABASE_REVISION": "0041persistentruntime",
-        }
-        public = self.failed_harness(
-            options=options,
+        public = self.project_failure(
+            persistent=True,
             mutate=lambda raw: raw.update(
                 stage="persistent_job_release",
                 reason="persistent_status_refused",
@@ -482,27 +379,22 @@ class HostedGuards(unittest.TestCase):
                 proof={"secret": "private-canary"},
             ),
         )
-        self.assertEqual(public["schema"], "vardr.nm2-hosted/3")
         self.assertEqual(
-            public["harness_failure"],
+            public,
             {"stage": "persistent_job_release", "reason": "persistent_status_refused"},
         )
-        unknown = self.failed_harness(
-            options=options,
+        unknown = self.project_failure(
+            persistent=True,
             mutate=lambda raw: raw.update(
                 stage="persistent_private-canary", reason="persistent_private-canary"
             ),
         )
         self.assertEqual(
-            unknown["harness_failure"],
+            unknown,
             {"stage": "unclassified", "reason": "unclassified_refusal"},
         )
 
     def test_status_refusal_checkpoint_is_whitelisted_without_raw_diagnostics(self):
-        options = {
-            "NM2_SCENARIO": "persistent-availability",
-            "NM2_DATABASE_REVISION": "0041persistentruntime",
-        }
         for checkpoint in (
             "admission",
             "subprocess",
@@ -517,8 +409,8 @@ class HostedGuards(unittest.TestCase):
             "unclassified",
         ):
             with self.subTest(checkpoint=checkpoint):
-                public = self.failed_harness(
-                    options=options,
+                public = self.project_failure(
+                    persistent=True,
                     mutate=lambda raw: raw.update(
                         stage="persistent_job_release",
                         reason="persistent_status_refused",
@@ -529,7 +421,7 @@ class HostedGuards(unittest.TestCase):
                     ),
                 )
                 self.assertEqual(
-                    public["harness_failure"]["status_failure"],
+                    public["status_failure"],
                     {"checkpoint": checkpoint},
                 )
                 self.assertNotIn("private-canary", json.dumps(public))
@@ -543,35 +435,27 @@ class HostedGuards(unittest.TestCase):
             {"checkpoint": "cursor", "body": "private-canary"},
         ):
             with self.subTest(bad=bad):
-                public = self.failed_harness(
-                    options=options,
+                public = self.project_failure(
+                    persistent=True,
                     mutate=lambda raw: raw.update(
                         stage="persistent_job_release",
                         reason="persistent_status_refused",
                         status_failure=bad,
                     ),
                 )
-                self.assertNotIn("status_failure", public["harness_failure"])
-        public = self.failed_harness(
-            options=options,
+                self.assertNotIn("status_failure", public)
+        public = self.project_failure(
+            persistent=True,
             mutate=lambda raw: raw.update(status_failure={"checkpoint": "cursor"}),
         )
-        self.assertNotIn("status_failure", public["harness_failure"])
+        self.assertNotIn("status_failure", public)
 
-    def test_mismatched_persistent_failure_policy_remains_unobserved(self):
-        public = self.failed_harness(
-            options={
-                "NM2_SCENARIO": "persistent-availability",
-                "NM2_DATABASE_REVISION": "0041persistentruntime",
-            },
-            mutate=lambda raw: raw.update(
-                expected_database_revision="0040runtimesequence"
-            ),
-        )
-        self.assertEqual(
-            public["harness_failure"],
-            {"stage": "unobserved", "reason": "receipt_unavailable_or_invalid"},
-        )
+    def test_mismatched_persistent_failure_policy_is_refused(self):
+        with self.assertRaises(hosted.HostedRefused):
+            self.project_failure(
+                lambda raw: raw.update(expected_database_revision="0040runtimesequence"),
+                persistent=True,
+            )
 
     def test_failed_command_preserves_only_safe_inner_http_diagnostic(self):
         def diagnostic(raw):
@@ -588,9 +472,9 @@ class HostedGuards(unittest.TestCase):
             raw["measurements"] = {"private": "private-partial-canary"}
             raw["cases"] = ["private-case-array-canary"]
 
-        public = self.failed_harness(mutate=diagnostic)
+        public = self.project_failure(mutate=diagnostic)
         self.assertEqual(
-            public["harness_failure"],
+            public,
             {
                 "stage": "happy_setup",
                 "reason": "fixture_http_status",
@@ -604,13 +488,13 @@ class HostedGuards(unittest.TestCase):
         )
 
     def test_actual_harness_command_failure_code_remains_actionable(self):
-        public = self.failed_harness(
+        public = self.project_failure(
             mutate=lambda raw: raw.update(
                 stage="managed_setup", reason="fixture_command_failed"
             )
         )
         self.assertEqual(
-            public["harness_failure"],
+            public,
             {"stage": "managed_setup", "reason": "fixture_command_failed"},
         )
 
@@ -619,7 +503,7 @@ class HostedGuards(unittest.TestCase):
             "failure_phase": "enable_custody",
             "failure_code": "secret_custody_refused",
         }
-        public = self.failed_harness(
+        public = self.project_failure(
             mutate=lambda raw: raw.update(
                 stage="operator_worker_enable",
                 reason="fixture_command_failed",
@@ -628,7 +512,7 @@ class HostedGuards(unittest.TestCase):
                 stderr="private-stderr-canary",
             )
         )
-        self.assertEqual(public["harness_failure"]["command_failure"], diagnostic)
+        self.assertEqual(public["command_failure"], diagnostic)
 
     def test_worker_cli_diagnostic_rejects_unknown_or_unstructured_values(self):
         valid = {"failure_phase": "enable_capture", "failure_code": "runtime_refused"}
@@ -645,18 +529,18 @@ class HostedGuards(unittest.TestCase):
             )
         for bad in bad_values:
             with self.subTest(bad=bad):
-                public = self.failed_harness(
+                public = self.project_failure(
                     mutate=lambda raw: raw.update(
                         stage="operator_worker_enable",
                         reason="fixture_command_failed",
                         command_failure=bad,
                     )
                 )
-                self.assertNotIn("command_failure", public["harness_failure"])
-        public = self.failed_harness(
+                self.assertNotIn("command_failure", public)
+        public = self.project_failure(
             mutate=lambda raw: raw.update(command_failure=valid)
         )
-        self.assertNotIn("command_failure", public["harness_failure"])
+        self.assertNotIn("command_failure", public)
 
     def test_capture_checkpoints_survive_projection_without_raw_diagnostics(self):
         checkpoints = (
@@ -679,7 +563,7 @@ class HostedGuards(unittest.TestCase):
                 "failure_code": "runtime_refused",
             }
             with self.subTest(checkpoint=checkpoint):
-                public = self.failed_harness(
+                public = self.project_failure(
                     mutate=lambda raw: raw.update(
                         stage="operator_worker_enable",
                         reason="fixture_command_failed",
@@ -689,10 +573,10 @@ class HostedGuards(unittest.TestCase):
                     )
                 )
                 self.assertEqual(
-                    public["harness_failure"]["command_failure"], diagnostic
+                    public["command_failure"], diagnostic
                 )
                 self.assertNotIn("private-", json.dumps(public))
-        public = self.failed_harness(
+        public = self.project_failure(
             mutate=lambda raw: raw.update(
                 stage="operator_worker_enable",
                 reason="fixture_command_failed",
@@ -702,10 +586,10 @@ class HostedGuards(unittest.TestCase):
                 },
             )
         )
-        self.assertNotIn("command_failure", public["harness_failure"])
+        self.assertNotIn("command_failure", public)
 
     def test_v2_fixed_failure_reason_and_legacy_held_receipt_remain_redacted(self):
-        public = self.failed_harness(
+        public = self.project_failure(
             mutate=lambda raw: raw.update(
                 stage="healthy_sequence_verification",
                 reason="healthy_sequence_release_after_next_binding",
@@ -713,17 +597,17 @@ class HostedGuards(unittest.TestCase):
             )
         )
         self.assertEqual(
-            public["harness_failure"],
+            public,
             {
                 "stage": "healthy_sequence_verification",
                 "reason": "healthy_sequence_release_after_next_binding",
             },
         )
-        legacy = self.failed_harness(
+        legacy = self.project_failure(
             mutate=lambda raw: raw.update(schema="vardr.nm2-worker-acceptance/1")
         )
         self.assertEqual(
-            legacy["harness_failure"],
+            legacy,
             {"stage": "happy_setup", "reason": "fixture_http_status"},
         )
 
@@ -739,9 +623,9 @@ class HostedGuards(unittest.TestCase):
                 "body": {"secret": "private-body-canary"},
             }
 
-        public = self.failed_harness(mutate=unknown)
+        public = self.project_failure(mutate=unknown)
         self.assertEqual(
-            public["harness_failure"],
+            public,
             {
                 "stage": "unclassified",
                 "reason": "unclassified_refusal",
@@ -774,214 +658,45 @@ class HostedGuards(unittest.TestCase):
                         "body": "private-body-canary",
                     }
 
-                public = self.failed_harness(mutate=invalid)
+                public = self.project_failure(mutate=invalid)
                 self.assertEqual(
-                    public["harness_failure"],
+                    public,
                     {"stage": "happy_setup", "reason": "fixture_http_status"},
                 )
 
-    def test_missing_malformed_oversized_or_unbound_receipt_uses_fixed_fallback(self):
-        scenarios = (
-            {"publish": False},
-            {"raw_content": b'{"secret":"private-json-canary"'},
-            {"raw_content": b'["private-array-canary"]'},
-            {"raw_content": b"x" * (4 * 1024 * 1024 + 1)},
-            {"mutate": lambda raw: raw.update(status="initial_stages_passed")},
-            {"mutate": lambda raw: raw.update(platform="private-platform-canary")},
-            {"mutate": lambda raw: raw.update(project="private-project-canary")},
-            {
-                "mutate": lambda raw: raw.update(
-                    images={"private": "private-image-canary"}
-                )
-            },
-            {"mutate": lambda raw: raw.update(sources=["private-source-canary"])},
-            {"mutate": lambda raw: raw.update(reason=["private-reason-array-canary"])},
-            {
-                "mutate": lambda raw: raw.update(
-                    http_failure={
-                        "method": "POST",
-                        "route": {},
-                        "actual_status": 409,
-                        "expected_status": 200,
-                    }
-                )
-            },
-        )
-        for index, scenario in enumerate(scenarios):
-            with self.subTest(index=index):
-                public = self.failed_harness(**scenario)
-                self.assertEqual(
-                    public["harness_failure"],
-                    {"stage": "unobserved", "reason": "receipt_unavailable_or_invalid"},
-                )
-
-    def test_default_mode_and_invalid_sha_never_touch_docker_or_network(self):
-        output = io.StringIO()
-        with patch.object(hosted.subprocess, "run") as run, redirect_stdout(output):
-            self.assertEqual(hosted.main([]), 2)
-        run.assert_not_called()
-        with tempfile.TemporaryDirectory() as temporary:
-            valid = environment(temporary)
-            for name, value in (
-                ("NM2_MAP_SHA", "main"),
-                ("NM2_GATE_SHA", ""),
-                ("NM2_RUNNER_SHA", "a" * 39),
-                ("GITHUB_SHA", "e" * 40),
-            ):
-                with (
-                    self.subTest(name=name),
-                    patch.object(hosted, "host_guard") as guard,
-                ):
-                    with self.assertRaises(hosted.HostedRefused):
-                        hosted.Hosted({**valid, name: value})
-                    guard.assert_not_called()
-
-    def test_wrong_host_ref_event_or_inherited_runtime_environment_refuses_before_commands(
-        self,
-    ):
-        for name, value in (
-            ("RUNNER_ENVIRONMENT", "self-hosted"),
-            ("GITHUB_REF", "refs/heads/main"),
-            ("GITHUB_EVENT_NAME", "pull_request"),
-            ("GITHUB_REPOSITORY", "other/repo"),
-            ("NM2_COUPLED", "false"),
-            ("DOCKER_HOST", "ssh://remote"),
-            ("VARDRMAP_API_KEY", "private-do-not-publish"),
+    def test_missing_malformed_oversized_or_unbound_failure_receipts_are_refused(self):
+        for content in (
+            b"", b'{"secret":"private-json-canary"', b"x" * (4 * 1024 * 1024 + 1),
         ):
-            with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
-                with (
-                    patch.object(
-                        hosted.platform,
-                        "freedesktop_os_release",
-                        return_value={"ID": "ubuntu", "VERSION_ID": "24.04"},
-                    ),
-                    patch.object(hosted.platform, "system", return_value="Linux"),
-                    patch.object(hosted.platform, "machine", return_value="x86_64"),
-                    patch.object(hosted.subprocess, "run") as run,
-                ):
-                    with self.assertRaises(hosted.HostedRefused):
-                        hosted.host_guard({**environment(temporary), name: value})
-                    run.assert_not_called()
+            with self.subTest(size=len(content)), self.assertRaises(hosted.HostedRefused):
+                hosted.decode_receipt(content)
+        with self.assertRaises(hosted.HostedRefused):
+            hosted.failure_projection(hosted.decode_receipt(b'["private-array-canary"]'), {})
 
-    def test_exact_host_needs_ubuntu24_and_root_owned_unix_socket(self):
-        original = Path.stat
-        with tempfile.TemporaryDirectory() as temporary:
-            env = environment(temporary)
-            for system, arch, version, mode, uid in (
-                ("Linux", "x86_64", "24.04", stat.S_IFSOCK, 0),
-                ("Linux", "x86_64", "26.04", stat.S_IFSOCK, 0),
-                ("Linux", "aarch64", "24.04", stat.S_IFSOCK, 0),
-                ("Linux", "x86_64", "24.04", stat.S_IFREG, 0),
-                ("Linux", "x86_64", "24.04", stat.S_IFSOCK, 1000),
-            ):
-
-                def measured(path, *args, **kwargs):
-                    if path.as_posix() == "/var/run/docker.sock":
-                        return SimpleNamespace(st_mode=mode, st_uid=uid)
-                    return original(path, *args, **kwargs)
-
-                with (
-                    self.subTest(version=version, uid=uid, mode=mode),
-                    patch.object(
-                        hosted.platform,
-                        "freedesktop_os_release",
-                        return_value={"ID": "ubuntu", "VERSION_ID": version},
-                    ),
-                    patch.object(hosted.platform, "system", return_value=system),
-                    patch.object(hosted.platform, "machine", return_value=arch),
-                    patch.object(Path, "stat", measured),
-                ):
-                    if (
-                        version == "24.04"
-                        and arch == "x86_64"
-                        and mode == stat.S_IFSOCK
-                        and uid == 0
-                    ):
-                        self.assertEqual(hosted.host_guard(env), Path(temporary))
-                    else:
-                        with self.assertRaises(hosted.HostedRefused):
-                            hosted.host_guard(env)
-
-    def test_nonlocal_nonempty_or_changed_daemon_refuses(self):
-        info = {
-            "os": "linux",
-            "name": "fixture-host",
-            "root": "/var/lib/docker",
-            "swarm": "inactive",
-        }
-        for change in (
-            None,
-            "remote",
-            "host",
-            "root",
-            "containers",
-            "volumes",
-            "networks",
+        for field, value in (
+            ("status", "initial_stages_passed"),
+            ("platform", "private-platform-canary"),
+            ("project", "private-project-canary"),
+            ("images", {"private": "private-image-canary"}),
+            ("sources", ["private-source-canary"]),
+            ("reason", ["private-reason-array-canary"]),
+            ("http_failure", {
+                "method": "POST", "route": {}, "actual_status": 409, "expected_status": 200,
+            }),
         ):
-            obj = hosted.Hosted.__new__(hosted.Hosted)
+            with self.subTest(field=field), self.assertRaises((hosted.HostedRefused, TypeError)):
+                self.project_failure(lambda raw: raw.update({field: value}))
 
-            def docker(*args, **kwargs):
-                if args[0] == "context":
-                    return json.dumps(
-                        "ssh://remote"
-                        if change == "remote"
-                        else "unix:///var/run/docker.sock"
-                    )
-                if args[0] == "info":
-                    return json.dumps(
-                        {
-                            **info,
-                            **({"name": "another-host"} if change == "host" else {}),
-                            **({"root": "/other"} if change == "root" else {}),
-                        }
-                    )
-                if args[0] == "ps":
-                    return "retained-container" if change == "containers" else ""
-                if args[0] == "volume":
-                    return "retained-volume" if change == "volumes" else ""
-                return "bridge\nhost\nnone" + (
-                    "\nunreviewed" if change == "networks" else ""
+    def test_retired_launcher_refuses_both_default_and_execute(self):
+        for args in ([], ["--execute"]):
+            with self.subTest(args=args):
+                result = subprocess.run(
+                    [sys.executable, "-I", "-B", hosted.__file__, *args],
+                    capture_output=True,
+                    text=True,
                 )
-
-            obj.docker = Mock(side_effect=docker)
-            with (
-                self.subTest(change=change),
-                patch.object(hosted.socket, "gethostname", return_value="fixture-host"),
-            ):
-                if change is None:
-                    obj.daemon_guard()
-                else:
-                    with self.assertRaises(hosted.HostedRefused):
-                        obj.daemon_guard()
-            self.assertFalse(
-                any(
-                    call.args[0] in {"build", "run", "rm", "prune"}
-                    for call in obj.docker.call_args_list
-                )
-            )
-
-    def test_existing_private_fixture_refuses_reuse_and_child_environment_excludes_secrets(
-        self,
-    ):
-        with (
-            tempfile.TemporaryDirectory() as temporary,
-            patch.object(hosted, "host_guard", return_value=Path(temporary)),
-        ):
-            obj = hosted.Hosted(environment(temporary))
-            self.assertNotIn("GITHUB_TOKEN", obj.environment)
-            self.assertEqual(obj.environment["PYTHON_DOTENV_DISABLED"], "1")
-            self.assertEqual(Path(obj.environment["HOME"]).parent, obj.root)
-            with self.assertRaises(hosted.HostedRefused):
-                hosted.Hosted(environment(temporary))
-            with patch.object(
-                hosted.subprocess,
-                "run",
-                return_value=subprocess.CompletedProcess([], 0, b"public", b""),
-            ) as run:
-                self.assertEqual(
-                    obj.command(["fixture", "metadata"], capture=True), "public"
-                )
-            self.assertNotIn("GITHUB_TOKEN", run.call_args.kwargs["env"])
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("retired", result.stderr)
 
     def test_public_receipt_excludes_raw_data_and_rejects_mismatched_cohort(self):
         selection = {
@@ -1289,165 +1004,6 @@ class HostedGuards(unittest.TestCase):
                     cases["missing_local_grant"]["status"] = "passed"
                 with self.assertRaises(hosted.HostedRefused):
                     hosted.public_projection(raw, selection)
-
-    def test_mismatched_or_dirty_checkout_refuses_before_any_image_build(self):
-        for fault in ("head", "tracked"):
-            with (
-                self.subTest(fault=fault),
-                tempfile.TemporaryDirectory() as temporary,
-                patch.object(hosted, "host_guard", return_value=Path(temporary)),
-            ):
-                obj = hosted.Hosted(environment(temporary))
-
-                def git(args, **kwargs):
-                    if args[:2] == ["git", "rev-parse"]:
-                        return obj.pins["distribution"]
-                    if args[:2] == ["git", "-C"]:
-                        name = Path(args[2]).name
-                        tail = args[3:]
-                        if tail == ["rev-parse", "HEAD"]:
-                            return (
-                                "e" * 40
-                                if fault == "head" and name == "runner"
-                                else obj.pins.get(name, obj.pins["distribution"])
-                            )
-                        if "status" in tail:
-                            return (
-                                " M vardrrunner/changed.py"
-                                if fault == "tracked" and name == "runner"
-                                else ""
-                            )
-                        if tail == ["rev-parse", "HEAD^{tree}"]:
-                            return "e" * 40
-
-                obj.command, obj.docker = Mock(side_effect=git), Mock()
-                with self.assertRaises(hosted.HostedRefused):
-                    obj.prepare_sources()
-                obj.docker.assert_not_called()
-                fetches = [
-                    call.args[0]
-                    for call in obj.command.call_args_list
-                    if "fetch" in call.args[0]
-                ]
-                self.assertTrue(all(args[-1] in obj.pins.values() for args in fetches))
-
-    def test_existing_unique_image_tag_is_preserved_instead_of_rebuilt(self):
-        with (
-            tempfile.TemporaryDirectory() as temporary,
-            patch.object(hosted, "host_guard", return_value=Path(temporary)),
-        ):
-            obj = hosted.Hosted(environment(temporary))
-            obj.docker = Mock(return_value="retained-image-id")
-            with self.assertRaises(hosted.HostedRefused):
-                obj.build("api", Path(temporary))
-            self.assertEqual(obj.docker.call_count, 1)
-            self.assertEqual(obj.docker.call_args.args[:2], ("image", "ls"))
-
-    def test_fixed_failure_output_never_echoes_private_exceptions(self):
-        output = io.StringIO()
-        with (
-            patch.object(
-                hosted, "Hosted", side_effect=RuntimeError("private-do-not-publish")
-            ),
-            redirect_stdout(output),
-        ):
-            self.assertEqual(hosted.main(["--execute"]), 1)
-        self.assertNotIn("private-do-not-publish", output.getvalue())
-
-    def test_orchestrator_reuses_full_toolkit_named_gate_and_existing_harness(self):
-        with (
-            tempfile.TemporaryDirectory() as temporary,
-            patch.object(hosted, "host_guard", return_value=Path(temporary)),
-            patch.object(hosted.socket, "socket"),
-        ):
-            obj = hosted.Hosted(environment(temporary))
-            obj.sources.update({name: obj.root / name for name in hosted.REPOSITORIES})
-            obj.daemon_guard, obj.prepare_sources = Mock(), Mock()
-            calls, ids = [], {}
-
-            def docker(*args, **kwargs):
-                calls.append(args)
-                if args[:2] == ("image", "ls"):
-                    return ""
-                if args[0] == "build":
-                    tag = args[args.index("-t") + 1]
-                    value = "sha256:" + str(len(ids) + 1) * 64
-                    ids[tag] = value
-                    Path(args[args.index("--iidfile") + 1]).write_text(value)
-                else:
-                    return ids[args[-1]]
-
-            obj.docker = Mock(side_effect=docker)
-
-            def command(args, **kwargs):
-                if "--execute" in args:
-                    selection = json.loads((obj.root / "cohort.json").read_text())
-                    directory = obj.root / "installation"
-                    directory.mkdir()
-                    (directory / "nm2-worker-receipt.json").write_text(
-                        json.dumps(raw_receipt(selection))
-                    )
-
-            obj.command = Mock(side_effect=command)
-            obj.run()
-            toolkit = next(args for args in calls if "toolkit" in args)
-            self.assertIn("gate=" + str(obj.sources["gate"]), toolkit)
-            worker = next(
-                args
-                for args in calls
-                if "RUNNER_BASE_IMAGE=" + obj.project + ":toolkit" in args
-            )
-            self.assertIn(str(obj.sources["runner"] / "Dockerfile.worker"), worker)
-            self.assertTrue(
-                any(
-                    str(hosted.SOURCE / "tests/nm2_worker_acceptance.py")
-                    in call.args[0]
-                    for call in obj.command.call_args_list
-                )
-            )
-            public = json.loads((obj.public / "receipt.json").read_text())
-            self.assertEqual(public["status"], "initial_stages_passed")
-            self.assertEqual(public["schema"], "vardr.nm2-hosted/2")
-            self.assertEqual(
-                public["remaining_required_cases"],
-                dict.fromkeys(hosted.REMAINING_REQUIRED_CASES, "not_run"),
-            )
-            self.assertEqual(public["cases"]["missing_local_grant"], "not_run")
-            self.assertNotIn("private", json.dumps(public))
-            self.assertFalse(any(args[0] in {"push", "prune", "rm"} for args in calls))
-
-    def test_invalid_measurement_keeps_public_stage_held_without_raw_payload(self):
-        with (
-            tempfile.TemporaryDirectory() as temporary,
-            patch.object(hosted, "host_guard", return_value=Path(temporary)),
-            patch.object(hosted.socket, "socket"),
-        ):
-            obj = hosted.Hosted(environment(temporary))
-            obj.sources.update({name: obj.root / name for name in hosted.REPOSITORIES})
-            obj.daemon_guard, obj.prepare_sources = Mock(), Mock()
-            obj.build = Mock(
-                return_value=("sha256:" + "a" * 64, obj.project + ":toolkit")
-            )
-            obj.docker = Mock(return_value="sha256:" + "a" * 64)
-
-            def command(args, **kwargs):
-                if "--execute" in args:
-                    selection = json.loads((obj.root / "cohort.json").read_text())
-                    raw = raw_receipt(selection)
-                    raw["cases"]["healthy_sequence"]["attempts"][1][
-                        "release_receipt_sha256"
-                    ] = "private-do-not-publish"
-                    directory = obj.root / "installation"
-                    directory.mkdir()
-                    (directory / "nm2-worker-receipt.json").write_text(json.dumps(raw))
-
-            obj.command = Mock(side_effect=command)
-            with self.assertRaises(hosted.HostedRefused):
-                obj.run()
-            public = json.loads((obj.public / "receipt.json").read_text())
-            self.assertEqual((public["stage"], public["status"]), ("harness", "held"))
-            self.assertNotIn("measurements", public)
-            self.assertNotIn("private-do-not-publish", json.dumps(public))
 
 
 if __name__ == "__main__":
