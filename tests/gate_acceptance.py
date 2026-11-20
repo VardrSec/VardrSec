@@ -608,13 +608,17 @@ def run_mapless_workflow():
         text = value if isinstance(value, str) else json.dumps(value)
         assert all(secret not in text for secret in (*tokens.values(), *CANARIES))
 
-    def invoke(*args, tty=False, timeout=120):
+    def invoke(*args, tty=False, timeout=120, expected_error=None):
         argv = [sys.executable, str(install / "vardrsec.py"), *args]
         if tty:
             argv = ["script", "-qec", shlex.join(argv), "/dev/null"]
         result = subprocess.run(argv, cwd=install, env=env, capture_output=True,
                                 text=True, input="APPROVE\n" if tty else None, timeout=timeout)
         no_secrets(result.stdout + result.stderr)
+        if expected_error is not None:
+            assert result.returncode == 1, (args, result.returncode)
+            assert expected_error in " ".join((result.stdout + result.stderr).split()), expected_error
+            return
         if result.returncode:
             print(json.dumps({"mapless_returncode": result.returncode,
                               "stdout_tail": result.stdout[-4096:],
@@ -728,7 +732,29 @@ def run_mapless_workflow():
         repeated = private / "reexported"
         invoke("runner", "--output-directory", str(repeated), "--", "audit", "export-run", run["run_id"], "--output", "/exports/result")
         assert all(path.read_bytes() == (repeated / "result" / name).read_bytes() for name, path in paths.items())
-        receipt = {"status": "passed", "workspace_id": workspace, "run_id": run["run_id"],
+        state = "/home/runner/.vardrmap"
+        output = f"{state}/acceptance-audit-export.json"
+        export = ("runner", "--", "audit", "export", "--output")
+
+        def exported_bytes():
+            return docker(*base, "run", "--rm", "--no-deps", "-T", "--entrypoint", "cat",
+                          "runner", output, capture_output=True).stdout
+
+        invoke(*export, output, "--engagement", workspace)
+        original = exported_bytes()
+        assert json.loads(original)["runs"] == runs
+        empty = ("--engagement", workspace + "-unmatched")
+        invoke(*export, output, *empty, expected_error="--overwrite")
+        assert exported_bytes() == original
+        invoke(*export, output, *empty, "--overwrite")
+        assert json.loads(exported_bytes())["runs"] == []
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            invoke(*export, f"{state}/runner-journal.sqlite3{suffix}", "--overwrite",
+                   expected_error="SQLite sidecars are protected")
+        assert json.loads(invoke("runner", "--", "audit", "list",
+                                 "--engagement", workspace, "--json")) == runs
+        receipt = {"status": "passed", "audit_export_protection": "passed",
+                   "workspace_id": workspace, "run_id": run["run_id"],
                    "requests": requests, "image_id": image, "artifact_sha256": run["artifact_sha256"],
                    "sources": {name: row["commit"] for name, row in json.loads((install / "versions.json").read_text())["components"].items()
                                if name in ("runner", "gate")},
