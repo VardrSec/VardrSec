@@ -21,7 +21,7 @@ import nm2_worker_persistent_projection as availability
 import test_nm2_worker_persistent_projection as original
 import test_nm2_worker_hosted as hosted_vectors
 import worker_host as host
-import worker_host_persistent as persistent
+import nm2_persistent_test_fixtures as records
 
 
 def _case(name):
@@ -108,9 +108,7 @@ def vector():
     admission["identity"]["started_at"] = "2026-11-06T02:00:00.500000000Z"
     admission["runtime_sha256"] = host.digest(admission["identity"])
     admission["limits"] = {"max_attempts": "1", "idle_timeout_seconds": None}
-    admission["admission_sha256"] = host.digest(
-        {key: item for key, item in admission.items() if key != "admission_sha256"}
-    )
+    records.set_digest(admission, "admission_sha256")
     physical = copy.deepcopy(before_case["physical"])
     physical.update(
         exit_code=0,
@@ -231,17 +229,7 @@ def vector():
         inventory["approval_context_sha256"] = {
             inventory["approvals"][0]["id"]: host.digest(context)
         }
-    pending.update(
-        job_status="pending",
-        execution=None,
-        targets_spent=0,
-        duration_allocated=0,
-        contracts=[],
-        results=[],
-        stops=[],
-        runtimes=[],
-    )
-    pending["approvals"][0]["issued"] = 0
+    pending = records.pending_inventory(pending)
     case_hash = host.digest(specs[0])
     binding = runtime["attempts"][0]["binding"]
     result = host.digest(
@@ -284,64 +272,11 @@ def vector():
         admission_sha256=admission["admission_sha256"],
     )
     local["attempt"].update(completion=terminal, release=release)
-    report = persistent._purpose(
-        {"runtime_id": physical["runtime_id"]},
-        {
-            **{
-                key: physical[key]
-                for key in (
-                    "runtime_sha256",
-                    "admission_sha256",
-                    "finished_at",
-                    "exit_code",
-                )
-            },
-            "observation_sha256": host.digest(
-                {key: physical[key] for key in ("identity", "finished_at", "exit_code")}
-            ),
-            "last_sequence": "1",
-        },
-    )
-    runtime["report_sha256"] = report
-    retirement = {
-        "schema": "vardr.worker-retirement/3",
-        **{
-            key: admission[key]
-            for key in (
-                "runtime_id",
-                "runtime_sha256",
-                "admission_sha256",
-                "origin",
-                "runner_id",
-                "enrollment_id",
-            )
-        },
-        "runtime_sequence": None,
-        "last_sequence": "1",
-        "binding": None,
-        "attempt_receipt": None,
-        "report_sha256": report,
-        "retired": True,
-    }
-    retirement["receipt_sha256"] = host.digest(retirement)
-    retained = copy.deepcopy(local)
+    runtime["report_sha256"] = records.exit_report_digest(physical)
+    retirement = records.retirement_record(admission, runtime["report_sha256"])
+    retained = records.retained_after_exit(local, retirement)
     retained.pop("grants")
-    retained.update(state="retired", retirement=retirement)
-    retained["attempt"].update(
-        state="physical_retirement_observed", retired_from_state="released"
-    )
-    first_before = copy.deepcopy(issued)
-    first_before.update(
-        job_status="pending",
-        execution=None,
-        targets_spent=0,
-        duration_allocated=0,
-        contracts=[],
-        results=[],
-        stops=[],
-        runtimes=[],
-    )
-    first_before["approvals"][0]["issued"] = 0
+    first_before = records.pending_inventory(issued)
     rows = []
     for index, entry in enumerate(plans[0]["dispatches"], 1):
         parsed = urlsplit(entry["request"]["url"])
@@ -470,6 +405,20 @@ def vector():
     return raw, selection
 
 
+def set_exit_time(case, finished_at):
+    """Rebind the reports so a tamper test isolates the physical time ordering."""
+    physical = case["physical"]
+    physical["finished_at"] = finished_at
+    proof = case["proof"]
+    proof["fixed"]["physical"] = physical
+    report = records.exit_report_digest(physical)
+    proof["inventories"][0]["runtimes"][0]["report_sha256"] = report
+    retirement = proof["retirement"]
+    retirement["report_sha256"] = report
+    records.set_digest(retirement, "receipt_sha256")
+    proof["retained"]["retirement"] = copy.deepcopy(retirement)
+
+
 class CountProjection(unittest.TestCase):
     def test_real_v6_producer_and_fixed_verifier_feed_independent_count_reader(self):
         raw, selection = vector()
@@ -485,9 +434,6 @@ class CountProjection(unittest.TestCase):
 
     def test_count_dispatch_is_explicit_and_schema0041_only(self):
         self.assertEqual(
-            hosted.execution_options({}), ("healthy", "0040runtimesequence")
-        )
-        self.assertEqual(
             hosted.execution_options(
                 {
                     "NM2_SCENARIO": "persistent-count-limit",
@@ -498,23 +444,6 @@ class CountProjection(unittest.TestCase):
         )
         with self.assertRaises(hosted.HostedRefused):
             hosted.execution_options({"NM2_SCENARIO": "persistent-count-limit"})
-
-    def test_count_failure_exports_only_fixed_stage_and_reason(self):
-        raw, selection = vector()
-        raw.update(
-            status="held",
-            stage="count_control_eligibility",
-            reason="count_second_job_not_eligible",
-            stderr="private-canary",
-            error="private-canary",
-        )
-        self.assertEqual(
-            hosted.failure_projection(raw, selection),
-            {
-                "stage": "count_control_eligibility",
-                "reason": "count_second_job_not_eligible",
-            },
-        )
 
     def test_rehashed_original_case_and_plan_cannot_define_their_own_oracle(self):
         raw, selection = vector()
@@ -843,41 +772,7 @@ class CountProjection(unittest.TestCase):
     def test_physical_exit_one_nanosecond_after_eligibility_refuses(self):
         raw, selection = vector()
         case = raw["cases"]["persistent_count_limit"]
-        proof = case["proof"]
-        case["physical"]["finished_at"] = "2026-11-06T02:02:01.000000001Z"
-        proof["fixed"]["physical"] = case["physical"]
-        physical = case["physical"]
-        report = persistent._purpose(
-            {"runtime_id": physical["runtime_id"]},
-            {
-                **{
-                    key: physical[key]
-                    for key in (
-                        "runtime_sha256",
-                        "admission_sha256",
-                        "finished_at",
-                        "exit_code",
-                    )
-                },
-                "observation_sha256": host.digest(
-                    {
-                        key: physical[key]
-                        for key in ("identity", "finished_at", "exit_code")
-                    }
-                ),
-                "last_sequence": "1",
-            },
-        )
-        proof["inventories"][0]["runtimes"][0]["report_sha256"] = report
-        proof["retirement"]["report_sha256"] = report
-        proof["retirement"]["receipt_sha256"] = host.digest(
-            {
-                key: value
-                for key, value in proof["retirement"].items()
-                if key != "receipt_sha256"
-            }
-        )
-        proof["retained"]["retirement"] = copy.deepcopy(proof["retirement"])
+        set_exit_time(case, "2026-11-06T02:02:01.000000001Z")
         with self.assertRaises(availability.ProjectionRefused):
             projection.project(raw, selection)
 
@@ -959,39 +854,6 @@ class CountProjection(unittest.TestCase):
             whole -= timedelta(seconds=1)
             nanos = 999999999
         finished = whole.isoformat(timespec="seconds") + f".{nanos:09d}Z"
-        case["physical"]["finished_at"] = finished
-        proof["fixed"]["physical"] = case["physical"]
-        physical = case["physical"]
-        report = persistent._purpose(
-            {"runtime_id": physical["runtime_id"]},
-            {
-                **{
-                    key: physical[key]
-                    for key in (
-                        "runtime_sha256",
-                        "admission_sha256",
-                        "finished_at",
-                        "exit_code",
-                    )
-                },
-                "observation_sha256": host.digest(
-                    {
-                        key: physical[key]
-                        for key in ("identity", "finished_at", "exit_code")
-                    }
-                ),
-                "last_sequence": "1",
-            },
-        )
-        proof["inventories"][0]["runtimes"][0]["report_sha256"] = report
-        proof["retirement"]["report_sha256"] = report
-        proof["retirement"]["receipt_sha256"] = host.digest(
-            {
-                key: value
-                for key, value in proof["retirement"].items()
-                if key != "receipt_sha256"
-            }
-        )
-        proof["retained"]["retirement"] = copy.deepcopy(proof["retirement"])
+        set_exit_time(case, finished)
         with self.assertRaises(availability.ProjectionRefused):
             projection.project(raw, selection)

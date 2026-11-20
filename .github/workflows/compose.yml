@@ -9,146 +9,9 @@ on:
         description: Run the existing cross-platform Python compatibility jobs only
         type: boolean
         default: true
-      nm2_coupled:
-        description: Explicitly run the reviewed initial NM-2 harness on a fresh Ubuntu VM
-        type: boolean
-        default: false
-      nm2_scenario:
-        description: Explicit reviewed NM-2 acceptance scenario
-        type: choice
-        options: [healthy, persistent-availability, persistent-count-limit, persistent-idle-limit, persistent-empty-stop, persistent-launch-empty, persistent-launch-completed, persistent-launch-stop-work, persistent-launch-stop-work-queued, persistent-launch-local-stop, persistent-launch-missing-grant, persistent-launch-grant-revocation, persistent-launch-expired-grant, persistent-launch-active-grant-expiry, persistent-launch-duration-exhaustion, persistent-launch-target-exhaustion, strict-authority-drift, persistent-launch-stopped-predecessor, persistent-launch-concurrency-exhaustion, strict-review-authority, persistent-launch-map-disconnect, strict-stale-registered-claim, bootstrap-configurations, persistent-launch-preclaim-recovery, persistent-launch-claim-reply-loss, persistent-launch-repeat-managed-claim, persistent-launch-consume-reply-loss, persistent-launch-runtime-bind-reply-loss, persistent-launch-result-reply-loss, persistent-launch-finish-reply-loss, persistent-launch-pid1-loss, persistent-fixed-boundary-pair, persistent-fixed-runner-loss, persistent-fixed-clock-suspend]
-        default: healthy
-      nm2_database_revision:
-        description: Require the exact reviewed Map schema; does not migrate or enable work
-        type: choice
-        options: [0040runtimesequence, 0041persistentruntime]
-        default: 0040runtimesequence
-      nm2_distribution_sha:
-        description: Exact reviewed distribution SHA, must equal the selected workflow commit
-        type: string
-        default: ''
-      nm2_map_sha:
-        description: Exact reviewed Map SHA
-        type: string
-        default: ''
-      nm2_runner_sha:
-        description: Exact reviewed Runner SHA
-        type: string
-        default: ''
-      nm2_gate_sha:
-        description: Exact reviewed Gate SHA
-        type: string
-        default: ''
 permissions:
   contents: read
 jobs:
-  acl-cohort:
-    # Fixed test-only cohort, independent of baseline installation and NM-2 jobs.
-    if: github.event_name == 'pull_request' && github.event.number == 114 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/acl-caller-security'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: '3.12'
-      - name: Verify immutable cohort refusal guards
-        run: python -m unittest discover -s tests -p 'test_acl_cohort.py'
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version: '1.27.4'
-          cache: false
-      - name: Build pinned official age tools for existing Gate acceptance
-        env:
-          GOBIN: ${{ runner.temp }}/age-bin
-          GOTOOLCHAIN: local
-          GODEBUG: http2client=0
-        run: |
-          mkdir -p "$GOBIN"
-          go install filippo.io/age/cmd/age@v1.3.2 filippo.io/age/cmd/age-keygen@v1.3.2
-          echo "$GOBIN" >> "$GITHUB_PATH"
-      - name: Prepare exact newer-base candidate with unchanged source guards
-        run: python tests/acl_cohort_acceptance.py prepare
-      - name: Install the isolated cohort through the existing production path
-        run: |
-          cd "$RUNNER_TEMP/acl-cohort/distribution"
-          COMPOSE_PROJECT_NAME=vardrsec-compose-review python vardrsec.py install
-          docker build -t vardrsec-browser:acceptance tests/browser
-      - name: Bind built image identities before joint smoke
-        run: python tests/acl_cohort_acceptance.py capture
-      - name: Exercise joint UI, database, Runner and Gate workflow and restart
-        run: |
-          cd "$RUNNER_TEMP/acl-cohort/distribution"
-          python tests/compose_acceptance.py
-      - name: Verify four runtime ACL payloads and unchanged cohort identities
-        run: python tests/acl_cohort_acceptance.py verify
-      - name: Retain only sanitized cohort provenance and runtime ACL evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: acl-cohort-public-evidence
-          path: ${{ runner.temp }}/acl-cohort-public/
-          if-no-files-found: error
-          retention-days: 30
-      # No publication, trust-store changes, cleanup/prune or private fixture uploads.
-  nm2-coupled:
-    if: github.event_name == 'workflow_dispatch' && inputs.nm2_coupled == true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 100
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: '3.12'
-      - name: Read dedicated test VM suspend capabilities without changing state
-        run: |
-          python - <<'PY'
-          import json, shutil
-          from pathlib import Path
-          def read(path):
-              try:
-                  return Path(path).read_text().strip()
-              except OSError:
-                  return None
-          states = read("/sys/power/state")
-          wake = read("/sys/class/rtc/rtc0/device/power/wakeup")
-          print(json.dumps({
-              "schema": "vardr.nm2-test-vm-power-capabilities/1",
-              "scope": "read_only_not_acceptance",
-              "states": None if states is None else sorted(set(states.split()) & {"freeze", "standby", "mem", "disk"}),
-              "rtcwake_available": shutil.which("rtcwake") is not None,
-              "rtc_device_present": Path("/dev/rtc0").exists(),
-              "rtc_wakealarm_present": Path("/sys/class/rtc/rtc0/wakealarm").exists(),
-              "rtc_wakeup_enabled": None if wake not in {"enabled", "disabled"} else wake == "enabled",
-          }, sort_keys=True))
-          PY
-      - name: Verify hosted refusal and public receipt guards without Docker
-        run: python -m unittest discover -s tests -p 'test_nm2_worker*hosted.py'
-      - name: Run the exact explicitly selected coupled cohort
-        env:
-          NM2_COUPLED: ${{ inputs.nm2_coupled }}
-          NM2_SCENARIO: ${{ inputs.nm2_scenario }}
-          NM2_DATABASE_REVISION: ${{ inputs.nm2_database_revision }}
-          NM2_DISTRIBUTION_SHA: ${{ inputs.nm2_distribution_sha }}
-          NM2_MAP_SHA: ${{ inputs.nm2_map_sha }}
-          NM2_RUNNER_SHA: ${{ inputs.nm2_runner_sha }}
-          NM2_GATE_SHA: ${{ inputs.nm2_gate_sha }}
-        run: python tests/nm2_worker_hosted.py --execute
-      - name: Retain only the sanitized public NM-2 receipt
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: nm2-coupled-public-receipt
-          path: ${{ runner.temp }}/nm2-hosted-public/receipt.json
-          if-no-files-found: warn
-          retention-days: 7
-      # No image publication, cleanup/prune or upload of private fixture output.
   certificate-renewal:
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-latest
@@ -304,12 +167,22 @@ jobs:
           python vardrsec.py install
           python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), 'config', '--quiet')"
           docker build -t vardrsec-browser:acceptance tests/browser
-      - name: Verify trusted installation, explicit Gate workflow and restart
+      - name: Verify trusted installation, Gate workflow, restart and installed ACL payloads
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
+          python tests/acl_runtime_acceptance.py capture
           python tests/ubuntu_installation.py enroll
           python tests/compose_acceptance.py
+          python tests/acl_runtime_acceptance.py verify
+      - name: Preserve ACL payload results and per-image diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: installed-acl-runtime
+          path: artifacts/acl-runtime/
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Verify read-only glibc locale and environment exposure (CVE-2026-84243)
         run: python tests/glibc_locale_acceptance.py
       - name: Verify least-privilege database role (fresh install, existing-volume upgrade, recovery)

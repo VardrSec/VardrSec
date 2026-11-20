@@ -99,10 +99,6 @@ class PID1LossProposalTests(unittest.TestCase):
             "NM2_SCENARIO": PID1_LOSS_SCENARIO, "NM2_DATABASE_REVISION": "0041persistentruntime",
             **{"NM2_" + name.upper() + "_SHA": commit for name, commit in PID1_LOSS_SOURCES.items()},
         }), (PID1_LOSS_SCENARIO, "0041persistentruntime"))
-        workflow = (hosted.SOURCE / ".github/workflows/compose.yml").read_text(encoding="utf-8")
-        options = next(line for line in workflow.splitlines() if line.strip().startswith("options: [healthy,"))
-        self.assertEqual(options.count(PID1_LOSS_SCENARIO), 1)
-        self.assertIn("default: healthy", workflow)
         raw, selection, inventories = pid1_evidence()
         projected = hosted.public_projection(raw, selection, inventories=inventories)
         self.assertEqual(projected["nm2_exit_status"], "incomplete")

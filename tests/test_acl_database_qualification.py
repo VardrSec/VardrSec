@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-import acl_cohort_acceptance
+import acl_runtime_acceptance
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "qualification/kerberos-image/verify.sh"
@@ -60,12 +60,12 @@ class DatabaseACLQualification(unittest.TestCase):
         self.assertEqual((artifacts / "acl-installed-custody.stderr.txt").read_text(), "sha256sum: public-source: Permission denied\n")
         self.assertTrue((artifacts / "result.txt").read_text().startswith("FAIL:"))
         self.assertFalse(any(call[:2] == ["run", "-d"] for call in calls))
-        self.assertEqual((artifacts / "acl-runtime-check.sh").read_text(), acl_cohort_acceptance.RUNTIME_CHECK)
+        self.assertEqual((artifacts / "acl-runtime-check.sh").read_text(), acl_runtime_acceptance.RUNTIME_CHECK)
         restricted = next(call for call in calls if "--cap-drop" in call)
         self.assertEqual(restricted[restricted.index("--cap-drop") + 1], "ALL")
         self.assertEqual(restricted[restricted.index("--security-opt") + 1], "no-new-privileges")
         self.assertEqual(restricted[restricted.index("--network") + 1], "none")
-        self.assertEqual(restricted[-1], acl_cohort_acceptance.RUNTIME_CHECK.rstrip("\n"))
+        self.assertEqual(restricted[-1], acl_runtime_acceptance.RUNTIME_CHECK.rstrip("\n"))
 
     def test_success_preserves_kerberos_and_postgres_checks(self):
         result, artifacts, calls = self.invoke(0)

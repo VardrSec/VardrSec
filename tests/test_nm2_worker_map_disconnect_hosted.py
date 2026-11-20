@@ -91,9 +91,6 @@ class MapDisconnectHostedTests(unittest.TestCase):
         self.assertEqual(
             hosted.execution_options(env), (SCENARIO, "0041persistentruntime")
         )
-        self.assertEqual(
-            hosted.execution_options({}), ("healthy", "0040runtimesequence")
-        )
         for name in (
             "NM2_MAP_SHA",
             "NM2_RUNNER_SHA",

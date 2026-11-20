@@ -4,9 +4,7 @@ Evidence bodies were checked by the producer and are not retained by this reader
 The separate availability reader still requires 70 seconds, 35 jobs and 175 requests.
 """
 
-from pathlib import PureWindowsPath
 from urllib.parse import urlsplit
-import re
 
 from gate_acceptance import ORIGIN as REVIEWED_ORIGIN, reviewed_cases
 import nm2_worker_acceptance as fixture
@@ -360,81 +358,9 @@ def _review_fixed_spec(selection, admission, before, gate_sha256, project, *, ex
     return name, plan, approval
 
 
-def envelope(raw, selection, desktop):
-    require(
-        type(raw) is dict
-        and type(selection) is dict
-        and len(host.canonical(raw)) <= 4 * 1024 * 1024
-    )
-    require(
-        raw["schema"] == "vardr.nm2-worker-count-acceptance/1"
-        and raw["status"] == "selected_count_control_slice_passed"
-        and raw["stage"] == "selected_count_control_complete"
-    )
-    require(
-        raw["scenario"] == SCENARIO
-        and raw["acceptance_scope"] == "persistent_count_control_only"
-        and raw["nm2_exit_status"] == "incomplete"
-        and raw["platform"] == ("win32" if desktop else "linux")
-        and raw["retained"] is True
-    )
-    common.fields(selection["sources"], fixture.SOURCE_NAMES)
-    for row in selection["sources"].values():
-        common.fields(row, {"path", "commit"})
-        require(
-            type(row["path"]) is str
-            and type(row["commit"]) is str
-            and re.fullmatch(r"[a-f0-9]{40}", row["commit"])
-        )
-        if desktop:
-            path = PureWindowsPath(row["path"])
-            require(path.is_absolute() and ".." not in path.parts)
-        else:
-            require(row["path"].startswith("/"))
-    common.fields(selection["images"], fixture.IMAGE_NAMES)
-    for image in selection["images"].values():
-        require(type(image) is str and re.fullmatch(r"sha256:[a-f0-9]{64}", image))
-    require(
-        type(selection["project"]) is str
-        and re.fullmatch(r"vardrsec-nm2-[a-z0-9]{8,24}", selection["project"])
-    )
-    require(
-        type(selection["https_port"]) is int and 1 <= selection["https_port"] <= 65535
-    )
-    for key in ("sources", "images", "project"):
-        common.same(raw[key], selection[key])
-    require(
-        raw["readiness_volume"] == selection["project"] + "_worker-ready"
-        and raw["expected_database_revision"] == "0041persistentruntime"
-        and (desktop or raw["admitted_inventory_diffs"] == [])
-    )
-    for key in ("before_sha256", "after_sha256", "public_ca_der_sha256"):
-        host._hash(raw[key])
-    cases = common.fields(raw["cases"], CASES)
-    disabled = common.fields(
-        cases["default_disabled"],
-        {
-            "status",
-            "services",
-            "managed_pending_status",
-            "csrf_write_status",
-            "unauthenticated_read_status",
-        },
-    )
-    require(
-        disabled["status"] == "passed"
-        and type(disabled["services"]) is list
-        and len(disabled["services"]) == 4
-        and sorted(disabled["services"]) == ["api", "db", "proxy", "web"]
-    )
-    for key, expected in (
-        ("managed_pending_status", 404),
-        ("csrf_write_status", 403),
-        ("unauthenticated_read_status", 401),
-    ):
-        common.integer(disabled[key], expected)
+def verify_denied_job(denied):
     denied = common.fields(
-        cases["strict_out_of_scope"],
+        denied,
         {"status", "approval_http_status", "inventory", "traffic_delta"},
     )
     require(denied["status"] == "passed")
@@ -458,6 +384,28 @@ def envelope(raw, selection, desktop):
     common.same(inv["approval_context_sha256"], {})
     for key in ("targets_spent", "duration_allocated"):
         common.integer(inv[key], 0)
+
+
+def envelope(raw, selection, desktop):
+    require(
+        type(raw) is dict
+        and type(selection) is dict
+        and len(host.canonical(raw)) <= 4 * 1024 * 1024
+    )
+    require(
+        raw["schema"] == "vardr.nm2-worker-count-acceptance/1"
+        and raw["status"] == "selected_count_control_slice_passed"
+        and raw["stage"] == "selected_count_control_complete"
+    )
+    require(
+        raw["scenario"] == SCENARIO
+        and raw["acceptance_scope"] == "persistent_count_control_only"
+        and raw["nm2_exit_status"] == "incomplete"
+        and raw["platform"] == ("win32" if desktop else "linux")
+        and raw["retained"] is True
+    )
+    cases = common.verified_case_set(raw, selection, CASES, desktop=desktop)
+    verify_denied_job(cases["strict_out_of_scope"])
     for name in fixture.INITIAL_CASES[2:]:
         common.same(cases[name], {"status": "not_run"})
     return cases[CASE]

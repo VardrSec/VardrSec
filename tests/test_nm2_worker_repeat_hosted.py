@@ -149,15 +149,8 @@ def held_component_vector():
 
 
 class RepeatedManagedClaimTests(unittest.TestCase):
-    def test_held_repeat_component_qualifies_without_promoting_parent_recovery(self):
+    def test_public_projection_refuses_held_or_incomplete_repeat_claim(self):
         raw,selection,(before,after)=held_component_vector()
-        unchanged=canonical(raw)
-        value=hosted.repeated_claim_component_projection(raw,selection,inventory=after)
-        self.assertEqual(value["repeated_managed_claim"]["http_status"],409)
-        self.assertEqual(value["physical_worker_count"],1)
-        self.assertEqual(value["parent_status"],"held")
-        self.assertFalse(value["retirement_in_this_parent"] or value["successor_in_this_parent"])
-        self.assertEqual(canonical(raw),unchanged)
         with self.assertRaises(hosted.HostedRefused): hosted.public_projection(raw,selection,inventories=(before,after))
         # A complete-looking parent still requires its genuine terminal and retirement.
         for remove in ("terminal","retirement"):
@@ -166,22 +159,6 @@ class RepeatedManagedClaimTests(unittest.TestCase):
             else: full.pop("repeat_retirement")
             with self.subTest(remove=remove),self.assertRaises(hosted.HostedRefused):
                 hosted.public_projection(full,sel,inventories=inventories)
-
-    def test_repeat_component_rejects_counter_binding_change_and_extra_worker(self):
-        for change in ("counter","binding","state","worker"):
-            raw,selection,(_,after)=held_component_vector();proof=raw["repeated_managed_claim"]
-            if change=="counter": proof["issued_attempts"]=True
-            elif change=="binding":
-                binding=proof["state_before"]["runtime"]["attempts"][0]["binding"]
-                binding["fence"]=True;proof["state_after"]=deepcopy(proof["state_before"])
-                proof["binding_sha256"]=digest(canonical(binding))
-            elif change=="state": proof["state_after"]["targets_spent"]=2
-            else:
-                row=deepcopy(next(r for r in after["containers"].values() if r["labels"]["com.docker.compose.service"]=="managed-worker"))
-                row["id"]="8"*64;after["containers"][row["id"]]=row;raw["after_sha256"]=digest(canonical(after))
-            for key in ("before","after"): proof["state_"+key+"_sha256"]=digest(canonical(proof["state_"+key]))
-            with self.subTest(change=change),self.assertRaises(hosted.HostedRefused):
-                hosted.repeated_claim_component_projection(raw,selection,inventory=after)
 
     def test_active_repeat_uses_one_original_key_claim_and_preserves_accounting(self):
         fixture, admission, case, identity, requests, inventory = model()
@@ -343,9 +320,7 @@ class RepeatedManagedClaimTests(unittest.TestCase):
             ]), 0)
         self.assertTrue(constructor.call_args.kwargs["repeat_managed_claim"])
         self.assertFalse(constructor.call_args.kwargs["stopped_predecessor"])
-        self.assertIn("persistent-launch-repeat-managed-claim", (hosted.SOURCE / '.github/workflows/compose.yml').read_text())
         self.assertEqual(hosted.REPEAT_HOSTED, "vardr.nm2-hosted/25")
-        self.assertEqual(hosted.REPEAT_LEGACY_HOSTED, "vardr.nm2-hosted/19")
         raw,selection,_=vector()
         raw.update(status="held", acceptance_scope="installed_repeated_managed_claim_then_exact_stop",
                    stage="launch_refuse_unresolved_predecessor",reason="launch_unresolved_refusal_engine_changed")

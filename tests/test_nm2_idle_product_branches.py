@@ -27,7 +27,7 @@ NOW = datetime(2026, 11, 6, 2, 0, 6, tzinfo=timezone.utc)
 MAP_FIELDS = ("cursor", "availability", "new_work_disabled", "reporting_revoked")
 
 
-def produce(case):
+def produce(case, *, minimal_record=False):
     _, _, owner, admission, ready, stopped = vectors.vector(run=False)
     local = next(owner.persistent_metadata.side_effect)
     record = {"runtime_id": admission["runtime_id"],
@@ -89,7 +89,12 @@ def produce(case):
     elif case == "identity-mismatch": identity = runtime.RuntimeIdentity(**{**admission["identity"], "owner_nonce": "f" * 64})
     elif case == "missing-bound-state": bound = [{}]
     else: assert case == "ready"
-    persistent.record_state(record)
+    if minimal_record:
+        # The status-to-wire tests also exercise a stored record without optional metadata.
+        for key in ("admission", "client", "disable_intent", "disable_receipt"):
+            del record[key]
+    else:
+        persistent.record_state(record)
     records = SimpleNamespace(locked=contextlib.nullcontext,
         read=Mock(return_value=record, side_effect=read_error),
         secret=Mock(return_value="synthetic-unused-custody"),
@@ -112,6 +117,10 @@ def produce(case):
             "--private-root", str(Path(__file__).parent / "unused-custody")],
             installation=Path(__file__).resolve().parents[1])
     records.write.assert_not_called()
+    if case in {"ready", "lookup-error"}:
+        client.receipt.assert_called_once()
+        assert observer._bound.call_count == (1 if case == "lookup-error" else 2)
+        observer.observe_exit.assert_not_called()
     assert observer._deadline is None
     return json.loads(output.getvalue()), code, admission
 

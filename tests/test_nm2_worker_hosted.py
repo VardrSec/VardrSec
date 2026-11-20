@@ -1416,21 +1416,6 @@ class HostedGuards(unittest.TestCase):
             self.assertNotIn("private", json.dumps(public))
             self.assertFalse(any(args[0] in {"push", "prune", "rm"} for args in calls))
 
-    def test_workflow_opt_in_is_default_false_and_has_no_push_or_pr_activation(self):
-        text = (hosted.SOURCE / ".github/workflows/compose.yml").read_text()
-        block = text.split("      nm2_coupled:", 1)[1].split(
-            "      nm2_distribution_sha:", 1
-        )[0]
-        self.assertIn("default: false", block)
-        job = text.split("  nm2-coupled:", 1)[1].split("  certificate-renewal:", 1)[0]
-        self.assertIn(
-            "if: github.event_name == 'workflow_dispatch' && inputs.nm2_coupled == true",
-            job,
-        )
-        self.assertIn("runs-on: ubuntu-24.04", job)
-        self.assertEqual(job.count("path:"), 1)
-        self.assertIn("${{ runner.temp }}/nm2-hosted-public/receipt.json", job)
-
     def test_invalid_measurement_keeps_public_stage_held_without_raw_payload(self):
         with (
             tempfile.TemporaryDirectory() as temporary,

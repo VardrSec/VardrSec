@@ -4,24 +4,46 @@ import copy
 import json
 import unittest
 from unittest.mock import patch
-import uuid
 
 import nm2_worker_persistent_projection as projection
+import nm2_persistent_test_fixtures as records
 import test_nm2_persistent_availability as producer_tests
 import worker_host as host
 
 
-def hashed(value):
-    return producer_tests.hashed(value)
+hashed = producer_tests.hashed
+identifier = producer_tests.identifier
 
 
-def identifier(number):
-    return str(uuid.UUID(int=number))
+def ready_status(admission, sequence, observed_at, fresh_until):
+    return {
+        "schema": "vardr.worker-status/1",
+        "runtime_id": admission["runtime_id"],
+        "protocol": "persistent-v3",
+        "mode": "persistent",
+        "limits": admission["limits"],
+        "identity": admission["identity"],
+        "state": "idle-ready",
+        "reason": None,
+        "cursor": {"last_sequence": sequence, "phase": "idle"},
+        "availability": {
+            "state": "idle-ready",
+            "observed_at": observed_at,
+            "fresh_until": fresh_until,
+            "cursor": {"last_sequence": sequence, "phase": "idle"},
+        },
+        "new_work_disabled": False,
+        "reporting_revoked": False,
+        "registration_state": "acknowledged",
+        "disable_state": "none",
+        "stop_state": "none",
+        "revocation_state": "none",
+        "container_state": "running",
+    }
 
 
 def vector():
-    """Extend the producer's oracle vector to the exact retained wire shapes."""
-    value = producer_tests.vector()
+    """Wrap the shared worker records in the hosted receipt and its platform evidence."""
     selection = {
         "sources": {
             name: {"path": "/private/source/" + name, "commit": str(i) * 40}
@@ -34,203 +56,15 @@ def vector():
         "project": "vardrsec-nm2-abcdefgh",
         "https_port": 28443,
     }
+    value = producer_tests.vector(
+        origin="https://vardrsec.localhost:28443/backend", project=selection["project"],
+        image_id=selection["images"]["worker"],
+    )
     admission = value.idle["admission"]
-    admission["origin"] = "https://vardrsec.localhost:28443/backend"
-    admission["identity"].update(
-        project=selection["project"], image_id=selection["images"]["worker"]
-    )
-    admission["runtime_sha256"] = host.digest(admission["identity"])
-    admission["admission_sha256"] = host.digest(
-        {k: v for k, v in admission.items() if k != "admission_sha256"}
-    )
-    value.fixture.issuer_origin = admission["origin"]
-    value.physical.update(
-        runtime_sha256=admission["runtime_sha256"],
-        admission_sha256=admission["admission_sha256"],
-        operator_enable_state="enabled",
-        finished_at="2026-11-06T02:02:00.123456789Z",
-    )
     value.runtime.pop("origin")
-    value.runtime.update(
-        runtime_sha256=admission["runtime_sha256"],
-        admission_sha256=admission["admission_sha256"],
-    )
-    for row in (value.idle["before"], value.idle["after"]):
-        row.update(
-            runtime_sha256=admission["runtime_sha256"],
-            admission_sha256=admission["admission_sha256"],
-        )
-    value.idle["status"] = {
-        "schema": "vardr.worker-status/1",
-        "runtime_id": admission["runtime_id"],
-        "protocol": "persistent-v3",
-        "mode": "persistent",
-        "limits": admission["limits"],
-        "identity": admission["identity"],
-        "state": "idle-ready",
-        "reason": None,
-        "cursor": {"last_sequence": "0", "phase": "idle"},
-        "availability": {
-            "state": "idle-ready",
-            "observed_at": "2026-11-06T01:59:00Z",
-            "fresh_until": "2026-11-06T01:59:15Z",
-            "cursor": {"last_sequence": "0", "phase": "idle"},
-        },
-        "new_work_disabled": False,
-        "reporting_revoked": False,
-        "registration_state": "acknowledged",
-        "disable_state": "none",
-        "stop_state": "none",
-        "revocation_state": "none",
-        "container_state": "running",
-    }
-    for n, (measured, history, inventory) in enumerate(
-        zip(value.measured, value.runtime["attempts"], value.inventories), 1
-    ):
-        binding = history["binding"]
-        binding.update(
-            origin=admission["origin"],
-            contract_id=identifier(1000 + n),
-            attempt_id=identifier(2000 + n),
-        )
-        result = host.digest(
-            {
-                "schema": "vardr.managed-result/1",
-                **binding,
-                "artifact_sha256": measured["artifact_sha256"],
-                "case_sha256": measured["case_sha256"],
-            }
-        )
-        terminal = {
-            "schema": "vardr.managed-completion/1",
-            **binding,
-            "receipt_sha256": result,
-            "outcome": "completed",
-            "capacity_reserved": False,
-        }
-        terminal_sha = host.digest(terminal)
-        release = {
-            "schema": "vardr.worker-idle-release/2",
-            "runtime_id": admission["runtime_id"],
-            "runtime_sha256": admission["runtime_sha256"],
-            "admission_sha256": admission["admission_sha256"],
-            "runtime_sequence": str(n),
-            "binding": binding,
-            "terminal_receipt_sha256": terminal_sha,
-            "native_done_sha256": measured["native_done_sha256"],
-            "released": True,
-        }
-        release["receipt_sha256"] = host.digest(release)
-        history.update(
-            terminal_receipt=terminal,
-            terminal_receipt_sha256=terminal_sha,
-            release_receipt=release,
-        )
-        measured.update(
-            binding=binding,
-            evidence_sha256=hashed("evidence" + str(n)),
-            terminal_receipt=terminal,
-            terminal_receipt_sha256=terminal_sha,
-            result_receipt_sha256=result,
-            release_receipt=release,
-            release_receipt_sha256=release["receipt_sha256"],
-            assessment={
-                "status": "conclusive",
-                "baseline_valid": True,
-                "case_snapshot_verified": True,
-                "preflight": {"status": "passed"},
-                "case_hash": measured["case_sha256"],
-                "candidate_findings": 0,
-            },
-        )
-        for i, row in enumerate(measured["requests"]):
-            row.update(
-                method="GET",
-                path=(
-                    "/session?"
-                    if i < 2
-                    else "/fixed/records/42?view=full&include=owner&"
-                )
-                + f"nm2_case=persistent-{n:02d}",
-            )
-        metadata = measured["local"]
-        metadata.update(
-            runtime_sha256=admission["runtime_sha256"],
-            admission_sha256=admission["admission_sha256"],
-        )
-        metadata["attempt"].update(
-            run_id=f"{n:032x}", completion=terminal, release=release
-        )
-        for i, who in enumerate(("owner", "peer")):
-            catalog_grant = metadata["grants"]["grants"][i]
-            catalog_grant.update(
-                issuer=admission["origin"],
-                origin=projection.TARGET,
-                source="env",
-                name="FIXTURE_" + who.upper() + "_TOKEN",
-                id=identifier(3000 + n * 2 + i),
-            )
-            for key in ("issued_at", "expires_at"):
-                catalog_grant[key] = catalog_grant[key].replace("Z", "+00:00")
-        approval = inventory["approvals"][0]
-        approval["id"] = identifier(4000 + n)
-        for i, who in enumerate(("owner", "peer")):
-            approval["credential_grants"][i].update(
-                identity_id=who,
-                source="value_env",
-                name="FIXTURE_" + who.upper() + "_TOKEN",
-                revision=1,
-            )
-        inventory.update(
-            schema="vardr.nm2-fixture-inventory/3",
-            schema_revision="0041persistentruntime",
-            database_user="vardrmap_app",
-            engagement_id=measured["engagement_id"],
-            job_id=measured["job_id"],
-            runtime_attempt_bound=35,
-            job_status="done",
-            execution={
-                "state": "completed",
-                "capacity_reserved": False,
-                "target_charge": 1,
-                "duration_seconds": 30,
-            },
-            contracts=[
-                {
-                    "id": binding["contract_id"],
-                    "attempt_id": binding["attempt_id"],
-                    "ordinal": 1,
-                    "fence": 1,
-                    "consumed": True,
-                    "contract_sha256": binding["contract_sha256"],
-                }
-            ],
-            results=[
-                {
-                    "contract_id": binding["contract_id"],
-                    "artifact_sha256": measured["artifact_sha256"],
-                    "receipt_sha256": result,
-                    "outcome": "completed",
-                    "evidence_created": 5,
-                    "scan_items_created": 0,
-                }
-            ],
-            stops=[],
-        )
-    value.retirement.update(
-        origin=admission["origin"],
-        runtime_sha256=admission["runtime_sha256"],
-        admission_sha256=admission["admission_sha256"],
-    )
-    value.retirement["receipt_sha256"] = host.digest(
-        {k: v for k, v in value.retirement.items() if k != "receipt_sha256"}
-    )
-    value.retained = copy.deepcopy(value.measured[-1]["local"])
+    value.physical.update(operator_enable_state="enabled", finished_at="2026-11-06T02:02:00.123456789Z")
+    value.idle["status"] = ready_status(admission, "0", "2026-11-06T01:59:00Z", "2026-11-06T01:59:15Z")
     value.retained.pop("grants")
-    value.retained.update(state="retired", retirement=value.retirement)
-    value.retained["attempt"].update(
-        state="physical_retirement_observed", retired_from_state="released"
-    )
     case = value.fixture.verify_persistent_sequence(
         value.physical,
         value.idle,
@@ -573,9 +407,7 @@ class PersistentProjectionTests(unittest.TestCase):
                 history["terminal_receipt_sha256"] = row["terminal_receipt_sha256"]
                 release = row["release_receipt"]
                 release["terminal_receipt_sha256"] = row["terminal_receipt_sha256"]
-                release["receipt_sha256"] = host.digest(
-                    {k: v for k, v in release.items() if k != "receipt_sha256"}
-                )
+                records.set_digest(release, "receipt_sha256")
                 row["release_receipt_sha256"] = release["receipt_sha256"]
                 self.assert_refused(raw, selection)
 
@@ -674,7 +506,9 @@ class PersistentProjectionTests(unittest.TestCase):
                 elif kind == "cross_job":
                     case["attempts"][1]["requests"][0]["received_monotonic_ns"] = 1
                 elif kind == "release_order":
-                    case["attempts"][1]["bound_at"] = case["attempts"][0]["bound_at"]
+                    late_release = case["attempts"][1]["confirmed_at"]
+                    case["attempts"][0]["released_at"] = late_release
+                    case["proof"]["runtime"]["attempts"][0]["released_at"] = late_release
                 self.assert_refused(raw, selection)
 
     def test_retirement_cannot_be_rehashed_to_claim_more_or_other_history(self):
@@ -690,9 +524,7 @@ class PersistentProjectionTests(unittest.TestCase):
                 case = raw["cases"]["persistent_availability"]
                 retirement = case["proof"]["retirement"]
                 retirement[field] = value
-                retirement["receipt_sha256"] = host.digest(
-                    {k: v for k, v in retirement.items() if k != "receipt_sha256"}
-                )
+                records.set_digest(retirement, "receipt_sha256")
                 case["retirement_receipt_sha256"] = retirement["receipt_sha256"]
                 self.assert_refused(raw, selection)
 
@@ -706,9 +538,7 @@ class PersistentProjectionTests(unittest.TestCase):
                 case = raw["cases"]["persistent_availability"]
                 admission = case["proof"]["idle"]["admission"]
                 admission["limits"] = policy
-                admission["admission_sha256"] = host.digest(
-                    {k: v for k, v in admission.items() if k != "admission_sha256"}
-                )
+                records.set_digest(admission, "admission_sha256")
                 case["limits"] = policy
                 case["admission_sha256"] = admission["admission_sha256"]
                 self.assert_refused(raw, selection)
@@ -751,9 +581,7 @@ class PersistentProjectionTests(unittest.TestCase):
             history["terminal_receipt_sha256"] = row["terminal_receipt_sha256"]
             release = row["release_receipt"]
             release["terminal_receipt_sha256"] = row["terminal_receipt_sha256"]
-            release["receipt_sha256"] = host.digest(
-                {k: v for k, v in release.items() if k != "receipt_sha256"}
-            )
+            records.set_digest(release, "receipt_sha256")
             row["release_receipt_sha256"] = release["receipt_sha256"]
             inventory = case["proof"]["inventories"][1]
             inventory["contracts"][0].update(

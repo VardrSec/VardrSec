@@ -10,9 +10,11 @@ from pathlib import Path
 import sys
 from types import ModuleType, SimpleNamespace
 import unittest
+import uuid
 from unittest.mock import Mock, patch
 
 import nm2_worker_acceptance as acceptance
+import nm2_persistent_test_fixtures as records
 import test_nm2_worker_acceptance as finite_tests
 
 
@@ -20,14 +22,19 @@ def hashed(value):
     return acceptance.digest(value.encode())
 
 
-def vector():
+def identifier(number):
+    return str(uuid.UUID(int=number))
+
+
+def vector(*, origin="https://map.example/backend", project="vardrsec-nm2-persistent",
+           image_id="sha256:" + "b" * 64):
     fixture = object.__new__(acceptance.Fixture)
-    fixture.issuer_origin = "https://map.example/backend"
+    fixture.issuer_origin = origin
     identity = dict(
         daemon_id="owned",
         container_id="a" * 64,
-        image_id="sha256:" + "b" * 64,
-        project="vardrsec-nm2-persistent",
+        image_id=image_id,
+        project=project,
         started_at="2026-11-06T01:59:00Z",
         owner_nonce="c" * 64,
     )
@@ -118,8 +125,8 @@ def vector():
             origin=fixture.issuer_origin,
             runner_id=admission["runner_id"],
             job_id=f"job-{n}",
-            contract_id=f"contract-{n}",
-            attempt_id=f"attempt-{n}",
+            contract_id=identifier(1000 + n),
+            attempt_id=identifier(2000 + n),
             fence=1,
             contract_sha256=hashed(f"contract{n}"),
         )
@@ -175,7 +182,7 @@ def vector():
         )
         runtime["attempts"].append(attempt)
         local_attempt = dict(
-            run_id=f"run-{n}",
+            run_id=f"{n:032x}",
             job_id=binding["job_id"],
             phase="done",
             pid=None,
@@ -194,13 +201,17 @@ def vector():
             policy_reason="granted",
             grants=[
                 dict(
-                    id=f"grant-{n}-{who}",
+                    id=identifier(3000 + n * 2 + i),
+                    issuer=origin,
+                    origin=acceptance.ORIGIN,
+                    source="env",
+                    name="FIXTURE_" + who.upper() + "_TOKEN",
                     status="active",
                     engagement_id=f"eng-{n}",
-                    issued_at=stamp(bound - timedelta(seconds=1)),
-                    expires_at=stamp(bound + timedelta(seconds=600)),
+                    issued_at=(bound - timedelta(seconds=1)).isoformat(timespec="microseconds"),
+                    expires_at=(bound + timedelta(seconds=600)).isoformat(timespec="microseconds"),
                 )
-                for who in ("owner", "peer")
+                for i, who in enumerate(("owner", "peer"))
             ],
         )
         measured.append(
@@ -210,6 +221,16 @@ def vector():
                 job_id=binding["job_id"],
                 case_sha256=case,
                 artifact_sha256=artifact,
+                binding=binding,
+                evidence_sha256=hashed(f"evidence{n}"),
+                assessment={
+                    "status": "conclusive",
+                    "baseline_valid": True,
+                    "case_snapshot_verified": True,
+                    "preflight": {"status": "passed"},
+                    "case_hash": case,
+                    "candidate_findings": 0,
+                },
                 result_receipt_sha256=result_sha,
                 terminal_receipt_sha256=terminal_sha,
                 release_receipt_sha256=release["receipt_sha256"],
@@ -218,7 +239,9 @@ def vector():
                 requests=[
                     dict(
                         identity=who,
-                        path=f"/fixed?nm2_case=persistent-{n}",
+                        method="GET",
+                        path=("/session?" if i < 2 else "/fixed/records/42?view=full&include=owner&")
+                        + f"nm2_case=persistent-{n:02d}",
                         received_monotonic_ns=n * 100 + i,
                     )
                     for i, who in enumerate(
@@ -236,12 +259,46 @@ def vector():
         )
         inventories.append(
             dict(
+                schema="vardr.nm2-fixture-inventory/3",
+                schema_revision="0041persistentruntime",
+                database_user="vardrmap_app",
+                engagement_id=f"eng-{n}",
+                job_id=binding["job_id"],
+                runtime_attempt_bound=35,
+                job_status="done",
+                execution={
+                    "state": "completed",
+                    "capacity_reserved": False,
+                    "target_charge": 1,
+                    "duration_seconds": 30,
+                },
+                contracts=[
+                    {
+                        "id": binding["contract_id"],
+                        "attempt_id": binding["attempt_id"],
+                        "ordinal": 1,
+                        "fence": 1,
+                        "consumed": True,
+                        "contract_sha256": binding["contract_sha256"],
+                    }
+                ],
+                results=[
+                    {
+                        "contract_id": binding["contract_id"],
+                        "artifact_sha256": artifact,
+                        "receipt_sha256": result_sha,
+                        "outcome": "completed",
+                        "evidence_created": 5,
+                        "scan_items_created": 0,
+                    }
+                ],
+                stops=[],
                 runtimes=[runtime],
                 targets_spent=1,
                 duration_allocated=30,
                 approvals=[
                     dict(
-                        id=f"approval-{n}",
+                        id=identifier(4000 + n),
                         issued=1,
                         revoked=False,
                         max_executions=1,
@@ -249,34 +306,17 @@ def vector():
                         approved_at=stamp(bound - timedelta(seconds=1)),
                         expires_at=stamp(bound + timedelta(seconds=300)),
                         credential_grants=[
-                            dict(expires_at=stamp(bound + timedelta(seconds=300)))
-                            for _ in range(2)
+                            dict(identity_id=who, source="value_env",
+                                 name="FIXTURE_" + who.upper() + "_TOKEN", revision=1,
+                                 expires_at=stamp(bound + timedelta(seconds=300)))
+                            for who in ("owner", "peer")
                         ],
                     )
                 ],
             )
         )
-    retirement = dict(
-        schema="vardr.worker-retirement/3",
-        runtime_id=runtime["id"],
-        runtime_sha256=runtime["runtime_sha256"],
-        admission_sha256=admission["admission_sha256"],
-        origin=fixture.issuer_origin,
-        runner_id=admission["runner_id"],
-        enrollment_id="enrolled",
-        runtime_sequence=None,
-        last_sequence="35",
-        binding=None,
-        attempt_receipt=None,
-        report_sha256=runtime["report_sha256"],
-        retired=True,
-    )
-    retirement["receipt_sha256"] = acceptance.digest(acceptance.canonical(retirement))
-    retained = copy.deepcopy(measured[-1]["local"])
-    retained.update(state="retired", retirement=retirement)
-    retained["attempt"].update(
-        state="physical_retirement_observed", retired_from_state="released"
-    )
+    retirement = records.retirement_record(admission, runtime["report_sha256"], last_sequence="35")
+    retained = records.retained_after_exit(measured[-1]["local"], retirement)
     return SimpleNamespace(
         fixture=fixture,
         physical=physical,
@@ -377,9 +417,6 @@ class PersistentAvailability(unittest.TestCase):
             "revoked_grant": lambda d: d.measured[10]["local"]["grants"]["grants"][
                 0
             ].update(status="revoked"),
-            "next_bound_early": lambda d: d.measured[10].update(
-                bound_at=d.measured[9]["bound_at"]
-            ),
             "request_clock_bool": lambda d: d.measured[10]["requests"][0].update(
                 received_monotonic_ns=True
             ),
@@ -399,6 +436,14 @@ class PersistentAvailability(unittest.TestCase):
                 fault(data)
                 with self.assertRaises(acceptance.AcceptanceRefused):
                     self.verify(data)
+
+    def test_next_binding_waits_for_previous_release(self):
+        data = vector()
+        late_release = data.measured[10]["confirmed_at"]
+        data.measured[9]["released_at"] = late_release
+        data.runtime["attempts"][9]["released_at"] = late_release
+        with self.assertRaisesRegex(acceptance.AcceptanceRefused, "persistent_release_after_next_binding"):
+            self.verify(data)
 
     def test_persistent_fixed_case_uses_release2_without_requiring_clean_operator_exit(
         self,

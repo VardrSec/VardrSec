@@ -13,10 +13,6 @@ This repository installs and maintains the selected components with Docker Compo
 Source snapshot: **0.1.0-dev.1**. See the [changelog](CHANGELOG.md). This label does
 not change the development status or component pins in `versions.json`.
 
-The [bounded ACL qualification runbook](docs/acl-qualification.md) explains the
-reviewed test cohort and its evidence. Companion pull requests and that isolated
-cohort do not change installed component pins or authorize publication.
-
 ## Choose an installation
 
 **Full** includes Map, Runner, Gate, PostgreSQL and the HTTPS proxy. **Mapless**
@@ -85,6 +81,7 @@ approval.
 - [Recovery](docs/recovery.md), [encrypted backups](docs/encrypted-backups.md) and [updates](docs/updates.md)
 - [Platforms](docs/platforms.md), [networking](docs/networking.md) and [support limits](docs/limitations.md)
 - [Component notices](docs/source-notices.md) and [license inventory](docs/release-license-inventory.md)
+- [Full installation ACL checks](docs/acl-qualification.md)
 - [Changelog](CHANGELOG.md)
 
 ## Component responsibilities

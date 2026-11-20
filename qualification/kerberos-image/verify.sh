@@ -31,21 +31,8 @@ docker run --rm --network none --entrypoint sh "$id" -eu -c '
     test "$(dpkg-query -W -f="\${Version}" "$package")" = "1.21.3-5+deb13u1+vardr2"
   done
 ' > artifacts/kerberos-image/installed-custody.txt
-# Prove ACL source custody and installed payloads under the same restricted
-# conditions as joint cohort qualification. Keep failed diagnostics as evidence.
-cat > artifacts/kerberos-image/acl-runtime-check.sh <<'ACL_RUNTIME_CHECK'
-set -eu
-source=/usr/share/doc/libacl1/vardr-source
-(cd "$source" && sha256sum -c SHA256SUMS)
-grep -Fx "cp-path-substitution: EXPECTED_VULNERABLE" "$source/evidence/negative-controls.log"
-grep -Fx "tar-path-substitution: EXPECTED_VULNERABLE" "$source/evidence/negative-controls.log"
-grep -Fx "cp-path-substitution: PASS" "$source/evidence/stripped-payload-regressions.log"
-grep -Fx "tar-path-substitution: PASS" "$source/evidence/stripped-payload-regressions.log"
-cd /
-grep -hE "  ./usr/(bin/(cp|tar)|lib/[^/]+/libacl[.]so[.][0-9.]+)$" "$source"/*.files-SHA256SUMS > /tmp/acl-runtime-hashes
-test "$(wc -l < /tmp/acl-runtime-hashes)" -eq 3
-sha256sum -c /tmp/acl-runtime-hashes
-ACL_RUNTIME_CHECK
+# Preserve the restricted runtime check with its diagnostics.
+cp "$(dirname "$0")/acl-runtime-check.sh" artifacts/kerberos-image/acl-runtime-check.sh
 acl_status=0
 docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
   --entrypoint sh "$id" -ec "$(cat artifacts/kerberos-image/acl-runtime-check.sh)" \

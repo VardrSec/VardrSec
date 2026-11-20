@@ -1,91 +1,36 @@
-"""Exercise real hosted projections under isolated, outside-checkout imports."""
-
-import json
-from pathlib import Path
-import subprocess
-import sys
-import tempfile
+"""Exercise real hosted availability projections outside the checkout."""
 import unittest
 
-import test_nm2_worker_persistent_projection as vectors
+from nm2_projection_test_process import check_projection
 
 
-SOURCE = Path(__file__).resolve().parents[1]
-CHILD = r"""
-import json, pathlib, runpy, socket, ssl, sys
-from unittest.mock import patch
-scripts, kind, sidecar = sys.argv[1:]
-source = pathlib.Path(scripts).parent
-assert str(source) not in sys.path
-sys.path.insert(0, scripts)
-with patch('socket.socket', side_effect=AssertionError('no network')), \
-     patch('subprocess.run', side_effect=AssertionError('no child process')):
-    module = runpy.run_path(str(pathlib.Path(scripts) / 'nm2_worker_hosted.py'),
-                            run_name='isolated_hosted_entrypoint')
-    data = module['decode_receipt'](pathlib.Path(sidecar).read_bytes())
-    if kind == 'failure':
-        projected = module['failure_projection'](data['raw'], data['selection'])
-        assert projected['command_failure'] == data['raw']['command_failure']
-        assert projected['stage'] == 'operator_worker_enable'
-    else:
-        projected = module['public_projection'](data['raw'], data['selection'])
-        assert projected['schema'] == 'vardr.nm2-worker-persistent-public/1'
-        assert projected['status'] == 'selected_availability_slice_passed'
-        assert projected['measurements']['last_sequence'] == '35'
-print(json.dumps({'kind': kind, 'projection': 'passed'}))
-"""
+def check_registration_diagnostic(public, raw):
+    assert public["command_failure"] == raw["command_failure"]
+    assert public["stage"] == "operator_worker_enable"
+
+
+def check_availability(public, raw):
+    assert public["schema"] == "vardr.nm2-worker-persistent-public/1"
+    assert public["status"] == "selected_availability_slice_passed"
+    assert public["measurements"]["last_sequence"] == "35"
 
 
 class HostedEntrypointTests(unittest.TestCase):
-    def isolated_projection(self, kind):
-        raw, selection = vectors.vector()
-        if kind == "failure":
-            raw.update(
-                status="held",
-                stage="operator_worker_enable",
-                reason="fixture_command_failed",
-                command_failure={
-                    "failure_phase": "enable_registration",
-                    "failure_code": "host_refused",
-                    "registration_failure": {
-                        "checkpoint": "request",
-                        "request_stage": "status",
-                        "http_status": 409,
-                    },
-                },
-            )
-        with tempfile.TemporaryDirectory() as temporary:
-            outside = Path(temporary).resolve()
-            self.assertFalse(outside.is_relative_to(SOURCE))
-            sidecar = outside / "public-fixture.json"
-            sidecar.write_text(
-                json.dumps({"raw": raw, "selection": selection}), encoding="utf-8"
-            )
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "-I",
-                    "-c",
-                    CHILD,
-                    str(SOURCE / "tests"),
-                    kind,
-                    str(sidecar),
-                ],
-                cwd=outside,
-                capture_output=True,
-                timeout=20,
-            )
-        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
-        self.assertEqual(result.stderr, b"")
-        self.assertEqual(
-            json.loads(result.stdout), {"kind": kind, "projection": "passed"}
-        )
-
     def test_isolated_failure_sidecar_keeps_registration_diagnostic(self):
-        self.isolated_projection("failure")
+        from test_nm2_worker_persistent_projection import vector
+
+        raw, selection = vector()
+        raw.update(status="held", stage="operator_worker_enable", reason="fixture_command_failed",
+                   command_failure={"failure_phase": "enable_registration", "failure_code": "host_refused",
+                                    "registration_failure": {"checkpoint": "request", "request_stage": "status",
+                                                             "http_status": 409}})
+        check_projection(self, raw, selection, "failure_projection", check_registration_diagnostic)
 
     def test_isolated_success_uses_the_real_persistent_projector(self):
-        self.isolated_projection("success")
+        from test_nm2_worker_persistent_projection import vector
+
+        raw, selection = vector()
+        check_projection(self, raw, selection, "public_projection", check_availability)
 
 
 if __name__ == "__main__":

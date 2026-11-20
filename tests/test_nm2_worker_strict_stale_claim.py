@@ -132,7 +132,7 @@ class StaleRegisteredClaim(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(hosted.HostedRefused):
                 hosted.public_projection(altered, selection, inventories=(before, after))
 
-    def test_map_pin_and_inert_default(self):
+    def test_stale_claim_requires_reviewed_map_pin(self):
         env = {"NM2_SCENARIO": fixture.STALE_CLAIM_SCENARIO,
                "NM2_DATABASE_REVISION": "0041persistentruntime", "NM2_MAP_SHA": fixture.STALE_CLAIM_MAP}
         self.assertEqual(hosted.execution_options(env), (fixture.STALE_CLAIM_SCENARIO, "0041persistentruntime"))
@@ -140,7 +140,6 @@ class StaleRegisteredClaim(unittest.TestCase):
             hosted.execution_options({**env, "NM2_MAP_SHA": fixture.STRICT_REVIEW_MAP})
         with patch.object(hosted, "STALE_CLAIM_MAP", None), self.assertRaises(hosted.HostedRefused):
             hosted.execution_options({**env, "NM2_MAP_SHA": None})
-        self.assertEqual(hosted.execution_options({}), ("healthy", "0040runtimesequence"))
         self.assertEqual(fixture.target_environment(fixture.STALE_CLAIM_SCENARIO), {})
 
     def test_bearer_is_only_sent_on_cookie_empty_expected_refusal(self):
