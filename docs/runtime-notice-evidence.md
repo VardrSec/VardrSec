@@ -80,13 +80,11 @@ CI and remains unverified until that run and its artifact/receipt checks succeed
 
 ## Separate source-delivery artifact
 
-The workflow also copies only reviewed image source/provenance directories:
-`/usr/share/doc/libxml2/vardr-source`, `/usr/share/licenses/gosu/source`, and
-`/opt/vardrtools/provenance`. It checks the libxml2 and gosu retained SHA256SUMS
-and retains Runner's per-tool source manifests and patch/source archives for
-independent review. This separate artifact includes source/package metadata,
-unlike the narrow notice collector. It is not a whole-filesystem export or
-proof that all transitive corresponding source is complete.
+The [image-evidence workflow](../.github/workflows/image-evidence.yml) defines
+which source directories, build records, and package checksums it collects in
+`native-source-delivery`. Use this artifact to verify the selected packages
+against the exact image under review. Each collection covers only the inputs
+listed in the workflow.
 
 The native hash allowlist also covers versioned `libxml2` and `libpcap` shared
 library payloads under `/usr/lib` (including multiarch directories). These are

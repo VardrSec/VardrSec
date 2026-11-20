@@ -194,12 +194,11 @@ clear vulnerability findings.
 
 ## Optional Nuclei boundary
 
-The current manifest selects Runner f57ea3a95dd01837043eaf61a54cb2f73d9ab265
-([#136](https://github.com/VardrSec/VardrRunner/pull/136)), which omits Nuclei from
-the toolkit. Its container verification passed; retained metadata for the eight
-remaining Go binaries contains neither Nuclei nor Censys SDK. Rust Dalfox is
-checked separately against its retained Cargo inventory. This is evidence for
-that Runner image, not clearance of newly built Full/Mapless artifacts.
+See the [distribution manifest](../versions.json) for the Runner revision CE installs.
+[Runner #136](https://github.com/VardrSec/VardrRunner/pull/136) verified the toolkit
+without bundled Nuclei at `f57ea3a95dd01837043eaf61a54cb2f73d9ab265`.
+For that image, the retained metadata for the eight Go binaries contained neither
+Nuclei nor Censys SDK. Rust Dalfox was checked separately against its Cargo inventory.
 
 Earlier dated inventories and their missing Censys notice finding describe their
 original bundled-Nuclei images and remain historical evidence. They must not be

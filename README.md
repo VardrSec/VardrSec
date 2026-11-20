@@ -81,7 +81,6 @@ approval.
 - [Recovery](docs/recovery.md), [encrypted backups](docs/encrypted-backups.md) and [updates](docs/updates.md)
 - [Platforms](docs/platforms.md), [networking](docs/networking.md) and [support limits](docs/limitations.md)
 - [Component notices](docs/source-notices.md) and [license inventory](docs/release-license-inventory.md)
-- [Full installation ACL checks](docs/acl-qualification.md)
 - [Changelog](CHANGELOG.md)
 
 ## Component responsibilities
