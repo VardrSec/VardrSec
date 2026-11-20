@@ -38,7 +38,11 @@ python vardrsec.py backup --destination /private/backups/before-update.age \
   --recipient age1YOUR_PUBLIC_RECIPIENT
 ```
 
-Replace the recipient placeholder. The command checks age/recipient/destination
+Replace the recipient placeholder with your public age key. Only `backup` and
+`seal-backup` accept `--recipient`. An empty value is rejected. To create a
+plaintext backup directory, omit the option from `backup`.
+
+An encrypted backup checks the age tool, recipient and destination
 before maintenance, quiesces the platform, uses private plaintext staging, seals
 the complete portable bundle, then removes staging. Applications remain stopped
 as with ordinary backup. Allow space for both staging and encrypted output.

@@ -1,4 +1,5 @@
 from pathlib import Path
+import io
 import json
 import shutil
 import os
@@ -12,6 +13,37 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import backup_crypto
 import recovery
 import test_recovery as fixtures
+import vardrsec
+
+
+def run_cli(root, *args):
+    with patch.object(vardrsec, "ROOT", root), patch.object(sys, "argv", ["vardrsec.py", *args]):
+        vardrsec.main()
+
+
+class RecipientOptionTests(unittest.TestCase):
+    def test_only_omitting_recipient_selects_plaintext(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(recovery, "backup") as backup:
+            root = Path(folder)
+            destination = root / "snapshot"
+            args = ("backup", "--destination", str(destination))
+            for recipient in ("", "invalid"):
+                with self.subTest(recipient=recipient), self.assertRaisesRegex(ValueError, "X25519"):
+                    run_cli(root, *args, "--recipient", recipient)
+            backup.assert_not_called()
+            self.assertFalse(destination.exists())
+            run_cli(root, *args)
+            backup.assert_called_once_with(root, destination)
+
+    def test_recipient_rejected_on_unrelated_commands(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(vardrsec, "dispatch") as dispatch:
+            for action, recipient in (("update", "age-recipient"), ("unseal-backup", "")):
+                with self.subTest(action=action), patch.object(sys, "stderr", new_callable=io.StringIO) as stderr:
+                    with self.assertRaises(SystemExit) as error:
+                        run_cli(Path(folder), action, "--recipient", recipient)
+                    self.assertEqual(error.exception.code, 2)
+                    self.assertIn("--recipient is only valid", stderr.getvalue())
+            dispatch.assert_not_called()
 
 
 @unittest.skipUnless(
@@ -28,7 +60,7 @@ class EncryptionTests(unittest.TestCase):
                 fixtures.RecoveryTests().snapshot(destination)
 
             with patch.object(recovery, "backup", side_effect=snapshot):
-                backup_crypto.encrypted_backup(root, root / "backup.age", recipient)
+                run_cli(root, "backup", "--destination", str(root / "backup.age"), "--recipient", recipient)
             self.assertEqual(list(root.glob(".vardrsec-backup-*")), [])
             backup_crypto.unseal(root / "backup.age", root / "recovered", identity)
             recovery.validate(root / "recovered")
@@ -59,7 +91,7 @@ class EncryptionTests(unittest.TestCase):
             (source / "snapshot.json").write_text(json.dumps(metadata))
             identity, recipient = self.keys(root, "private-identity.txt")
             encrypted = root / "snapshot.age"
-            backup_crypto.seal(source, encrypted, recipient)
+            run_cli(root, "seal-backup", "--backup", str(source), "--destination", str(encrypted), "--recipient", recipient)
             self.assertTrue(encrypted.read_bytes().startswith(b"age-encryption.org/v1"))
             with self.assertRaises(FileExistsError):
                 backup_crypto.seal(source, encrypted, recipient)
