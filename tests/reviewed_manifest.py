@@ -6,7 +6,7 @@ import hashlib
 # Explicitly reviewed release-gate candidate manifest; do not derive this expected
 # value from the checkout being checked. An intentional pin update must review it.
 REVIEWED_DISTRIBUTION_MANIFEST_SHA256 = (
-    "d0368c3029c3b5b972b2bb92988448d93ee96d86723380e2a7dbbf9eeffb9366"
+    "2c7cf3003333d63e3bfe32ab05203753af97397d11d0c595873c30c6afa348d5"
 )
 
 

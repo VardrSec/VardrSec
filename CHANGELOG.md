@@ -8,6 +8,21 @@
 
 ## Unreleased
 
+- Backups now reject an explicitly empty encryption recipient, preventing an
+  unintended plaintext backup.
+
+- Runner audit exports require explicit overwrite for existing output files and
+  protect the active SQLite journal and its sidecar files.
+
+- Map links coverage candidates to their recorded evidence and supports paging
+  through authorization coverage. Route matching is faster on larger inventories.
+
+- Map lets reviewers edit draft identity IDs, roles, tenants, credential
+  references and expected access before confirming a case.
+
+- Standalone Gate refuses to start when the same API key is assigned to
+  different tenants.
+
 - Align platform support wording with the v0.1.0 Alpha owner decision: Ubuntu
   24.04/amd64 only; retain but mark Windows/macOS paths deferred or unqualified.
 
