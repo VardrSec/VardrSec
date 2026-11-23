@@ -15,6 +15,10 @@ not change the development status or component pins in `versions.json`.
 
 ## Choose an installation
 
+For an existing installation, follow the [controlled update procedure](docs/updates.md).
+For a fresh installation, Ubuntu 24.04/amd64 is the supported Alpha platform.
+The guides also cover Windows, which is unqualified for this Alpha.
+
 **Full** includes Map, Runner, Gate, PostgreSQL and the HTTPS proxy. **Mapless**
 provides the Runner/Gate CLI without a Map account, API key or PostgreSQL service.
 Use a separate checkout and installation state for each mode; existing Mapless
@@ -22,14 +26,11 @@ history is preserved rather than automatically imported into Full.
 
 Choose **one** guide and follow it from prerequisites through the first result:
 
-- **[Full: install → trust → account → assessment](docs/installation.md).** Use this for the Map web workspace and connected Runner.
+- **[Full: install → trust → account → assessment](docs/installation.md).** Use this for the Map web workspace and connected Runner. Allow at least 4 GiB for the database build guest plus Docker overhead. The first uncached database build can take tens of minutes.
 - **[Mapless: install → workspace → authorize → execute → export](docs/mapless.md).** Use this for standalone CLI work with no Map connection.
 
-Ubuntu 24.04/amd64 is the only officially supported v0.1.0 Alpha configuration
-for both modes. The shipped Windows installer paths remain available in the
-guides, but Windows is unqualified for this Alpha. Both guides use the exact
-component pins. Normal startup does not execute assessments. Managed workers are
-a separate opt-in after Full setup, not another installation mode.
+Both guides use the exact component pins. Normal startup does not execute
+assessments. Managed workers are a separate opt-in after Full setup.
 
 ### Optional Nuclei
 
