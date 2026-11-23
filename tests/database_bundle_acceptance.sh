@@ -22,7 +22,7 @@ from pathlib import Path
 import sys
 import database_image
 
-receipt = {"schema": 1, "platform": database_image.PLATFORM, "image_id": sys.argv[1],
+receipt = {"schema": database_image.RECEIPT_SCHEMA, "platform": database_image.PLATFORM, "image_id": sys.argv[1],
            "inputs": database_image.build_inputs(Path.cwd())}
 Path(sys.argv[2]).write_text(json.dumps(receipt), encoding="utf-8")
 PY

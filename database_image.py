@@ -20,6 +20,8 @@ SCRIPTS = ("verify.sh", "acl-runtime-check.sh")
 IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}")
 DB_ALIAS = re.compile(r"vardrsec-db:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}")
 PLATFORM = "linux/amd64"
+# Version 2 builds from the checkout's standard 0644/0755 context modes.
+RECEIPT_SCHEMA = 2
 
 
 def build_inputs(root):
@@ -57,7 +59,7 @@ def validate_receipt(root, path):
         raise ValueError("Database qualification receipt is too large")
     item = json.loads(data)
     if (not isinstance(item, dict) or set(item) != {"schema", "platform", "inputs", "image_id"}
-            or type(item["schema"]) is not int or item["schema"] != 1
+            or type(item["schema"]) is not int or item["schema"] != RECEIPT_SCHEMA
             or item["platform"] != PLATFORM or not isinstance(item["image_id"], str)
             or not IMAGE_ID.fullmatch(item["image_id"])):
         raise ValueError("Invalid local database qualification receipt")
@@ -124,7 +126,7 @@ def prepare(root, receipt_path, evidence_dir=None):
         work = Path(temp)
         context = work / "db.tar"
         with context.open("xb") as archive:
-            git(root, "archive", "--format=tar", inputs["db"], output=archive)
+            git(root, "-c", "tar.umask=0022", "archive", "--format=tar", inputs["db"], output=archive)
         alias = "vardrsec-qualified-db:" + uuid.uuid4().hex
         with context.open("rb") as archive:
             subprocess.run(
@@ -139,7 +141,7 @@ def prepare(root, receipt_path, evidence_dir=None):
         subprocess.run(["bash", str(work / "verify.sh"), image_id], cwd=evidence_dir, check=True)
         if build_inputs(root) != inputs:
             raise ValueError("Database inputs changed during qualification")
-        receipt = {"schema": 1, "platform": PLATFORM, "inputs": inputs, "image_id": image_id}
+        receipt = {"schema": RECEIPT_SCHEMA, "platform": PLATFORM, "inputs": inputs, "image_id": image_id}
         # Publish a complete receipt without replacing an existing caller's selection.
         out = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=receipt_path.parent, delete=False)
         try:

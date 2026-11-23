@@ -39,7 +39,7 @@ class DatabaseImageTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(self.root), *args], check=True)
 
     def receipt_data(self):
-        return {"schema": 1, "platform": db.PLATFORM, "inputs": db.build_inputs(self.root), "image_id": IMAGE}
+        return {"schema": db.RECEIPT_SCHEMA, "platform": db.PLATFORM, "inputs": db.build_inputs(self.root), "image_id": IMAGE}
 
     def test_select_tags_absent_alias_and_checks_immutable_id(self):
         self.receipt.write_text(json.dumps(self.receipt_data()))
@@ -112,7 +112,7 @@ class DatabaseImageTests(unittest.TestCase):
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 db.select_verified(self.root, self.receipt, {"services": {"db": {**self.service, **changes}}})
         item = self.receipt_data()
-        for changes in [{"image_id": ALIAS}, {"schema": True}, {"platform": "linux/arm64"}]:
+        for changes in [{"image_id": ALIAS}, {"schema": True}, {"schema": 1}, {"platform": "linux/arm64"}]:
             self.receipt.write_text(json.dumps({**item, **changes}))
             with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, "Invalid local"):
                 db.read_receipt(self.root, self.receipt)
@@ -129,13 +129,23 @@ class DatabaseImageTests(unittest.TestCase):
             db.validate_receipt(self.root, self.receipt)
 
     def test_prepare_runs_verifier_on_built_id_then_reuses_receipt(self):
+        helper = self.root / "db" / "tools" / "build.sh"
+        helper.parent.mkdir()
+        helper.write_bytes(b"#!/bin/sh\n")
+        helper.chmod(0o755)
+        self.git("add", "--chmod=+x", "db/tools/build.sh")
+        self.git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                 "commit", "--no-gpg-sign", "-qm", "add executable build helper")
+        self.git("config", "tar.umask", "0077")
         original = subprocess.run
         invocations = []
         def run(argv, **kwargs):
             if argv[:3] == ["docker", "buildx", "build"]:
                 self.assertIn("--load", argv)
                 with tarfile.open(fileobj=kwargs["stdin"]) as context:
-                    self.assertEqual(context.getnames(), ["Dockerfile"])
+                    self.assertEqual({m.name: m.mode for m in context}, {
+                        "Dockerfile": 0o644, "tools": 0o755, "tools/build.sh": 0o755,
+                    })
                 invocations.append("build")
             elif argv[0] == "bash":
                 self.assertEqual(argv[2], IMAGE)

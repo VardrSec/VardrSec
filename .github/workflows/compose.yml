@@ -148,6 +148,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          fetch-depth: 2
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
@@ -179,9 +180,17 @@ jobs:
         with:
           cache-key: ${{ needs.database.outputs.cache_key }}
           passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
-      - name: Qualify a local image when the shared database is unavailable
+      - name: Exercise local qualification on changes to the database or installer
         if: github.event_name == 'pull_request' && env.VARDRSEC_DATABASE_RECEIPT == ''
         run: |
+          # The first parent of GitHub's PR merge is the base. Other PRs exercise
+          # the ordinary source install directly when the private cache is off.
+          if git diff --quiet HEAD^1 HEAD -- db qualification/kerberos-image compose.yaml \
+              database_image.py database_roles.py import_database.py vardrsec.py install.sh \
+              .github/workflows/compose.yml .github/workflows/database-cache.yml \
+              .github/actions/load-database scripts/ci/database_bundle.py scripts/ci/database_bundle.sh; then
+            exit 0
+          fi
           python database_image.py prepare --receipt "$RUNNER_TEMP/local-db.json"
           echo "VARDRSEC_DATABASE_RECEIPT=$RUNNER_TEMP/local-db.json" >> "$GITHUB_ENV"
       - name: Install with the documented one-command path

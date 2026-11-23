@@ -116,8 +116,9 @@ Keep `identity.txt` on the receiving host. As repository owner, set the Actions
 repository variable `VARDRSEC_DB_INSTALL_RECIPIENT` to the printed `age1…`
 public recipient for your own installations. Set a separate Actions secret,
 `VARDRSEC_DB_CACHE_KEY`, to at least 32 random bytes encoded on one line, then
-set the Actions variable `VARDRSEC_DB_CACHE_ENABLED` to `true`. Without this
-opt-in, CI schedules the existing jobs immediately. CI refreshes the database when its inputs
+set the Actions variable `VARDRSEC_DB_CACHE_ENABLED` to `true`. With the cache
+off, ordinary PRs use the source installer. Database and installer PRs also
+exercise local qualification. CI refreshes the shared image when its inputs
 or this secret change, and at least weekly when checks run. Forks build locally.
 To authorize an export to the configured recipient,
 manually run **Export qualified database to one recipient** on
