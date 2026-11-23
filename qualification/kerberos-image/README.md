@@ -24,12 +24,7 @@ The normal Full installation/build commands use this Dockerfile automatically.
 Mapless does not build a database. A cold database build needs around 4 GiB guest
 memory plus build overhead and additional disposable disk space; the first build
 can take tens of minutes under TCG. The guest preparation/build budgets remain
-30/120 minutes. Preparation uses two vCPUs. The normal Docker build uses four
-vCPUs and four package jobs for the offline boot when its visible CPU quota
-and process affinity permit four. It retains two otherwise. Standalone VM
-qualification uses two by default. The build prints each boot's duration and
-removes the temporary VM disks after it verifies and copies the outputs.
-Docker may reuse an unchanged successful build layer. Windows
+30/120 minutes. Docker may reuse an unchanged successful build layer. Windows
 Docker Desktop end-to-end qualification remains an independent platform check.
 
 The candidate acceptance workflow now tests the ordinary Compose recipe. Its

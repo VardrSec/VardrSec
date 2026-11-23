@@ -51,7 +51,7 @@ else
         keyctl revoke "$key"
     '
     printf '%s\n' 'Guest keyring create/read/revoke succeeded' > /out/vm/keyring-prerequisite.txt
-    sh /build/build-krb5.sh "$(getconf _NPROCESSORS_ONLN)"
+    sh /build/build-krb5.sh
     test -s /out/source/evidence/sequence-regression.txt
     (cd /out/source && sha256sum -c SHA256SUMS)
 fi

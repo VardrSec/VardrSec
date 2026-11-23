@@ -3,11 +3,9 @@
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
-import time
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
@@ -42,54 +40,12 @@ def download(url, destination, expected=None, algorithm='sha256', limit=500_000_
         raise ValueError('Pinned checksum mismatch: ' + destination.name)
 
 
-def docker_build_cpus(cgroup_root=Path('/sys/fs/cgroup'), membership=Path('/proc/self/cgroup')):
-    """Use four build CPUs only when both process affinity and visible quotas allow it."""
-    try:
-        if len(os.sched_getaffinity(0)) < 4:
-            return 2
-        groups = [line.split(':', 2) for line in membership.read_text().splitlines()]
-        legacy = next((group for _, controllers, group in groups
-                       if 'cpu' in controllers.split(',')), None)
-        if legacy is None:
-            group = next(group for _, controllers, group in groups if controllers == '')
-            root = cgroup_root
-            if not (root / 'cgroup.controllers').is_file():
-                return 2
-        else:
-            group = legacy
-            root = next(path for path in (cgroup_root / 'cpu', cgroup_root / 'cpu,cpuacct',
-                                          cgroup_root / 'cpuacct,cpu') if path.is_dir())
-        if not group.startswith('/') or '..' in Path(group).parts:
-            return 2
-        current = root / group.lstrip('/')
-        if not current.is_dir():
-            return 2
-        while True:
-            if legacy is not None:
-                quota = int((current / 'cpu.cfs_quota_us').read_text())
-                period = int((current / 'cpu.cfs_period_us').read_text())
-            elif current == root and not (current / 'cpu.max').exists():
-                # The global cgroup v2 root has no CPU bandwidth limit.
-                return 4
-            else:
-                limit, interval = (current / 'cpu.max').read_text().split()
-                quota = -1 if limit == 'max' else int(limit)
-                period = int(interval)
-            if period <= 0 or (quota != -1 and quota < 4 * period):
-                return 2
-            if current == root:
-                return 4
-            current = current.parent
-    except (AttributeError, OSError, StopIteration, ValueError):
-        return 2
-
-
-def qemu_command(work, phase, cpus=2):
+def qemu_command(work, phase):
     if phase not in ('prepare', 'build'):
         raise ValueError('Unknown phase')
     # TCG requires no KVM permissions, kernel modules or security-policy changes.
     command = ['qemu-system-x86_64', '-machine', 'q35', '-accel', 'tcg,thread=multi',
-               '-cpu', 'max', '-m', '4096', '-smp', str(cpus), '-display', 'none',
+               '-cpu', 'max', '-m', '4096', '-smp', '2', '-display', 'none',
                '-monitor', 'none', '-no-reboot', '-serial', f'file:{work / (phase + ".serial.log")}',
                '-drive', f'file={work / "guest.qcow2"},if=virtio,format=qcow2',
                '-drive', f'file={work / "output.img"},if=virtio,format=raw',
@@ -113,7 +69,6 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--work', type=Path, required=True, help='Fresh dedicated directory')
     p.add_argument('--source-only', action='store_true', help='Build context without Git metadata; record input hash, not a claimed revision')
-    p.add_argument('--auto-build-cpus', action='store_true', help='Size the offline build for the Docker CPU budget')
     args = p.parse_args()
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=False)
@@ -150,11 +105,8 @@ def main():
         user = '#cloud-config\nssh_pwauth: false\nruncmd:\n  - [mkdir, -p, /mnt/bootstrap]\n  - [mount, -o, ro, /dev/disk/by-label/QUALINPUT, /mnt/bootstrap]\n  - [bash, /mnt/bootstrap/guest.sh, ' + phase + ']\n'
         (cloud / 'user-data').write_text(user)
         run('cloud-localds', work / (phase + '.iso'), cloud / 'user-data', cloud / 'meta-data')
-        cpus = docker_build_cpus() if phase == 'build' and args.auto_build_cpus else 2
-        command = qemu_command(work, phase, cpus)
+        command = qemu_command(work, phase)
         (work / (phase + '-command.json')).write_text(json.dumps(command, indent=2) + '\n')
-        started = time.monotonic()
-        print(f'Database package {phase} guest starting with {cpus} vCPUs (limit {seconds // 60} min).', flush=True)
         try:
             run(*command, timeout=seconds)
         except Exception:
@@ -167,8 +119,6 @@ def main():
             raise
         finally:
             # Preserve even failed-boot logs. Success requires explicit guest exit.
-            elapsed = round(time.monotonic() - started)
-            print(f'Database package {phase} guest stopped after {elapsed}s with {cpus} vCPUs. Verifying output.', flush=True)
             result = extract(work, phase)
         if phase == 'prepare':
             (work / 'prepared-disk.sha256').write_text(sha(work / 'guest.qcow2') + '\n')

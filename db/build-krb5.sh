@@ -19,11 +19,7 @@ cp ../krb5-keyring-test-diagnostic.patch debian/patches/vardr-keyring-test-diagn
 printf 'vardr-keyring-test-diagnostic.patch\n' >> debian/patches/series
 { printf 'krb5 (1.21.3-5+deb13u1+vardr2) trixie; urgency=high\n\n  * Backport upstream ASN.1 allocation fix 782e5ac (CVE-2026-119079).\n  * Require keyed CAMMAC checksums (CVE-2026-71199, upstream 18142c9).\n\n -- VardrSec local build <local@invalid>  Tue, 17 Nov 2026 00:00:00 +0000\n\n'; cat debian/changelog; } > /tmp/krb-changelog
 mv /tmp/krb-changelog debian/changelog
-# Only the four-vCPU build guest opts into the larger package job count.
-case "${1:-2}" in
-    2|4) export DEB_BUILD_OPTIONS="parallel=${1:-2}" ;;
-    *) echo 'Expected 2 or 4 guest vCPUs' >&2; exit 2 ;;
-esac
+export DEB_BUILD_OPTIONS=parallel=2
 mkdir -p /out/packages /out/source/evidence
 { dpkg-query -W -f='${binary:Package} ${Version} ${Architecture}\n'; cc --version; ld --version; } > /out/source/evidence/build-environment.txt
 dpkg-source --before-build . > /tmp/krb-build.log 2>&1
