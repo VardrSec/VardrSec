@@ -39,6 +39,23 @@ def require_command(name):
 
 
 def build_images(*, mapless, environment):
+    receipt = environment.get("VARDRSEC_DATABASE_RECEIPT")
+    if not mapless and receipt is not None:
+        if not receipt or not standard_full_compose():
+            raise ValueError("Database image reuse requires a receipt path and the shipped Full Compose file")
+        # Restored installations ship only their lifecycle helpers. The bundle
+        # reader is needed solely for an explicit fresh Full build.
+        from database_image import select_verified
+
+        model = json.loads(compose("--profile", "tools", "config", "--format", "json",
+                                   env=environment, capture_output=True, text=True).stdout)
+        applications = ("api", "web", "proxy", "runner")
+        if set(model.get("services", {})) != {"db", *applications}:
+            raise ValueError("Database image reuse requires the shipped Full service set")
+        verified_db = select_verified(ROOT, Path(receipt), model)
+        print(f"Using qualified PostgreSQL image {verified_db}. Building the four application images.", flush=True)
+        compose("--profile", "tools", "build", *applications, env=environment)
+        return verified_db
     # The Full database source build runs a bounded 4 GiB TCG guest. Build it
     # before parallel application/toolchain compilation, then reuse its normal
     # Docker layer cache. This changes no runtime settings or install state.
@@ -127,6 +144,15 @@ STANDARD_FULL_SHA256 = "5e747c413208170125cbdfd1109e64ecca282558092cab31631da34e
 STANDARD_MAPLESS_SHA256 = "80653a1435ab148ec6943a4145e0a0d52675a51a3f2eef245c95100cfc921e6f"
 
 
+def standard_full_compose():
+    path = ROOT / "compose.yaml"
+    try:
+        return (stat.S_ISREG(path.lstat().st_mode) and
+                hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest() == STANDARD_FULL_SHA256)
+    except OSError:
+        return False
+
+
 def require_standard_fresh_layout():
     error = (
         "Fresh install requires the shipped Full Compose layout and standard .env selection. "
@@ -138,10 +164,7 @@ def require_standard_fresh_layout():
             raise ValueError(error)
         if any(key.startswith("COMPOSE_") and key != "COMPOSE_PROJECT_NAME" for key in os.environ):
             raise ValueError(error)
-        path = ROOT / "compose.yaml"
-        if not stat.S_ISREG(path.lstat().st_mode):
-            raise ValueError(error)
-        if hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest() != STANDARD_FULL_SHA256:
+        if not standard_full_compose():
             raise ValueError(error)
     except OSError:
         raise ValueError(error) from None
@@ -424,7 +447,7 @@ def full_browser_address(model):
     return "the proxy's published HTTPS address (see `docker compose ps proxy`)"
 
 
-def select_full_installation():
+def select_full_installation(verified_db=None):
     """Freeze a fresh Full install before its first stateful startup."""
     import ipaddress
     import recovery
@@ -465,6 +488,8 @@ def select_full_installation():
             if (not isinstance(definition, dict) or set(definition) != {"image"}
                     or not recovery.IMAGE_ID.fullmatch(str(definition["image"]))):
                 raise ValueError("Frozen Full selection requires exact image IDs")
+            if service == "db" and verified_db is not None and definition["image"] != verified_db:
+                raise ValueError("Frozen database image differs from the verified receipt; refusing startup")
             run("docker", "image", "inspect", definition["image"], capture_output=True)
         subnets = [ipaddress.ip_network(validate_runner_subnet(application(current)[0]))]
         for definition in selected["networks"].values():
@@ -488,6 +513,8 @@ def select_full_installation():
                     current["services"][service]["image"], capture_output=True, text=True).stdout.strip()
         if not recovery.IMAGE_ID.fullmatch(image):
             raise ValueError("Cannot freeze the built Full image set")
+        if service == "db" and verified_db is not None and image != verified_db:
+            raise ValueError("Database image changed after receipt verification; refusing startup")
         images[service] = {"image": image}
     assignments = {match[1] for match in re.finditer(
         r"(?m)^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=", (ROOT / ".env").read_text(encoding="utf-8"))}
@@ -833,6 +860,10 @@ def dispatch(args, parser):
         elif not os.path.lexists(ROOT / ".active-images.json"):
             build_prerequisites()
             build_checked = True
+        if build_checked and "VARDRSEC_DATABASE_RECEIPT" in os.environ:
+            from database_image import read_receipt
+
+            read_receipt(ROOT, os.environ["VARDRSEC_DATABASE_RECEIPT"])
         steps = list(INSTALL_STEPS)
         if prospective is None:
             print("Resuming: the existing .env is kept and its secrets are not regenerated.")
@@ -844,13 +875,13 @@ def dispatch(args, parser):
                     browser_address = select_full_installation()
                     print("Reusing the frozen Full image/network selection; build skipped.")
                     continue
-                dispatch(argparse.Namespace(**{
+                result = dispatch(argparse.Namespace(**{
                     **vars(args), "action": step,
                     "prepared_configuration": prospective if step == "configure" else None,
                     "build_prerequisites_checked": build_checked,
                 }), parser)
                 if step == "build":
-                    browser_address = select_full_installation()
+                    browser_address = select_full_installation(verified_db=result)
             except Exception as error:
                 python = "python" if os.name == "nt" else "python3"
                 print(
@@ -878,7 +909,7 @@ def dispatch(args, parser):
         environment = dict(os.environ)
         if not mapless:
             environment["VARDRMAP_SOURCE_REVISION"] = map_source_revision()
-        build_images(mapless=mapless, environment=environment)
+        return build_images(mapless=mapless, environment=environment)
     elif args.action == "database-role":
         import database_roles
 
@@ -895,9 +926,9 @@ def dispatch(args, parser):
             compose("--profile", "tools", "create", "--no-build", "runner")
             print("Mapless Runner prepared and stopped. Invoke runner explicitly; no background execution was started.")
             return
-        compose(
-            "up", "-d", "--wait", "--wait-timeout", "180", "db", "api", "web", "proxy"
-        )
+        frozen = os.path.lexists(ROOT / ".active-images.json")
+        image_flags = ("--no-build", "--pull", "never") if frozen else ()
+        compose("up", "-d", *image_flags, "--wait", "--wait-timeout", "180", "db", "api", "web", "proxy")
         print(
             "Services started. Export/enroll the CA before signing in. No scans were started."
         )

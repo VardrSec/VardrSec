@@ -243,7 +243,9 @@ def apply(root, project=None, backup=None, restoring=False, trailer=""):
     generated = password is None
     password = check_password(secrets.token_hex(32)) if generated else password
     with credential(password):
-        recovery.compose(root, "up", "-d", "--wait", "db", project=project)
+        frozen = os.path.lexists(root / ".active-images.json")
+        image_flags = ("--no-build", "--pull", "never") if frozen else ()
+        recovery.compose(root, "up", "-d", *image_flags, "--wait", "db", project=project)
         current = state(root, project)
         if current["foreign"] and not restoring:
             require_stopped(root, project)

@@ -12,6 +12,13 @@ on:
 permissions:
   contents: read
 jobs:
+  database:
+    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    uses: ./.github/workflows/database-cache.yml
+    with:
+      use_cache: ${{ github.event_name != 'workflow_dispatch' }}
+    secrets:
+      VARDRSEC_DB_CACHE_KEY: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
   certificate-renewal:
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-latest
@@ -132,6 +139,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   installation:
+    needs: database
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-24.04
     timeout-minutes: 180
@@ -160,6 +168,20 @@ jobs:
           echo "$GOBIN" >> "$GITHUB_PATH"
       - name: Verify genuinely clean Ubuntu installation host
         run: python tests/ubuntu_installation.py preflight
+      - name: Verify encrypted transport using an inert local image
+        if: github.event_name == 'pull_request'
+        run: bash tests/database_bundle_acceptance.sh
+      - name: Load the verified database if available
+        if: needs.database.outputs.cache_key != ''
+        uses: ./.github/actions/load-database
+        with:
+          cache-key: ${{ needs.database.outputs.cache_key }}
+          passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+      - name: Qualify a local image when the shared database is unavailable
+        if: github.event_name == 'pull_request' && env.VARDRSEC_DATABASE_RECEIPT == ''
+        run: |
+          python database_image.py prepare --receipt "$RUNNER_TEMP/local-db.json"
+          echo "VARDRSEC_DATABASE_RECEIPT=$RUNNER_TEMP/local-db.json" >> "$GITHUB_ENV"
       - name: Install with the documented one-command path
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
@@ -167,6 +189,13 @@ jobs:
           python vardrsec.py install
           python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), 'config', '--quiet')"
           docker build -t vardrsec-browser:acceptance tests/browser
+      - name: Match the frozen and running database to its qualification receipt
+        if: env.VARDRSEC_DATABASE_RECEIPT != ''
+        run: |
+          expected=$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")
+          test "$(jq -er '.services.db.image' .active-images.json)" = "$expected"
+          container=$(docker compose -f compose.yaml -f .active-images.json -p vardrsec-compose-review ps -q db)
+          test "$(docker inspect --format '{{.Image}}' "$container")" = "$expected"
       - name: Verify trusted installation, Gate workflow, restart and installed ACL payloads
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
@@ -239,6 +268,7 @@ jobs:
         if: always()
         run: python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
   controlled-updates:
+    needs: database
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -249,6 +279,12 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.12'
+      - name: Load the verified database if available
+        if: needs.database.outputs.cache_key != ''
+        uses: ./.github/actions/load-database
+        with:
+          cache-key: ${{ needs.database.outputs.cache_key }}
+          passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
       - name: Interrupt the install part-way, then resume it
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
