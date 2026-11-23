@@ -27,6 +27,51 @@ class HarnessTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             vm.qemu_command(Path('/fresh'), 'other')
 
+    def test_build_cpu_count_honors_affinity_and_nested_v2_quotas(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            child = root / 'builder' / 'job'
+            child.mkdir(parents=True)
+            membership = root / 'membership'
+            membership.write_text('0::/builder/job')
+            (root / 'cgroup.controllers').write_text('cpu')
+            (child / 'cpu.max').write_text('max 100000')
+            for affinity, parent_limit, expected in (
+                    (8, 'max 100000', 4), (4, '400000 100000', 4),
+                    (8, '399999 100000', 2), (3, 'max 100000', 2),
+                    (8, 'bad quota', 2)):
+                with self.subTest(affinity=affinity, parent_limit=parent_limit):
+                    (child.parent / 'cpu.max').write_text(parent_limit)
+                    with patch.object(vm.os, 'sched_getaffinity', return_value=range(affinity), create=True):
+                        self.assertEqual(vm.docker_build_cpus(root, membership), expected)
+            with patch.object(vm.os, 'sched_getaffinity', return_value=range(8), create=True):
+                membership.write_text('0::/')
+                self.assertEqual(vm.docker_build_cpus(root, membership), 4)
+                (root / 'cpu.max').write_text('200000 100000')
+                self.assertEqual(vm.docker_build_cpus(root, membership), 2)
+                membership.write_text('0::/missing')
+                self.assertEqual(vm.docker_build_cpus(root, membership), 2)
+
+    def test_build_cpu_count_honors_legacy_cpu_quota(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            cpu = root / 'cpu,cpuacct'
+            cpu.mkdir()
+            membership = root / 'membership'
+            membership.write_text('5:cpu,cpuacct:/')
+            (cpu / 'cpu.cfs_period_us').write_text('100000')
+            with patch.object(vm.os, 'sched_getaffinity', return_value=range(8), create=True):
+                for quota, expected in (('-1', 4), ('400000', 4), ('350000', 2)):
+                    with self.subTest(quota=quota):
+                        (cpu / 'cpu.cfs_quota_us').write_text(quota)
+                        self.assertEqual(vm.docker_build_cpus(root, membership), expected)
+
+    def test_guest_cpu_and_memory_budget(self):
+        for phase, cpus in (('prepare', 2), ('build', 2), ('build', 4)):
+            command = vm.qemu_command(Path('/fresh'), phase, cpus) if cpus == 4 else vm.qemu_command(Path('/fresh'), phase)
+            self.assertEqual(command[command.index('-smp') + 1], str(cpus))
+            self.assertEqual(command[command.index('-m') + 1], '4096')
+
     def test_checksum_and_plain_http_rejection(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / 'bytes'

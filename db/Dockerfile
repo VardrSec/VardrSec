@@ -34,8 +34,9 @@ COPY kerberos-vm/ /repo/qualification/kerberos-vm/
 COPY build-krb5.sh krb5-CVE-2026-119079.patch krb5-CVE-2026-71199.patch krb5-keyring-test-diagnostic.patch krb5-sequence-regression.c Dockerfile /repo/db/
 # No host mounts, devices, KVM, published ports, added capabilities or policy changes.
 USER 65534:65534
-RUN python3 qualification/kerberos-vm/run.py --source-only --work /work/qualification \
-    && python3 qualification/kerberos-vm/finalize.py /work/qualification /out
+RUN python3 qualification/kerberos-vm/run.py --source-only --work /work/qualification --auto-build-cpus \
+    && python3 qualification/kerberos-vm/finalize.py /work/qualification /out \
+    && rm -rf /work/qualification
 
 FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS openssl-build
 WORKDIR /work
