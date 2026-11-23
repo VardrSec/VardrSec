@@ -6,7 +6,11 @@ on:
 permissions:
   contents: read
 jobs:
+  guides:
+    uses: ./.github/workflows/guide-changes.yml
   collect-evidence:
+    needs: guides
+    if: ${{ !cancelled() && needs.guides.outputs.guide_only != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:

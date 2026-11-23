@@ -6,7 +6,11 @@ on:
 permissions:
   contents: read
 jobs:
+  guides:
+    uses: ./.github/workflows/guide-changes.yml
   tool-network:
+    needs: guides
+    if: ${{ !cancelled() && needs.guides.outputs.guide_only != 'true' }}
     strategy:
       fail-fast: false
       matrix:

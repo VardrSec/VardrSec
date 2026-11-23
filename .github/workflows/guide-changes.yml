@@ -1,0 +1,24 @@
+name: Check for guide-only changes
+on:
+  workflow_call:
+    outputs:
+      guide_only:
+        value: ${{ jobs.changes.outputs.guide_only }}
+permissions:
+  contents: read
+jobs:
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    outputs:
+      guide_only: ${{ steps.diff.outputs.guide_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/ci/guide_changes.py "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_OUTPUT"
