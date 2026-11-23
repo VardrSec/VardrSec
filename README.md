@@ -15,8 +15,10 @@ not change the development status or component pins in `versions.json`.
 
 ## Choose an installation
 
-For an existing installation, follow the [controlled update procedure](docs/updates.md).
-For a fresh installation, Ubuntu 24.04/amd64 is the supported Alpha platform.
+For an existing installation, follow the [controlled update procedure](docs/updates.md)
+with Docker Compose 2.24.4 or later.
+For a fresh installation, Ubuntu 24.04/amd64 is the supported Alpha platform
+and Docker Compose 2.17 or later is required.
 The guides also cover Windows, which is unqualified for this Alpha.
 
 **Full** includes Map, Runner, Gate, PostgreSQL and the HTTPS proxy. **Mapless**
@@ -26,7 +28,9 @@ history is preserved rather than automatically imported into Full.
 
 Choose **one** guide and follow it from prerequisites through the first result:
 
-- **[Full: install → trust → account → assessment](docs/installation.md).** Use this for the Map web workspace and connected Runner. Allow at least 4 GiB for the database build guest plus Docker overhead. The first uncached database build can take tens of minutes.
+- **[Full: install → trust → account → assessment](docs/installation.md).** Use this for the Map web workspace and connected Runner.
+  Allow at least 4 GiB for the database build guest plus Docker overhead.
+  The first uncached database build can take tens of minutes.
 - **[Mapless: install → workspace → authorize → execute → export](docs/mapless.md).** Use this for standalone CLI work with no Map connection.
 
 Both guides use the exact component pins. Normal startup does not execute
