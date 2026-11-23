@@ -43,6 +43,8 @@ def build_images(*, mapless, environment):
     # before parallel application/toolchain compilation, then reuse its normal
     # Docker layer cache. This changes no runtime settings or install state.
     if not mapless:
+        print("Building the database first. An uncached build runs Debian package tests "
+              "in a 4 GiB guest and can take tens of minutes.", flush=True)
         compose("--profile", "tools", "build", "db", env=environment)
     compose("--profile", "tools", "build", env=environment)
 
@@ -168,13 +170,16 @@ def configure(prepared=None):
         require_standard_fresh_layout()
     path = ROOT / ".env"
     try:
+        if os.path.lexists(path):
+            raise FileExistsError
+        values = configuration_values() if prepared is None else prepared
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
         raise FileExistsError(
             "Existing .env preserved. Skip configure for an existing installation; do not reset credentials to repair startup. See docs/installation.md."
         ) from None
     with os.fdopen(fd, "w", encoding="utf-8") as output:
-        for name, value in (configuration_values() if prepared is None else prepared).items():
+        for name, value in values.items():
             output.write(f"{name}={value}\n")
     (ROOT / "trust").mkdir(exist_ok=True)
     print("Created .env without displaying secrets. Keep it private and back it up.")
@@ -408,6 +413,17 @@ def main():
 INSTALL_STEPS = ("configure", "sources", "build", "database-role", "start", "export-ca")
 
 
+def full_browser_address(model):
+    ports = [
+        str(port.get("published", ""))
+        for port in model.get("services", {}).get("proxy", {}).get("ports", [])
+        if port.get("host_ip") == "127.0.0.1" and port.get("protocol", "tcp") == "tcp"
+    ]
+    if len(ports) == 1 and re.fullmatch(r"[0-9]{1,5}", ports[0]) and 0 < int(ports[0]) <= 65535:
+        return f"https://localhost:{ports[0]}"
+    return "the proxy's published HTTPS address (see `docker compose ps proxy`)"
+
+
 def select_full_installation():
     """Freeze a fresh Full install before its first stateful startup."""
     import ipaddress
@@ -464,7 +480,7 @@ def select_full_installation():
         persisted = model(file_environment)
         if persisted["name"] != project or application(persisted) != application(current):
             raise ValueError("Persist the matching Full project and application network before resuming")
-        return
+        return full_browser_address(current)
 
     images = {}
     for service in sorted(recovery.SERVICES):
@@ -503,6 +519,7 @@ def select_full_installation():
     recovery.json_write(path, {"services": images, "networks": {
         name: {"ipam": {"config": [{"subnet": str(value)}]}}
         for name, value in (("database", database), ("runner", runner))}})
+    return full_browser_address(current)
 
 
 def install_mapless(args, parser):
@@ -521,6 +538,7 @@ def install_mapless(args, parser):
     build_prerequisites()
     if has_installation_data(mapless=True):
         raise ValueError("Installation volumes already exist. Use start, runner or backup; install will not overwrite their state")
+    require_command("git")
     write_mode(ROOT, "mapless")
     sources(mapless=True)
     compose("--profile", "tools", "build", "runner")
@@ -760,24 +778,24 @@ Installed. Remaining manual steps (they change your machine, so they are never a
        sudo update-ca-certificates
      Firefox keeps its own store; see docs/installation.md. Restart the browser.
   2. Create the first account:  python3 vardrsec.py bootstrap --username operator
-  3. Open https://localhost:8443 and follow the first-assessment walkthrough in docs/installation.md.
+  3. Open {browser_address} and follow the first-assessment walkthrough in docs/installation.md.
 No scans were started."""
 
 
-def installation_instructions():
+def installation_instructions(browser_address="https://localhost:8443"):
     if os.name == "nt":
-        return """
+        return f"""
 Installed. Remaining manual steps in PowerShell:
   1. Compare the public CA fingerprint above before explicitly trusting it:
        $cert = Import-Certificate -FilePath .\\trust\\root.crt -CertStoreLocation Cert:\\CurrentUser\\Root
        $cert.Thumbprint
      Record the thumbprint for removal. Firefox keeps its own store; see docs/installation.md.
   2. Create the first account:  python vardrsec.py bootstrap --username operator
-  3. Open https://localhost:8443 and follow the first-assessment walkthrough in docs/installation.md.
+  3. Open {browser_address} and follow the first-assessment walkthrough in docs/installation.md.
 No scans were started."""
     if sys.platform == "darwin":
         return "Installed. Follow docs/installation.md for explicit macOS CA enrollment, then run python3 vardrsec.py bootstrap --username operator. No scans were started."
-    return INSTALL_NEXT
+    return INSTALL_NEXT.format(browser_address=browser_address)
 
 
 def dispatch(args, parser):
@@ -794,8 +812,12 @@ def dispatch(args, parser):
         # reuse their cache. Any state volume may hold data or a retained CA;
         # refuse installation rather than treat partial state as empty.
         prospective = None
+        build_checked = False
         if not os.path.lexists(ROOT / ".env"):
             require_standard_fresh_layout()
+            require_command("git")
+            build_prerequisites()
+            build_checked = True
             prospective = configuration_values()
         if has_installation_data(configuration=prospective):
             parser.error(
@@ -808,6 +830,9 @@ def dispatch(args, parser):
             require_standard_fresh_layout()
         elif not os.path.lexists(ROOT / ".env"):
             raise ValueError("Configuration disappeared during preflight; installation refused; preserve existing state")
+        elif not os.path.lexists(ROOT / ".active-images.json"):
+            build_prerequisites()
+            build_checked = True
         steps = list(INSTALL_STEPS)
         if prospective is None:
             print("Resuming: the existing .env is kept and its secrets are not regenerated.")
@@ -816,15 +841,16 @@ def dispatch(args, parser):
             print(f"== {step}", flush=True)
             try:
                 if step == "build" and os.path.lexists(ROOT / ".active-images.json"):
-                    select_full_installation()
+                    browser_address = select_full_installation()
                     print("Reusing the frozen Full image/network selection; build skipped.")
                     continue
                 dispatch(argparse.Namespace(**{
                     **vars(args), "action": step,
                     "prepared_configuration": prospective if step == "configure" else None,
+                    "build_prerequisites_checked": build_checked,
                 }), parser)
                 if step == "build":
-                    select_full_installation()
+                    browser_address = select_full_installation()
             except Exception as error:
                 python = "python" if os.name == "nt" else "python3"
                 print(
@@ -837,7 +863,7 @@ def dispatch(args, parser):
                     file=sys.stderr,
                 )
                 raise
-        print(installation_instructions())
+        print(installation_instructions(browser_address))
     elif args.action == "configure":
         configure(getattr(args, "prepared_configuration", None))
     elif args.action == "sources":
@@ -847,7 +873,8 @@ def dispatch(args, parser):
             raise ValueError("Full images are frozen; build in a separate workspace and use the controlled updater")
         if mapless and os.path.lexists(ROOT / ".active-images.mapless.json"):
             raise ValueError("Mapless images are frozen; build in a separate workspace and use the controlled updater")
-        build_prerequisites()
+        if not getattr(args, "build_prerequisites_checked", False):
+            build_prerequisites()
         environment = dict(os.environ)
         if not mapless:
             environment["VARDRMAP_SOURCE_REVISION"] = map_source_revision()

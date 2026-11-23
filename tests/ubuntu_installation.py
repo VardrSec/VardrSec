@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 RECEIPT = ROOT / "artifacts/installed-gate/ubuntu-installation.json"
@@ -71,6 +72,13 @@ def main():
     release = host()
     if action == "preflight":
         assert not (ROOT / ".env").exists() and not (ROOT / ".sources").exists()
+        rejected = run(
+            sys.executable, str(ROOT / "vardrsec.py"), "configure",
+            env={**os.environ, "COMPOSE_PROJECT_NAME": "invalid project"},
+            check=False,
+        )
+        assert rejected.returncode != 0 and "COMPOSE_PROJECT_NAME" in rejected.stderr
+        assert not (ROOT / ".env").exists(), "Rejected configure blocked a corrected install"
         assert not run("docker", "ps", "-aq").stdout.strip(), "Containers already exist"
         assert not run("docker", "volume", "ls", "-q").stdout.strip(), (
             "Volumes already exist"
@@ -89,6 +97,7 @@ def main():
                 "ubuntu": release["VERSION_ID"],
                 "architecture": platform.machine(),
                 "clean_before_setup": True,
+                "invalid_configure_left_no_env": True,
                 "containers_before_setup": 0,
                 "volumes_before_setup": 0,
                 "sources_before_setup": False,
