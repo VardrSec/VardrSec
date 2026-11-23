@@ -96,7 +96,10 @@ using `docker image save` and transfer the archive and receipt over a trusted
 private channel. Use `docker image load` on the receiving host before running
 the installer. Both engines must resolve the same immutable image ID. The
 receipt records your qualification and must come from a builder you trust.
-Public image distribution is subject to the [project's release review](release-license-inventory.md).
+The public release gate also checks the scanned image for Critical, High and
+Unknown vulnerability findings and end-of-support operating systems. Prebuilt
+distribution requires completion of the notice and corresponding-source review.
+See the [image evidence policy](image-evidence.md) and [license inventory](release-license-inventory.md).
 
 #### Import the database from a private CI export
 
