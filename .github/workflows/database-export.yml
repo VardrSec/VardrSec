@@ -13,9 +13,14 @@ jobs:
       - id: check
         name: Require the repository owner's configured native age recipient
         env:
+          CACHE_ENABLED: ${{ vars.VARDRSEC_DB_CACHE_ENABLED }}
           RECIPIENT: ${{ vars.VARDRSEC_DB_INSTALL_RECIPIENT }}
         shell: bash
         run: |
+          if [[ "$CACHE_ENABLED" != true ]]; then
+            echo 'Enable VARDRSEC_DB_CACHE_ENABLED to export the qualified database' >&2
+            exit 1
+          fi
           if ! [[ "$RECIPIENT" =~ ^age1[ac-hj-np-z02-9]{58}$ ]]; then
             echo "Configure VARDRSEC_DB_INSTALL_RECIPIENT for the owner's private installation" >&2
             exit 1

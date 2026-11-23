@@ -15,6 +15,11 @@ permissions:
   contents: read
 jobs:
   database:
+    if: >-
+      inputs.use_cache && vars.VARDRSEC_DB_CACHE_ENABLED == 'true' &&
+      !endsWith(github.actor, '[bot]') &&
+      (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository &&
+      !endsWith(github.event.pull_request.user.login, '[bot]')))
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     concurrency:
@@ -28,7 +33,6 @@ jobs:
           persist-credentials: false
       - id: key
         name: Identify the database recipe and qualification inputs
-        if: inputs.use_cache && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         env:
           PASSPHRASE: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
         run: python3 scripts/ci/database_bundle.py key >> "$GITHUB_OUTPUT"

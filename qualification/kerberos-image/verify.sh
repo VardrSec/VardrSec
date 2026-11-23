@@ -49,10 +49,18 @@ fi
 export POSTGRES_PASSWORD=$(python -c 'import secrets;print(secrets.token_hex(32))')
 container=$(docker run -d --network none --tmpfs /var/lib/postgresql/qualification:rw \
   -e POSTGRES_PASSWORD -e PGDATA=/var/lib/postgresql/qualification/data "$id")
-trap 'docker logs "$container" > artifacts/kerberos-image/postgres.log 2>&1; docker rm -f "$container" >/dev/null; unset POSTGRES_PASSWORD' EXIT
+cleanup() {
+  status=$?
+  docker logs "$container" > artifacts/kerberos-image/postgres.log 2>&1 || status=1
+  docker rm -fv "$container" >/dev/null || status=1
+  unset POSTGRES_PASSWORD
+  exit "$status"
+}
+trap cleanup EXIT
 ready=false
 for attempt in $(seq 1 60); do
-  if docker exec -u postgres "$container" pg_isready -U postgres >/dev/null; then ready=true; break; fi
+  # The entrypoint's temporary initialization server listens only on a Unix socket.
+  if docker exec -u postgres "$container" pg_isready -h 127.0.0.1 -U postgres >/dev/null; then ready=true; break; fi
   sleep 2
 done
 test "$ready" = true

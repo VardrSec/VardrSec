@@ -140,7 +140,9 @@ jobs:
           retention-days: 30
   installation:
     needs: database
-    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    if: >-
+      ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') &&
+      (github.event_name != 'workflow_dispatch' || inputs.unit_only != true) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -269,7 +271,9 @@ jobs:
         run: python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
   controlled-updates:
     needs: database
-    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    if: >-
+      ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') &&
+      (github.event_name != 'workflow_dispatch' || inputs.unit_only != true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:

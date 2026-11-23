@@ -114,9 +114,10 @@ age-keygen -y "$private/identity.txt"
 
 Keep `identity.txt` on the receiving host. As repository owner, set the Actions
 repository variable `VARDRSEC_DB_INSTALL_RECIPIENT` to the printed `age1…`
-public recipient for your own installations. Enable shared CI builds with a
-separate Actions secret, `VARDRSEC_DB_CACHE_KEY`, generated from at least 32
-random bytes and encoded on one line. CI refreshes the database when its inputs
+public recipient for your own installations. Set a separate Actions secret,
+`VARDRSEC_DB_CACHE_KEY`, to at least 32 random bytes encoded on one line, then
+set the Actions variable `VARDRSEC_DB_CACHE_ENABLED` to `true`. Without this
+opt-in, CI schedules the existing jobs immediately. CI refreshes the database when its inputs
 or this secret change, and at least weekly when checks run. Forks build locally.
 To authorize an export to the configured recipient,
 manually run **Export qualified database to one recipient** on

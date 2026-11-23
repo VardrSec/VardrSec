@@ -19,6 +19,7 @@ jobs:
       VARDRSEC_DB_CACHE_KEY: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
   accept-candidate:
     needs: database
+    if: ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:

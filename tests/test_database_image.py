@@ -142,6 +142,8 @@ class DatabaseImageTests(unittest.TestCase):
                 self.assertEqual(Path(argv[1]).read_bytes(), b"exit 0\n")
                 self.assertEqual(Path(argv[1]).with_name("acl-runtime-check.sh").read_bytes(), b"exit 0\n")
                 invocations.append("verify")
+            elif argv[0] == "docker":
+                self.fail(f"Unexpected Docker operation: {argv}")
             else:
                 return original(argv, **kwargs)
         with patch.object(db.subprocess, "run", side_effect=run), patch.object(db, "inspect_local", return_value=IMAGE):
@@ -150,14 +152,41 @@ class DatabaseImageTests(unittest.TestCase):
         self.assertEqual(invocations, ["build", "verify"])
         self.assertEqual(json.loads(self.receipt.read_text()), self.receipt_data())
 
-    def test_failed_qualification_never_publishes_receipt(self):
+    def test_failed_qualification_discards_only_its_tag_and_keeps_diagnostics(self):
         original = subprocess.run
+        evidence = self.receipt.parent / "failure-diagnostics"
+        candidate = []
+        removed = []
+        failure = subprocess.CalledProcessError(17, "verify.sh")
+
         def fail_verification(argv, **kwargs):
+            if argv[:3] == ["docker", "buildx", "build"]:
+                candidate.append(argv[argv.index("--tag") + 1])
+                return
             if argv[0] == "bash":
-                raise subprocess.CalledProcessError(1, argv)
-            if argv[0] != "docker":
-                return original(argv, **kwargs)
+                (evidence / "check.log").write_text("failed")
+                raise failure
+            if argv[:3] == ["docker", "image", "rm"]:
+                self.assertEqual(argv[3], "--no-prune")
+                removed.append(argv[4])
+                # A cleanup failure must also preserve the original verifier error.
+                raise OSError("cleanup unavailable")
+            return original(argv, **kwargs)
+
         with patch.object(db.subprocess, "run", side_effect=fail_verification), \
-             patch.object(db, "inspect_local", return_value=IMAGE), self.assertRaises(subprocess.CalledProcessError):
-            db.prepare(self.root, self.receipt)
+             patch.object(db, "inspect_local", return_value=IMAGE), self.assertRaises(subprocess.CalledProcessError) as caught:
+            db.prepare(self.root, self.receipt, evidence)
+        self.assertIs(caught.exception, failure)
+        self.assertEqual(len(candidate), 1)
+        self.assertRegex(candidate[0], r"^vardrsec-qualified-db:[a-f0-9]{32}$")
+        self.assertEqual(removed, candidate)
+        self.assertEqual((evidence / "check.log").read_text(), "failed")
         self.assertFalse(self.receipt.exists())
+
+    def test_failure_cleanup_preserves_a_retargeted_candidate(self):
+        candidate = "vardrsec-qualified-db:" + "c" * 32
+        with patch.object(db, "inspect_local", return_value=OTHER) as inspect, \
+             patch.object(db.subprocess, "run") as run:
+            db.discard_candidate(candidate, IMAGE)
+        inspect.assert_called_once_with(candidate)
+        run.assert_not_called()

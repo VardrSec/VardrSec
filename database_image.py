@@ -1,6 +1,7 @@
 """Prepare and reuse an operator-trusted, locally qualified PostgreSQL image."""
 
 import argparse
+from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
@@ -98,6 +99,15 @@ def select_verified(root, receipt_path, compose_model):
     return image_id
 
 
+def discard_candidate(alias, image_id):
+    try:
+        if inspect_local(alias) == image_id:
+            subprocess.run(["docker", "image", "rm", "--no-prune", alias], check=False)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        # Cleanup must preserve the original qualification error.
+        pass
+
+
 def prepare(root, receipt_path, evidence_dir=None):
     receipt_path = Path(receipt_path).absolute()
     if os.path.lexists(receipt_path):
@@ -110,7 +120,7 @@ def prepare(root, receipt_path, evidence_dir=None):
         evidence_dir = Path(evidence_dir).absolute()
         evidence_dir.mkdir(parents=True, exist_ok=False)
     print(f"Database qualification evidence: {evidence_dir}", flush=True)
-    with tempfile.TemporaryDirectory() as temp:
+    with ExitStack() as cleanup, tempfile.TemporaryDirectory() as temp:
         work = Path(temp)
         context = work / "db.tar"
         with context.open("xb") as archive:
@@ -122,22 +132,24 @@ def prepare(root, receipt_path, evidence_dir=None):
                 cwd=root, stdin=archive, check=True,
             )
         image_id = inspect_local(alias)
+        cleanup.callback(discard_candidate, alias, image_id)
         for name in SCRIPTS:
             with (work / name).open("xb") as script:
                 git(root, "cat-file", "blob", inputs[f"{VERIFY_DIR}/{name}"], output=script)
         subprocess.run(["bash", str(work / "verify.sh"), image_id], cwd=evidence_dir, check=True)
-    if build_inputs(root) != inputs:
-        raise ValueError("Database inputs changed during qualification")
-    receipt = {"schema": 1, "platform": PLATFORM, "inputs": inputs, "image_id": image_id}
-    # Publish a complete receipt without replacing an existing caller's selection.
-    out = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=receipt_path.parent, delete=False)
-    try:
-        with out:
-            json.dump(receipt, out, indent=2)
-            out.write("\n")
-        os.link(out.name, receipt_path)
-    finally:
-        Path(out.name).unlink()
+        if build_inputs(root) != inputs:
+            raise ValueError("Database inputs changed during qualification")
+        receipt = {"schema": 1, "platform": PLATFORM, "inputs": inputs, "image_id": image_id}
+        # Publish a complete receipt without replacing an existing caller's selection.
+        out = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=receipt_path.parent, delete=False)
+        try:
+            with out:
+                json.dump(receipt, out, indent=2)
+                out.write("\n")
+            os.link(out.name, receipt_path)
+            cleanup.pop_all()
+        finally:
+            Path(out.name).unlink()
     return image_id
 
 
