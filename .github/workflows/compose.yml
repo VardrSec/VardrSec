@@ -32,6 +32,9 @@ jobs:
           python-version: '3.12'
       - name: Verify automatic leaf renewal, CA persistence and verified HTTPS
         run: python tests/certificate_renewal_acceptance.py
+      - name: Verify database transport on the latest Ubuntu Docker engine
+        if: github.event_name == 'pull_request'
+        run: bash tests/database_bundle_acceptance.sh
   python-compatibility:
     strategy:
       matrix:
@@ -202,11 +205,9 @@ jobs:
           docker build -t vardrsec-browser:acceptance tests/browser
       - name: Match the frozen and running database to its qualification receipt
         if: env.VARDRSEC_DATABASE_RECEIPT != ''
-        run: |
-          expected=$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")
-          test "$(jq -er '.services.db.image' .active-images.json)" = "$expected"
-          container=$(docker compose -f compose.yaml -f .active-images.json -p vardrsec-compose-review ps -q db)
-          test "$(docker inspect --format '{{.Image}}' "$container")" = "$expected"
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
+        run: python tests/verify_installed_database.py
       - name: Verify trusted installation, Gate workflow, restart and installed ACL payloads
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
@@ -338,6 +339,11 @@ jobs:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
           if python vardrsec.py install; then echo 'install must refuse after first start'; exit 1; fi
+      - name: Match the resumed database to the imported qualification receipt
+        if: env.VARDRSEC_DATABASE_RECEIPT != ''
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
+        run: python tests/verify_installed_database.py
       - name: Confirm the install exported the public CA
         run: test -s trust/root.crt
       - name: Exercise explicit controlled updates
@@ -353,4 +359,6 @@ jobs:
               docker compose --profile tools -f "$folder/compose.yaml" -f "$folder/.active-images.json" -p "vardrsec-restore-update-$name" down --volumes --remove-orphans
             fi
           done
-          python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
+          if test -f .env; then
+            python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
+          fi

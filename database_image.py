@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import uuid
 
+from image_evidence import archive_config_id
 from source_notices import git
 
 
@@ -47,8 +48,7 @@ def inspect_local(reference):
     return details[0]
 
 
-def validate_receipt(root, path):
-    """Check the trusted receipt against this checkout before inspecting or loading an image."""
+def receipt_data(root, path):
     path = Path(path)
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
@@ -58,14 +58,67 @@ def validate_receipt(root, path):
     if len(data) > 8192:
         raise ValueError("Database qualification receipt is too large")
     item = json.loads(data)
-    if (not isinstance(item, dict) or set(item) != {"schema", "platform", "inputs", "image_id"}
+    fields = {"schema", "platform", "inputs", "image_id"}
+    if (not isinstance(item, dict) or set(item) not in (fields, fields | {"origin"})
             or type(item["schema"]) is not int or item["schema"] != RECEIPT_SCHEMA
             or item["platform"] != PLATFORM or not isinstance(item["image_id"], str)
             or not IMAGE_ID.fullmatch(item["image_id"])):
         raise ValueError("Invalid local database qualification receipt")
+    if "origin" in item:
+        origin = item["origin"]
+        if (not isinstance(origin, dict) or set(origin) != {"image_id", "config_id"}
+                or not all(isinstance(v, str) and IMAGE_ID.fullmatch(v) for v in origin.values())):
+            raise ValueError("Invalid database receipt origin")
     if item["inputs"] != build_inputs(root):
         raise ValueError("Database receipt is for different build or qualification inputs")
-    return item["image_id"]
+    return item
+
+
+def validate_receipt(root, path):
+    """Check the trusted receipt against this checkout before inspecting or loading an image."""
+    return receipt_data(root, path)["image_id"]
+
+
+def localize_receipt(root, producer_receipt_path, archive_path, loaded_id, output_path):
+    """Bind a trusted producer receipt to the same platform image in the receiving Docker store."""
+    item = receipt_data(root, producer_receipt_path)
+    if not isinstance(loaded_id, str) or not IMAGE_ID.fullmatch(loaded_id):
+        raise ValueError("Docker load must identify one immutable database image")
+    details = json.loads(subprocess.check_output(
+        ["docker", "image", "inspect", "--format", "{{json .}}", loaded_id], text=True,
+    ))
+    rootfs = details.get("RootFS") or {}
+    layers = rootfs.get("Layers")
+    if (details.get("Id") != loaded_id or details.get("Os") != "linux" or details.get("Architecture") != "amd64"
+            or rootfs.get("Type") != "layers" or not isinstance(layers, list) or not layers
+            or not all(isinstance(layer, str) and IMAGE_ID.fullmatch(layer) for layer in layers)):
+        raise ValueError("Loaded database requires the exact local linux/amd64 image and root filesystem layers")
+
+    # The qualified producer ID authenticates the source config, which in turn
+    # covers the startup command, environment and ordered uncompressed layer IDs.
+    config_id = archive_config_id(archive_path, {**details, "Id": item["image_id"]})
+    origin = item.get("origin", {"image_id": item["image_id"], "config_id": config_id})
+    if config_id != origin["config_id"]:
+        raise ValueError("Database archive differs from the original qualified configuration")
+    if loaded_id not in (item["image_id"], config_id):
+        try:
+            local_config_id = archive_config_id(archive_path, details)
+        except KeyError:
+            # A different Docker store can generate a new manifest or index on
+            # load. Resolve its verified descriptor chain using a local ID-only save.
+            with tempfile.TemporaryDirectory(dir=Path(archive_path).parent) as temporary:
+                saved = Path(temporary) / "local.tar"
+                subprocess.run(["docker", "image", "save", "--output", str(saved), loaded_id], check=True)
+                local_config_id = archive_config_id(saved, details)
+        if local_config_id != config_id:
+            raise ValueError("Loaded database differs from the qualified image configuration")
+
+    localized = {**item, "image_id": loaded_id, "origin": origin}
+    # The importer publishes this new private file only after localization succeeds.
+    with Path(output_path).open("x", encoding="utf-8") as output:
+        json.dump(localized, output, indent=2)
+        output.write("\n")
+    return loaded_id
 
 
 def read_receipt(root, path):

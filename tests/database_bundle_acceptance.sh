@@ -56,5 +56,33 @@ PY
 reject_load
 mv "$ciphertext.valid" "$ciphertext"
 bash scripts/ci/database_bundle.sh load
-cmp "$RUNNER_TEMP/fixture.json" "$RUNNER_TEMP/qualified-database.json"
+local_id=$(jq -er '.image_id' "$RUNNER_TEMP/qualified-database.json")
+jq -se '.[0] as $source | .[1] as $local |
+    ($local | del(.image_id, .origin)) == ($source | del(.image_id)) and
+    $local.origin.image_id == $source.image_id and
+    ($local.origin.config_id | test("^sha256:[0-9a-f]{64}$"))' \
+    "$RUNNER_TEMP/fixture.json" "$RUNNER_TEMP/qualified-database.json" >/dev/null
+test "$(docker image inspect --format '{{.Id}}' "$local_id")" = "$local_id"
+image_id=$local_id
 grep -Fx "VARDRSEC_DATABASE_RECEIPT=$RUNNER_TEMP/qualified-database.json" "$GITHUB_ENV"
+
+# A classic Docker producer identifies this same image by its config digest.
+# Exercise that receipt on the current runner's actual image store.
+docker image save --output "$RUNNER_TEMP/registered.tar" "$local_id"
+python3 - "$RUNNER_TEMP" "$local_id" <<'PY'
+import json
+from pathlib import Path
+import sys
+import database_image
+
+work, local_id = Path(sys.argv[1]), sys.argv[2]
+receipt = json.loads((work / "qualified-database.json").read_text())
+origin = receipt.pop("origin")
+receipt["image_id"] = origin["config_id"]
+source = work / "classic.json"
+source.write_text(json.dumps(receipt))
+localized = work / "localized.json"
+database_image.localize_receipt(Path.cwd(), source, work / "registered.tar", local_id, localized)
+assert json.loads(localized.read_text())["origin"]["config_id"] == origin["config_id"]
+assert database_image.read_receipt(Path.cwd(), localized) == local_id
+PY

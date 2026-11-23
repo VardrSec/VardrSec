@@ -141,8 +141,10 @@ VARDRSEC_DATABASE_RECEIPT="$private/from-ci.json" ./install.sh --full
 ```
 
 The import checks the ciphertext, decrypts it with your identity and matches the
-bundle to the cache identity and checkout. It writes the receipt after Docker
-confirms the expected local image ID. A failed import can be retried with the
+bundle to the cache identity and checkout. Docker storage backends can assign
+different IDs to the same image. The importer verifies the platform config
+digest and ordered filesystem layers, then records the receiving engine's
+immutable ID with the original qualification identity. A failed import can be retried with the
 same new receipt path after correcting the cause.
 
 ## 3. Trust the local CA and create an account

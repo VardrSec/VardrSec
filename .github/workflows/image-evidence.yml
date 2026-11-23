@@ -52,6 +52,7 @@ jobs:
           reports=(artifacts/image-evidence/run-*/reports/receipt.json)
           test "${#reports[@]}" -eq 1
           test "$(jq -er '.images.db.id' "${reports[0]}")" = "$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")"
+          test "$(jq -er '.images.db.config_id' "${reports[0]}")" = "$(jq -er '.origin.config_id' "$VARDRSEC_DATABASE_RECEIPT")"
       - name: Inspect legal notices and selected native identities without starting images
         shell: bash
         run: |

@@ -25,10 +25,11 @@ authenticate() {
 
 import_verified() {
     # Callers must authenticate the entire bundle before Docker sees any archive bytes.
-    python3 scripts/ci/database_bundle.py unpack-receipt "$1" "$work/receipt.json"
-    tar -xOf "$1" image.tar.zst | zstd -dq | docker image load
-    python3 scripts/ci/database_bundle.py verify-local "$work/receipt.json"
-    ln -T -- "$work/receipt.json" "$2"
+    if [[ -e "$2" || -L "$2" ]]; then echo "Database receipt destination already exists" >&2; return 1; fi
+    python3 scripts/ci/database_bundle.py unpack-receipt "$1" "$work/producer.json"
+    tar -xOf "$1" image.tar.zst | zstd -dq -o "$work/image.tar"
+    python3 scripts/ci/database_bundle.py load-archive "$work/image.tar" "$work/producer.json" "$work/local.json"
+    ln -T -- "$work/local.json" "$2"
 }
 
 case "$1" in

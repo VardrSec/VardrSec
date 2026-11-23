@@ -1,3 +1,5 @@
+import hashlib
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -12,6 +14,31 @@ import database_image as db
 IMAGE = "sha256:" + "a" * 64
 OTHER = "sha256:" + "b" * 64
 ALIAS = "vardrsec-db:local-test"
+
+
+def image_archive(path, layout, command="postgres"):
+    blobs = {}
+
+    def blob(value):
+        payload = json.dumps(value).encode()
+        digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+        blobs[digest] = payload
+        return digest
+
+    config_id = blob({"os": "linux", "architecture": "amd64", "config": {"Cmd": [command]},
+                      "rootfs": {"type": "layers", "diff_ids": [IMAGE, OTHER]}})
+    image_id = config_id
+    if layout != "classic":
+        image_id = blob({"config": {"digest": config_id}})
+        if layout == "oci":
+            image_id = blob({"manifests": [{"platform": {"os": "linux", "architecture": "amd64"}, "digest": image_id}]})
+    with tarfile.open(path, "w") as archive:
+        for digest, payload in blobs.items():
+            name = digest.split(":")[1]
+            member = tarfile.TarInfo(name + ".json" if layout == "classic" else "blobs/sha256/" + name)
+            member.size = len(payload)
+            archive.addfile(member, io.BytesIO(payload))
+    return image_id, config_id
 
 
 class DatabaseImageTests(unittest.TestCase):
@@ -40,6 +67,49 @@ class DatabaseImageTests(unittest.TestCase):
 
     def receipt_data(self):
         return {"schema": db.RECEIPT_SCHEMA, "platform": db.PLATFORM, "inputs": db.build_inputs(self.root), "image_id": IMAGE}
+
+    def test_localize_proves_identical_config_between_classic_and_containerd_stores(self):
+        for producer, local in [("classic", "oci"), ("oci", "classic"), ("oci", "manifest"), ("classic", "classic")]:
+            with self.subTest(producer=producer, local=local):
+                source = self.receipt.parent / "producer.tar"
+                producer_id, config = image_archive(source, producer)
+                saved = self.receipt.parent / "engine.tar"
+                local_id, _ = image_archive(saved, local)
+                self.receipt.write_text(json.dumps({**self.receipt_data(), "image_id": producer_id}))
+                output = self.receipt.parent / f"{producer}-{local}.json"
+                with patch.object(db, "subprocess") as docker:
+                    docker.check_output.return_value = json.dumps({"Id": local_id, "Os": "linux", "Architecture": "amd64",
+                                                                  "RootFS": {"Type": "layers", "Layers": [IMAGE, OTHER]}})
+                    def local_save(command, check):
+                        self.assertEqual(command[:4], ["docker", "image", "save", "--output"])
+                        self.assertEqual(command[5], local_id)
+                        Path(command[4]).write_bytes(saved.read_bytes())
+                    docker.run.side_effect = local_save
+                    self.assertEqual(db.localize_receipt(self.root, self.receipt, source, local_id, output), local_id)
+                    self.assertEqual(docker.run.call_count, int(local == "oci"))
+                self.assertEqual(db.validate_receipt(self.root, output), local_id)
+                self.assertEqual(json.loads(output.read_text())["origin"], {"image_id": producer_id, "config_id": config})
+
+    def test_localize_rejects_substitution_even_with_identical_layers(self):
+        source = self.receipt.parent / "producer.tar"
+        qualified, _ = image_archive(source, "oci")
+        self.receipt.write_text(json.dumps({**self.receipt_data(), "image_id": qualified}))
+        alternate = self.receipt.parent / "different.tar"
+        wrong_id, _ = image_archive(alternate, "classic", command="altered-entrypoint")
+        output = self.receipt.parent / "local.json"
+        with patch.object(db, "subprocess") as docker:
+            docker.check_output.return_value = json.dumps({"Id": wrong_id, "Os": "linux", "Architecture": "amd64",
+                                                           "RootFS": {"Type": "layers", "Layers": [IMAGE, OTHER]}})
+            docker.run.side_effect = lambda command, check: Path(command[4]).write_bytes(alternate.read_bytes())
+            with self.assertRaisesRegex(ValueError, "differs from the qualified image configuration"):
+                db.localize_receipt(self.root, self.receipt, source, wrong_id, output)
+            with self.assertRaisesRegex(ValueError, "immutable"):
+                db.localize_receipt(self.root, self.receipt, source, ALIAS, output)
+            docker.check_output.return_value = json.dumps({"Id": qualified, "Os": "linux", "Architecture": "amd64",
+                                                           "RootFS": {"Type": "layers", "Layers": [OTHER, IMAGE]}})
+            with self.assertRaisesRegex(ValueError, "layer identity"):
+                db.localize_receipt(self.root, self.receipt, source, qualified, output)
+        self.assertFalse(output.exists())
 
     def test_select_tags_absent_alias_and_checks_immutable_id(self):
         self.receipt.write_text(json.dumps(self.receipt_data()))
