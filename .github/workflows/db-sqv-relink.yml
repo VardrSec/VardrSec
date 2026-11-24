@@ -1,0 +1,24 @@
+name: PostgreSQL recipient relinking qualification
+on:
+  push:
+    branches: [codex/sqv-recipient-relink]
+    paths:
+      - .github/workflows/db-sqv-relink.yml
+      - qualification/database-recipient/sqv-relink.sh
+permissions:
+  contents: read
+jobs:
+  relink:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Rebuild sqv with a recipient-modified statically linked library
+        run: |
+          docker run --rm --platform linux/amd64 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/review,readonly" \
+            --mount "type=bind,src=/etc/ssl/certs/ca-certificates.crt,dst=/host-ca.crt,readonly" \
+            debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 \
+            bash /review/qualification/database-recipient/sqv-relink.sh
