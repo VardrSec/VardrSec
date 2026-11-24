@@ -1,0 +1,28 @@
+PostgreSQL uses the Debian Trixie libgnutls30t64 ABI. The build starts from
+Debian gnutls28 3.8.9-3+deb13u4. It rebuilds the architecture-dependent
+packages with the shipped test suite and Debian symbols checks. Only the
+libgnutls30t64 runtime package enters the database image.
+
+The two patches are the complete upstream fixes named by Debian:
+
+CVE-2026-127039
+https://gitlab.com/gnutls/gnutls/-/commit/0cf60141ca2c1289e96847261ff355010cb6f3a8
+https://security-tracker.debian.org/tracker/CVE-2026-127039
+
+CVE-2026-127040
+https://gitlab.com/gnutls/gnutls/-/commit/8767518753a633e5ef59f112310db8dc9ff6771a
+https://security-tracker.debian.org/tracker/CVE-2026-127040
+
+For CVE-2026-127231, upstream commit 95256a91bbf1e5f15f75bbd0454c7b05f7b4858a
+clears three stale pointers in a newer X.509 name-constraint representation.
+In this Debian source, name_constraints_node_list_clear already resets both
+data and sorted_view to NULL, both counts to zero, and dirty to false.
+_gnutls_x509_name_constraints_clear calls it for all three arrays, including
+the single array that owns the nodes. reviewed-source.sha256 identifies that
+exact implementation. Image-specific review must bind the resulting library
+to the scanner occurrence before assigning an affected status.
+
+The corresponding source directory carries both original and modified Debian
+source, the upstream signature file, changes, build info, logs, patch ledger,
+source hashes, package hash, executable library hash and build recipe.
+The runtime package supplies /usr/share/doc/libgnutls30t64/copyright.

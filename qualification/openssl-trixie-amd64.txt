@@ -19,7 +19,18 @@ With all three resulting .debs installed, debian/tests/run-25-test-verify
 passed all 127 checks against /usr/bin/openssl.
 Installed-package test log SHA-256: 5d6da516a27fd148972f3efa9a736f80abd563e70801d103fbf09af00988bf2f
 
-db/openssl/qualified-packages.sha256 records the three qualified archives.
-The libssl.so.3 and libcrypto.so.3 values in native-runtime-SHA256SUMS were
+The libssl.so.3 and libcrypto.so.3 values in qualification/openssl-runtime-SHA256SUMS were
 computed from the extracted libssl3t64 archive. Image evidence verifies these
-payloads against the stopped containers associated with the scanner receipt.
+payloads in the API, web and runner images associated with the scanner receipt.
+
+PostgreSQL additionally applies upstream maintenance commit
+734c6cd7444bdbf589bfec917e47598c1b21ddd3 for CVE-2026-107494.
+Two independent hosted Debian builds of 3.5.7-1~deb13u3+vardr3 ran the package
+tests and produced byte-identical archives for all three packages. Debian's
+installed-package verification passed all 127 checks on each build.
+https://github.com/VardrSec/VardrSec/actions/runs/45322863519
+
+db/openssl/qualified-packages.sha256 and qualified-libraries.sha256 record
+the PostgreSQL hashes. The database recipe checks both sets and runs the
+installed-package test before copying the packages into the final image.
+Image evidence independently checks both TLS libraries from the scanned image.

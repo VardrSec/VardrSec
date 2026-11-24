@@ -50,8 +50,14 @@ vulnerability gate, or grant release clearance.
 This establishes a reviewable source-to-package evidence chain, not independent
 binary reproducibility or complete runtime regression coverage. Fresh apt build
 dependencies are inventoried, not snapshot-pinned. Review the complete build log
-to distinguish executed tests from disabled tests. The integer-overflow and
-XInclude CVEs still require targeted regression evidence before any policy treats
-them as independently validated. No vulnerability is suppressed by this change.
-Only an actual successful build produces this evidence; a code review of the
-recipe is not a substitute for the retained output.
+to distinguish executed tests from disabled tests.
+
+Current CI also requires `evidence/dictionary-xinclude-checks.txt` from the
+same stripped package library. The unchanged upstream dictionary suite checks
+20,000 strings, including qualified-name lookups. Four successful local text
+inclusions check whether the document and tree APIs propagate the ordinary
+whitespace option to the input loader when enabled and disabled. CI verifies
+the exact applied source and patch hashes for both fixes and for the additional
+VardrSec dictionary caller guard. These tests use ordinary-sized inputs. Review
+the dictionary length and pool-growth arithmetic separately before deciding
+CVE-2026-86138. Historical receipts identify which checks actually ran.

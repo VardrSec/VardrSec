@@ -142,6 +142,23 @@ class GeneratedGoLegalNamesTests(unittest.TestCase):
 
 
 class ApplicabilityInventoryTests(unittest.TestCase):
+    def test_database_source_unpackers_and_mapping_helpers_record_paths_only(self):
+        entries = [('custom/dpkg-source', (tarfile.SYMTYPE, '/private/target')),
+                   ('alt/Dpkg/Source/Package/V2.pm', b'code'),
+                   ('alt/Dpkg/Source/Package/V3/Quilt.pm', b'code'),
+                   ('unrelated/V2.pm', b'other'), ('custom/newgidmap', b'code')]
+        manifest, files = evidence.collect(export(entries), IMAGE, 'db', REV)
+        groups = manifest['component_path_inventory']
+        self.assertEqual(groups['dpkg_source_unpacking'], [
+            {'path': entries[1][0], 'regular_file': True},
+            {'path': entries[2][0], 'regular_file': True},
+            {'path': entries[0][0], 'regular_file': False}])
+        self.assertEqual(groups['shadow_id_mapping_helpers'], [{'path': 'custom/newgidmap', 'regular_file': True}])
+        self.assertEqual(set(files), {'manifest.json'})
+        self.assertEqual(manifest['native_file_count'], 0)
+        self.assertNotIn('/private/target', json.dumps(manifest))
+        self.assertNotIn('dpkg_source_unpacking', collect(entries)[0]['component_path_inventory'])
+
     def test_component_names_anywhere_links_conservative_and_no_payload(self):
         entries = [('custom/systemd-homed', b'code'),
                    ('usr/lib/libgssrpc.so.4', (tarfile.SYMTYPE, '/secret')),

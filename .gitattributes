@@ -18,3 +18,7 @@ db/acl/** text eol=lf
 db/acl/*.patch whitespace=-blank-at-eol,-space-before-tab
 db/kerberos-vm/*.sh text eol=lf
 qualification/kerberos-image/*.sh text eol=lf
+db/gnutls/*.patch text eol=lf whitespace=-blank-at-eol,-space-before-tab,-blank-at-eof
+db/gnutls/*.sh text eol=lf
+db/openssl/*.patch text eol=lf whitespace=-blank-at-eol,-space-before-tab
+qualification/database-libseccomp.sh text eol=lf

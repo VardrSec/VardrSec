@@ -85,14 +85,21 @@ jobs:
               printf '%s\n' "$digest" > "$evidence/image-id.txt"
               sha256sum "${receipt[0]}" > "$evidence/scan-receipt.sha256"
               packages=(libc6 libc-bin libmount1 libblkid1 libsmartcols1 libuuid1 liblastlog2-2 mount util-linux libssl3t64 openssl-provider-legacy)
+              tls_version='3.5.7-1~deb13u3+vardr2'
+              tls_hashes=qualification/openssl-runtime-SHA256SUMS
               if [ "$service" != web ]; then packages+=(openssl); fi
-              if [ "$service" = db ]; then packages+=(libc-l10n locales); fi
+              if [ "$service" = db ]; then
+                packages+=(libc-l10n locales)
+                tls_version='3.5.7-1~deb13u3+vardr3'
+                tls_hashes=db/openssl/qualified-libraries.sha256
+              fi
+              cat qualification/native-runtime-SHA256SUMS "$tls_hashes" > "$evidence/expected.sha256"
               docker run --rm --network none --read-only --entrypoint dpkg-query "$digest" \
                 -W '-f=${Package} ${db:Status-Abbrev} ${Version}\n' "${packages[@]}" > "$evidence/versions.txt"
               for pkg in "${packages[@]}"; do
                 case "$pkg" in
                   libc6|libc-bin|libc-l10n|locales) version='2.41-12+deb13u4+vardr3' ;;
-                  openssl|libssl3t64|openssl-provider-legacy) version='3.5.7-1~deb13u3+vardr2' ;;
+                  openssl|libssl3t64|openssl-provider-legacy) version="$tls_version" ;;
                   *) version='2.41.5-0+deb13u1+vardr2' ;;
                 esac
                 awk -v p="$pkg" -v v="$version" '$1 == p && $2 == "ii" && $3 == v { found=1 } END { exit !found }' "$evidence/versions.txt"
@@ -103,8 +110,8 @@ jobs:
                 mkdir -p "$payload/$(dirname "$path")"
                 docker cp -L "$id:/$path" "$payload/$path"
                 (cd "$payload" && sha256sum -- "$path") >> "$evidence/installed.sha256"
-              done < qualification/native-runtime-SHA256SUMS
-              (cd "$payload" && sha256sum -c "$GITHUB_WORKSPACE/qualification/native-runtime-SHA256SUMS") | tee "$evidence/comparison.txt"
+              done < "$evidence/expected.sha256"
+              (cd "$payload" && sha256sum -c "$GITHUB_WORKSPACE/$evidence/expected.sha256") | tee "$evidence/comparison.txt"
               # Record independent TLS implementations separately from the Debian library comparisons.
               case "$service" in
                 api|runner)
@@ -130,11 +137,21 @@ jobs:
               docker cp "$id:/usr/share/doc/libxml2/vardr-source" artifacts/native-source-delivery/libxml2
               docker cp "$id:/usr/share/licenses/gosu/source" artifacts/native-source-delivery/gosu
               docker cp "$id:/usr/share/doc/libkrb5-3/vardr-source" artifacts/native-source-delivery/krb5
+              docker cp "$id:/usr/share/doc/libseccomp2/vardr-source" artifacts/native-source-delivery/libseccomp
               (cd artifacts/native-source-delivery/libxml2 && sha256sum -c SHA256SUMS)
               (cd artifacts/native-source-delivery/gosu && sha256sum -c SHA256SUMS)
               (cd artifacts/native-source-delivery/krb5 && sha256sum -c SHA256SUMS)
+              (cd artifacts/native-source-delivery/libseccomp && sha256sum -c SHA256SUMS)
+              docker run --rm --network none --read-only --entrypoint sh "$digest" -ec \
+                'test "$(dpkg-query -W -f="\${Version}" libseccomp2)" = 2.6.2-1
+                 cd / && sha256sum -c /usr/share/doc/libseccomp2/vardr-source/runtime-library.sha256'
               docker cp "$id:/usr/share/doc/perl-modules-5.40/vardr-source" artifacts/native-source-delivery/db-archive-tar
               (cd artifacts/native-source-delivery/db-archive-tar && sha256sum -c SHA256SUMS)
+              docker cp "$id:/usr/share/doc/libgnutls30t64/vardr-source" artifacts/native-source-delivery/db-gnutls
+              (cd artifacts/native-source-delivery/db-gnutls && sha256sum -c SHA256SUMS)
+              docker run --rm --network none --read-only --entrypoint sh "$digest" -ec \
+                'test "$(dpkg-query -W -f="\${Version}" libgnutls30t64)" = 3.8.9-3+deb13u4+vardr1
+                 cd / && sha256sum -c /usr/share/doc/libgnutls30t64/vardr-source/runtime-library.sha256'
             fi
             if [ "$service" = runner ]; then
               mkdir -p artifacts/native-source-delivery
@@ -151,7 +168,7 @@ jobs:
             fi
             docker export "$id" | python runtime_notice_evidence.py --image-id "$digest" --service "$service" --distribution-commit "$(git rev-parse HEAD)" --output "artifacts/runtime-notices/$service.tar"
             if [ "$service" = db ]; then
-              python tests/libxml2_runtime_custody.py \
+              python tests/libxml2_runtime_custody.py --require-api-checks \
                 --source artifacts/native-source-delivery/libxml2 \
                 --runtime-notices artifacts/runtime-notices/db.tar \
                 --image-id "$digest" --distribution-commit "$(git rev-parse HEAD)" \

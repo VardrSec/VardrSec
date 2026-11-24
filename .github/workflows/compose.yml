@@ -192,7 +192,7 @@ jobs:
           if jq -e '.images | has("db")' versions.json >/dev/null; then
             echo 'mode=release' >> "$GITHUB_OUTPUT"
           elif [[ "$GITHUB_EVENT_NAME" == pull_request && "$HAVE_CACHE" == true ]] &&
-               ! git diff --quiet HEAD^1 HEAD -- database_release.py tests/stage_database_registry.sh; then
+                ! git diff --quiet HEAD^1 HEAD -- database_release.py tests/stage_database_registry.sh db qualification/kerberos-image; then
             echo 'mode=fixture' >> "$GITHUB_OUTPUT"
           fi
       - name: Restore encrypted candidate for the isolated registry
