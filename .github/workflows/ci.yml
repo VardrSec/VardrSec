@@ -22,11 +22,14 @@ jobs:
           python - <<'PY'
           import json, re
           from pathlib import Path
+          from database_release import release_pin
           manifest = json.loads(Path('versions.json').read_text())
           assert type(manifest['schema_version']) is int and manifest['schema_version'] == 1
           assert manifest['status'] == 'development'
           assert manifest['distribution_release'] is None
-          assert manifest['runnable'] is False and manifest['images'] == {}
+          assert manifest['runnable'] is False
+          pin = release_pin(Path.cwd())
+          assert manifest['images'] == ({} if pin is None else {'db': pin})
           expected = {'map': 'VardrSec/VardrMap', 'runner': 'VardrSec/VardrRunner', 'gate': 'VardrSec/VardrGate'}
           assert set(manifest['components']) == set(expected)
           for name, repository in expected.items():

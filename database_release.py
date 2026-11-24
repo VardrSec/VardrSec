@@ -87,4 +87,5 @@ def prepare(root):
                 raise ValueError("Docker archive is missing the published PostgreSQL metadata") from err
             if config_id != pin["config_id"]:
                 raise ValueError("Local PostgreSQL configuration differs from the reviewed image")
-    return {"schema": RECEIPT_SCHEMA, "platform": PLATFORM, "inputs": pin["inputs"], "image_id": image_id}
+    return {"schema": RECEIPT_SCHEMA, "platform": PLATFORM, "inputs": pin["inputs"], "image_id": image_id,
+            "origin": {"image_id": image_id, "config_id": pin["config_id"]}}

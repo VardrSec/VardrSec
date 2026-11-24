@@ -198,6 +198,27 @@ class DatabaseImageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "local changes"):
             db.validate_receipt(self.root, self.receipt)
 
+    def test_published_image_runs_the_same_verifier_without_a_source_build(self):
+        item = self.receipt_data()
+        item["origin"] = {"image_id": IMAGE, "config_id": OTHER}
+        evidence = self.receipt.parent / "published-evidence"
+        original = subprocess.run
+        verified = []
+
+        def run(args, **kwargs):
+            if args[0] == "git":
+                return original(args, **kwargs)
+            self.assertEqual(args[0], "bash")
+            self.assertEqual(kwargs["cwd"], evidence)
+            self.assertEqual(Path(args[1]).read_bytes(), b"exit 0\n")
+            verified.append(args[2])
+            return subprocess.CompletedProcess(args, 0)
+
+        with patch.object(db.subprocess, "run", side_effect=run):
+            self.assertEqual(db.prepare(self.root, self.receipt, evidence, published=item), IMAGE)
+        self.assertEqual(verified, [IMAGE])
+        self.assertEqual(json.loads(self.receipt.read_text()), item)
+
     def test_prepare_runs_verifier_on_built_id_then_reuses_receipt(self):
         helper = self.root / "db" / "tools" / "build.sh"
         helper.parent.mkdir()

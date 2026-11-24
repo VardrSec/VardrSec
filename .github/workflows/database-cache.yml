@@ -43,9 +43,9 @@ jobs:
           path: ${{ runner.temp }}/vardrsec-database.gpg
           key: ${{ steps.key.outputs.cache_key }}
           lookup-only: true
-      - name: Build and qualify the database
+      - name: Select and qualify the database
         if: steps.key.outputs.cache_key != '' && steps.cached.outputs.cache-hit != 'true'
-        run: python3 database_image.py prepare --receipt "$RUNNER_TEMP/producer-db.json" --evidence-dir "$RUNNER_TEMP/database-qualification"
+        run: python3 scripts/ci/database_bundle.py qualify "$RUNNER_TEMP/producer-db.json" "$RUNNER_TEMP/database-qualification"
       - name: Encrypt the qualified database for CI
         if: steps.key.outputs.cache_key != '' && steps.cached.outputs.cache-hit != 'true'
         env:
