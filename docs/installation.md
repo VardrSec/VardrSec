@@ -71,6 +71,14 @@ See [installation safeguards](#installation-safeguards) for the exact boundaries
 
 ### Reuse a qualified PostgreSQL image
 
+An official database release can pin a registry manifest and its scanned
+configuration in `versions.json`. On a supported Ubuntu/amd64 host, the normal
+`./install.sh --full` command then downloads that exact image before creating
+credentials or fetching the application sources. It reuses a matching local
+copy and checks the platform, image identity and database recipe. A failed
+download or verification stops the install and can be retried. The current
+development manifest has no published database pin and builds from source.
+
 On Ubuntu/amd64 you can pay the database build cost once for several fresh Full
 installations. From a clean checkout, prepare the image on your Docker host. The
 command runs the database recipe, checks the installed packages and source, runs
