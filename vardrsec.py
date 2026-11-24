@@ -871,10 +871,16 @@ def dispatch(args, parser):
         elif not os.path.lexists(ROOT / ".active-images.json"):
             build_prerequisites()
             build_checked = True
-        if build_checked and "VARDRSEC_DATABASE_RECEIPT" in os.environ:
-            from database_image import read_receipt
+        published_db = None
+        if build_checked:
+            if "VARDRSEC_DATABASE_RECEIPT" in os.environ:
+                from database_image import read_receipt
 
-            read_receipt(ROOT, os.environ["VARDRSEC_DATABASE_RECEIPT"])
+                read_receipt(ROOT, os.environ["VARDRSEC_DATABASE_RECEIPT"])
+            elif standard_full_compose():
+                from database_release import prepare
+
+                published_db = prepare(ROOT)
         steps = list(INSTALL_STEPS)
         if prospective is None:
             print("Resuming: the existing .env is kept and its secrets are not regenerated.")
@@ -890,6 +896,7 @@ def dispatch(args, parser):
                     **vars(args), "action": step,
                     "prepared_configuration": prospective if step == "configure" else None,
                     "build_prerequisites_checked": build_checked,
+                    "published_db": published_db if step == "build" else None,
                 }), parser)
                 if step == "build":
                     browser_address = select_full_installation(verified_db=result)
@@ -920,6 +927,14 @@ def dispatch(args, parser):
         environment = dict(os.environ)
         if not mapless:
             environment["VARDRMAP_SOURCE_REVISION"] = map_source_revision()
+        if getattr(args, "published_db", None) is not None:
+            # Reuse the same receipt and freeze checks as an operator-supplied
+            # image, including rechecking the recipe after source acquisition.
+            with tempfile.TemporaryDirectory() as directory:
+                receipt = Path(directory) / "published-database.json"
+                receipt.write_text(json.dumps(args.published_db), encoding="utf-8")
+                environment["VARDRSEC_DATABASE_RECEIPT"] = str(receipt)
+                return build_images(mapless=False, environment=environment)
         return build_images(mapless=mapless, environment=environment)
     elif args.action == "database-role":
         import database_roles

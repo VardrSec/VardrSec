@@ -177,14 +177,46 @@ jobs:
       - name: Verify encrypted transport using an inert local image
         if: github.event_name == 'pull_request'
         run: bash tests/database_bundle_acceptance.sh
+      - name: Select the database download test
+        id: pull-test
+        env:
+          HAVE_CACHE: ${{ needs.database.outputs.cache_key != '' }}
+        shell: bash
+        run: |
+          if jq -e '.images | has("db")' versions.json >/dev/null; then
+            echo 'mode=release' >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == pull_request && "$HAVE_CACHE" == true ]] &&
+               ! git diff --quiet HEAD^1 HEAD -- database_release.py tests/stage_database_registry.sh; then
+            echo 'mode=fixture' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Restore encrypted candidate for the isolated registry
+        if: steps.pull-test.outputs.mode == 'fixture'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ${{ runner.temp }}/vardrsec-database.gpg
+          key: ${{ needs.database.outputs.cache_key }}
+          fail-on-cache-miss: true
+      - name: Authenticate the private registry fixture
+        if: steps.pull-test.outputs.mode == 'fixture'
+        env:
+          PASSPHRASE: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+        run: bash scripts/ci/database_bundle.sh authenticate "$RUNNER_TEMP/vardrsec-database.gpg" "$RUNNER_TEMP/db-pull-test.tar"
+      - name: Stage the qualified image outside the clean Docker engine
+        if: steps.pull-test.outputs.mode == 'fixture'
+        env:
+          CACHE_KEY: ${{ needs.database.outputs.cache_key }}
+        run: |
+          sudo apt-get -o Acquire::Retries=2 update -qq
+          if ! command -v skopeo >/dev/null; then sudo apt-get install --no-install-recommends -y skopeo; fi
+          bash tests/stage_database_registry.sh
       - name: Load the verified database if available
-        if: needs.database.outputs.cache_key != ''
+        if: needs.database.outputs.cache_key != '' && steps.pull-test.outputs.mode == ''
         uses: ./.github/actions/load-database
         with:
           cache-key: ${{ needs.database.outputs.cache_key }}
           passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
       - name: Exercise local qualification on changes to the database or installer
-        if: github.event_name == 'pull_request' && env.VARDRSEC_DATABASE_RECEIPT == ''
+        if: github.event_name == 'pull_request' && env.VARDRSEC_DATABASE_RECEIPT == '' && steps.pull-test.outputs.mode == ''
         run: |
           # The first parent of GitHub's PR merge is the base. Other PRs exercise
           # the ordinary source install directly when the private cache is off.
@@ -200,11 +232,11 @@ jobs:
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
-          python vardrsec.py install
+          /usr/bin/time -f '%e' -o "$RUNNER_TEMP/full-install-seconds" ./install.sh --full
           python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), 'config', '--quiet')"
           docker build -t vardrsec-browser:acceptance tests/browser
       - name: Match the frozen and running database to its qualification receipt
-        if: env.VARDRSEC_DATABASE_RECEIPT != ''
+        if: env.VARDRSEC_DATABASE_RECEIPT != '' || steps.pull-test.outputs.mode != ''
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: python tests/verify_installed_database.py
