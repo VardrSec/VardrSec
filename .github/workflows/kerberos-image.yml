@@ -8,6 +8,7 @@ on:
       - 'scripts/ci/database_bundle.*'
       - 'database_image.py'
       - 'qualification/kerberos-image/**'
+      - 'qualification/database-recipient/layer_sources.py'
       - 'qualification/kerberos-vm/test_*.py'
       - 'db/**'
 permissions:
@@ -70,6 +71,11 @@ jobs:
             --output artifacts/kerberos-image/runtime-notices.tar
           docker rm "$container" >/dev/null
           trap - EXIT
+      - name: Inventory source packages and direct Berkeley DB links in every shipped database layer
+        shell: bash
+        run: |
+          python3 qualification/database-recipient/layer_sources.py \
+            "$(cat artifacts/kerberos-image/image-id.txt)" artifacts/kerberos-image/layer-sources.json
       - name: Preserve candidate acceptance evidence without publication
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
