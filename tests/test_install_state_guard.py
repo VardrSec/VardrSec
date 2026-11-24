@@ -95,6 +95,8 @@ class InstallStateGuardTests(unittest.TestCase):
                 self.subTest(inventory=inventory.returncode),
                 patch.dict(vardrsec.os.environ, {"COMPOSE_PROJECT_NAME": "vardrsec"}),
                 patch.object(vardrsec.subprocess, "run", return_value=inventory),
+                patch.object(vardrsec, "build_prerequisites"),
+                patch.object(vardrsec, "require_command"),
                 patch.object(vardrsec, "configure") as configure,
                 patch.object(vardrsec, "sources") as sources,
                 patch.object(vardrsec, "compose") as compose,

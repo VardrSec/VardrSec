@@ -13,6 +13,7 @@ import vardrsec
 from test_install_project_resolution import model
 
 STANDARD = (vardrsec.ROOT / "compose.yaml").read_bytes().replace(b"\r\n", b"\n")
+MAPLESS = (vardrsec.ROOT / "compose.mapless.json").read_bytes()
 
 
 class FreshInstallPreflightTests(unittest.TestCase):
@@ -53,7 +54,8 @@ class FreshInstallPreflightTests(unittest.TestCase):
             if race is True:
                 (self.root / ".env").write_text("retained concurrent synthetic config")
             return subprocess.CompletedProcess([], 0, stdout=inventory)
-        with patch.object(vardrsec, "require_standard_fresh_layout", side_effect=layout_check), \
+        with patch.object(vardrsec, "build_prerequisites"), patch.object(vardrsec, "require_command"), \
+             patch.object(vardrsec, "require_standard_fresh_layout", side_effect=layout_check), \
              patch.object(vardrsec, "dispatch", side_effect=dispatch), \
              patch.object(vardrsec, "select_full_installation"), \
              patch.object(vardrsec.subprocess, "run", side_effect=command), \
@@ -130,6 +132,68 @@ class FreshInstallPreflightTests(unittest.TestCase):
         self.assertEqual(steps, [])
         self.assertEqual((self.root / ".env").read_text(), "retained concurrent synthetic config")
         self.assertFalse((self.root / "trust").exists())
+
+    def test_missing_prerequisites_stop_before_secrets_inventory_and_fetch(self):
+        for unavailable in ("git", "docker"):
+            with (
+                self.subTest(unavailable=unavailable),
+                patch.object(vardrsec, "require_command") as require,
+                patch.object(vardrsec, "build_prerequisites") as docker,
+                patch.object(vardrsec, "configuration_values") as generate,
+                patch.object(vardrsec, "has_installation_data") as inventory,
+                patch.object(vardrsec, "sources") as sources,
+            ):
+                (require if unavailable == "git" else docker).side_effect = ValueError(unavailable)
+                with self.assertRaisesRegex(ValueError, unavailable):
+                    vardrsec.dispatch(argparse.Namespace(action="install"), argparse.ArgumentParser())
+                require.assert_called_once_with("git")
+                generate.assert_not_called()
+                inventory.assert_not_called()
+                sources.assert_not_called()
+                self.assertFalse((self.root / ".env").exists())
+
+    def test_mapless_missing_git_preserves_unmarked_checkout(self):
+        (self.root / "compose.mapless.json").write_bytes(MAPLESS)
+        with (
+            patch.object(vardrsec, "build_prerequisites"),
+            patch.object(vardrsec, "has_installation_data", return_value=False) as inventory,
+            patch.object(vardrsec.shutil, "which", return_value=None),
+            patch.object(vardrsec, "sources") as fetch,
+        ):
+            with self.assertRaisesRegex(ValueError, "Required command 'git'"):
+                vardrsec.dispatch(argparse.Namespace(action="install", mapless=True), argparse.ArgumentParser())
+            inventory.assert_called_once_with(mapless=True)
+            fetch.assert_not_called()
+        self.assertFalse((self.root / vardrsec.MARKER).exists())
+
+    def test_invalid_project_does_not_leave_empty_configuration(self):
+        with patch.dict(vardrsec.os.environ, {"COMPOSE_PROJECT_NAME": "Invalid/Project"}):
+            with self.assertRaisesRegex(ValueError, "COMPOSE_PROJECT_NAME"):
+                vardrsec.configure()
+        self.assertFalse((self.root / ".env").exists())
+        with contextlib.redirect_stdout(io.StringIO()):
+            vardrsec.configure()
+        original = (self.root / ".env").read_bytes()
+        self.assertTrue(original)
+        with patch.dict(vardrsec.os.environ, {"COMPOSE_PROJECT_NAME": "Invalid/Project"}):
+            with self.assertRaises(FileExistsError):
+                vardrsec.configure()
+        self.assertEqual(original, (self.root / ".env").read_bytes())
+
+    def test_address_uses_the_published_loopback_port(self):
+        resolved = model(self.root)
+        ports = [{"host_ip": "127.0.0.1", "published": "9443", "target": 8443}]
+        resolved["services"]["proxy"]["ports"] = ports
+        address = vardrsec.full_browser_address(resolved)
+        self.assertEqual(address, "https://localhost:9443")
+        for platform in ("nt", "posix"):
+            with patch.object(vardrsec.os, "name", platform), patch.object(vardrsec.sys, "platform", "linux"):
+                self.assertIn(address, vardrsec.installation_instructions(address))
+                self.assertIn("https://localhost:8443", vardrsec.installation_instructions())
+        ports.append({"host_ip": "127.0.0.1", "published": "8443"})
+        self.assertNotIn("https://localhost:", vardrsec.full_browser_address(resolved))
+        del resolved["services"]["proxy"]
+        self.assertIn("docker compose ps proxy", vardrsec.full_browser_address(resolved))
 
     def test_standard_crlf_checkout_is_supported(self):
         (self.root / "compose.yaml").write_bytes(STANDARD.replace(b"\n", b"\r\n"))
