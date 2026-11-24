@@ -54,6 +54,17 @@ def build_images(*, mapless, environment):
             raise ValueError("Database image reuse requires the shipped Full service set")
         verified_db = select_verified(ROOT, Path(receipt), model)
         print(f"Using qualified PostgreSQL image {verified_db}. Building the four application images.", flush=True)
+        if environment.get("VARDRMAP_SOURCE_REVISION"):
+            # Loading the final database on a fresh engine does not warm the
+            # native compiler stages. Run the pinned frontend's Node checks
+            # on their own before those stages compete for the same CPU.
+            # A separate tag keeps the intermediate stage out of runtime aliases.
+            stage_image = "vardrsec-web-build:" + uuid.uuid4().hex
+            overlay = {"services": {"web": {"image": stage_image, "build": {"target": "build"}}}}
+            print("Checking the pinned frontend before native compilation.", flush=True)
+            compose("-f", "-", "--profile", "tools", "build", "web",
+                    input=json.dumps(overlay), text=True, env=environment)
+            run("docker", "image", "rm", "--no-prune", stage_image, env=environment)
         compose("--profile", "tools", "build", *applications, env=environment)
         return verified_db
     # The Full database source build runs a bounded 4 GiB TCG guest. Build it

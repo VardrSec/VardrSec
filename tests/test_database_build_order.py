@@ -65,6 +65,31 @@ class VerifiedDatabaseBuildTests(unittest.TestCase):
         self.assertEqual(compose.call_count, 1)
         self.assertIn("config", compose.call_args.args)
 
+    def test_pinned_frontend_checks_finish_before_native_builds(self):
+        env = {**self.receipt, "VARDRMAP_SOURCE_REVISION": "a" * 40}
+        model = {"services": dict.fromkeys(("api", "db", "proxy", "runner", "web"), {})}
+        with patch.object(vardrsec, "compose") as compose, patch.object(vardrsec, "run") as docker, \
+                patch("database_image.select_verified", return_value=self.image_id):
+            compose.return_value.stdout = json.dumps(model)
+            self.assertEqual(vardrsec.build_images(mapless=False, environment=env), self.image_id)
+            config, frontend, applications = compose.call_args_list
+            self.assertIn("config", config.args)
+            self.assertEqual(frontend.args, ("-f", "-", "--profile", "tools", "build", "web"))
+            self.assertIs(frontend.kwargs["env"], env)
+            stage = json.loads(frontend.kwargs["input"])["services"]["web"]
+            self.assertEqual(stage["build"], {"target": "build"})
+            self.assertRegex(stage["image"], r"^vardrsec-web-build:[0-9a-f]{32}$")
+            docker.assert_called_once_with("docker", "image", "rm", "--no-prune", stage["image"], env=env)
+            self.assertEqual(applications, call("--profile", "tools", "build", "api", "web", "proxy", "runner", env=env))
+
+            compose.reset_mock()
+            docker.reset_mock()
+            compose.side_effect = [Mock(stdout=json.dumps(model)), RuntimeError("frontend tests failed")]
+            with self.assertRaisesRegex(RuntimeError, "frontend tests failed"):
+                vardrsec.build_images(mapless=False, environment=env)
+            self.assertEqual(compose.call_count, 2)
+            docker.assert_not_called()
+
     def test_custom_layout_refuses_explicit_receipt_and_mapless_ignores_it(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(vardrsec, "ROOT", Path(tmp)), \
                 patch.object(vardrsec, "compose") as compose, patch("database_image.select_verified") as select:

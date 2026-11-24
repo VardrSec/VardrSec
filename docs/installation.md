@@ -87,8 +87,9 @@ VARDRSEC_DATABASE_RECEIPT="$receipt" ./install.sh --full
 On subsequent fresh installations using the same Docker engine, run just the
 last command with the absolute path to that receipt. The installer checks the
 database and verifier revisions, selects the exact local image and builds the
-other four services. A changed database recipe or verifier requires preparing
-a new receipt at a different path. Keep existing receipts for the installations
+other four services. It runs the pinned frontend's tests before native package
+compilation to avoid CPU contention. A changed database recipe or verifier
+requires preparing a new receipt at a different path. Keep existing receipts for the installations
 that use them. Each install still creates its own credentials and data volumes.
 
 For another host you control, save the verified image by its receipt's `image_id`
