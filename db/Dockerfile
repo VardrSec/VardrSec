@@ -37,7 +37,7 @@ USER 65534:65534
 RUN python3 qualification/kerberos-vm/run.py --source-only --work /work/qualification \
     && python3 qualification/kerberos-vm/finalize.py /work/qualification /out
 
-FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS openssl-build
+FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS openssl-package-build
 WORKDIR /work
 ADD --checksum=sha256:a8c0d28a529ca480f9f36cf5792e2cd21984552a3c8e4aa11a24aa31aeac98e8 https://deb.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.5.7.orig.tar.gz ./
 ADD --checksum=sha256:d3d082bee3f658c31db53af625eceecf29d777c7010394bed5787ebcc98abdf2 https://deb.debian.org/debian-security/pool/updates/main/o/openssl/openssl_3.5.7.orig.tar.gz.asc ./
@@ -47,12 +47,22 @@ RUN echo '4f069d916c8d0ba5ad594880b52edbf082332b9c93326bbbf12949bee5893010  open
     && dpkg-source -x openssl_3.5.7-1~deb13u3+vardr2.dsc src \
     && useradd -m builduser && chown -R builduser:builduser /work
 WORKDIR /work/src
+RUN --network=none echo 'c1726a50d589b2dc289727865c184382c2bd846733ddb139427062713ebeb5bd  /work/CVE-2026-107494.upstream.patch' | sha256sum -c - \
+    && cp /work/CVE-2026-107494.upstream.patch debian/patches/ \
+    && echo 'CVE-2026-107494.upstream.patch' >> debian/patches/series \
+    && runuser -u builduser -- dpkg-source --before-build . \
+    && { printf 'openssl (3.5.7-1~deb13u3+vardr3) trixie; urgency=high\n\n  * Apply the OpenSSL 3.5 maintenance fix for CVE-2026-107494.\n\n -- VardrSec Qualification <local@invalid>  Tue, 24 Nov 2026 00:00:00 +0000\n\n'; cat debian/changelog; } > /tmp/openssl-changelog \
+    && cat /tmp/openssl-changelog > debian/changelog && runuser -u builduser -- dpkg-source -b .
 RUN --network=none { runuser -u builduser -- dpkg-buildpackage -us -uc -B -j4 > /tmp/openssl-build.log 2>&1 || { tail -100 /tmp/openssl-build.log; exit 1; }; } \
     && mkdir -p /out/packages /out/source \
     && cp ../libssl3t64_*.deb ../openssl-provider-legacy_*.deb ../openssl_*.deb /out/packages/ \
-    && cd /out/packages && sha256sum -c /work/qualified-packages.sha256 \
-    && cp /work/openssl_*.dsc /work/openssl_*.tar.* /work/openssl_*.buildinfo /work/openssl_*.changes /out/source/ \
-    && cp /work/qualified-packages.sha256 /out/source/ && chmod 0644 /out/source/* \
+    && cp /work/openssl_*.dsc /work/openssl_*.tar.* /work/openssl_*.buildinfo /work/openssl_*.changes /tmp/openssl-build.log /out/source/
+FROM openssl-package-build AS openssl-build
+RUN --network=none cd /out/packages && sha256sum -c /work/qualified-packages.sha256 \
+    && dpkg -i ./*.deb && apt-get check \
+    && cd / && sha256sum -c /work/qualified-libraries.sha256 \
+    && cd /work/src && { debian/tests/run-25-test-verify > /out/source/installed-verify.log 2>&1 || { tail -60 /out/source/installed-verify.log; exit 1; }; } \
+    && cp /work/qualified-packages.sha256 /work/qualified-libraries.sha256 /out/source/ && chmod 0644 /out/source/* \
     && cd /out/source && sha256sum ./* > SHA256SUMS
 
 FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS glibc-build
@@ -114,6 +124,8 @@ RUN --network=none dpkg-buildpackage -us -uc -B > /build/package-build.log 2>&1 
 RUN mkdir -p /out/packages /out/source && cp ../ncurses-bin_*.deb /out/packages/ && debian/rules clean >> /build/package-build.log 2>&1 && dpkg-source --build . >> /build/package-build.log 2>&1 && cp ../ncurses_*.dsc ../ncurses_*.tar.* ../ncurses_*.buildinfo ../ncurses_*.changes /out/source/
 COPY Dockerfile /out/source/Dockerfile
 COPY ncurses-source.txt /out/source/ncurses-source.txt
+RUN dpkg-deb -x /out/packages/ncurses-bin_*.deb /tmp/ncurses-payload \
+    && cd /tmp/ncurses-payload && sha256sum usr/bin/infocmp > /out/source/infocmp.sha256
 RUN chmod 0644 /out/source/* && cd /out/source && sha256sum ./* > SHA256SUMS
 
 FROM scratch AS ncurses-source-delivery
@@ -145,6 +157,8 @@ RUN --network=none mkdir -p /out/packages /out/source \
     && cp ../sqlite3_*.dsc ../sqlite3_*.tar.xz ../sqlite3_*.buildinfo ../sqlite3_*.changes /out/source/
 COPY Dockerfile /out/source/Dockerfile
 COPY sqlite-source.txt /out/source/sqlite-source.txt
+RUN dpkg-deb -x /out/packages/libsqlite3-0_*.deb /tmp/sqlite-payload \
+    && cd /tmp/sqlite-payload && sha256sum usr/lib/x86_64-linux-gnu/libsqlite3.so.3.54.1 > /out/source/library.sha256
 RUN chmod 0644 /out/source/* && cd /out/source && sha256sum ./* > SHA256SUMS
 
 FROM scratch AS sqlite-source-delivery
@@ -164,7 +178,7 @@ RUN set -eu; for file in \
     done
 COPY libxml2-CVE-2026-6653.patch /build/CVE-2026-6653.patch
 COPY libxml2-CVE-2026-861*.patch libxml2-CVE-2026-74860.patch /build/
-COPY build-libxml2.sh libxml2-entity-regression.c libxml2-source.txt Dockerfile /build/
+COPY build-libxml2.sh libxml2-entity-regression.c libxml2-xinclude-options.c libxml2-source.txt Dockerfile /build/
 RUN --network=none sh /build/build-libxml2.sh
 COPY archive-tar.patch archive-tar-source.txt /build/archive-tar/
 RUN --network=none mkdir -p /out/archive-tar-source \
@@ -210,6 +224,44 @@ RUN mkdir -p /out/gosu-notices/source \
     && bash /usr/local/bin/canonical_module_archive.sh sources /go/pkg/mod/cache/download /out/gosu-notices/source/module-sources.tar \
     && cd /out/gosu-notices/source && sha256sum ./* > SHA256SUMS
 
+# Rebuild the existing Trixie TLS ABI with two upstream maintenance fixes.
+FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS gnutls-build
+RUN apt-get -o Acquire::Retries=2 -o APT::Update::Error-Mode=any update \
+    && apt-get install -y --no-install-recommends build-essential fakeroot debhelper bison ca-certificates chrpath gperf libcmocka-dev libidn2-dev libp11-kit-dev libssl-dev libtasn1-6-dev libunbound-dev libunistring-dev net-tools nettle-dev openssl pkgconf python3 softhsm2 \
+    && rm -rf /var/lib/apt/lists/* && useradd -m builduser
+WORKDIR /work
+ADD --checksum=sha256:f1153e91212bdf60acf66cb62713ad4ed577f2e85f578a04df31a5619624c1e1 https://deb.debian.org/debian/pool/main/g/gnutls28/gnutls28_3.8.9-3+deb13u4.dsc ./
+ADD --checksum=sha256:69e113d802d1670c4d5ac1b99040b1f2d5c7c05daec5003813c049b5184820ed https://deb.debian.org/debian/pool/main/g/gnutls28/gnutls28_3.8.9.orig.tar.xz ./
+ADD --checksum=sha256:7631d47762865d4ef494492cca794cf0fe6a8be892a4aa02f362ae29006d3054 https://deb.debian.org/debian/pool/main/g/gnutls28/gnutls28_3.8.9.orig.tar.xz.asc ./
+ADD --checksum=sha256:f0b9c7d182072f0bbdb281304686aa6e2bfd343dadefa432ec4dab4893e9841f https://deb.debian.org/debian/pool/main/g/gnutls28/gnutls28_3.8.9-3+deb13u4.debian.tar.xz ./
+COPY gnutls/ /work/gnutls/
+COPY Dockerfile /work/Dockerfile
+RUN mkdir -p /out/source /out/packages && chown -R builduser:builduser /work /out
+USER builduser
+RUN --network=none sh /work/gnutls/build.sh
+
+# Rebuild Debian's fixed libseccomp source on the same stable system as PostgreSQL.
+FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS libseccomp-build
+RUN apt-get -o Acquire::Retries=2 -o APT::Update::Error-Mode=any update \
+    && apt-get install -y --no-install-recommends build-essential fakeroot debhelper linux-libc-dev dh-python python3-all-dev libpython3-all-dev cython3 python3-setuptools gperf \
+    && rm -rf /var/lib/apt/lists/* && useradd -m builduser
+WORKDIR /work
+ADD --checksum=sha256:4778ad60e2265dfccd6860e96ce1b8a65327cdee4c075f880aa1aab63ec67d55 https://deb.debian.org/debian/pool/main/libs/libseccomp/libseccomp_2.6.2-1.dsc ./
+ADD --checksum=sha256:6b845d352c6d7887d8d134c43d86850d40f5dcee11ad1675c18197ae4d869d42 https://deb.debian.org/debian/pool/main/libs/libseccomp/libseccomp_2.6.2.orig.tar.gz ./
+ADD --checksum=sha256:178e8177ce5ac4131473d8f329098e4eb212fa4bbee0bacd50e21fedf2df3c22 https://deb.debian.org/debian/pool/main/libs/libseccomp/libseccomp_2.6.2.orig.tar.gz.asc ./
+ADD --checksum=sha256:e571b7a8042620e805274320ccabf54828f21f84e23b35f8532f7123eead5857 https://deb.debian.org/debian/pool/main/libs/libseccomp/libseccomp_2.6.2-1.debian.tar.xz ./
+RUN mkdir -p /out/source /out/packages && chown -R builduser:builduser /work /out
+USER builduser
+RUN --network=none dpkg-source --no-check -x libseccomp_2.6.2-1.dsc source \
+    && cd source && { dpkg-buildpackage -us -uc -b -j4 > /out/source/package-build.log 2>&1 || { tail -100 /out/source/package-build.log; exit 1; }; } \
+    && cd /work && cp libseccomp2_2.6.2-1_amd64.deb /out/packages/ \
+    && cp *.dsc *.tar.* *.buildinfo *.changes /out/source/ \
+    && dpkg-deb -x /out/packages/libseccomp2_2.6.2-1_amd64.deb payload \
+    && cd payload && sha256sum usr/lib/x86_64-linux-gnu/libseccomp.so.2.* > /out/source/runtime-library.sha256 \
+    && chmod 0644 /out/source/*
+COPY Dockerfile /out/source/Dockerfile
+RUN cd /out/source && sha256sum ./* > SHA256SUMS
+
 FROM postgres@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6
 RUN apt-get update \
     && apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg7.0 zlib1g \
@@ -217,7 +269,15 @@ RUN apt-get update \
     && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libapt-pkg7.0)" ge 3.0.4 \
     && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' zlib1g)" ge '1:1.3.dfsg+really1.3.1-1+deb13u1' \
     && rm -rf /var/lib/apt/lists/*
+COPY --from=libseccomp-build /out/source/ /usr/share/doc/libseccomp2/vardr-source/
+RUN --network=none --mount=type=bind,from=libseccomp-build,source=/out/packages,target=/candidate \
+    dpkg -i /candidate/libseccomp2_2.6.2-1_amd64.deb && apt-get check \
+    && cd / && sha256sum -c /usr/share/doc/libseccomp2/vardr-source/runtime-library.sha256
 COPY --from=acl-callers-build /out/runtime/ /tmp/acl-security/
+COPY --from=gnutls-build /out/source/ /usr/share/doc/libgnutls30t64/vardr-source/
+RUN --network=none --mount=type=bind,from=gnutls-build,source=/out/packages,target=/candidate \
+    dpkg -i /candidate/libgnutls30t64_3.8.9-3+deb13u4+vardr1_amd64.deb && apt-get check \
+    && cd / && sha256sum -c /usr/share/doc/libgnutls30t64/vardr-source/runtime-library.sha256
 RUN --network=none dpkg --install /tmp/acl-security/libacl1_*.deb \
     && dpkg --install /tmp/acl-security/coreutils_*.deb /tmp/acl-security/tar_*.deb \
     && apt-get check && rm -rf /tmp/acl-security

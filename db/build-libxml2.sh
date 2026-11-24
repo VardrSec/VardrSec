@@ -34,7 +34,7 @@ cp .pc/applied-patches /out/source/evidence/applied-patches.txt
 for cve in 6653 74860 86138 86140 86142 86143 86144; do
     grep -Fx "vardr-CVE-2026-$cve.patch" .pc/applied-patches > /dev/null
 done
-sha256sum SAX2.c parser.c entities.c dict.c valid.c xpointer.c xmlIO.c xinclude.c python/libxml.c > /out/source/evidence/patched-source-SHA256SUMS
+sha256sum SAX2.c parser.c entities.c dict.c valid.c xpointer.c xmlIO.c xinclude.c python/libxml.c testdict.c > /out/source/evidence/patched-source-SHA256SUMS
 sha256sum debian/patches/series debian/patches/vardr-*.patch > /out/source/evidence/patch-SHA256SUMS
 # Retain the ordinary Debian packaging and exported-symbol checks.
 dpkg-buildpackage -us -uc -B --build-profiles=nopython >> /tmp/package-build.log 2>&1 || { tail -n 70 /tmp/package-build.log; exit 1; }
@@ -59,6 +59,18 @@ cc -Wall -Wextra -Werror -Iinclude /build/libxml2-entity-regression.c \
 (cd "$regression_payload" && find usr/lib -type f -name 'libxml2.so.2*' -exec sha256sum {} \;) \
     > /out/source/evidence/entity-regression-library-SHA256SUMS
 cp /build/libxml2-entity-regression.c /out/source/evidence/
+cc -Iinclude testdict.c "$regression_library" -o /tmp/libxml2-testdict
+cc -Wall -Wextra -Werror -Iinclude /build/libxml2-xinclude-options.c \
+    "$regression_library" -o /tmp/libxml2-xinclude-options
+api_checks=$(mktemp -d)
+printf 'ordinary text' > "$api_checks/message.txt"
+(cd "$api_checks"; export LD_LIBRARY_PATH="$regression_libdir"
+ timeout 30s /tmp/libxml2-testdict &&
+ timeout 10s /tmp/libxml2-xinclude-options) \
+    > /out/source/evidence/dictionary-xinclude-checks.txt 2>&1 || {
+    cat /out/source/evidence/dictionary-xinclude-checks.txt; exit 1;
+}
+cp /build/libxml2-xinclude-options.c /out/source/evidence/
 debian/rules clean >> /tmp/package-build.log 2>&1
 dpkg-source --build . >> /tmp/package-build.log 2>&1
 cp ../libxml2_*_*.deb /out/packages/

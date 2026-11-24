@@ -28,7 +28,7 @@ docker run --rm --network none --entrypoint sh "$id" -eu -c '
     fi
   done < /usr/share/doc/libkrb5-3/vardr-source/evidence/package-files-SHA256SUMS
   for package in libgssapi-krb5-2 libk5crypto3 libkrb5-3 libkrb5support0; do
-    test "$(dpkg-query -W -f="\${Version}" "$package")" = "1.21.3-5+deb13u1+vardr2"
+    test "$(dpkg-query -W -f="\${Version}" "$package")" = "1.21.3-5+deb13u2+vardr1"
   done
 ' > artifacts/kerberos-image/installed-custody.txt
 # Preserve the restricted runtime check with its diagnostics.
@@ -44,6 +44,15 @@ if [ "$acl_status" -ne 0 ]; then
   cat artifacts/kerberos-image/result.txt >&2
   exit "$acl_status"
 fi
+docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --entrypoint sh "$id" -eu -c '
+  cd /
+  sha256sum -c /usr/share/doc/libsqlite3-0/vardr-source/library.sha256
+  sha256sum -c /usr/share/doc/ncurses-bin/vardr-source/infocmp.sha256
+  module=$(perl -MArchive::Tar -e "print \$INC{q(Archive/Tar.pm)}")
+  fixed=e741b0a26fdd5ed3e0515b421cc6f6790f1352833f6765a198e33fd4da954d81
+  printf "%s  %s\n" "$fixed" "$module" | sha256sum -c -
+  sha256sum usr/lib/x86_64-linux-gnu/libsqlite3.so.3.54.1 usr/bin/infocmp "$module"
+' > artifacts/kerberos-image/sqlite-ncurses-perl-custody.txt
 # Local-only disposable database, no ports or network, no persistent data.
 # Never print the generated password or save the container configuration.
 export POSTGRES_PASSWORD=$(python -c 'import secrets;print(secrets.token_hex(32))')

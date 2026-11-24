@@ -8,8 +8,8 @@ import zipfile
 PREFIX = '_temp/kerberos-vm/qualification/'
 INPUTS = ['Dockerfile', 'build-krb5.sh', 'krb5-CVE-2026-119079.patch', 'krb5-CVE-2026-71199.patch',
           'krb5-keyring-test-diagnostic.patch', 'krb5-sequence-regression.c',
-          'krb5_1.21.3.orig.tar.gz', 'krb5_1.21.3-5+deb13u1.dsc',
-          'krb5_1.21.3-5+deb13u1.debian.tar.xz',
+          'krb5_1.21.3.orig.tar.gz', 'krb5_1.21.3.orig.tar.gz.asc', 'krb5_1.21.3-5+deb13u2.dsc',
+          'krb5_1.21.3-5+deb13u2.debian.tar.xz',
           'evidence/patched-source-SHA256SUMS']
 
 

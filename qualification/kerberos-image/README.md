@@ -7,6 +7,17 @@ The approved PostgreSQL package/ABI and runtime configuration are unchanged.
 Both PostgreSQL 18.6 and libpq5 directly require libgssapi-krb5-2; removing it is
 not a compatible fix.
 
+The source is Debian's `1.21.3-5+deb13u2` security update. Its applied patch
+series includes the two previously reviewed upstream changes for ASN.1 decoding
+and CAMMAC checksums. Qualification checks the two vendor patch hashes and the
+applied patch ledger, runs the original package tests and stripped-library
+regression, and retains the original VardrSec patch copies for comparison.
+The four source files in `db/kerberos-vm/inputs.json` match the signed
+trixie-security source index. The index was verified with Debian's security
+archive key `5E04 A1E3 223A 19A2 0706 E20F 9904 613D 4CCE 68C6`.
+[Debian Kerberos security status](https://security-tracker.debian.org/tracker/source-package/krb5)
+and [Debian archive signing keys](https://ftp-master.debian.org/keys.html).
+
 Docker installs build tools only inside its disposable stage. QEMU runs as UID
 65534, with no host mounts/devices, KVM, published ports or security relaxation.
 The preparation boot acquires normal signed Debian dependencies; the package
@@ -14,6 +25,11 @@ build boot has no virtual NIC. Full ordinary Debian tests, symbol checks and the
 bounded stripped-library regression must pass. Newly built package bytes must
 also match all four independently reproduced package hashes before installation.
 Any mismatch fails closed; there is no stale-artifact fallback.
+
+Two separately prepared VMs built the Debian u2 packages with identical bytes.
+Each job hashed its four packages after the complete offline build passed.
+The pinned digests and the two GitHub receipt ZIP hashes are recorded in
+`reproduction-evidence.json`. [Independent package builds](https://github.com/VardrSec/VardrSec/actions/runs/45321182770).
 
 The image retains corresponding source plus the VM builder scripts, input pins,
 prepared dependency inventory, keyring prerequisite and source-only build
