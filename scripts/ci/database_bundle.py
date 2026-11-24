@@ -15,6 +15,7 @@ import tarfile
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 import database_image
+import database_release
 
 
 def cache_key():
@@ -24,18 +25,40 @@ def cache_key():
     if "\n" in password or "\r" in password:
         raise ValueError("The database cache requires a single-line passphrase")
     files = [
-        "database_image.py", "image_evidence.py", "source_notices.py",
+        "database_image.py", "database_release.py", "image_evidence.py", "source_notices.py",
         "scripts/ci/database_bundle.py", "scripts/ci/database_bundle.sh",
         ".github/workflows/database-cache.yml", ".github/actions/load-database/action.yml",
     ]
     inputs = database_image.build_inputs(ROOT)
+    pin = database_release.release_pin(ROOT)
+    release_identity = [pin["reference"], pin["config_id"]] if pin is not None else []
     objects = subprocess.check_output(["git", "rev-parse", *["HEAD:" + f for f in files]], cwd=ROOT)
     week = datetime.now(timezone.utc).strftime("%G-%V")
     identity = "\n".join([os.environ["GITHUB_REPOSITORY"], database_image.PLATFORM, week,
-                          *inputs.values()]).encode() + b"\n" + objects
+                          *inputs.values(), *release_identity]).encode() + b"\n" + objects
     # Isolate key rotations as well as recipe changes, without printing the secret.
     digest = hmac.new(password.encode(), identity, hashlib.sha256).hexdigest()
     return f"qualified-db-v1-{digest}"
+
+
+def qualify(receipt, evidence_dir):
+    """Run the normal verifier before creating a new CI producer receipt."""
+    if os.path.lexists(receipt):
+        raise ValueError("The database producer receipt already exists")
+    published = database_release.prepare(ROOT)
+    return database_image.prepare(ROOT, receipt, evidence_dir, published=published)
+
+
+def select_for_job():
+    """Select an approved public database for a job without a private cache."""
+    published = database_release.prepare(ROOT)
+    if published is None:
+        return
+    receipt = Path(os.environ["RUNNER_TEMP"]) / "release-database.json"
+    with receipt.open("x", encoding="utf-8") as out:
+        json.dump(published, out)
+    with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as env:
+        env.write(f"VARDRSEC_DATABASE_RECEIPT={receipt}\n")
 
 
 def unpack_receipt(bundle, receipt, expected_key):
@@ -109,9 +132,13 @@ def load_archive(archive, producer_receipt, local_receipt):
 if __name__ == "__main__":
     if sys.argv[1:] == ["key"]:
         print("cache_key=" + cache_key())
+    elif len(sys.argv) == 4 and sys.argv[1] == "qualify":
+        qualify(Path(sys.argv[2]), Path(sys.argv[3]))
+    elif sys.argv[1:] == ["select-release"]:
+        select_for_job()
     elif len(sys.argv) == 4 and sys.argv[1] == "unpack-receipt":
         unpack_receipt(Path(sys.argv[2]), Path(sys.argv[3]), os.environ["CACHE_KEY"])
     elif len(sys.argv) == 5 and sys.argv[1] == "load-archive":
         load_archive(*map(Path, sys.argv[2:]))
     else:
-        raise SystemExit("Expected key, unpack-receipt BUNDLE RECEIPT, or load-archive IMAGE PRODUCER LOCAL")
+        raise SystemExit("Expected key, qualify RECEIPT EVIDENCE, select-release, unpack-receipt BUNDLE RECEIPT, or load-archive IMAGE PRODUCER LOCAL")

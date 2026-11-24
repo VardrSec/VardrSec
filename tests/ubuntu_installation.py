@@ -89,6 +89,8 @@ def main():
         assert not set(existing) & {
             "vardrmap-api",
             "vardrmap-web",
+            "vardrsec-db",
+            "ghcr.io/vardrsec/vardrsec-db",
             "vardrrunner",
             "vardrsec-proxy",
         }

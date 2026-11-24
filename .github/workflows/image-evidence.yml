@@ -34,6 +34,9 @@ jobs:
         with:
           cache-key: ${{ needs.database.outputs.cache_key }}
           passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+      - name: Select the published database when the private cache is unavailable
+        if: needs.database.outputs.cache_key == ''
+        run: python3 scripts/ci/database_bundle.py select-release
       - name: Build declared development images without starting services
         run: |
           python vardrsec.py configure
