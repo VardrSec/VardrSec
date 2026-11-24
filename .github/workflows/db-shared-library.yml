@@ -1,0 +1,56 @@
+name: PostgreSQL recipient shared-library qualification
+on:
+  push:
+    branches: [codex/sqv-recipient-relink]
+    paths:
+      - .github/workflows/db-shared-library.yml
+      - qualification/database-recipient/nettle-relink.sh
+      - qualification/database-recipient/verify-substitution.sh
+      - qualification/database-recipient/layer_sources.py
+permissions:
+  contents: read
+jobs:
+  replace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Build a modified library from the reviewed source and run Debian's tests
+        run: |
+          install -d -m0755 "$RUNNER_TEMP/recipient-lib"
+          docker run --rm --platform linux/amd64 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/review,readonly" \
+            --mount "type=bind,src=/etc/ssl/certs/ca-certificates.crt,dst=/host-ca.crt,readonly" \
+            --mount "type=bind,src=$RUNNER_TEMP/recipient-lib,dst=/recipient" \
+            debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 \
+            bash /review/qualification/database-recipient/nettle-relink.sh
+      - name: Verify replacement on the exact upstream PostgreSQL base of the original candidate
+        run: bash qualification/database-recipient/verify-substitution.sh "postgres@sha256:9770878138a2e83abcb10856d30cc3f24dae0d317bb956db6ab9159de6c3c80d"
+      - id: key
+        name: Locate the verified private database
+        env:
+          PASSPHRASE: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+        run: python3 scripts/ci/database_bundle.py key >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/load-database
+        with:
+          cache-key: ${{ steps.key.outputs.cache_key }}
+          passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+      - name: Verify the unchanged image executable accepts a recipient's replacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${VARDRSEC_DATABASE_RECEIPT:?The verified image must be available before this qualification}"
+          image=$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")
+          printf 'Qualified PostgreSQL engine ID %s, portable config %s\n' "$image" "$(jq -er '.origin.config_id' "$VARDRSEC_DATABASE_RECEIPT")"
+          bash qualification/database-recipient/verify-substitution.sh "$image"
+      - name: Inventory exact package sources across all shipped layers
+        run: python3 qualification/database-recipient/layer_sources.py "$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")" "$RUNNER_TEMP/db-layer-sources.json"
+      - name: Save package and license metadata for review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: db-layer-source-metadata
+          path: ${{ runner.temp }}/db-layer-sources.json
+          if-no-files-found: error
+          retention-days: 7
