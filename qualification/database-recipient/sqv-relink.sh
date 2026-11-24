@@ -11,7 +11,7 @@ deb-src [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg check-valid-un
 deb [arch=amd64 signed-by=/usr/share/keyrings/debian-archive-keyring.gpg check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20261111T100000Z trixie-security main
 deb-src [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20261111T100000Z trixie-security main
 EOF
-printf '%s\n' 'Dir::Etc::sourcelist "/tmp/relink.sources.list";' 'Dir::Etc::sourceparts "-";' 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/95-relink
+printf '%s\n' 'Dir::Etc::sourcelist "/tmp/relink.sources.list";' 'Dir::Etc::sourceparts "-";' 'Acquire::Retries "3";' 'Acquire::https::CaInfo "/host-ca.crt";' > /etc/apt/apt.conf.d/95-relink
 apt-get update --error-on=any
 apt-get install -y --no-install-recommends dpkg-dev python3 sqv=1.3.0-3+b2
 apt-get build-dep -y --no-install-recommends rust-sequoia-sqv=1.3.0-3
