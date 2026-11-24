@@ -53,6 +53,20 @@ class PublishedDatabaseTests(unittest.TestCase):
                 release.prepare(self.root)
             docker.run.assert_not_called()
 
+    def test_incomplete_committed_pin_fails_before_docker(self):
+        for missing in self.pin:
+            incomplete = self.pin.copy()
+            del incomplete[missing]
+            tracked = self.manifest({"db": incomplete})
+            with (
+                self.subTest(missing=missing),
+                patch.object(release, "git", return_value=tracked),
+                patch.object(release, "subprocess") as docker,
+                self.assertRaisesRegex(ValueError, "Invalid published"),
+            ):
+                release.prepare(self.root)
+            docker.run.assert_not_called()
+
     def test_pull_on_miss_and_reuse_the_exact_local_config(self):
         source = self.manifest({"db": self.pin})
         with patch.object(release, "git", return_value=source), \
@@ -67,7 +81,7 @@ class PublishedDatabaseTests(unittest.TestCase):
                     patch.object(release.subprocess, "run", side_effect=results) as docker:
                 receipt = release.prepare(self.root)
             self.assertEqual(receipt, {"schema": 2, "platform": "linux/amd64", "inputs": self.pin["inputs"],
-                                       "image_id": OTHER})
+                                       "image_id": OTHER, "origin": {"image_id": OTHER, "config_id": OTHER}})
             if not available:
                 self.assertEqual(docker.call_args_list[1].args[0],
                                  ["docker", "pull", "--platform", "linux/amd64", self.pin["reference"]])

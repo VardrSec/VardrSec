@@ -7,6 +7,8 @@ on:
       - '.github/actions/load-database/**'
       - 'scripts/ci/database_bundle.*'
       - 'database_image.py'
+      - 'database_release.py'
+      - 'versions.json'
       - 'qualification/kerberos-image/**'
       - 'qualification/kerberos-vm/test_*.py'
       - 'db/**'
@@ -40,6 +42,9 @@ jobs:
         with:
           cache-key: ${{ needs.database.outputs.cache_key }}
           passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+      - name: Select the published database when the private cache is unavailable
+        if: needs.database.outputs.cache_key == ''
+        run: python3 scripts/ci/database_bundle.py select-release
       - name: Select the database for independent installed-image checks
         shell: bash
         run: |

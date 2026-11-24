@@ -331,6 +331,9 @@ jobs:
         with:
           cache-key: ${{ needs.database.outputs.cache_key }}
           passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+      - name: Select the published database before the interrupted-install test
+        if: needs.database.outputs.cache_key == ''
+        run: python3 scripts/ci/database_bundle.py select-release
       - name: Interrupt the install part-way, then resume it
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review

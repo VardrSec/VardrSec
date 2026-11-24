@@ -163,11 +163,16 @@ def discard_candidate(alias, image_id):
         pass
 
 
-def prepare(root, receipt_path, evidence_dir=None):
+def prepare(root, receipt_path, evidence_dir=None, *, published=None):
     receipt_path = Path(receipt_path).absolute()
     if os.path.lexists(receipt_path):
-        return read_receipt(root, receipt_path)
+        image_id = read_receipt(root, receipt_path)
+        if published is not None and image_id != published["image_id"]:
+            raise ValueError("Existing qualification receipt selects a different published database")
+        return image_id
     inputs = build_inputs(root)
+    if published is not None and published["inputs"] != inputs:
+        raise ValueError("Published database inputs changed before qualification")
     receipt_path.parent.mkdir(parents=True, exist_ok=True)
     if evidence_dir is None:
         evidence_dir = Path(tempfile.mkdtemp(prefix="db-qualification-", dir=receipt_path.parent))
@@ -177,17 +182,20 @@ def prepare(root, receipt_path, evidence_dir=None):
     print(f"Database qualification evidence: {evidence_dir}", flush=True)
     with ExitStack() as cleanup, tempfile.TemporaryDirectory() as temp:
         work = Path(temp)
-        context = work / "db.tar"
-        with context.open("xb") as archive:
-            git(root, "-c", "tar.umask=0022", "archive", "--format=tar", inputs["db"], output=archive)
-        alias = "vardrsec-qualified-db:" + uuid.uuid4().hex
-        with context.open("rb") as archive:
-            subprocess.run(
-                ["docker", "buildx", "build", "--load", "--platform", PLATFORM, "--tag", alias, "-"],
-                cwd=root, stdin=archive, check=True,
-            )
-        image_id = inspect_local(alias)
-        cleanup.callback(discard_candidate, alias, image_id)
+        if published is not None:
+            image_id = published["image_id"]
+        else:
+            context = work / "db.tar"
+            with context.open("xb") as archive:
+                git(root, "-c", "tar.umask=0022", "archive", "--format=tar", inputs["db"], output=archive)
+            alias = "vardrsec-qualified-db:" + uuid.uuid4().hex
+            with context.open("rb") as archive:
+                subprocess.run(
+                    ["docker", "buildx", "build", "--load", "--platform", PLATFORM, "--tag", alias, "-"],
+                    cwd=root, stdin=archive, check=True,
+                )
+            image_id = inspect_local(alias)
+            cleanup.callback(discard_candidate, alias, image_id)
         for name in SCRIPTS:
             with (work / name).open("xb") as script:
                 git(root, "cat-file", "blob", inputs[f"{VERIFY_DIR}/{name}"], output=script)
@@ -195,6 +203,8 @@ def prepare(root, receipt_path, evidence_dir=None):
         if build_inputs(root) != inputs:
             raise ValueError("Database inputs changed during qualification")
         receipt = {"schema": RECEIPT_SCHEMA, "platform": PLATFORM, "inputs": inputs, "image_id": image_id}
+        if published is not None:
+            receipt["origin"] = published["origin"]
         # Publish a complete receipt without replacing an existing caller's selection.
         out = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=receipt_path.parent, delete=False)
         try:
