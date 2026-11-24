@@ -29,7 +29,8 @@ Any mismatch fails closed; there is no stale-artifact fallback.
 Two separately prepared VMs built the Debian u2 packages with identical bytes.
 Each job hashed its four packages after the complete offline build passed.
 The pinned digests and the two GitHub receipt ZIP hashes are recorded in
-`reproduction-evidence.json`. [Independent package builds](https://github.com/VardrSec/VardrSec/actions/runs/45321182770).
+`reproduction-evidence.json`. Use `reproduce.py --job-receipts` with the two
+verified ZIPs to repeat the comparison. [Independent package builds](https://github.com/VardrSec/VardrSec/actions/runs/45321182770).
 
 The image retains corresponding source plus the VM builder scripts, input pins,
 prepared dependency inventory, keyring prerequisite and source-only build
