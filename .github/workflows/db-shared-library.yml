@@ -45,6 +45,25 @@ jobs:
           image=$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")
           printf 'Qualified PostgreSQL engine ID %s, portable config %s\n' "$image" "$(jq -er '.origin.config_id' "$VARDRSEC_DATABASE_RECEIPT")"
           bash qualification/database-recipient/verify-substitution.sh "$image"
+      - name: Record ordinary glibc encoding round trips in the qualified database
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")
+          printf 'Engine %s, portable config %s\n' "$image" "$(jq -er '.origin.config_id' "$VARDRSEC_DATABASE_RECEIPT")"
+          docker run --rm --network none --read-only --user 65534:65534 \
+            --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:mode=1777 \
+            --entrypoint /bin/sh "$image" -euc '
+              printf "%s\n" "PostgreSQL text 123" > /tmp/input
+              for encoding in CP949 IBM1390 IBM1399; do
+                iconv -f UTF-8 -t "$encoding" /tmp/input > /tmp/encoded
+                iconv -f "$encoding" -t UTF-8 /tmp/encoded > /tmp/output
+                cmp /tmp/input /tmp/output
+                printf "PASS ordinary ASCII round trip through %s\n" "$encoding"
+              done
+              cd /usr/lib/x86_64-linux-gnu/gconv
+              sha256sum UHC.so IBM1390.so IBM1399.so
+            '
       - name: Inventory exact package sources across all shipped layers
         run: python3 qualification/database-recipient/layer_sources.py "$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")" "$RUNNER_TEMP/db-layer-sources.json"
       - name: Save package and license metadata for review
