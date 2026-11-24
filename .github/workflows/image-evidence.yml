@@ -6,7 +6,13 @@ on:
 permissions:
   contents: read
 jobs:
+  database:
+    uses: ./.github/workflows/database-cache.yml
+    secrets:
+      VARDRSEC_DB_CACHE_KEY: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
   collect-evidence:
+    needs: database
+    if: ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -16,6 +22,12 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.12'
+      - name: Load the verified database if available
+        if: needs.database.outputs.cache_key != ''
+        uses: ./.github/actions/load-database
+        with:
+          cache-key: ${{ needs.database.outputs.cache_key }}
+          passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
       - name: Build declared development images without starting services
         run: |
           python vardrsec.py configure
@@ -34,6 +46,13 @@ jobs:
           PY
       - name: Collect all image SBOMs and unfiltered vulnerability reports
         run: python image_evidence.py collect
+      - name: Match the scanned database to its qualification receipt
+        if: env.VARDRSEC_DATABASE_RECEIPT != ''
+        run: |
+          reports=(artifacts/image-evidence/run-*/reports/receipt.json)
+          test "${#reports[@]}" -eq 1
+          test "$(jq -er '.images.db.id' "${reports[0]}")" = "$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")"
+          test "$(jq -er '.images.db.config_id' "${reports[0]}")" = "$(jq -er '.origin.config_id' "$VARDRSEC_DATABASE_RECEIPT")"
       - name: Inspect legal notices and selected native identities without starting images
         shell: bash
         run: |

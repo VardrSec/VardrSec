@@ -74,7 +74,8 @@ class DatabaseACLQualification(unittest.TestCase):
         self.assertEqual((artifacts / "acl-installed-custody.stderr.txt").read_bytes(), b"")
         self.assertIn("kerberos-custody: OK", (artifacts / "installed-custody.txt").read_text())
         self.assertEqual((artifacts / "postgres-smoke.txt").read_text(), "1\n")
-        self.assertTrue(any("pg_isready" in call for call in calls))
+        self.assertIn(["exec", "-u", "postgres", "disposable-container", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"], calls)
+        self.assertIn(["rm", "-fv", "disposable-container"], calls)
         self.assertTrue(any("psql" in call for call in calls))
         self.assertIn("PASS: qualified Kerberos and ACL", (artifacts / "result.txt").read_text())
 

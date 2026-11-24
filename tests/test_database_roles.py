@@ -165,6 +165,20 @@ class FakeCompose:
 
 
 class Apply(unittest.TestCase):
+    def test_frozen_role_setup_disables_builds_and_pulls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".env").write_text(f"POSTGRES_APP_PASSWORD={PASSWORD}\n")
+            for frozen in (False, True):
+                with self.subTest(frozen=frozen):
+                    if frozen:
+                        (root / ".active-images.json").write_text("{}")
+                    fake = FakeCompose()
+                    with patch.object(recovery, "compose", fake):
+                        database_roles.apply(root, "p")
+                    flags = ("--no-build", "--pull", "never") if frozen else ()
+                    self.assertEqual(fake.calls[0], ("up", "-d", *flags, "--wait", "db"))
+
     def run_apply(self, fake, env="POSTGRES_PASSWORD=keep\n", **options):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

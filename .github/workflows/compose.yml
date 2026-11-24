@@ -12,6 +12,13 @@ on:
 permissions:
   contents: read
 jobs:
+  database:
+    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    uses: ./.github/workflows/database-cache.yml
+    with:
+      use_cache: ${{ github.event_name != 'workflow_dispatch' }}
+    secrets:
+      VARDRSEC_DB_CACHE_KEY: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
   certificate-renewal:
     if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
     runs-on: ubuntu-latest
@@ -25,6 +32,9 @@ jobs:
           python-version: '3.12'
       - name: Verify automatic leaf renewal, CA persistence and verified HTTPS
         run: python tests/certificate_renewal_acceptance.py
+      - name: Verify database transport on the latest Ubuntu Docker engine
+        if: github.event_name == 'pull_request'
+        run: bash tests/database_bundle_acceptance.sh
   python-compatibility:
     strategy:
       matrix:
@@ -132,12 +142,16 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   installation:
-    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    needs: database
+    if: >-
+      ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') &&
+      (github.event_name != 'workflow_dispatch' || inputs.unit_only != true) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          fetch-depth: 2
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
@@ -160,6 +174,28 @@ jobs:
           echo "$GOBIN" >> "$GITHUB_PATH"
       - name: Verify genuinely clean Ubuntu installation host
         run: python tests/ubuntu_installation.py preflight
+      - name: Verify encrypted transport using an inert local image
+        if: github.event_name == 'pull_request'
+        run: bash tests/database_bundle_acceptance.sh
+      - name: Load the verified database if available
+        if: needs.database.outputs.cache_key != ''
+        uses: ./.github/actions/load-database
+        with:
+          cache-key: ${{ needs.database.outputs.cache_key }}
+          passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+      - name: Exercise local qualification on changes to the database or installer
+        if: github.event_name == 'pull_request' && env.VARDRSEC_DATABASE_RECEIPT == ''
+        run: |
+          # The first parent of GitHub's PR merge is the base. Other PRs exercise
+          # the ordinary source install directly when the private cache is off.
+          if git diff --quiet HEAD^1 HEAD -- db qualification/kerberos-image compose.yaml \
+              database_image.py database_roles.py import_database.py vardrsec.py install.sh \
+              .github/workflows/compose.yml .github/workflows/database-cache.yml \
+              .github/actions/load-database scripts/ci/database_bundle.py scripts/ci/database_bundle.sh; then
+            exit 0
+          fi
+          python database_image.py prepare --receipt "$RUNNER_TEMP/local-db.json"
+          echo "VARDRSEC_DATABASE_RECEIPT=$RUNNER_TEMP/local-db.json" >> "$GITHUB_ENV"
       - name: Install with the documented one-command path
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
@@ -167,6 +203,11 @@ jobs:
           python vardrsec.py install
           python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), 'config', '--quiet')"
           docker build -t vardrsec-browser:acceptance tests/browser
+      - name: Match the frozen and running database to its qualification receipt
+        if: env.VARDRSEC_DATABASE_RECEIPT != ''
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
+        run: python tests/verify_installed_database.py
       - name: Verify trusted installation, Gate workflow, restart and installed ACL payloads
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
@@ -239,7 +280,10 @@ jobs:
         if: always()
         run: python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
   controlled-updates:
-    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    needs: database
+    if: >-
+      ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') &&
+      (github.event_name != 'workflow_dispatch' || inputs.unit_only != true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -249,6 +293,12 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.12'
+      - name: Load the verified database if available
+        if: needs.database.outputs.cache_key != ''
+        uses: ./.github/actions/load-database
+        with:
+          cache-key: ${{ needs.database.outputs.cache_key }}
+          passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
       - name: Interrupt the install part-way, then resume it
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
@@ -289,6 +339,11 @@ jobs:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
         run: |
           if python vardrsec.py install; then echo 'install must refuse after first start'; exit 1; fi
+      - name: Match the resumed database to the imported qualification receipt
+        if: env.VARDRSEC_DATABASE_RECEIPT != ''
+        env:
+          COMPOSE_PROJECT_NAME: vardrsec-compose-review
+        run: python tests/verify_installed_database.py
       - name: Confirm the install exported the public CA
         run: test -s trust/root.crt
       - name: Exercise explicit controlled updates
@@ -304,4 +359,6 @@ jobs:
               docker compose --profile tools -f "$folder/compose.yaml" -f "$folder/.active-images.json" -p "vardrsec-restore-update-$name" down --volumes --remove-orphans
             fi
           done
-          python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
+          if test -f .env; then
+            python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
+          fi

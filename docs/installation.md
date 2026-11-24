@@ -69,6 +69,85 @@ than deleting state. If services started before CA export failed, run
 `python3 vardrsec.py export-ca` (Windows: `py -3`) and continue below.
 See [installation safeguards](#installation-safeguards) for the exact boundaries.
 
+### Reuse a qualified PostgreSQL image
+
+On Ubuntu/amd64 you can pay the database build cost once for several fresh Full
+installations. From a clean checkout, prepare the image on your Docker host. The
+command runs the database recipe, checks the installed packages and source, runs
+a PostgreSQL read/write smoke test, then records the image ID in a receipt. Keep
+the receipt and its evidence in a directory only your account can write.
+
+```sh
+install -d -m 700 "$HOME/.local/share/vardrsec/database"
+receipt="$HOME/.local/share/vardrsec/database/receipt.json"
+python3 database_image.py prepare --receipt "$receipt"
+VARDRSEC_DATABASE_RECEIPT="$receipt" ./install.sh --full
+```
+
+On subsequent fresh installations using the same Docker engine, run just the
+last command with the absolute path to that receipt. The installer checks the
+database and verifier revisions, selects the exact local image and builds the
+other four services. It runs the pinned frontend's tests before native package
+compilation to avoid CPU contention. A changed database recipe or verifier
+requires preparing a new receipt at a different path. Keep existing receipts for the installations
+that use them. Each install still creates its own credentials and data volumes.
+
+For another host you control, save the verified image by its receipt's `image_id`
+using `docker image save` and transfer the archive and receipt over a trusted
+private channel. Use `docker image load` on the receiving host before running
+the installer. Both engines must resolve the same immutable image ID. The
+receipt records your qualification and must come from a builder you trust.
+The public release gate also checks the scanned image for Critical, High and
+Unknown vulnerability findings and end-of-support operating systems. Prebuilt
+distribution requires completion of the notice and corresponding-source review.
+See the [image evidence policy](image-evidence.md) and [license inventory](release-license-inventory.md).
+
+#### Import the database from a private CI export
+
+During release review, the repository owner can import the exact database image
+from CI for the owner's private Ubuntu/amd64 installations. Install official
+`age` and `age-keygen` v1.3.2, plus `zstd`. Create a private directory and an
+identity on the receiving host.
+
+```sh
+private="$HOME/.local/share/vardrsec/database"
+install -d -m 700 "$private"
+age-keygen -o "$private/identity.txt"
+age-keygen -y "$private/identity.txt"
+```
+
+Keep `identity.txt` on the receiving host. As repository owner, set the Actions
+repository variable `VARDRSEC_DB_INSTALL_RECIPIENT` to the printed `age1…`
+public recipient for your own installations. Set a separate Actions secret,
+`VARDRSEC_DB_CACHE_KEY`, to at least 32 random bytes encoded on one line, then
+set the Actions variable `VARDRSEC_DB_CACHE_ENABLED` to `true`. With the cache
+off, ordinary PRs use the source installer. Database and installer PRs also
+exercise local qualification. CI refreshes the shared image when its inputs
+or this secret change, and at least weekly when checks run. Forks build locally.
+To authorize an export to the configured recipient,
+manually run **Export qualified database to one recipient** on
+`main`. The workflow requires a configured private CI database cache and
+retains the encrypted artifact for one day.
+Download the artifact from that run and extract `database.tar.age` into the
+private directory. Check the recipient and copy the **ciphertext SHA-256** and
+**cache identity** from the trusted run summary. Use a checkout with the
+recorded database and verifier inputs. The summary includes the exact
+distribution commit.
+
+```sh
+python3 import_database.py --artifact "$private/database.tar.age" \
+  --identity "$private/identity.txt" --sha256 '<ciphertext SHA-256>' \
+  --cache-key '<cache identity>' --receipt "$private/from-ci.json"
+VARDRSEC_DATABASE_RECEIPT="$private/from-ci.json" ./install.sh --full
+```
+
+The import checks the ciphertext, decrypts it with your identity and matches the
+bundle to the cache identity and checkout. Docker storage backends can assign
+different IDs to the same image. The importer verifies the platform config
+digest and ordered filesystem layers, then records the receiving engine's
+immutable ID with the original qualification identity. A failed import can be retried with the
+same new receipt path after correcting the cause.
+
 ## 3. Trust the local CA and create an account
 
 Compare the fingerprint printed by `export-ca` against your local certificate

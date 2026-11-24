@@ -3,15 +3,27 @@ on:
   pull_request:
     paths:
       - '.github/workflows/kerberos-image.yml'
+      - '.github/workflows/database-cache.yml'
+      - '.github/actions/load-database/**'
+      - 'scripts/ci/database_bundle.*'
+      - 'database_image.py'
       - 'qualification/kerberos-image/**'
       - 'qualification/kerberos-vm/test_*.py'
       - 'db/**'
 permissions:
   contents: read
 jobs:
+  database:
+    uses: ./.github/workflows/database-cache.yml
+    secrets:
+      VARDRSEC_DB_CACHE_KEY: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
   accept-candidate:
+    needs: database
+    if: ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -22,17 +34,29 @@ jobs:
           bash -n qualification/kerberos-image/verify.sh
           python -m unittest discover -s qualification/kerberos-vm -v
           bash -n db/kerberos-vm/guest.sh
-      - name: Build normal database recipe from source in default Docker policy
+      - name: Load the qualified database for this recipe
+        if: needs.database.outputs.cache_key != ''
+        uses: ./.github/actions/load-database
+        with:
+          cache-key: ${{ needs.database.outputs.cache_key }}
+          passphrase: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+      - name: Select the database for independent installed-image checks
         shell: bash
         run: |
           set -euo pipefail
-          # Only a fresh CI checkout is configured; existing installations are never touched.
           mkdir -p artifacts/kerberos-image
-          python vardrsec.py configure
-          docker compose -f compose.yaml -f qualification/kerberos-image/compose.candidate.json build --progress plain db \
-            2>&1 | tee artifacts/kerberos-image/build.log
+          if [[ -n "${VARDRSEC_DATABASE_RECEIPT:-}" ]]; then
+            image=$(jq -er '.image_id' "$VARDRSEC_DATABASE_RECEIPT")
+            docker image inspect --format '{{.Id}}' "$image" | tee artifacts/kerberos-image/build.log
+          else
+            python vardrsec.py configure
+            docker compose -f compose.yaml -f qualification/kerberos-image/compose.candidate.json build --progress plain db \
+              2>&1 | tee artifacts/kerberos-image/build.log
+            image=vardr-db-qualified-candidate
+          fi
+          echo "QUALIFICATION_DATABASE=$image" >> "$GITHUB_ENV"
       - name: Verify installed bytes, corresponding source and isolated PostgreSQL smoke
-        run: bash qualification/kerberos-image/verify.sh vardr-db-qualified-candidate
+        run: bash qualification/kerberos-image/verify.sh "$QUALIFICATION_DATABASE"
       - name: Collect stopped-image legal notices and bounded component inventory
         shell: bash
         run: |

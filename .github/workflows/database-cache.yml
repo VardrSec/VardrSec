@@ -1,0 +1,60 @@
+name: Prepare verified database image
+on:
+  workflow_call:
+    inputs:
+      use_cache:
+        type: boolean
+        default: true
+    secrets:
+      VARDRSEC_DB_CACHE_KEY:
+        required: false
+    outputs:
+      cache_key:
+        value: ${{ jobs.database.outputs.cache_key }}
+permissions:
+  contents: read
+jobs:
+  database:
+    if: >-
+      inputs.use_cache && vars.VARDRSEC_DB_CACHE_ENABLED == 'true' &&
+      !endsWith(github.actor, '[bot]') &&
+      (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository &&
+      !endsWith(github.event.pull_request.user.login, '[bot]')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    concurrency:
+      group: vardrsec-db-${{ github.ref }}-${{ github.sha }}
+      queue: max
+    outputs:
+      cache_key: ${{ steps.key.outputs.cache_key }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: key
+        name: Identify the database recipe and qualification inputs
+        env:
+          PASSPHRASE: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+        run: python3 scripts/ci/database_bundle.py key >> "$GITHUB_OUTPUT"
+      - id: cached
+        if: steps.key.outputs.cache_key != ''
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ${{ runner.temp }}/vardrsec-database.gpg
+          key: ${{ steps.key.outputs.cache_key }}
+          lookup-only: true
+      - name: Build and qualify the database
+        if: steps.key.outputs.cache_key != '' && steps.cached.outputs.cache-hit != 'true'
+        run: python3 database_image.py prepare --receipt "$RUNNER_TEMP/producer-db.json" --evidence-dir "$RUNNER_TEMP/database-qualification"
+      - name: Encrypt the qualified database for CI
+        if: steps.key.outputs.cache_key != '' && steps.cached.outputs.cache-hit != 'true'
+        env:
+          PASSPHRASE: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+          CACHE_KEY: ${{ steps.key.outputs.cache_key }}
+        run: bash scripts/ci/database_bundle.sh save "$RUNNER_TEMP/producer-db.json"
+      - name: Cache the encrypted database
+        if: steps.key.outputs.cache_key != '' && steps.cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ${{ runner.temp }}/vardrsec-database.gpg
+          key: ${{ steps.key.outputs.cache_key }}
