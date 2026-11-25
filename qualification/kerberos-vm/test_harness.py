@@ -64,7 +64,10 @@ class HarnessTests(unittest.TestCase):
         self.assertIn('INPUT-SHA256SUMS', guest)
         inputs = json.loads((ROOT / 'inputs.json').read_text())
         self.assertEqual(len(inputs['image_sha512']), 128)
-        self.assertEqual(len(inputs['sources']), 3)
+        self.assertEqual(set(inputs['sources']), {
+            'krb5_1.21.3.orig.tar.gz', 'krb5_1.21.3.orig.tar.gz.asc',
+            'krb5_1.21.3-5+deb13u2.dsc', 'krb5_1.21.3-5+deb13u2.debian.tar.xz',
+        })
 
 
 class BuildContextTests(unittest.TestCase):

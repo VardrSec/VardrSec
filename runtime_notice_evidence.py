@@ -39,6 +39,11 @@ APPLICABILITY_NAMES = {
     'systemd_libraries': re.compile(r'lib(?:systemd|udev)\.so(?:\.[0-9]+)*'),
 }
 
+DB_APPLICABILITY_PATHS = {
+    'dpkg_source_unpacking': re.compile(r'(?:^|/)(?:dpkg-source|Dpkg/Source/Package/(?:V2|V3/Quilt)\.pm)$'),
+    'shadow_id_mapping_helpers': re.compile(r'(?:^|/)(?:newgidmap|newuidmap)$'),
+}
+
 
 def applicability_group(name):
     basename = PurePosixPath(name).name
@@ -87,23 +92,30 @@ def collect(stream, image_id, service, revision):
                 'scope': 'allowlisted conventional legal filenames and selected native hashes only',
                 'notices': [], 'native_files': [], 'unresolved_selected_entries': []}
     manifest['component_path_inventory'] = {group: [] for group in APPLICABILITY_NAMES}
-    manifest['component_inventory_scope'] = 'known basenames anywhere in completed export; no renamed/static-code or runtime-mount coverage; absence is not vulnerability clearance'
+    path_groups = DB_APPLICABILITY_PATHS if service == 'db' else {}
+    manifest['component_path_inventory'].update({group: [] for group in path_groups})
+    manifest['component_inventory_scope'] = 'known component basenames and package paths in completed export; no renamed/static-code or runtime-mount coverage; absence is not vulnerability clearance'
     files, seen, notice_total = {}, set(), 0
     with tarfile.open(fileobj=stream, mode='r|*') as archive:
         for member in archive:
             name = path_name(member.name)
-            kind = selection(name)
-            if not kind or member.isdir():
+            if member.isdir():
+                continue
+            path_group = next((group for group, pattern in path_groups.items() if pattern.search(name)), None)
+            kind = 'path' if path_group else selection(name)
+            if not kind:
                 continue
             if name in seen:
                 raise ValueError('duplicate selected export path')
             seen.add(name)
             if len(seen) > MAX_SELECTED:
                 raise ValueError('selected entry count exceeds limit')
-            group = applicability_group(name)
+            group = path_group or applicability_group(name)
             if group:
                 manifest['component_path_inventory'][group].append({
                     'path': name, 'regular_file': member.isfile()})
+            if kind == 'path':
+                continue
             if not member.isfile():
                 # Do not dereference links, record targets, or copy special files.
                 manifest['unresolved_selected_entries'].append({'path': name, 'reason': 'not a regular file'})

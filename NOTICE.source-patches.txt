@@ -25,10 +25,25 @@ The upstream attributions are recorded in debian/patches and debian/changelog.
   CVE-2026-35190   9491b0d9cc7950af1f3dc89499bd5433b9cd4f43
   CVE-2026-95690   2d1e77189821165ace305acd93380b46b5e5d1dd
 
+The PostgreSQL image additionally applies OpenSSL's 3.5 maintenance commit
+734c6cd7444bdbf589bfec917e47598c1b21ddd3 for CVE-2026-107494. Its downstream
+binary version is 3.5.7-1~deb13u3+vardr3. The original attribution is retained
+in db/openssl/CVE-2026-107494.upstream.patch and the shipped Debian source.
+
 OpenSSL is licensed under Apache-2.0. The upstream source archive contains
 LICENSE.txt and the original file notices. The four affected images retain the
 complete patched Debian source under /usr/share/doc/libssl3t64/vardr-source
 and the installed Debian package copyright notices.
+
+GnuTLS 3.8.9 (PostgreSQL)
+
+The database includes two patches by Zoltan Fridrich from GnuTLS.
+Commit 0cf60141ca2c1289e96847261ff355010cb6f3a8 changes lib/auth/cert.c.
+Commit 8767518753a633e5ef59f112310db8dc9ff6771a changes lib/auth/rsa_psk.c.
+Both files carry LGPL-2.1-or-later. The original file notices, license and
+patch attribution accompany the Debian source. The database ships this source
+in /usr/share/doc/libgnutls30t64/vardr-source and the package's copyright
+notice in /usr/share/doc/libgnutls30t64/copyright. See db/gnutls/source.txt.
 
 GNU C Library 2.41 (Debian 2.41-12+deb13u4+vardr3)
 

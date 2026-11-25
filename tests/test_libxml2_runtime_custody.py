@@ -7,7 +7,7 @@ import tarfile
 import tempfile
 import unittest
 
-from libxml2_runtime_custody import LIBRARY, REQUIRED, sha, verify
+from libxml2_runtime_custody import API_PATCHES, API_SOURCES, LIBRARY, REQUIRED, sha, verify
 
 IMAGE = 'sha256:' + 'a' * 64
 REVISION = 'b' * 40
@@ -22,7 +22,17 @@ class RuntimeCustodyTests(unittest.TestCase):
         (self.source / 'evidence').mkdir(parents=True)
         shutil.copyfile(Path(__file__).resolve().parents[1] / 'db/libxml2-CVE-2026-6653.patch',
                         self.source / 'CVE-2026-6653.patch')
-        (self.source / 'evidence/applied-patches.txt').write_text('vardr-CVE-2026-6653.patch\n')
+        patch_names = ['vardr-CVE-2026-6653.patch']
+        for patch in API_PATCHES:
+            shutil.copyfile(Path(__file__).resolve().parents[1] / 'db' / patch, self.source / patch)
+            patch_names.append(patch.replace('libxml2-', 'vardr-'))
+        (self.source / 'evidence/applied-patches.txt').write_text('\n'.join(patch_names) + '\n')
+        (self.source / 'evidence/patched-source-SHA256SUMS').write_text(''.join(
+            f'{digest}  {name}\n' for name, digest in API_SOURCES.items()))
+        self.api_report = self.source / 'evidence/dictionary-xinclude-checks.txt'
+        self.api_report.write_text('dictionary tests succeeded 20000 strings\n' + ''.join(
+            f'api={api} noblanks={flag} verdict=PASS\n'
+            for api in ('document', 'tree') for flag in (0, 1)))
         self.regression = self.source / 'evidence/entity-amplification-regression.txt'
         self.regression.write_text(''.join(
             f'case={case} huge={huge} verdict=PASS\n'
@@ -106,6 +116,26 @@ class RuntimeCustodyTests(unittest.TestCase):
         self.seal()
         with self.assertRaisesRegex(ValueError, 'applied patch ledger'):
             self.check()
+
+    def test_resealed_incomplete_api_checks_and_replaced_sources_refused(self):
+        original = self.api_report.read_text()
+        self.api_report.write_text('\n'.join(original.splitlines()[:-1]) + '\n')
+        self.seal()
+        with self.assertRaisesRegex(ValueError, 'Incomplete dictionary'):
+            self.check()
+        self.api_report.write_text(original)
+        (self.source / 'evidence/patched-source-SHA256SUMS').write_text('0' * 64 + '  dict.c\n')
+        self.seal()
+        with self.assertRaisesRegex(ValueError, 'source differs'):
+            self.check()
+
+    def test_historical_receipt_is_scoped_and_current_ci_requires_api_checks(self):
+        sums = self.source / 'SHA256SUMS'
+        sums.write_text(''.join(line for line in sums.read_text().splitlines(True)
+                                if 'dictionary-xinclude-checks' not in line))
+        self.assertFalse(self.check()['dictionary_and_xinclude_api_checks'])
+        with self.assertRaisesRegex(ValueError, 'Incomplete source evidence'):
+            verify(self.source, self.runtime, IMAGE, REVISION, require_api_checks=True)
 
     def test_duplicate_manifest_and_unsafe_checksum_paths_refused(self):
         self.bundle(duplicate=True)

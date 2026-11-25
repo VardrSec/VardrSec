@@ -4,10 +4,11 @@
   "image_sha512": "d25999de0770d4cde1be72c299ba3ad94eac7ea8fd4d18f8cc86c69df69337e2e8a91d64465a9bfd8f2a78c566fcbcb0842eacc91c09efdef72d719d9f13b535",
   "manifest_url": "https://cloud.debian.org/images/cloud/trixie/20261103-2651/SHA512SUMS",
   "trust_scope": "Reviewed SHA512 obtained from official HTTPS manifest; detached signature not available at reviewed location",
-  "source_base": "https://deb.debian.org/debian/pool/main/k/krb5/",
+  "source_base": "https://deb.debian.org/debian-security/pool/updates/main/k/krb5/",
   "sources": {
-    "krb5_1.21.3-5+deb13u1.dsc": "d17d2840bc97fea2c2375245569ca67838a2b557ee083c6cbe42b129a317212c",
+    "krb5_1.21.3-5+deb13u2.dsc": "72f1fd2681f4688b64a762599480fbd7612d0f5f2cb9f4ce1b21a9eaeee4791d",
     "krb5_1.21.3.orig.tar.gz": "b7a4cd5ead67fb08b980b21abd150ff7217e85ea320c9ed0c6dadd304840ad35",
-    "krb5_1.21.3-5+deb13u1.debian.tar.xz": "02b873b239fbe7ddf016dfe44deba4130673f4606c18c93da0622e2bc8500fb4"
+    "krb5_1.21.3.orig.tar.gz.asc": "85047c935fe949ef2e275885451b168557b923dd13a5aab0ef8fe6acd27b94d7",
+    "krb5_1.21.3-5+deb13u2.debian.tar.xz": "68e3ce5ebfffb8c47a7378b09b36b279791b1994b9df3d9a016d5e105f42a02b"
   }
 }

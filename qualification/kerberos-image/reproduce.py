@@ -3,13 +3,15 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import zipfile
 
 PREFIX = '_temp/kerberos-vm/qualification/'
+PACKAGE_PINS = Path(__file__).resolve().parents[2] / 'db/kerberos-vm/qualified-packages.sha256'
 INPUTS = ['Dockerfile', 'build-krb5.sh', 'krb5-CVE-2026-119079.patch', 'krb5-CVE-2026-71199.patch',
           'krb5-keyring-test-diagnostic.patch', 'krb5-sequence-regression.c',
-          'krb5_1.21.3.orig.tar.gz', 'krb5_1.21.3-5+deb13u1.dsc',
-          'krb5_1.21.3-5+deb13u1.debian.tar.xz',
+          'krb5_1.21.3.orig.tar.gz', 'krb5_1.21.3.orig.tar.gz.asc', 'krb5_1.21.3-5+deb13u2.dsc',
+          'krb5_1.21.3-5+deb13u2.debian.tar.xz',
           'evidence/patched-source-SHA256SUMS']
 
 
@@ -17,9 +19,22 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def read(path, expected):
+def read(path, expected, job_receipt=False):
     assert sha(path.read_bytes()) == expected, 'archive digest mismatch'
     with zipfile.ZipFile(path) as z:
+        if job_receipt:
+            assert z.namelist() == ['kerberos-u2-receipt.json'], 'unexpected receipt archive'
+            report = json.loads(z.read('kerberos-u2-receipt.json'))
+            assert report['receipt']['full_debian_package_build_passed'] is True
+            assert report['receipt']['offline_build_boot'] is True
+            assert set(report['inputs']) == set(INPUTS), 'missing source/build input'
+            pinned = {name: digest for digest, name in
+                      (line.split() for line in PACKAGE_PINS.read_text().splitlines())}
+            assert len(pinned) == 4 and report['packages'] == pinned, 'unexpected package or digest'
+            digests = [report['prepared_packages_sha256'], report['receipt']['prepared_disk_sha256'],
+                       *report['inputs'].values(), *report['packages'].values()]
+            assert all(re.fullmatch('[a-f0-9]{64}', digest) for digest in digests), 'invalid SHA-256'
+            return dict(report, archive_sha256=expected)
         receipt = json.loads(z.read(PREFIX + 'verified.json'))
         assert receipt['full_debian_package_build_passed'] is True
         assert receipt['offline_build_boot'] is True
@@ -52,6 +67,9 @@ if __name__ == '__main__':
     p.add_argument('second', type=Path)
     p.add_argument('second_sha256')
     p.add_argument('output', type=Path)
+    p.add_argument('--job-receipts', action='store_true',
+                   help='Compare package hashes recorded inside two trusted CI jobs')
     a = p.parse_args()
-    result = compare(read(a.first, a.first_sha256), read(a.second, a.second_sha256))
+    result = compare(read(a.first, a.first_sha256, a.job_receipts),
+                     read(a.second, a.second_sha256, a.job_receipts))
     a.output.write_text(json.dumps(result, indent=2)+'\n')

@@ -10,6 +10,8 @@ on:
       - 'database_release.py'
       - 'versions.json'
       - 'qualification/kerberos-image/**'
+      - 'qualification/database-libseccomp.sh'
+      - 'qualification/database-recipient/layer_sources.py'
       - 'qualification/kerberos-vm/test_*.py'
       - 'db/**'
 permissions:
@@ -62,6 +64,8 @@ jobs:
           echo "QUALIFICATION_DATABASE=$image" >> "$GITHUB_ENV"
       - name: Verify installed bytes, corresponding source and isolated PostgreSQL smoke
         run: bash qualification/kerberos-image/verify.sh "$QUALIFICATION_DATABASE"
+      - name: Qualify the database libseccomp package with Debian's live C and Python tests
+        run: bash qualification/database-libseccomp.sh
       - name: Collect stopped-image legal notices and bounded component inventory
         shell: bash
         run: |
@@ -75,6 +79,11 @@ jobs:
             --output artifacts/kerberos-image/runtime-notices.tar
           docker rm "$container" >/dev/null
           trap - EXIT
+      - name: Inventory package sources and direct Berkeley DB links in every database layer
+        shell: bash
+        run: |
+          python3 qualification/database-recipient/layer_sources.py \
+            "$(cat artifacts/kerberos-image/image-id.txt)" artifacts/kerberos-image/layer-sources.json
       - name: Preserve candidate acceptance evidence without publication
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
