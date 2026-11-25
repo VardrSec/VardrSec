@@ -48,3 +48,7 @@ class NativeCacheTests(unittest.TestCase):
                     else:
                         native_cache.unpack(archive, destination, key)
                         self.assertEqual((Path(destination) / key / "index.json").read_bytes(), b"{}")
+                        blob = Path(destination) / key / "blobs" / "sha256" / ("c" * 64)
+                        self.assertEqual(blob.read_bytes(), b"{}")
+                        with self.assertRaises(FileExistsError):
+                            native_cache.unpack(archive, destination, key)

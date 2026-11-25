@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import sys
 import tarfile
 
@@ -40,6 +41,10 @@ def unpack(archive_path, destination, key):
     # exact cache identity and regular OCI blobs inside a fresh directory.
     if not re.fullmatch(r"full-native-v1-[0-9a-f]{64}", key):
         raise ValueError("Invalid native cache identity")
+    destination = Path(destination)
+    store = destination / key
+    store.mkdir()
+    (store / "blobs" / "sha256").mkdir(parents=True)
     directories = {key + "/blobs/sha256"}
     metadata = {key + "/index.json", key + "/oci-layout"}
     total = 0
@@ -47,7 +52,7 @@ def unpack(archive_path, destination, key):
     with tarfile.open(archive_path, "r:") as archive:
         for member in archive:
             total += member.size
-            if member.name in seen or total > MAX_BYTES or len(seen) >= 4096:
+            if member.name in seen or member.size < 0 or total > MAX_BYTES or len(seen) >= 4096:
                 raise ValueError("Oversized or duplicate native cache entry")
             seen.add(member.name)
             if member.name in directories and member.isdir():
@@ -55,7 +60,8 @@ def unpack(archive_path, destination, key):
             if not member.isfile() or (member.name not in metadata and
                     not re.fullmatch(key + r"/blobs/sha256/[0-9a-f]{64}", member.name)):
                 raise ValueError("Unexpected native cache entry")
-            archive.extract(member, destination, filter="data")
+            with archive.extractfile(member) as source, (destination / member.name).open("xb") as output:
+                shutil.copyfileobj(source, output)
     if not metadata <= seen:
         raise ValueError("Missing native OCI cache metadata")
 
