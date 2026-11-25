@@ -8,11 +8,23 @@ from unittest.mock import Mock, call, patch
 import vardrsec
 
 class BuildOrdering(unittest.TestCase):
-    def test_full_database_before_parallel_images(self):
-        env={'example':'unchanged'}
-        with patch.object(vardrsec,'compose') as compose:
-            vardrsec.build_images(mapless=False,environment=env)
-        self.assertEqual(compose.call_args_list,[call('--profile','tools','build','db',env=env),call('--profile','tools','build',env=env)])
+    def test_full_source_build_selects_every_service_once(self):
+        env = {"example": "unchanged"}
+        with patch.object(vardrsec, "compose") as compose:
+            vardrsec.build_images(mapless=False, environment=env)
+        self.assertEqual(compose.call_args_list, [
+            call("--profile", "tools", "build", "db", env=env),
+            call("--profile", "tools", "build", "api", "web", "proxy", "runner", env=env),
+        ])
+
+    def test_custom_full_build_still_includes_all_configured_services(self):
+        with patch.object(vardrsec, "standard_full_compose", return_value=False), \
+                patch.object(vardrsec, "compose") as compose:
+            vardrsec.build_images(mapless=False, environment={})
+        self.assertEqual(compose.call_args_list, [
+            call("--profile", "tools", "build", "db", env={}),
+            call("--profile", "tools", "build", env={}),
+        ])
 
     def test_mapless_does_not_build_database(self):
         with patch.object(vardrsec,'compose') as compose:
