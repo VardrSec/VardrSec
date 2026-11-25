@@ -2,7 +2,7 @@
 set -euo pipefail
 umask 077
 case "${1:-}" in
-    save|load) stage=${RUNNER_TEMP:?} ;;
+    save|load|encrypt-native) stage=${RUNNER_TEMP:?} ;;
     authenticate|import-verified) stage=$(dirname -- "${3:?private output path required}") ;;
     *) exit 2 ;;
 esac
@@ -23,6 +23,12 @@ authenticate() {
     grep -qx '\[GNUPG:\] DECRYPTION_OKAY' "$work/status"
 }
 
+encrypt() {
+    : "${passphrase:?missing cache passphrase}"
+    "${gpg[@]}" --rfc4880 --cipher-algo AES256 --force-mdc --compress-algo none \
+        --output "$1" --symmetric 3<<<"$passphrase"
+}
+
 import_verified() {
     # Callers must authenticate the entire bundle before Docker sees any archive bytes.
     if [[ -e "$2" || -L "$2" ]]; then echo "Database receipt destination already exists" >&2; return 1; fi
@@ -41,9 +47,9 @@ case "$1" in
         docker image save "$image_id" | zstd -q -T2 -2 -o "$work/image.tar.zst"
         printf '%s\n' "$CACHE_KEY" > "$work/cache-key"
         tar -C "$work" -cf - cache-key receipt.json image.tar.zst |
-            "${gpg[@]}" --rfc4880 --cipher-algo AES256 --force-mdc --compress-algo none \
-                --output "$RUNNER_TEMP/vardrsec-database.gpg" --symmetric 3<<<"$passphrase"
+            encrypt "$RUNNER_TEMP/vardrsec-database.gpg"
         ;;
+    encrypt-native) encrypt "$RUNNER_TEMP/vardrsec-native.gpg" ;;
     load)
         receipt="$RUNNER_TEMP/qualified-database.json"
         authenticate "$RUNNER_TEMP/vardrsec-database.gpg"

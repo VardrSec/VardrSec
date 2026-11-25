@@ -332,6 +332,52 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.12'
+      - name: Identify the private native package cache
+        id: native-key
+        if: >-
+          needs.database.outputs.cache_key != '' &&
+          (github.event_name == 'push' || (github.event_name == 'pull_request' && github.base_ref == 'main' &&
+          github.head_ref != 'codex/community-alpha-candidate'))
+        continue-on-error: true
+        env:
+          PASSPHRASE: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+        run: python3 scripts/ci/native_cache.py key >> "$GITHUB_OUTPUT"
+      - name: Find native layers from a successful main retry
+        id: native-cache
+        if: steps.native-key.outputs.key != ''
+        continue-on-error: true
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          key: ${{ steps.native-key.outputs.key }}
+          path: ${{ runner.temp }}/vardrsec-native.gpg
+          lookup-only: ${{ github.event_name == 'push' }}
+      - name: Select the native package builder
+        id: native-builder
+        if: >-
+          steps.native-cache.outcome == 'success' &&
+          ((github.event_name == 'push' && steps.native-cache.outputs.cache-hit != 'true') ||
+          (github.event_name == 'pull_request' && steps.native-cache.outputs.cache-hit == 'true'))
+        continue-on-error: true
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          name: full-native-ci
+          driver: docker-container
+          driver-opts: default-load=true
+          use: false
+      - name: Warm only OpenSSL and glibc for the interrupted install
+        id: native-warm
+        if: github.event_name == 'pull_request' && steps.native-builder.outcome == 'success'
+        continue-on-error: true
+        env:
+          PASSPHRASE: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+          NATIVE_KEY: ${{ steps.native-key.outputs.key }}
+          MAP_PIN: ${{ steps.native-key.outputs.pin }}
+        run: |
+          if ! timeout 300 bash scripts/ci/native_cache.sh warm; then
+            # Release any partially imported layers before the ordinary retry.
+            docker buildx rm full-native-ci || true
+            exit 1
+          fi
       - name: Load the verified database if available
         if: needs.database.outputs.cache_key != ''
         uses: ./.github/actions/load-database
@@ -344,6 +390,7 @@ jobs:
       - name: Interrupt the install part-way, then resume it
         env:
           COMPOSE_PROJECT_NAME: vardrsec-compose-review
+          BUILDX_BUILDER: ${{ (steps.native-warm.outcome == 'success' || (github.event_name == 'push' && steps.native-builder.outcome == 'success')) && 'full-native-ci' || '' }}
         run: |
           # Kill the first run during source acquisition/build. Credentials must survive and the
           # rerun must complete the install without regenerating or overwriting them.
@@ -404,3 +451,19 @@ jobs:
           if test -f .env; then
             python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
           fi
+      - name: Export verified native layers from the installer's own builder
+        id: native-export
+        if: github.event_name == 'push' && steps.native-builder.outcome == 'success'
+        continue-on-error: true
+        env:
+          PASSPHRASE: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
+          NATIVE_KEY: ${{ steps.native-key.outputs.key }}
+          MAP_PIN: ${{ steps.native-key.outputs.pin }}
+        run: timeout 300 bash scripts/ci/native_cache.sh save
+      - name: Save the encrypted native layers for subsequent pull requests
+        if: steps.native-export.outputs.ready == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          key: ${{ steps.native-key.outputs.key }}
+          path: ${{ runner.temp }}/vardrsec-native.gpg

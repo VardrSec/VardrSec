@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -40,12 +41,42 @@ def download(url, destination, expected=None, algorithm='sha256', limit=500_000_
         raise ValueError('Pinned checksum mismatch: ' + destination.name)
 
 
-def qemu_command(work, phase):
+def source_build_cpus(root=Path('/sys/fs/cgroup'), membership=Path('/proc/self/cgroup')):
+    """Size the Docker build guest conservatively alongside native package builds."""
+    try:
+        if len(os.sched_getaffinity(0)) < 8:
+            return 2
+        entry = membership.read_text().strip()
+        if not entry.startswith('0::/') or '\n' in entry:
+            return 2
+        relative = Path(entry.removeprefix('0::/'))
+        if relative.is_absolute() or '..' in relative.parts or not (root / 'cgroup.controllers').is_file():
+            return 2
+        current = root / relative
+        while True:
+            try:
+                quota, interval = (current / 'cpu.max').read_text().split()
+            except FileNotFoundError:
+                # The global v2 root has no quota. A container root can have
+                # one even when membership reports "/" and must be checked.
+                return 4 if current == root and relative.parts else 2
+            period = int(interval)
+            if period <= 0 or (quota != 'max' and int(quota) < 8 * period):
+                return 2
+            if current == root:
+                return 4
+            current = current.parent
+    except (AttributeError, OSError, ValueError):
+        return 2
+
+
+def qemu_command(work, phase, *, source_only=False):
     if phase not in ('prepare', 'build'):
         raise ValueError('Unknown phase')
+    cpus = source_build_cpus() if phase == 'build' and source_only else 2
     # TCG requires no KVM permissions, kernel modules or security-policy changes.
     command = ['qemu-system-x86_64', '-machine', 'q35', '-accel', 'tcg,thread=multi',
-               '-cpu', 'max', '-m', '4096', '-smp', '2', '-display', 'none',
+               '-cpu', 'max', '-m', '4096', '-smp', str(cpus), '-display', 'none',
                '-monitor', 'none', '-no-reboot', '-serial', f'file:{work / (phase + ".serial.log")}',
                '-drive', f'file={work / "guest.qcow2"},if=virtio,format=qcow2',
                '-drive', f'file={work / "output.img"},if=virtio,format=raw',
@@ -105,7 +136,7 @@ def main():
         user = '#cloud-config\nssh_pwauth: false\nruncmd:\n  - [mkdir, -p, /mnt/bootstrap]\n  - [mount, -o, ro, /dev/disk/by-label/QUALINPUT, /mnt/bootstrap]\n  - [bash, /mnt/bootstrap/guest.sh, ' + phase + ']\n'
         (cloud / 'user-data').write_text(user)
         run('cloud-localds', work / (phase + '.iso'), cloud / 'user-data', cloud / 'meta-data')
-        command = qemu_command(work, phase)
+        command = qemu_command(work, phase, source_only=args.source_only)
         (work / (phase + '-command.json')).write_text(json.dumps(command, indent=2) + '\n')
         try:
             run(*command, timeout=seconds)

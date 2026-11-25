@@ -39,6 +39,7 @@ def require_command(name):
 
 
 def build_images(*, mapless, environment):
+    applications = ("api", "web", "proxy", "runner")
     receipt = environment.get("VARDRSEC_DATABASE_RECEIPT")
     if not mapless and receipt is not None:
         if not receipt or not standard_full_compose():
@@ -49,7 +50,6 @@ def build_images(*, mapless, environment):
 
         model = json.loads(compose("--profile", "tools", "config", "--format", "json",
                                    env=environment, capture_output=True, text=True).stdout)
-        applications = ("api", "web", "proxy", "runner")
         if set(model.get("services", {})) != {"db", *applications}:
             raise ValueError("Database image reuse requires the shipped Full service set")
         verified_db = select_verified(ROOT, Path(receipt), model)
@@ -68,12 +68,14 @@ def build_images(*, mapless, environment):
         compose("--profile", "tools", "build", *applications, env=environment)
         return verified_db
     # The Full database source build runs a bounded 4 GiB TCG guest. Build it
-    # before parallel application/toolchain compilation, then reuse its normal
-    # Docker layer cache. This changes no runtime settings or install state.
+    # before parallel application/toolchain compilation.
     if not mapless:
         print("Building the database first. An uncached build runs Debian package tests "
               "in a 4 GiB guest and can take tens of minutes.", flush=True)
         compose("--profile", "tools", "build", "db", env=environment)
+        if standard_full_compose():
+            compose("--profile", "tools", "build", *applications, env=environment)
+            return
     compose("--profile", "tools", "build", env=environment)
 
 

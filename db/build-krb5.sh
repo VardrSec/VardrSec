@@ -20,7 +20,10 @@ cp ../krb5-keyring-test-diagnostic.patch debian/patches/vardr-keyring-test-diagn
 printf 'vardr-keyring-test-diagnostic.patch\n' >> debian/patches/series
 { printf 'krb5 (1.21.3-5+deb13u2+vardr1) trixie; urgency=high\n\n  * Rebuild the Debian security update with the keyring test diagnostic.\n\n -- VardrSec local build <local@invalid>  Tue, 24 Nov 2026 00:00:00 +0000\n\n'; cat debian/changelog; } > /tmp/krb-changelog
 mv /tmp/krb-changelog debian/changelog
-export DEB_BUILD_OPTIONS=parallel=2
+case "$(getconf _NPROCESSORS_ONLN)" in
+    4) export DEB_BUILD_OPTIONS=parallel=4 ;;
+    *) export DEB_BUILD_OPTIONS=parallel=2 ;;
+esac
 mkdir -p /out/packages /out/source/evidence
 { dpkg-query -W -f='${binary:Package} ${Version} ${Architecture}\n'; cc --version; ld --version; } > /out/source/evidence/build-environment.txt
 dpkg-source --before-build . > /tmp/krb-build.log 2>&1

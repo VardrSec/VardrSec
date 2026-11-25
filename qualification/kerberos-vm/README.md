@@ -14,7 +14,10 @@ second boot has **no virtual NIC** and runs the exact repository
 package regression. A real guest keyring create/read/revoke prerequisite must
 also succeed. The guest has no SSH access, public port forwarding, host directory
 share, KVM permission adjustment, or persistent infrastructure. QEMU uses TCG
-software emulation, bounded to two virtual CPUs and 4 GiB RAM.
+software emulation and 4 GiB RAM. Preparation and standalone qualification
+use two virtual CPUs. The source image build can use four for the offline
+phase when the builder has at least eight CPUs available. This leaves CPU
+capacity for the native libraries compiling alongside Kerberos.
 
 QEMU tooling runs in a disposable, digest-pinned official Debian 13 container,
 not an installation on the Ubuntu host. This avoids the unavailable Ubuntu

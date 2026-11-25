@@ -8,9 +8,11 @@ checkout. Neither mode is a published Community release.
 The database source build uses a disposable QEMU/TCG guest inside the Docker
 build stage to run the unchanged Debian Kerberos tests under ordinary guest
 kernel policy. No host VM configuration, devices or security-policy changes are
-needed. Allocate at least 4 GiB guest memory plus Docker/build overhead; the
-first uncached database build can take tens of minutes. The Full CLI builds
-the database first, then builds application images using its normal cached layer. See the
+needed. Allow 4 GiB for the guest plus memory for Docker and the other build
+stages. The first uncached database build can take tens of minutes. The
+offline Kerberos build uses four virtual CPUs when it can verify that Docker
+has at least eight available, and two otherwise. The standard Full installer builds PostgreSQL
+first, then builds the four application images. See the
 [build evidence and boundaries](../qualification/kerberos-image/README.md).
 
 ## 1. Check prerequisites and clone
@@ -132,6 +134,12 @@ set the Actions variable `VARDRSEC_DB_CACHE_ENABLED` to `true`. With the cache
 off, ordinary PRs use the source installer. Database and installer PRs also
 exercise local qualification. CI refreshes the shared image when its inputs
 or this secret change, and at least weekly when checks run. Forks build locally.
+
+With the private cache enabled, a successful interrupted-install and update
+check on `main` can also save the application's OpenSSL and glibc build layers.
+Eligible pull requests reuse these encrypted layers in their interrupted-install
+check. The clean Full install builds the application packages independently.
+
 To authorize an export to the configured recipient,
 manually run **Export qualified database to one recipient** on
 `main`. The workflow requires a configured private CI database cache and

@@ -27,6 +27,43 @@ class HarnessTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             vm.qemu_command(Path('/fresh'), 'other')
 
+    def test_source_build_cpu_budget_requires_spare_capacity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            job = root / 'builder' / 'job'
+            job.mkdir(parents=True)
+            (root / 'cgroup.controllers').write_text('cpu')
+            membership = root / 'membership'
+            membership.write_text('0::/builder/job\n')
+            (job / 'cpu.max').write_text('max 100000')
+            for affinity, parent_limit, expected in (
+                    (4, 'max 100000', 2), (8, 'max 100000', 4),
+                    (12, '800000 100000', 4), (12, '799999 100000', 2),
+                    (8, 'broken', 2)):
+                with self.subTest(affinity=affinity, parent_limit=parent_limit):
+                    (job.parent / 'cpu.max').write_text(parent_limit)
+                    with patch.object(vm.os, 'sched_getaffinity', return_value=range(affinity), create=True):
+                        self.assertEqual(vm.source_build_cpus(root, membership), expected)
+            membership.write_text('0::/\n')
+            with patch.object(vm.os, 'sched_getaffinity', return_value=range(8), create=True):
+                # Missing capacity data and fully visible container quotas.
+                self.assertEqual(vm.source_build_cpus(root, membership), 2)
+                (root / 'cpu.max').write_text('400000 100000')
+                self.assertEqual(vm.source_build_cpus(root, membership), 2)
+                (root / 'cpu.max').write_text('max 100000')
+                self.assertEqual(vm.source_build_cpus(root, membership), 4)
+                membership.write_text('2:cpu:/\n')
+                self.assertEqual(vm.source_build_cpus(root, membership), 2)
+
+    def test_only_source_build_boot_uses_available_capacity(self):
+        with patch.object(vm, 'source_build_cpus', return_value=4) as budget:
+            for phase, source_only, expected in (
+                    ('prepare', True, 2), ('build', False, 2), ('build', True, 4)):
+                command = vm.qemu_command(Path('/fresh'), phase, source_only=source_only)
+                self.assertEqual(command[command.index('-smp') + 1], str(expected))
+                self.assertEqual(command[command.index('-m') + 1], '4096')
+            budget.assert_called_once_with()
+
     def test_checksum_and_plain_http_rejection(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / 'bytes'
