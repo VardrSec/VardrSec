@@ -6,13 +6,19 @@ on:
 permissions:
   contents: read
 jobs:
+  guides:
+    uses: ./.github/workflows/guide-changes.yml
   database:
+    needs: guides
+    if: ${{ !cancelled() && needs.guides.outputs.guide_only != 'true' }}
     uses: ./.github/workflows/database-cache.yml
     secrets:
       VARDRSEC_DB_CACHE_KEY: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
   collect-evidence:
-    needs: database
-    if: ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') }}
+    needs: [guides, database]
+    if: >-
+      ${{ !cancelled() && needs.guides.outputs.guide_only != 'true' &&
+      (needs.database.result == 'success' || needs.database.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:

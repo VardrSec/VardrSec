@@ -12,15 +12,19 @@ on:
 permissions:
   contents: read
 jobs:
+  guides:
+    uses: ./.github/workflows/guide-changes.yml
   database:
-    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    needs: guides
+    if: ${{ !cancelled() && needs.guides.outputs.guide_only != 'true' && (github.event_name != 'workflow_dispatch' || inputs.unit_only != true) }}
     uses: ./.github/workflows/database-cache.yml
     with:
       use_cache: ${{ github.event_name != 'workflow_dispatch' }}
     secrets:
       VARDRSEC_DB_CACHE_KEY: ${{ secrets.VARDRSEC_DB_CACHE_KEY }}
   certificate-renewal:
-    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    needs: guides
+    if: ${{ !cancelled() && needs.guides.outputs.guide_only != 'true' && (github.event_name != 'workflow_dispatch' || inputs.unit_only != true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -61,7 +65,8 @@ jobs:
           echo "$GOBIN" >> "$GITHUB_PATH"
       - run: python -m unittest discover -s tests -p 'test_*.py'
   mapless-installation:
-    if: github.event_name != 'workflow_dispatch' || inputs.unit_only != true
+    needs: guides
+    if: ${{ !cancelled() && needs.guides.outputs.guide_only != 'true' && (github.event_name != 'workflow_dispatch' || inputs.unit_only != true) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
@@ -142,9 +147,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   installation:
-    needs: database
+    needs: [guides, database]
     if: >-
-      ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') &&
+      ${{ !cancelled() && needs.guides.outputs.guide_only != 'true' &&
+      (needs.database.result == 'success' || needs.database.result == 'skipped') &&
       (github.event_name != 'workflow_dispatch' || inputs.unit_only != true) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
@@ -312,9 +318,10 @@ jobs:
         if: always()
         run: python -c "from pathlib import Path; import recovery; recovery.compose(Path.cwd(), '--profile', 'tools', 'down', '--volumes', '--remove-orphans', project='vardrsec-compose-review')"
   controlled-updates:
-    needs: database
+    needs: [guides, database]
     if: >-
-      ${{ !cancelled() && (needs.database.result == 'success' || needs.database.result == 'skipped') &&
+      ${{ !cancelled() && needs.guides.outputs.guide_only != 'true' &&
+      (needs.database.result == 'success' || needs.database.result == 'skipped') &&
       (github.event_name != 'workflow_dispatch' || inputs.unit_only != true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
