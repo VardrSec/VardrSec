@@ -31,7 +31,16 @@ EOF
 sha256sum -c /out/source/reviewed-source.sha256
 dpkg-query -W -f='${binary:Package} ${Version} ${Architecture}\n' > /out/source/build-environment.txt
 dpkg-buildpackage -us -uc -B -j4 > /out/source/package-build.log 2>&1 || {
-    tail -120 /out/source/package-build.log; exit 1;
+    build_status=$?
+    tail -n 120 /out/source/package-build.log || :
+    # Automake writes each test's verdict to .trs and its output to the sibling .log.
+    grep -rEl --include='*.trs' '^:(global-test-result|test-result):[[:space:]]+(FAIL|ERROR|XPASS)([[:space:]]|$)' . |
+        while IFS= read -r result; do
+            test_path=${result%.trs}
+            printf '\nFailed GnuTLS test: %s\n' "$test_path"
+            tail -n 120 "$test_path.log" || cat "$result"
+        done || :
+    exit "$build_status"
 }
 debian/rules clean >> /out/source/package-build.log 2>&1
 dpkg-source --build . >> /out/source/package-build.log 2>&1
