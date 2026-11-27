@@ -28,13 +28,22 @@ FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86
 RUN apt-get -o Acquire::Retries=2 -o APT::Update::Error-Mode=any update \
     && apt-get install -y --no-install-recommends ca-certificates python3 qemu-system-x86 qemu-utils cloud-image-utils xorriso e2fsprogs \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /work /out && chown 65534:65534 /work /out
+    && mkdir -p /work /out /build && chown 65534:65534 /work /out /build
 WORKDIR /repo
 COPY kerberos-vm/ /repo/qualification/kerberos-vm/
 COPY build-krb5.sh krb5-CVE-2026-119079.patch krb5-CVE-2026-71199.patch krb5-keyring-test-diagnostic.patch krb5-sequence-regression.c Dockerfile /repo/db/
+# The two-vCPU source build can use native compiler objects from this machine.
+RUN if [ "$(cd qualification/kerberos-vm && python3 -c 'from run import source_build_cpus; print(source_build_cpus())')" = 2 ]; then \
+        if sh qualification/kerberos-vm/build-deps.sh ccache; then touch /work/native-compiler-ready; \
+        else echo 'Native compiler unavailable; compiling inside the VM.'; fi; \
+    fi && rm -rf /var/lib/apt/lists/*
 # No host mounts, devices, KVM, published ports, added capabilities or policy changes.
 USER 65534:65534
-RUN python3 qualification/kerberos-vm/run.py --source-only --work /work/qualification \
+RUN python3 qualification/kerberos-vm/run.py --fetch-sources /work/krb5-inputs
+RUN --network=none if test -f /work/native-compiler-ready; then \
+        sh qualification/kerberos-vm/seed.sh || echo 'Native seed unavailable; compiling inside the VM.'; \
+    fi
+RUN python3 qualification/kerberos-vm/run.py --source-only --work /work/qualification --native-inputs /work/krb5-inputs \
     && python3 qualification/kerberos-vm/finalize.py /work/qualification /out
 
 FROM debian:trixie-slim@sha256:7378260c0a098d27ac206225db5e7d92b8c7c84ea7afccc86eeb513756bbd392 AS openssl-package-build

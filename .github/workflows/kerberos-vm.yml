@@ -5,9 +5,7 @@ on:
       - '.github/workflows/kerberos-vm.yml'
       - 'qualification/kerberos-vm/**'
       - 'db/build-krb5.sh'
-      - 'db/kerberos-vm/run.py'
-      - 'db/kerberos-vm/guest.sh'
-      - 'db/kerberos-vm/inputs.json'
+      - 'db/kerberos-vm/**'
       - 'db/krb5-*'
 permissions:
   contents: read
@@ -25,7 +23,7 @@ jobs:
       - name: Validate qualification harness
         run: |
           python -m unittest discover -s qualification/kerberos-vm -p 'test_*.py' -v
-          bash -n db/kerberos-vm/guest.sh
+          for script in db/kerberos-vm/*.sh db/build-krb5.sh; do bash -n "$script"; done
       - name: Build isolated official Debian VM tooling
         shell: bash
         run: |
@@ -33,7 +31,7 @@ jobs:
           mkdir -p artifacts/kerberos-vm-host "$RUNNER_TEMP/kerberos-vm"
           exec > >(tee -a artifacts/kerberos-vm-host/tool-install.log) 2>&1
           uname -a > artifacts/kerberos-vm-host/kernel.txt
-          sha256sum db/kerberos-vm/{run.py,guest.sh,inputs.json} > artifacts/kerberos-vm-host/harness-SHA256SUMS
+          sha256sum db/kerberos-vm/{run.py,guest.sh,build-deps.sh,compiler-cache.sh,inputs.json} > artifacts/kerberos-vm-host/harness-SHA256SUMS
           # Ubuntu mirrors are unavailable on the runner. Install tools only in
           # this disposable Debian image, not on the host. Official signed apt
           # repositories and Docker's default seccomp policy remain unchanged.

@@ -19,6 +19,14 @@ use two virtual CPUs. The source image build can use four for the offline
 phase when the builder has at least eight CPUs available. This leaves CPU
 capacity for the native libraries compiling alongside Kerberos.
 
+When the source image uses a two-CPU guest, an unprivileged Docker build step
+can compile objects from the pinned sources with networking disabled. The guest
+reads the checksummed compiler cache from its input disk. It preprocesses its
+own headers and uses objects only for a matching toolchain and compiler inputs.
+Cache misses compile in the guest. Its normal package tests and the four
+package hashes still gate the image. The build log records native compilation
+time and guest cache statistics. Standalone qualification always starts cold.
+
 QEMU tooling runs in a disposable, digest-pinned official Debian 13 container,
 not an installation on the Ubuntu host. This avoids the unavailable Ubuntu
 package mirrors without changing DNS, firewalls, proxy configuration or package

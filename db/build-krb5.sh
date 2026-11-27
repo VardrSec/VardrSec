@@ -1,6 +1,10 @@
 #!/bin/sh
 # Exact Debian stable-security source and ordinary packaging.
 set -eu
+case "$#:${1-}" in
+    0:|1:--seed-compiler-cache) ;;
+    *) echo 'Usage: build-krb5.sh [--seed-compiler-cache]' >&2; exit 2 ;;
+esac
 cd /build
 printf '%s\n' \
  '72f1fd2681f4688b64a762599480fbd7612d0f5f2cb9f4ce1b21a9eaeee4791d  krb5_1.21.3-5+deb13u2.dsc' \
@@ -18,17 +22,37 @@ printf '%s\n' \
  'cc3e7a72b8a52dbedddf18752b25da4fc6081ed64b5c571e5247cf2616df6c57  debian/patches/upstream/0015-Check-for-keyed-checksums-in-CAMMAC-verifiers.patch' | sha256sum -c -
 cp ../krb5-keyring-test-diagnostic.patch debian/patches/vardr-keyring-test-diagnostic.patch
 printf 'vardr-keyring-test-diagnostic.patch\n' >> debian/patches/series
-{ printf 'krb5 (1.21.3-5+deb13u2+vardr1) trixie; urgency=high\n\n  * Rebuild the Debian security update with the keyring test diagnostic.\n\n -- VardrSec local build <local@invalid>  Tue, 24 Nov 2026 00:00:00 +0000\n\n'; cat debian/changelog; } > /tmp/krb-changelog
-mv /tmp/krb-changelog debian/changelog
+{ printf 'krb5 (1.21.3-5+deb13u2+vardr1) trixie; urgency=high\n\n  * Rebuild the Debian security update with the keyring test diagnostic.\n\n -- VardrSec local build <local@invalid>  Tue, 24 Nov 2026 00:00:00 +0000\n\n'; cat debian/changelog; } > debian/changelog.vardr
+mv debian/changelog.vardr debian/changelog
 case "$(getconf _NPROCESSORS_ONLN)" in
     4) export DEB_BUILD_OPTIONS=parallel=4 ;;
     *) export DEB_BUILD_OPTIONS=parallel=2 ;;
 esac
-mkdir -p /out/packages /out/source/evidence
-{ dpkg-query -W -f='${binary:Package} ${Version} ${Architecture}\n'; cc --version; ld --version; } > /out/source/evidence/build-environment.txt
-dpkg-source --before-build . > /tmp/krb-build.log 2>&1
+if [ "$#" -eq 0 ]; then
+    mkdir -p /out/packages /out/source/evidence
+    { dpkg-query -W -f='${binary:Package} ${Version} ${Architecture}\n'; cc --version; ld --version; } > /out/source/evidence/build-environment.txt
+    dpkg-source --before-build . > /tmp/krb-build.log 2>&1
+else
+    : "${CCACHE_DIR:?compiler cache directory required}"
+    dpkg-source --before-build .
+fi
 grep -Fx upstream/0024-Avoid-repeated-reallocation-when-decoding-ASN.1.patch .pc/applied-patches
 grep -Fx upstream/0015-Check-for-keyed-checksums-in-CAMMAC-verifiers.patch .pc/applied-patches
+if [ "$#" -eq 1 ]; then
+    # Follow the pinned binary-arch sequence through compilation. The offline
+    # guest will run the complete binary-arch target from a fresh source tree.
+    dpkg-checkbuilddeps -B
+    SOURCE_DATE_EPOCH=$(dpkg-parsechangelog -STimestamp)
+    export SOURCE_DATE_EPOCH DEB_BUILD_OPTIONS=parallel=2
+    dh_update_autotools_config -a
+    dh_autoreconf -a
+    # dpkg-buildpackage --target treats custom targets as both arch and indep.
+    # Use its architecture environment and the pinned arch-only rules directly.
+    for target in override_dh_auto_configure execute_before_dh_auto_build override_dh_auto_build; do
+        DH_OPTIONS=-a dpkg-architecture --command debian/rules "$target"
+    done
+    exit 0
+fi
 cp .pc/applied-patches /out/source/evidence/applied-patches.txt
 sha256sum src/lib/krb5/asn.1/asn1_encode.c src/lib/krb5/krb/cammac_util.c src/kdc/cammac.c > /out/source/evidence/patched-source-SHA256SUMS
 # Read-only keyring probe: preserve its status as diagnostics, not a test waiver.

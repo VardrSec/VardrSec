@@ -11,7 +11,9 @@ kernel policy. No host VM configuration, devices or security-policy changes are
 needed. Allow 4 GiB for the guest plus memory for Docker and the other build
 stages. The first uncached database build can take tens of minutes. The
 offline Kerberos build uses four virtual CPUs when it can verify that Docker
-has at least eight available, and two otherwise. The standard Full installer builds PostgreSQL
+has at least eight available, and two otherwise. For the two-CPU guest, Docker
+first compiles Kerberos objects on the same machine. The guest can reuse matching
+objects, compile any misses, and run the full Debian tests. The standard Full installer builds PostgreSQL
 first, then builds the four application images. See the
 [build evidence and boundaries](../qualification/kerberos-image/README.md).
 
