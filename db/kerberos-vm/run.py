@@ -41,6 +41,40 @@ def download(url, destination, expected=None, algorithm='sha256', limit=500_000_
         raise ValueError('Pinned checksum mismatch: ' + destination.name)
 
 
+def copy_sources(inputs, build, predownloaded=None):
+    for name, digest in inputs['sources'].items():
+        target = build / name
+        if predownloaded is None:
+            download(inputs['source_base'] + name, target, digest, limit=30_000_000)
+        else:
+            shutil.copyfile(predownloaded / name, target)
+            if sha(target) != digest:
+                raise ValueError('Pinned checksum mismatch: ' + name)
+
+
+def stage_compiler_cache(native_inputs, iso_input):
+    if native_inputs is None or not (native_inputs / 'compiler-cache.sha256').is_file():
+        return None
+    manifest = native_inputs / 'compiler-cache.sha256'
+    cache = (native_inputs / 'compiler-cache').resolve()
+    entries = manifest.read_text().splitlines()
+    if not entries:
+        raise ValueError('Empty compiler cache manifest')
+    for line in entries:
+        checksum, name = line.split('  ', 1)
+        rel = Path(name)
+        entry = cache / rel
+        if rel.is_absolute() or '..' in rel.parts or entry.resolve() != entry or not entry.is_file():
+            raise ValueError('Invalid compiler cache entry: ' + name)
+        target = iso_input / 'compiler-cache' / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(entry, target)
+        if sha(target) != checksum:
+            raise ValueError('Compiler cache checksum mismatch: ' + name)
+    shutil.copyfile(manifest, iso_input / manifest.name)
+    return sha(manifest)
+
+
 def source_build_cpus(root=Path('/sys/fs/cgroup'), membership=Path('/proc/self/cgroup')):
     """Size the Docker build guest conservatively alongside native package builds."""
     try:
@@ -98,12 +132,21 @@ def extract(work, phase):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--work', type=Path, required=True, help='Fresh dedicated directory')
+    mode = p.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--work', type=Path, help='Fresh dedicated VM directory')
+    mode.add_argument('--fetch-sources', type=Path, help='Only fetch the pinned inputs into a fresh directory')
     p.add_argument('--source-only', action='store_true', help='Build context without Git metadata; record input hash, not a claimed revision')
+    p.add_argument('--native-inputs', type=Path, help='Source image inputs and optional local compiler cache')
     args = p.parse_args()
+    inputs = json.loads((HERE / 'inputs.json').read_text())
+    if args.native_inputs is not None and not (args.work and args.source_only):
+        p.error('--native-inputs requires a source-only VM build')
+    if args.fetch_sources:
+        args.fetch_sources.mkdir(parents=True, exist_ok=False)
+        copy_sources(inputs, args.fetch_sources)
+        return
     work = args.work.resolve()
     work.mkdir(parents=True, exist_ok=False)
-    inputs = json.loads((HERE / 'inputs.json').read_text())
     download(inputs['image_url'], work / 'base.qcow2', inputs['image_sha512'], 'sha512')
     download(inputs['manifest_url'], work / 'official-SHA512SUMS', limit=100_000)
     expected_line = inputs['image_sha512'] + '  ' + inputs['image_url'].rsplit('/', 1)[1]
@@ -113,14 +156,14 @@ def main():
     source = work / 'input'
     build = source / 'build'
     build.mkdir(parents=True)
-    for name, digest in inputs['sources'].items():
-        download(inputs['source_base'] + name, build / name, digest, limit=30_000_000)
+    copy_sources(inputs, build, args.native_inputs)
     for name in BUILD_FILES:
         shutil.copyfile(REPO / 'db' / name, build / name)
     hashes = ''.join(f'{sha(file)}  {file.name}\n' for file in sorted(build.iterdir()))
     (build / 'INPUT-SHA256SUMS').write_text(hashes)
-    shutil.copyfile(HERE / 'guest.sh', source / 'guest.sh')
-    shutil.copyfile(HERE / 'inputs.json', source / 'inputs.json')
+    for name in ('guest.sh', 'inputs.json', 'build-deps.sh', 'compiler-cache.sh'):
+        shutil.copyfile(HERE / name, source / name)
+    seed_digest = stage_compiler_cache(args.native_inputs, source)
     revision = ('source-inputs-sha256:' + hashlib.sha256(hashes.encode()).hexdigest() if args.source_only
                 else subprocess.check_output(['git', '-C', str(REPO), 'rev-parse', 'HEAD'], text=True).strip())
     (source / 'revision.txt').write_text(revision + '\n')
@@ -153,12 +196,16 @@ def main():
             result = extract(work, phase)
         if phase == 'prepare':
             (work / 'prepared-disk.sha256').write_text(sha(work / 'guest.qcow2') + '\n')
+    cache_stats = result / 'vm/compiler-cache-stats.txt'
+    if cache_stats.is_file():
+        print('Offline Kerberos compiler cache statistics:\n' + cache_stats.read_text(), flush=True)
     (work / 'verified.json').write_text(json.dumps({
         'schema': 1, 'distribution_commit': None if args.source_only else revision,
         'source_inputs_sha256': hashlib.sha256(hashes.encode()).hexdigest(),
         'image_sha512': inputs['image_sha512'],
         'prepared_disk_sha256': (work / 'prepared-disk.sha256').read_text().strip(),
         'full_debian_package_build_passed': True, 'offline_build_boot': True,
+        **({'compiler_cache_sha256': seed_digest} if seed_digest else {}),
         'release_clearance': False, 'independent_reproducibility': False,
     }, indent=2) + '\n')
 

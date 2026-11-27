@@ -36,12 +36,15 @@ def finalize(work, output):
     shutil.copytree(source, output/'source')
     target=output/'source'/'vm-builder'
     target.mkdir()
-    for name in ('run.py','guest.sh','inputs.json','finalize.py','qualified-packages.sha256'):
+    for name in ('run.py','guest.sh','inputs.json','finalize.py','qualified-packages.sha256',
+                 'build-deps.sh','compiler-cache.sh','seed.sh'):
         shutil.copyfile(HERE/name,target/name)
     for name in ('verified.json','qualification-inputs.json','prepared-disk.sha256','prepare-command.json','build-command.json'):
         shutil.copyfile(work/name,target/name)
     shutil.copyfile(result/'vm/prepared-packages.txt',target/'prepared-packages.txt')
     shutil.copyfile(result/'vm/keyring-prerequisite.txt',target/'keyring-prerequisite.txt')
+    if (result/'vm/compiler-cache-stats.txt').is_file():
+        shutil.copyfile(result/'vm/compiler-cache-stats.txt',target/'compiler-cache-stats.txt')
     source=output/'source'
     ledger=''.join(f'{digest(p)}  ./{p.relative_to(source).as_posix()}\n'
                    for p in sorted(source.rglob('*')) if p.is_file() and p.name!='SHA256SUMS')

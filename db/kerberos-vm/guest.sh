@@ -22,16 +22,11 @@ uname -a > "/out/vm/kernel-$phase.txt"
 cat /proc/cmdline > "/out/vm/cmdline-$phase.txt"
 cat /proc/self/status > "/out/vm/process-status-$phase.txt"
 if [ "$phase" = prepare ]; then
-    export DEBIAN_FRONTEND=noninteractive
-    # This boot installs binary packages. The checked Kerberos sources are on
-    # QUALINPUT, so no source catalogue or translated descriptions are needed.
-    apt-get -o Acquire::Languages=none \
-        -o Acquire::IndexTargets::deb-src::Sources::DefaultEnabled=false update
-    apt-get install -y --no-install-recommends \
-        build-essential byacc comerr-dev debhelper docbook-to-man libkeyutils-dev \
-        libldap2-dev liblmdb-dev libnss-myhostname libsasl2-dev libssl-dev libverto-dev \
-        pkgconf ss-dev keyutils libcmocka-dev python3-kdcproxy python3-pyrad \
-        ca-certificates curl
+    sh /mnt/input/build-deps.sh
+    if [ -f /mnt/input/compiler-cache.sha256 ]; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ccache ||
+            echo 'Compiler cache unavailable; compiling inside the VM.'
+    fi
     mkdir -p /build
     cp /mnt/input/build/* /build/
     (cd /build && sha256sum -c INPUT-SHA256SUMS)
@@ -54,7 +49,16 @@ else
         keyctl revoke "$key"
     '
     printf '%s\n' 'Guest keyring create/read/revoke succeeded' > /out/vm/keyring-prerequisite.txt
+    if [ -f /mnt/input/compiler-cache.sha256 ] && command -v ccache >/dev/null; then
+        (cd /mnt/input/compiler-cache && sha256sum --quiet -c ../compiler-cache.sha256)
+        export CCACHE_DIR=/build/local-ccache
+        export CCACHE_REMOTE_STORAGE='file:///mnt/input/compiler-cache|read-only'
+        . /mnt/input/compiler-cache.sh
+    fi
     sh /build/build-krb5.sh
+    if [ -n "${CCACHE_NAMESPACE:-}" ]; then
+        ccache --print-stats > /out/vm/compiler-cache-stats.txt
+    fi
     test -s /out/source/evidence/sequence-regression.txt
     (cd /out/source && sha256sum -c SHA256SUMS)
 fi
