@@ -1,6 +1,7 @@
 """Actual native CA enrollment/removal, restricted to disposable hosted runners."""
 
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -23,6 +25,47 @@ def run(*args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
 
 
+def transient_download_error(error):
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code in (408, 429, 500, 502, 503, 504)
+    if isinstance(error, urllib.error.URLError):
+        error = error.reason
+    return isinstance(error, (TimeoutError, ConnectionError, http.client.IncompleteRead)) or (
+        isinstance(error, socket.gaierror) and error.errno == socket.EAI_AGAIN
+    )
+
+
+def download_archive(url, archive, expected_digest):
+    output = archive.open("xb")
+    try:
+        with output:
+            for attempt in range(1, 4):
+                digest = hashlib.sha256()
+                try:
+                    with urllib.request.urlopen(url, timeout=60) as source:
+                        length = source.headers.get("Content-Length")
+                        while block := source.read(1024 * 1024):
+                            output.write(block)
+                            digest.update(block)
+                        if length is not None and output.tell() < int(length):
+                            raise http.client.IncompleteRead(b"", int(length) - output.tell())
+                    break
+                except (OSError, http.client.IncompleteRead) as error:
+                    if attempt == 3 or not transient_download_error(error):
+                        raise
+                    if isinstance(error, urllib.error.HTTPError):
+                        error.close()
+                    output.seek(0)
+                    output.truncate()
+                    print(f"Caddy download interrupted on attempt {attempt}/3. Retrying.", flush=True)
+                    time.sleep(2 * attempt)
+            if digest.hexdigest() != expected_digest:
+                raise ValueError("Official Caddy archive digest mismatch")
+    except BaseException:
+        archive.unlink(missing_ok=True)
+        raise
+
+
 def tool(root):
     pins = json.loads((HERE / "assets.json").read_text(encoding="utf-8"))
     architecture = (
@@ -31,14 +74,7 @@ def tool(root):
     asset = pins["platforms"][platform.system() + "-" + architecture]
     archive = root / asset["name"]
     url = f"https://github.com/caddyserver/caddy/releases/download/v{pins['version']}/{asset['name']}"
-    with (
-        urllib.request.urlopen(url, timeout=60) as source,
-        archive.open("xb") as output,
-    ):
-        shutil.copyfileobj(source, output)
-    with archive.open("rb") as source:
-        if hashlib.file_digest(source, "sha256").hexdigest() != asset["sha256"]:
-            raise ValueError("Official Caddy archive digest mismatch")
+    download_archive(url, archive, asset["sha256"])
     name = "caddy.exe" if os.name == "nt" else "caddy"
     executable = root / name
     if archive.suffix == ".zip":
