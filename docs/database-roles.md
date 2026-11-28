@@ -47,8 +47,10 @@ table ownership: no row is rewritten, and the administrator and its password are
 Repeating step 3 is safe: with nothing to change it needs no backup and changes nothing
 (the credential in `.env` is only ever added, never rewritten).
 
-If the command fails, nothing is partly applied: the transaction rolls back and the
-database still works for the previous configuration. Fix the cause and rerun it.
+If a SQL statement fails before commit, PostgreSQL rolls back the role and ownership
+changes. A newly generated password stays in `.env`. If the final login or role check
+fails, the transaction has already committed. In either case, keep `.env` and the
+backup, correct the reported error, and repeat step 3 before starting the applications.
 
 ### Rollback
 

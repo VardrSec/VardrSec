@@ -185,8 +185,8 @@ py -3 vardrsec.py bootstrap --username operator
 python3 vardrsec.py bootstrap --username operator
 ```
 
-Enter a passphrase privately, restart your browser and sign in at
-`https://localhost:8443`. Firefox or another browser with a separate trust store
+Enter a passphrase privately, restart your browser and sign in at the HTTPS address
+printed by the installer. Firefox or another browser with a separate trust store
 may need the same public CA imported explicitly.
 
 ## 4. Connect Runner and perform the first assessment
@@ -250,8 +250,9 @@ Build replacement images in a separate source workspace, then use the
 [controlled updater](updates.md) from the retained installation. Do not start a
 newly configured workspace against retained volumes with different credentials.
 
-The only published port is `127.0.0.1:8443`. UI: `https://localhost:8443`; API:
-`https://localhost:8443/backend`. Backend/database ports are not published. The
+The proxy binds to `127.0.0.1` on `HTTPS_PORT` (default `8443`). Open the UI at
+the HTTPS address printed by the installer. The API uses that address with `/backend`
+appended. Backend/database ports are not published. The
 isolated database bridge explicitly uses plaintext PostgreSQL; browser and Runner
 traffic validates HTTPS. This is a single-host deployment boundary, not encrypted
 cross-host database transport. Application-network subnet 172.30.248.0/24 reserves
@@ -307,8 +308,9 @@ sudo update-ca-certificates
 
 Restart the browser. Browser-specific stores (including some Firefox/Linux setups)
 may require importing that same public CA through their certificate settings. Stop
-if the ordinary URL shows a certificate warning; do not bypass it. Verify the API with a client that accepts an explicit CA bundle:
-`curl --cacert trust/root.crt https://localhost:8443/backend/ready`. Windows curl
+if the ordinary URL shows a certificate warning; do not bypass it. To verify API
+readiness, append `/backend/ready` to the installer's HTTPS address. With the default
+port, run `curl --cacert trust/root.crt https://localhost:8443/backend/ready`. Windows curl
 using Schannel may additionally reject a local CA without revocation metadata;
 use the CA-validating Runner check after enrollment rather than disabling checks.
 The installer does not execute trust enrollment automatically.
@@ -389,7 +391,7 @@ python3 vardrsec.py runner -- heartbeat
 
 The doctor command delegates to Runner, retains JSON on stdout and confirms
 success on stderr. A failing check remains nonzero; follow its remediation before
-testing. Sign in at `https://localhost:8443` and confirm Settings shows API/database
+testing. Sign in at the installer's HTTPS address and confirm Settings shows API/database
 readiness and recent Runner contact. Neither command claims image-security
 clearance or starts scans. `unset VARDRMAP_API_KEY` when the shell no longer needs
 the key.
@@ -419,7 +421,7 @@ them. Never use `down --volumes` on a retained installation. Core start/stop com
 ## First assessment walkthrough
 
 Use only a target you own or are explicitly authorized to test. Steps 1–5 and 7
-happen in the browser at `https://localhost:8443`. Step 6 switches to a private
+use the browser at the installer's HTTPS address. Step 6 switches to a private
 terminal for explicit execution, then returns to the browser for review.
 
 1. **Engagement.** Create an engagement. For a pentest or internal assessment,

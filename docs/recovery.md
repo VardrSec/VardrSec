@@ -20,9 +20,11 @@ Shell-only overrides or edits not yet applied to containers are refused.
 
 For encrypted retention, use `backup --recipient age1...` or seal a completed
 working bundle; see [encrypted recovery packages](encrypted-backups.md).
+The host commands below use `python3` on Ubuntu. On Windows, invoke the host CLI
+with `py -3 vardrsec.py`.
 
 ```sh
-python vardrsec.py backup --destination /private/backups/before-upgrade
+python3 vardrsec.py backup --destination /private/backups/before-upgrade
 ```
 
 The destination must be new. Backup refuses a running Runner or managed worker
@@ -65,7 +67,7 @@ Use a new directory and separate project name; existing directories or Docker
 resources cause refusal:
 
 ```sh
-python vardrsec.py restore --backup /private/backups/before-upgrade \
+python3 vardrsec.py restore --backup /private/backups/before-upgrade \
   --destination /private/restored-platform --project vardrsec-restore-drill
 ```
 
@@ -92,12 +94,12 @@ password to invalidate recovered browser sessions:
 cd /private/restored-platform
 docker compose -f compose.yaml -f .active-images.json run --rm --no-deps api \
   python -m local_accounts reset-password --username operator
-python vardrsec.py start
-python vardrsec.py export-ca
+python3 vardrsec.py start
+python3 vardrsec.py export-ca
 ```
 
 Review/revoke any API keys that were revoked or compromised after the snapshot,
-then supply the intended Runner key and run `python vardrsec.py doctor`. Verify
+then supply the intended Runner key and run `python3 vardrsec.py doctor`. Verify
 normal login, organization access and important evidence. The original proxy must
 be stopped before this drill because the saved UI uses the original loopback URL.
 The restored CA is the original CA; compare its public fingerprint before trust.
