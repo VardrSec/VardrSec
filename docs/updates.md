@@ -36,10 +36,11 @@ The public origin must match the installed frontend build and authentication
 configuration. The database image must remain identical; PostgreSQL image/major
 upgrades and Compose configuration changes require separate procedures.
 
-Supply a valid Runner API key in `VARDRMAP_API_KEY`, then run:
+Supply a valid Runner API key in `VARDRMAP_API_KEY`. The example uses Ubuntu's
+`python3`. On Windows, invoke the host CLI with `py -3 vardrsec.py`.
 
 ```sh
-python vardrsec.py update --candidate /private/candidate.json \
+python3 vardrsec.py update --candidate /private/candidate.json \
   --backup /private/backups/before-update \
   --destination /private/rehearsal --project vardrsec-restore-update-drill
 ```
@@ -109,7 +110,7 @@ when the process exits, while the pending record remains. Preserve it and the
 backup rather than deleting the record to force startup.
 
 If original mutation has not begun (`preparing` or `rehearsal`), explicitly run
-`python vardrsec.py cancel-update`. Where a complete snapshot exists, cancellation
+`python3 vardrsec.py cancel-update`. Where a complete snapshot exists, cancellation
 revalidates it and verifies source state before resuming the pinned baseline.
 After original application/publication begins, cancellation refuses an image
 rollback: restore the recorded backup into a fresh installation using the
@@ -120,9 +121,11 @@ Successful updates clear the pending record and retain `.last-update.json` with
 the exact images, declared component commits and recovery locations. Later
 snapshots retain that audit record. `versions.json` remains the distribution's
 source-build recipe; `.active-images.json` controls the running installation.
-Snapshot versions 1–3 remain readable; new version-4 backups include the role
-helper and are rejected by older readers. Cancellation compares exactly the
-installation files covered by the validated snapshot version. It still refuses
+New Full backups use format version 5 and Mapless backups use version 6. The
+current reader also accepts versions 1–4. See the
+[backup format details](recovery.md#portable-helper-completeness).
+Cancellation compares exactly the installation files covered by the validated
+snapshot version. It still refuses
 changed covered scripts, database/volume drift, or a changed recorded manifest;
 it does not rewrite old snapshots or infer hashes for files they never covered.
 

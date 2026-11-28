@@ -42,7 +42,7 @@ This revision stops bundling Nuclei in the Full/Mapless toolkit. Gate and the ot
 eight bundled tools remain available. Runner's Nuclei integration and native pinned
 installer are preserved. If you rely on Nuclei, arrange the separate native Runner
 path before updating: explicitly run `vardrrunner tools install nuclei` in that
-native installation. See the [pinned Runner guidance](https://github.com/VardrSec/VardrRunner/blob/f57ea3a95dd01837043eaf61a54cb2f73d9ab265/docs/container.md#optional-nuclei).
+native installation. See the [pinned Runner guidance](https://github.com/VardrSec/VardrRunner/blob/c31c731a9240e49c38937f7fde3bf1cd41766420/docs/container.md#optional-nuclei).
 
 Full/Mapless wrappers do not support custom binary mounts; do not edit their
 shipped Compose files or bypass installation guards. Missing Nuclei is reported

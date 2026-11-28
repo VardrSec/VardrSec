@@ -31,10 +31,11 @@ matches the declared pin. The age package version and encrypted format are
 unchanged; the existing Windows/Linux round trips and installed restore drill
 verify compatibility with the refreshed compiler.
 
-Create an encrypted backup directly:
+To create an encrypted backup, use `python3` on Ubuntu. On Windows, invoke the
+host CLI with `py -3 vardrsec.py`.
 
 ```sh
-python vardrsec.py backup --destination /private/backups/before-update.age \
+python3 vardrsec.py backup --destination /private/backups/before-update.age \
   --recipient age1YOUR_PUBLIC_RECIPIENT
 ```
 
@@ -52,7 +53,7 @@ completed backup and fails authentication during recovery.
 To encrypt an existing completed working bundle:
 
 ```sh
-python vardrsec.py seal-backup --backup /private/working-backup \
+python3 vardrsec.py seal-backup --backup /private/working-backup \
   --destination /private/backups/before-update.age --recipient age1YOUR_PUBLIC_RECIPIENT
 ```
 
@@ -64,9 +65,9 @@ not retroactively remove copies, snapshots or synchronized versions of plaintext
 Authenticate and recover the portable bundle into a new private directory:
 
 ```sh
-python vardrsec.py unseal-backup --backup /private/backups/before-update.age \
+python3 vardrsec.py unseal-backup --backup /private/backups/before-update.age \
   --identity /private/offline-recovery-identity.txt --destination /private/unsealed
-python vardrsec.py restore --backup /private/unsealed \
+python3 vardrsec.py restore --backup /private/unsealed \
   --destination /private/restored-platform --project vardrsec-restore-drill
 ```
 
